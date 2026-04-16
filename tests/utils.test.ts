@@ -11,12 +11,25 @@ import { toError, toErrorMessage } from "@/lib/utils/errors";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 import { isSafePositiveItemId } from "@/lib/utils/validation";
 
+const originalLoggerInfo = logger.info;
+const originalLoggerWarn = logger.warn;
+const originalLoggerError = logger.error;
+const originalLoggerDebug = logger.debug;
+
 beforeEach(() => {
   mock.restore();
+  logger.info = (() => {}) as typeof logger.info;
+  logger.warn = (() => {}) as typeof logger.warn;
+  logger.error = (() => {}) as typeof logger.error;
+  logger.debug = (() => {}) as typeof logger.debug;
 });
 
 afterEach(() => {
   mock.restore();
+  logger.info = originalLoggerInfo;
+  logger.warn = originalLoggerWarn;
+  logger.error = originalLoggerError;
+  logger.debug = originalLoggerDebug;
 });
 
 // ─── Date Utils ───────────────────────────────────────────────────────────────
@@ -233,13 +246,15 @@ describe("logger", () => {
 
   test("logger truncates deeply nested context values", () => {
     const previousLogLevel = process.env.LOG_LEVEL;
+    const previousEmitLogs = process.env.ENABLE_TEST_LOG_OUTPUT;
     process.env.LOG_LEVEL = "info";
+    process.env.ENABLE_TEST_LOG_OUTPUT = "true";
 
     const logger = new Logger();
 
-    const originalLog = console.log;
+    const originalInfo = console.info;
     let captured = "";
-    console.log = (message?: unknown) => {
+    console.info = (message?: unknown) => {
       captured = String(message);
     };
 
@@ -260,11 +275,16 @@ describe("logger", () => {
         },
       });
     } finally {
-      console.log = originalLog;
+      console.info = originalInfo;
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
       } else {
         process.env.LOG_LEVEL = previousLogLevel;
+      }
+      if (previousEmitLogs === undefined) {
+        delete process.env.ENABLE_TEST_LOG_OUTPUT;
+      } else {
+        process.env.ENABLE_TEST_LOG_OUTPUT = previousEmitLogs;
       }
     }
 

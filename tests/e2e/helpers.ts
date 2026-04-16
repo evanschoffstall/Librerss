@@ -122,7 +122,9 @@ export async function enterPreviewFromLogin(page: Page) {
     page.getByText("Access your saved feeds and reading preferences."),
   ).toBeVisible();
   await page.waitForFunction(() => document.readyState === "complete");
-  await page.getByRole("button", { name: "Explore without an account" }).click();
+  await page
+    .getByRole("button", { name: "Explore without an account" })
+    .click();
   await expect
     .poll(() => {
       const currentUrl = new URL(page.url());
@@ -137,8 +139,14 @@ export async function enterPreviewFromLogin(page: Page) {
 }
 
 /** Waits for an article card to reach the expected expanded state. */
-export async function expectArticleExpanded(article: Locator, expanded: boolean) {
-  await expect(article).toHaveAttribute("aria-expanded", expanded ? "true" : "false");
+export async function expectArticleExpanded(
+  article: Locator,
+  expanded: boolean,
+) {
+  await expect(article).toHaveAttribute(
+    "aria-expanded",
+    expanded ? "true" : "false",
+  );
 }
 
 /** Waits for the unauthenticated dashboard login shell to become visible. */
@@ -166,7 +174,10 @@ export async function expectNotClipped(
   expect(box, `${label}: no bounding box`).not.toBeNull();
 
   const containerBox = await container.boundingBox();
-  expect(containerBox, `${label}: container has no bounding box`).not.toBeNull();
+  expect(
+    containerBox,
+    `${label}: container has no bounding box`,
+  ).not.toBeNull();
 
   const b = box!;
   const c = containerBox!;
@@ -192,7 +203,9 @@ export async function expectNotClipped(
 /** Waits for the preview dashboard shell to become interactive. */
 export async function expectPreviewDashboard(page: Page) {
   await page.waitForURL((url) => {
-    return url.pathname === "/dashboard" && url.searchParams.get("explore") === "1";
+    return (
+      url.pathname === "/dashboard" && url.searchParams.get("explore") === "1"
+    );
   });
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
@@ -250,19 +263,26 @@ export async function gotoPreviewDashboard(
 
 /** Returns whether the feed list is still rendering the load-more sentinel. */
 export async function hasLoadMoreSentinel(page: Page) {
-  return (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0;
+  return (
+    (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0
+  );
 }
 
 /** Returns the rendered article currently occupying the requested viewport slot. */
 export async function locateViewportArticle(page: Page, index: number) {
   const visibleArticles = page.locator("article[data-article-key]:visible");
   await expect(visibleArticles.nth(index)).toBeVisible({ timeout: 15_000 });
-  const resolvedArticleKey = await visibleArticles.nth(index).getAttribute(
-    "data-article-key",
-  );
+  const resolvedArticleKey = await visibleArticles
+    .nth(index)
+    .getAttribute("data-article-key");
 
-  if (typeof resolvedArticleKey !== "string" || resolvedArticleKey.length === 0) {
-    throw new Error(`Expected viewport article ${index} to resolve to a stable article key.`);
+  if (
+    typeof resolvedArticleKey !== "string" ||
+    resolvedArticleKey.length === 0
+  ) {
+    throw new Error(
+      `Expected viewport article ${index} to resolve to a stable article key.`,
+    );
   }
 
   return articleCardByKey(page, resolvedArticleKey);
@@ -281,7 +301,9 @@ export async function openDashboardFeedsSidebar(page: Page) {
 
 /** Opens dashboard settings and waits for the modal content to render. */
 export async function openDashboardSettings(page: Page) {
-  const settingsHeading = page.getByRole("heading", { name: "Reader Settings" });
+  const settingsHeading = page.getByRole("heading", {
+    name: "Reader Settings",
+  });
   if (await settingsHeading.isVisible().catch(() => false)) {
     return;
   }
@@ -305,7 +327,9 @@ export async function openDashboardSettings(page: Page) {
 /** Selects a settings tab in the currently open settings surface. */
 export async function openDashboardSettingsTab(page: Page, tabName: string) {
   await openDashboardSettings(page);
-  await clickVisibleControl(page.getByRole("tab", { exact: true, name: tabName }));
+  await clickVisibleControl(
+    page.getByRole("tab", { exact: true, name: tabName }),
+  );
 }
 
 /** Reads the article key used by the feed row and card surfaces. */
@@ -391,7 +415,9 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
     );
 
     if (!viewport) {
-      throw new Error("Expected the mobile feeds tray to render a Radix viewport.");
+      throw new Error(
+        "Expected the mobile feeds tray to render a Radix viewport.",
+      );
     }
 
     return {
@@ -405,7 +431,10 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
 }
 
 /** Reads the first visible feed article plus its top offset inside the viewport. */
-export async function readTopVisibleFeedArticle(page: Page, minimumOffsetTop = 0) {
+export async function readTopVisibleFeedArticle(
+  page: Page,
+  minimumOffsetTop = 0,
+) {
   const viewport = await getActiveFeedViewport(page);
 
   return await viewport.evaluate((node, minimumVisibleOffsetTop) => {
@@ -419,14 +448,17 @@ export async function readTopVisibleFeedArticle(page: Page, minimumOffsetTop = 0
         return {
           articleKey: article.dataset.articleKey ?? null,
           offsetTop: rect.top - viewportRect.top,
-          visible: rect.bottom > viewportRect.top && rect.top < viewportRect.bottom,
+          visible:
+            rect.bottom > viewportRect.top && rect.top < viewportRect.bottom,
         };
       })
       .filter((article) => article.visible)
       .sort((left, right) => left.offsetTop - right.offsetTop);
 
     return (
-      articles.find((article) => article.offsetTop >= minimumVisibleOffsetTop) ??
+      articles.find(
+        (article) => article.offsetTop >= minimumVisibleOffsetTop,
+      ) ??
       articles[0] ??
       null
     );
@@ -485,7 +517,9 @@ export async function seedClientStateSentinel(page: Page, value = "present") {
 /** Selects visible expanded article text and returns the current selection content. */
 export async function selectExpandedArticleText(article: Locator) {
   return await article.evaluate((node) => {
-    const selectableTarget = node.querySelector<HTMLElement>(".article-swipe-body");
+    const selectableTarget = node.querySelector<HTMLElement>(
+      ".article-swipe-body",
+    );
 
     if (!selectableTarget || selectableTarget.innerText.trim().length <= 20) {
       return "";
@@ -576,16 +610,14 @@ export async function toggleArticle(article: Locator) {
       node.click();
     });
 
-    await expect.poll(async () => await article.getAttribute("aria-expanded")).not.toBe(
-      beforeExpanded,
-    );
+    await expect
+      .poll(async () => await article.getAttribute("aria-expanded"))
+      .not.toBe(beforeExpanded);
   } catch (error) {
     if (
       !(error instanceof Error) ||
-      (
-        !error.message.includes("Element is not attached to the DOM") &&
-        !error.message.includes("Timeout")
-      )
+      (!error.message.includes("Element is not attached to the DOM") &&
+        !error.message.includes("Timeout"))
     ) {
       throw error;
     }
@@ -601,10 +633,7 @@ export async function toggleArticle(article: Locator) {
 }
 
 /** Dispatches a wheel event against the active feed viewport to mark user scroll intent. */
-export async function triggerFeedViewportWheelIntent(
-  page: Page,
-  deltaY = 240,
-) {
+export async function triggerFeedViewportWheelIntent(page: Page, deltaY = 240) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node, nextDeltaY) => {
@@ -621,7 +650,9 @@ export async function waitForPreviewDashboardHydration(page: Page) {
   await page.waitForFunction(() => document.readyState === "complete");
   await expect
     .poll(async () => {
-      return await page.locator('[data-article-hydration-state="loading"]').count();
+      return await page
+        .locator('[data-article-hydration-state="loading"]')
+        .count();
     })
     .toBe(0);
 }
@@ -632,7 +663,9 @@ export async function wheelActiveFeedViewport(page: Page, deltaY = 240) {
   const box = await viewport.boundingBox();
 
   if (!box) {
-    throw new Error("Expected the active feed viewport to have a measurable bounding box.");
+    throw new Error(
+      "Expected the active feed viewport to have a measurable bounding box.",
+    );
   }
 
   await page.mouse.move(
@@ -666,24 +699,27 @@ function escapeCssAttributeValue(value: string) {
 }
 
 async function getActiveFeedViewport(page: Page) {
-  await page.waitForFunction(() => {
-    const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
-      ),
-    );
-
-    return candidates.some((candidate) => {
-      const rect = candidate.getBoundingClientRect();
-
-      return (
-        candidate.querySelector("article[data-article-key]") !== null &&
-        rect.width > 0 &&
-        rect.height > 0 &&
-        window.getComputedStyle(candidate).visibility !== "hidden"
+  await page.waitForFunction(
+    () => {
+      const candidates = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
+        ),
       );
-    });
-  }, { timeout: 15_000 });
+
+      return candidates.some((candidate) => {
+        const rect = candidate.getBoundingClientRect();
+
+        return (
+          candidate.querySelector("article[data-article-key]") !== null &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          window.getComputedStyle(candidate).visibility !== "hidden"
+        );
+      });
+    },
+    { timeout: 15_000 },
+  );
 
   const candidates = page
     .locator(
@@ -725,12 +761,18 @@ function normalizeRuntimeSignalText(text: string) {
 /** Measures an article's top edge relative to its owning feed viewport. */
 async function readArticleTopWithinViewport(article: Locator) {
   return await article.evaluate((node) => {
-    const viewport = node.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+    const viewport = node.closest<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
     if (!viewport) {
-      throw new Error("Expected article to be rendered inside the feed viewport.");
+      throw new Error(
+        "Expected article to be rendered inside the feed viewport.",
+      );
     }
 
-    return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    return (
+      node.getBoundingClientRect().top - viewport.getBoundingClientRect().top
+    );
   });
 }
 

@@ -1,34 +1,92 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import type { CategoryTreeNode } from "@/lib/core";
+
+import {
+  ALL_FEEDS_NODE_KEY,
+  DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+  DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+  DASHBOARD_EVENTS,
+  DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+} from "@/app/dashboard/constants";
+import { useDashboardFeedLoadingState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections";
 import {
   useLockDocumentScroll,
   useRevealSidebarOnMount,
-} from "@/app/dashboard/hooks/useDashboardEffects";
-import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
-import { useDashboardHandlers } from "@/app/dashboard/hooks/useDashboardHandlers";
-import { useDashboardState } from "@/app/dashboard/hooks/useDashboardState";
-import { AUTO_REFRESH_INTERVAL_STORAGE_KEY } from "@/app/dashboard/services/refresh-policy";
-import { ArticleService, type CategoryTreeNode } from "@/lib";
+} from "@/app/dashboard/dashboard-hooks/useDashboardEffects";
+import { useDashboardEvents } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
+import { useDashboardHandlers } from "@/app/dashboard/dashboard-hooks/useDashboardHandlers";
+import { ArticleService } from "@/lib/api";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
+
+import { createIsolatedStorage } from "./test-storage";
 
 const originalMarkAllRead = ArticleService.markAllRead;
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
-const originalFeedCacheTtlMinutes = process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
+const originalGlobalSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "sessionStorage",
+);
+const originalWindowSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "sessionStorage",
+);
+const originalFeedCacheTtlMinutes =
+  process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
+
+async function loadUseDashboardState() {
+  const module = await import(
+    `@/app/dashboard/dashboard-hooks/useDashboardState/state?test=${Date.now()}-${Math.random()}`
+  );
+
+  return module.useDashboardState;
+}
 
 beforeEach(() => {
-  window.localStorage.clear();
-  window.sessionStorage.clear();
+  const isolatedLocalStorage = createIsolatedStorage();
+  const isolatedSessionStorage = createIsolatedStorage();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  Object.defineProperty(globalThis, "sessionStorage", {
+    configurable: true,
+    value: isolatedSessionStorage,
+    writable: true,
+  });
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: isolatedSessionStorage,
+    writable: true,
+  });
   process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES =
     originalFeedCacheTtlMinutes ?? "15";
   window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
     callback(0);
     return 1;
   }) as typeof window.requestAnimationFrame;
-  window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
-  ArticleService.markAllRead = mock(async () => {}) as typeof ArticleService.markAllRead;
+  window.cancelAnimationFrame = mock(
+    () => {},
+  ) as typeof window.cancelAnimationFrame;
+  ArticleService.markAllRead = mock(
+    async () => {},
+  ) as typeof ArticleService.markAllRead;
 });
 
 afterEach(() => {
@@ -37,16 +95,42 @@ afterEach(() => {
   if (originalFeedCacheTtlMinutes === undefined) {
     delete process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
   } else {
-    process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES = originalFeedCacheTtlMinutes;
+    process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES =
+      originalFeedCacheTtlMinutes;
   }
   window.requestAnimationFrame = originalRequestAnimationFrame;
   window.cancelAnimationFrame = originalCancelAnimationFrame;
   document.body.style.overflow = "";
   document.documentElement.style.overflow = "";
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  }
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+  }
+  if (originalGlobalSessionStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "sessionStorage",
+      originalGlobalSessionStorageDescriptor,
+    );
+  }
+  if (originalWindowSessionStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "sessionStorage",
+      originalWindowSessionStorageDescriptor,
+    );
+  }
 });
 
 describe("useDashboardState", () => {
-  test("initializes the default dashboard state buckets and refs", () => {
+  test("initializes the default dashboard state buckets and refs", async () => {
+    const useDashboardState = await loadUseDashboardState();
     const { result } = renderHook(() => useDashboardState());
 
     expect(result.current.selectedCategory).toBe(ALL_FEEDS_NODE_KEY);
@@ -57,41 +141,137 @@ describe("useDashboardState", () => {
     expect(result.current.showSettingsModal).toBe(false);
     expect(result.current.isMobileSidebarOpen).toBe(false);
     expect(result.current.feed).toEqual([]);
-    expect(result.current.categoriesRef.current).toEqual(result.current.categories);
+    expect(result.current.categoriesRef.current).toEqual(
+      result.current.categories,
+    );
     expect(result.current.feedRef.current).toEqual(result.current.feed);
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(5);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
   });
 
-  test("normalizes auto-refresh updates from both values and updater functions", () => {
+  test("normalizes auto-refresh updates from both values and updater functions", async () => {
+    const useDashboardState = await loadUseDashboardState();
     const { result } = renderHook(() => useDashboardState());
 
     act(() => {
       result.current.setAutoRefreshIntervalMinutes(1);
     });
 
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(5);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
 
     act(() => {
-      result.current.setAutoRefreshIntervalMinutes((current) => current + 13);
-    });
-
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(15);
-    expect(result.current.categoriesRef.current).toEqual(result.current.categories);
-    expect(result.current.feedRef.current).toEqual(result.current.feed);
-  });
-
-  test("writes back a normalized auto-refresh value when storage starts below the minimum", async () => {
-    window.localStorage.setItem(AUTO_REFRESH_INTERVAL_STORAGE_KEY, JSON.stringify(1));
-
-    const { result } = renderHook(() => useDashboardState());
-
-    await waitFor(() => {
-      expect(window.localStorage.getItem(AUTO_REFRESH_INTERVAL_STORAGE_KEY)).toBe(
-        JSON.stringify(result.current.autoRefreshIntervalMinutes),
+      result.current.setAutoRefreshIntervalMinutes(
+        (current: number) => current + 13,
       );
     });
 
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThan(1);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(43);
+    expect(result.current.categoriesRef.current).toEqual(
+      result.current.categories,
+    );
+    expect(result.current.feedRef.current).toEqual(result.current.feed);
+  });
+
+  test("rehydrates the selected feed, quick token filter, and page-size setting only", async () => {
+    window.localStorage.setItem(
+      DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+      JSON.stringify("placeholder-feeds"),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+      JSON.stringify("placeholder-feeds"),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+      JSON.stringify("read"),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+      JSON.stringify("read"),
+    );
+    window.localStorage.setItem("librerss:showFavicons", JSON.stringify(false));
+    globalThis.localStorage?.setItem(
+      "librerss:showFavicons",
+      JSON.stringify(false),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      JSON.stringify(4),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      JSON.stringify(4),
+    );
+    window.localStorage.setItem(
+      "librerss:autoRefreshIntervalMinutes",
+      JSON.stringify(90),
+    );
+    globalThis.localStorage?.setItem(
+      "librerss:autoRefreshIntervalMinutes",
+      JSON.stringify(90),
+    );
+    window.sessionStorage.setItem("librerss:searchTerm", JSON.stringify("mars"));
+    globalThis.sessionStorage?.setItem(
+      "librerss:searchTerm",
+      JSON.stringify("mars"),
+    );
+    window.sessionStorage.setItem(
+      "librerss:expandedArticleKey",
+      JSON.stringify("article-1"),
+    );
+    globalThis.sessionStorage?.setItem(
+      "librerss:expandedArticleKey",
+      JSON.stringify("article-1"),
+    );
+
+    const useDashboardState = await loadUseDashboardState();
+    const { result } = renderHook(() => useDashboardState());
+
+    await waitFor(() => {
+      expect(result.current.selectedCategory).toBe("placeholder-feeds");
+      expect(result.current.articleFilter).toBe("read");
+    });
+
+    expect(result.current.searchTerm).toBe("");
+    expect(result.current.expandedArticleKey).toBeNull();
+    expect(result.current.showFavicons).toBe(true);
+    expect(result.current.articlesPerPage).toBe(4);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
+  });
+
+  test("uses the article window in preview mode when search is empty", () => {
+    const { rerender, result } = renderHook(
+      ({
+        searchTerm,
+        usePlaceholderData,
+      }: {
+        searchTerm: string;
+        usePlaceholderData: boolean;
+      }) =>
+        useDashboardFeedLoadingState({
+          articleFilter: "unread",
+          feedLength: 12,
+          isCategoriesLoading: false,
+          loading: false,
+          searchTerm,
+          settleMs: 0,
+          usePlaceholderData,
+        }),
+      {
+        initialProps: {
+          searchTerm: "",
+          usePlaceholderData: true,
+        },
+      },
+    );
+
+    expect(result.current.shouldUseArticleWindow).toBe(true);
+
+    rerender({
+      searchTerm: "mars",
+      usePlaceholderData: true,
+    });
+
+    expect(result.current.shouldUseArticleWindow).toBe(false);
   });
 });
 
@@ -195,9 +375,12 @@ describe("useDashboardHandlers", () => {
     expect(fetchFeed).toHaveBeenCalledWith("https://example.com/feed-1.xml", {
       requestSource: "sidebar-feed-select",
     });
-    expect(prefetchFeed).toHaveBeenCalledWith("https://example.com/feed-1.xml", {
-      requestSource: "sidebar-feed-prefetch",
-    });
+    expect(prefetchFeed).toHaveBeenCalledWith(
+      "https://example.com/feed-1.xml",
+      {
+        requestSource: "sidebar-feed-prefetch",
+      },
+    );
   });
 });
 
@@ -236,7 +419,9 @@ describe("useDashboardEvents", () => {
 
     await act(async () => {
       window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ));
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
+      );
       window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH));
       window.dispatchEvent(
         new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
@@ -244,7 +429,9 @@ describe("useDashboardEvents", () => {
         }),
       );
       window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS));
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR));
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR),
+      );
     });
 
     await waitFor(() => {
@@ -312,7 +499,9 @@ describe("useDashboardEvents", () => {
     });
 
     await waitFor(() => {
-      expect(ArticleService.markAllRead).toHaveBeenCalledWith(READING_LIST_STREAM);
+      expect(ArticleService.markAllRead).toHaveBeenCalledWith(
+        READING_LIST_STREAM,
+      );
     });
   });
 
@@ -355,7 +544,11 @@ function createCategoryNode(
   };
 }
 
-function createFeedNode(label: string, key: string, enabled: boolean): CategoryTreeNode {
+function createFeedNode(
+  label: string,
+  key: string,
+  enabled: boolean,
+): CategoryTreeNode {
   return {
     children: [],
     data: {

@@ -1,0 +1,249 @@
+"use client";
+
+import {
+  Search,
+} from "lucide-react";
+
+import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
+import { DashboardToolbarDesktopActions } from "@/app/dashboard/dashboard-components/DashboardToolbarDesktopActions";
+import {
+  DashboardToolbarMobileActions,
+  DashboardToolbarMobileMenuButton,
+} from "@/app/dashboard/dashboard-components/DashboardToolbarMobileActions";
+import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
+import {
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+} from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
+import { Input } from "@/components/ui/input";
+import { useLocalStorage } from "@/lib/hooks";
+
+interface DashboardToolbarProps {
+  /**
+   * When supplied by a parent controller, this value overrides the event-based
+   * shell-loading detection so the toolbar hydrates in the same React render
+   * as the article list and filter bar.  Omit when the toolbar is used
+   * standalone and must self-detect loading state from the event bus.
+   */
+  isShellLoading?: boolean;
+  startInShellLoading?: boolean;
+}
+
+/** Renders the persistent dashboard toolbar with search, feed actions, and settings controls. */
+export function DashboardToolbar({
+  isShellLoading: controlledIsShellLoading,
+  startInShellLoading = false,
+}: DashboardToolbarProps) {
+  const toolbar = useDashboardToolbarPresentationState(
+    startInShellLoading,
+    controlledIsShellLoading,
+  );
+
+  if (toolbar.isShellLoading) {
+    return (
+      <DashboardToolbarSkeleton
+        isDevelopmentMode={toolbar.isDevelopmentMode}
+        mobileToolbarBottom={toolbar.mobileToolbarBottom}
+        mobileToolbarMirror={toolbar.mobileToolbarMirror}
+      />
+    );
+  }
+
+  return <DashboardToolbarContent toolbar={toolbar} />;
+}
+
+function DashboardToolbarContent({
+  toolbar,
+}: {
+  toolbar: ReturnType<typeof useDashboardToolbarPresentationState>;
+}) {
+  return (
+    <DashboardToolbarShell
+      mobileToolbarBottom={toolbar.mobileToolbarBottom}
+      mobileToolbarMirror={toolbar.mobileToolbarMirror}
+    >
+      <DashboardToolbarMobileMenuButton
+        handleOpenFeedsSidebar={toolbar.handleOpenFeedsSidebar}
+      />
+      <DashboardToolbarTitle title={toolbar.title} />
+      <DashboardToolbarSearch
+        handleSearchChange={toolbar.handleSearchChange}
+        isSearchPending={toolbar.isSearchPending}
+        search={toolbar.search}
+      />
+      <DashboardToolbarMobileActions
+        handleMarkAllRead={toolbar.handleMarkAllRead}
+        handleMarkViewportRead={toolbar.handleMarkViewportRead}
+        handleOpenSettings={toolbar.handleOpenSettings}
+        handleRefresh={toolbar.handleRefresh}
+        handleRefreshFromUpstream={toolbar.handleRefreshFromUpstream}
+        handleReset={toolbar.handleReset}
+        handleSignOut={toolbar.handleSignOut}
+        handleToggleTheme={toolbar.handleToggleTheme}
+        isDark={toolbar.isDark}
+        isDevelopmentMode={toolbar.isDevelopmentMode}
+        isMarkingAllRead={toolbar.isMarkingAllRead}
+        isRefreshing={toolbar.isRefreshing}
+        isResetting={toolbar.isResetting}
+        isSigningOut={toolbar.isSigningOut}
+        isToolbarActionPending={toolbar.isToolbarActionPending}
+        mobileToolbarMirror={toolbar.mobileToolbarMirror}
+        mounted={toolbar.mounted}
+        themeToggleLabel={toolbar.themeToggleLabel}
+      />
+      <DashboardToolbarDesktopActions
+        handleMarkAllRead={toolbar.handleMarkAllRead}
+        handleMarkViewportRead={toolbar.handleMarkViewportRead}
+        handleOpenSettings={toolbar.handleOpenSettings}
+        handleRefresh={toolbar.handleRefresh}
+        handleRefreshFromUpstream={toolbar.handleRefreshFromUpstream}
+        handleReset={toolbar.handleReset}
+        handleSignOut={toolbar.handleSignOut}
+        handleToggleTheme={toolbar.handleToggleTheme}
+        isDark={toolbar.isDark}
+        isDevelopmentMode={toolbar.isDevelopmentMode}
+        isResetting={toolbar.isResetting}
+        isSigningOut={toolbar.isSigningOut}
+        isToolbarActionPending={toolbar.isToolbarActionPending}
+        mounted={toolbar.mounted}
+        themeToggleLabel={toolbar.themeToggleLabel}
+      />
+    </DashboardToolbarShell>
+  );
+}
+
+
+function DashboardToolbarSearch({
+  handleSearchChange,
+  isSearchPending,
+  search,
+}: Pick<
+  ReturnType<typeof useDashboardToolbarState>,
+  "handleSearchChange" | "isSearchPending" | "search"
+>) {
+  return (
+    <div className="relative min-w-0 flex-1">
+      {isSearchPending ? (
+        <MotionSpinner
+          className="
+            pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
+          "
+          iconClassName="size-3.5 text-muted-foreground/60"
+        />
+      ) : (
+        <Search
+          className="
+            pointer-events-none absolute top-1/2 left-3 size-3.5
+            -translate-y-1/2 text-muted-foreground/40
+          "
+        />
+      )}
+      <Input
+        className={`
+          h-9 border-transparent pl-9 text-sm
+          focus-visible:bg-background
+          ${isSearchPending ? `bg-muted/45` : `bg-muted/30`}
+        `}
+        onChange={(event) => {
+          handleSearchChange(event.target.value);
+        }}
+        placeholder="Search..."
+        value={search}
+      />
+    </div>
+  );
+}
+
+function DashboardToolbarShell({
+  children,
+  mobileToolbarBottom,
+  mobileToolbarMirror,
+}: {
+  children: React.ReactNode;
+  mobileToolbarBottom: boolean;
+  mobileToolbarMirror: boolean;
+}) {
+  return (
+    <div
+      className={
+        mobileToolbarBottom
+          ? `
+            pointer-events-auto fixed inset-x-0 bottom-0 z-50 border-t
+            border-border/50 bg-background/80 pb-[env(safe-area-inset-bottom)]
+            backdrop-blur-md
+            lg:top-0 lg:bottom-auto lg:border-t-0 lg:border-b lg:pb-0
+          `
+          : `
+            pointer-events-auto fixed inset-x-0 top-0 z-50 border-b
+            border-border/50 bg-background/80 backdrop-blur-md
+          `
+      }
+      data-dashboard-toolbar="true"
+      suppressHydrationWarning
+    >
+      <div
+        className={`
+          mx-auto flex h-14 max-w-6xl items-center gap-4 px-4
+          pr-[max(1rem,env(safe-area-inset-right))]
+          pl-[max(1rem,env(safe-area-inset-left))]
+          md:px-6
+          ${
+            mobileToolbarMirror
+              ? `
+        flex-row-reverse
+        lg:flex-row
+      `
+              : ""
+          }
+        `}
+        suppressHydrationWarning
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DashboardToolbarTitle({
+  title,
+}: Pick<ReturnType<typeof useDashboardToolbarState>, "title">) {
+  return (
+    <h1
+      className="
+        flex min-w-0 items-center gap-2 text-lg font-semibold tracking-tight
+        select-none
+      "
+    >
+      <img alt="LibreRSS logo" className="size-5" src="/favicon.svg" />
+      <span className="truncate">{title}</span>
+    </h1>
+  );
+}
+
+function useDashboardToolbarPresentationState(
+  startInShellLoading: boolean,
+  controlledIsShellLoading?: boolean,
+) {
+  const toolbarState = useDashboardToolbarState(
+    startInShellLoading,
+    controlledIsShellLoading,
+  );
+  const [mobileToolbarBottom] = useLocalStorage(
+    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+    true,
+  );
+  const [mobileToolbarMirror] = useLocalStorage(
+    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+    true,
+  );
+  return {
+    ...toolbarState,
+    isToolbarActionPending:
+      toolbarState.isRefreshing ||
+      toolbarState.isMarkingAllRead ||
+      toolbarState.isMarkingViewportRead,
+    mobileToolbarBottom,
+    mobileToolbarMirror,
+  };
+}

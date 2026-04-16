@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 /**
  * Type guard: returns true if value is a safe positive integer suitable as a

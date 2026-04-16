@@ -23,7 +23,7 @@ import {
   parseRenameFeedPayloadFromBody,
   parseToggleFeedEnabledPayloadFromBody,
   parseUpdateFeedSettingsPayloadFromBody,
-} from "@/lib/api/feeds/parsers";
+} from "@/lib/api/feed-source-api/parsers";
 import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 import { createMockFeed, createMockRequest } from "./support/test-utils";
@@ -61,7 +61,7 @@ function registerModuleMocks() {
     }),
   }));
 
-  mock.module("@/lib/api/feeds/read", () => ({
+  mock.module("@/lib/api/feed-source-api/read", () => ({
     handleFeedRead: async () => Response.json([]),
   }));
 }
@@ -250,16 +250,16 @@ describe("Feeds API - Route branches with injected deps", () => {
         assertAllowedFeedUrlFn: async () => null,
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
-          throw new HttpCloakUpstreamError(
-            429,
-            "throttled",
-            "direct",
-            null,
-            false,
-            0,
-            { server: "cloudflare" },
-            {},
-          );
+          throw new HttpCloakUpstreamError({
+            allowInsecureTls: false,
+            proxyAddress: null,
+            proxyMode: "direct",
+            redirectHop: 0,
+            requestHeaders: {},
+            responseBody: "throttled",
+            responseHeaders: { server: "cloudflare" },
+            statusCode: 429,
+          });
         },
         jsonErrorFn: ((message: string, status: number) =>
           Response.json({ error: message }, { status })) as any,
@@ -432,7 +432,7 @@ describe("Feeds API - Route branches with injected deps", () => {
 
 describe("feeds/services/access: requireMutableFeedAccess", () => {
   test("returns Response when auth guard fails (no CSRF)", async () => {
-    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    const { requireMutableFeedAccess } = await import("@/lib/server");
     // No sec-fetch-site → CSRF fails → requireMutableAuthenticatedUser returns Response
     const request = createMockRequest("https://example.com/api/feeds", {
       method: "POST",
@@ -443,7 +443,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
   });
 
   test("passes rateLimit option through without throwing", async () => {
-    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    const { requireMutableFeedAccess } = await import("@/lib/server");
     // Verify the rateLimit option path is accepted (no throw).
     // In parallel suites, session may be mocked → auth may succeed or fail,
     // so we only assert the function completes and returns a defined result.
@@ -458,7 +458,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
   });
 
   test("ensureFeedManagementEnabled returns 503 in placeholder mode", async () => {
-    const { RUNTIME_FLAGS } = await import("@/lib/core/runtime");
+    const { RUNTIME_FLAGS } = await import("@/lib/core/placeholder");
     if (RUNTIME_FLAGS.usePlaceholderData) {
       // In placeholder mode the 503 branch fires after auth succeeds.
       // Verify RUNTIME_FLAGS correctly reflects the mode.
@@ -466,8 +466,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
     } else {
       // In DB mode the function either returns a user or an auth-failure Response.
       // The ensureFeedManagementEnabled() null path is covered — just verify no throw.
-      const { requireMutableFeedAccess } =
-        await import("@/lib/api/feeds/access");
+      const { requireMutableFeedAccess } = await import("@/lib/server");
       const request = createMockRequest("https://example.com/api/feeds", {
         method: "POST",
       });
@@ -484,7 +483,7 @@ describe("feeds/services/access: requireMutableFeedAccess", () => {
 describe("lib/api/feeds/access – requireMutableFeedAccess", () => {
   test("returns 503 when placeholder data mode is active", async () => {
     const { createMockRequest } = await import("./support/test-utils");
-    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    const { requireMutableFeedAccess } = await import("@/lib/server");
     // Placeholder mode (DATABASE_URL='') bypasses DB auth and then hits the 503 branch.
     const prevDb = process.env.DATABASE_URL;
     process.env.DATABASE_URL = "";
@@ -507,7 +506,7 @@ describe("lib/api/feeds/access – requireMutableFeedAccess", () => {
 
   test("returns 401 when no session cookie in non-placeholder mode", async () => {
     const { createMockRequest } = await import("./support/test-utils");
-    const { requireMutableFeedAccess } = await import("@/lib/api/feeds/access");
+    const { requireMutableFeedAccess } = await import("@/lib/server");
     // getUserFromRequest returns null when cookie absent → 401 before any DB call.
     const prevDb = process.env.DATABASE_URL;
     process.env.DATABASE_URL = "postgresql://localhost:5432/test";
@@ -726,8 +725,7 @@ describe("feeds route GET – upstream error handling", () => {
 
   test("returns 404 when feed source not found", async () => {
     const { GET } = await import("@/app/api/feeds/route");
-    const { isFeedSourceNotFoundError } =
-      await import("@/lib/core/feed-fetcher");
+    const { isFeedSourceNotFoundError } = await import("@/lib/core/server");
     const notFoundErr = Object.assign(new Error("not found"), {
       name: "FeedSourceNotFoundError",
     });
@@ -750,7 +748,7 @@ describe("feeds route GET – upstream error handling", () => {
 
   test("returns 502 when upstream feed error", async () => {
     const { GET } = await import("@/app/api/feeds/route");
-    const { isUpstreamFeedError } = await import("@/lib/core/feed-fetcher");
+    const { isUpstreamFeedError } = await import("@/lib/core/server");
     const upstreamErr = Object.assign(new Error("upstream fail"), {
       name: "UpstreamFeedError",
     });
@@ -778,16 +776,16 @@ describe("feeds route GET – upstream error handling", () => {
       assertAllowedFeedUrlFn: async () => null,
       getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
-        throw new HttpCloakUpstreamError(
-          504,
-          "timeout",
-          "direct",
-          null,
-          false,
-          0,
-          {},
-          {},
-        );
+        throw new HttpCloakUpstreamError({
+          allowInsecureTls: false,
+          proxyAddress: null,
+          proxyMode: "direct",
+          redirectHop: 0,
+          requestHeaders: {},
+          responseBody: "timeout",
+          responseHeaders: {},
+          statusCode: 504,
+        });
       },
       isFeedSourceNotFoundErrorFn: ((_e: unknown) => false) as any,
       isUpstreamFeedErrorFn: ((_e: unknown) => false) as any,
@@ -1098,7 +1096,8 @@ describe("getRequestedFeedUrl", () => {
 
 describe("api/feeds/parsers – assertAllowedFeedUrl", () => {
   test("returns error Response for disallowed URL (localhost)", async () => {
-    const { assertAllowedFeedUrl } = await import("@/lib/api/feeds/parsers");
+    const { assertAllowedFeedUrl } =
+      await import("@/lib/api/feed-source-api/parsers");
     const result = await assertAllowedFeedUrl("http://127.0.0.1/feed");
     expect(result).not.toBeNull();
     expect((result as Response).status).toBe(400);
@@ -1115,7 +1114,8 @@ describe("api/feeds/parsers – parseCreateFeedPayload validation", () => {
   }
 
   test("returns 400 when url exceeds max length", async () => {
-    const { parseCreateFeedPayload } = await import("@/lib/api/feeds/parsers");
+    const { parseCreateFeedPayload } =
+      await import("@/lib/api/feed-source-api/parsers");
     const req = makeFeedRequest({
       name: "Feed",
       url: "https://x.com/" + "a".repeat(2200),
@@ -1128,14 +1128,14 @@ describe("api/feeds/parsers – parseCreateFeedPayload validation", () => {
 describe("api/feeds/parsers – parseRenameFeedPayloadFromBody", () => {
   test("returns 400 when url is missing", async () => {
     const { parseRenameFeedPayloadFromBody } =
-      await import("@/lib/api/feeds/parsers");
+      await import("@/lib/api/feed-source-api/parsers");
     const result = parseRenameFeedPayloadFromBody({ id: 1, name: "Feed" });
     expect((result as Response).status).toBe(400);
   });
 
   test("returns 400 when url exceeds max length", async () => {
     const { parseRenameFeedPayloadFromBody } =
-      await import("@/lib/api/feeds/parsers");
+      await import("@/lib/api/feed-source-api/parsers");
     const result = parseRenameFeedPayloadFromBody({
       id: 1,
       name: "Feed",
@@ -1148,7 +1148,7 @@ describe("api/feeds/parsers – parseRenameFeedPayloadFromBody", () => {
 describe("api/feeds/parsers – parseToggleFeedEnabledPayloadFromBody", () => {
   test("returns 400 when id is missing", async () => {
     const { parseToggleFeedEnabledPayloadFromBody } =
-      await import("@/lib/api/feeds/parsers");
+      await import("@/lib/api/feed-source-api/parsers");
     const result = parseToggleFeedEnabledPayloadFromBody({ enabled: true });
     expect((result as Response).status).toBe(400);
   });

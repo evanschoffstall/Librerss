@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import React from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 
-let pageImportVersion = 0;
+import {
+  buildAnonymousDashboardSession,
+  getInitialDashboardSession,
+  resolveDashboardPageBootstrap,
+} from "@/app/dashboard/page-bootstrap/state";
 
 function createCookieStore(values: Record<string, string>) {
   return {
@@ -12,10 +14,23 @@ function createCookieStore(values: Record<string, string>) {
   };
 }
 
-async function loadDashboardPage() {
-  pageImportVersion += 1;
-  return import(`@/app/dashboard/page?test-version=${pageImportVersion}`);
-}
+const baseDeps = {
+  buildDevAutoLoginRequestPath: () =>
+    "/api/auth/dev-login?returnTo=%2Fdashboard",
+  getUserFromSessionToken: async () => null,
+  isDevAutoLoginEnabled: () => true,
+  isDevAutoLoginFailure: () => false,
+  resolveDashboardPreviewMode: ({
+    hasExploreQuery,
+  }: {
+    hasExploreQuery: boolean;
+  }) => hasExploreQuery,
+  runtimeFlags: {
+    allowSignup: false,
+    usePlaceholderData: false,
+  },
+  sessionCookieName: "librerss_session",
+};
 
 beforeEach(() => {
   mock.restore();
@@ -27,340 +42,177 @@ afterEach(() => {
 
 describe("dashboard page dev auto-login bootstrap", () => {
   test("passes the auto-login request path to DashboardRouter when unauthenticated", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () => createCookieStore({}),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => null,
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: false,
-        usePlaceholderData: false,
-      },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        initialAutoLoginPath?: string;
-        initialLoginErrorMessage?: string;
-        initialSession?: { authenticated?: boolean };
-      }) =>
-        React.createElement("div", {
-          "data-authenticated": String(
-            props.initialSession?.authenticated === true,
-          ),
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-login-error": props.initialLoginErrorMessage ?? "",
-        }),
-    }));
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({}),
+      deps: baseDeps,
+      searchParams: {},
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({ searchParams: Promise.resolve({}) }),
+    expect(bootstrapState.initialAutoLoginPath).toBe(
+      "/api/auth/dev-login?returnTo=%2Fdashboard",
     );
-
-    expect(markup).toContain(
-      'data-auto-login-path="/api/auth/dev-login?returnTo=%2Fdashboard"',
-    );
-    expect(markup).toContain('data-authenticated="false"');
+    expect(bootstrapState.initialLoginErrorMessage).toBeUndefined();
+    expect(bootstrapState.initialSession.authenticated).toBe(false);
   });
 
   test("surfaces the failure message instead of retrying after a failed dev auto-login", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () => createCookieStore({}),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => null,
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: false,
-        usePlaceholderData: false,
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({}),
+      deps: {
+        ...baseDeps,
+        isDevAutoLoginFailure: () => true,
       },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => true,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        initialAutoLoginPath?: string;
-        initialLoginErrorMessage?: string;
-      }) =>
-        React.createElement("div", {
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-login-error": props.initialLoginErrorMessage ?? "",
-        }),
-    }));
+      searchParams: { devLogin: "failed" },
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({
-        searchParams: Promise.resolve({ devLogin: "failed" }),
-      }),
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+    expect(bootstrapState.initialLoginErrorMessage).toContain(
+      "Dev auto-login failed.",
     );
-
-    expect(markup).toContain('data-auto-login-path=""');
-    expect(markup).toContain("Dev auto-login failed.");
   });
 
   test("keeps auto-login disabled when an authenticated session already exists", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () =>
-        createCookieStore({ librerss_session: "existing-session-token" }),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => ({
-        email: "reader@example.com",
-        userId: 7,
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({
+        librerss_session: "existing-session-token",
       }),
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: false,
-        usePlaceholderData: false,
-      },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        initialAutoLoginPath?: string;
-        initialSession?: { authenticated?: boolean; user?: { email: string } };
-      }) =>
-        React.createElement("div", {
-          "data-authenticated": String(
-            props.initialSession?.authenticated === true,
-          ),
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-user-email": props.initialSession?.user?.email ?? "",
+      deps: {
+        ...baseDeps,
+        getUserFromSessionToken: async () => ({
+          email: "reader@example.com",
+          userId: 7,
         }),
-    }));
+      },
+      searchParams: {},
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({ searchParams: Promise.resolve({}) }),
+    expect(bootstrapState.initialSession.authenticated).toBe(true);
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+    expect(bootstrapState.initialSession.user?.email).toBe(
+      "reader@example.com",
     );
-
-    expect(markup).toContain('data-authenticated="true"');
-    expect(markup).toContain('data-auto-login-path=""');
-    expect(markup).toContain('data-user-email="reader@example.com"');
   });
 
   test("uses the explore query to suppress auto-login and boot an anonymous session", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () => createCookieStore({}),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => {
-        throw new Error("should not load session in preview mode");
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({}),
+      deps: {
+        ...baseDeps,
+        getUserFromSessionToken: async () => {
+          throw new Error("should not load session in preview mode");
+        },
+        runtimeFlags: {
+          allowSignup: true,
+          usePlaceholderData: true,
+        },
       },
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: true,
-        usePlaceholderData: true,
-      },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        hasPreviewQuery?: boolean;
-        initialAutoLoginPath?: string;
-        initialPreviewMode?: boolean;
-        initialSession?: {
-          allowSignup?: boolean;
-          authenticated?: boolean;
-          usePlaceholderData?: boolean;
-        };
-      }) =>
-        React.createElement("div", {
-          "data-allow-signup": String(
-            props.initialSession?.allowSignup === true,
-          ),
-          "data-authenticated": String(
-            props.initialSession?.authenticated === true,
-          ),
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-has-preview-query": String(props.hasPreviewQuery === true),
-          "data-preview-mode": String(props.initialPreviewMode === true),
-          "data-use-placeholder-data": String(
-            props.initialSession?.usePlaceholderData === true,
-          ),
-        }),
-    }));
+      searchParams: { explore: ["1", "0"] },
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({
-        searchParams: Promise.resolve({ explore: ["1", "0"] }),
-      }),
-    );
-
-    expect(markup).toContain('data-auto-login-path=""');
-    expect(markup).toContain('data-has-preview-query="true"');
-    expect(markup).toContain('data-preview-mode="true"');
-    expect(markup).toContain('data-allow-signup="true"');
-    expect(markup).toContain('data-authenticated="false"');
-    expect(markup).toContain('data-use-placeholder-data="true"');
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+    expect(bootstrapState.hasPreviewQuery).toBe(true);
+    expect(bootstrapState.initialPreviewMode).toBe(true);
+    expect(bootstrapState.initialSession.allowSignup).toBe(true);
+    expect(bootstrapState.initialSession.authenticated).toBe(false);
+    expect(bootstrapState.initialSession.usePlaceholderData).toBe(true);
   });
 
   test("ignores the preview cookie when the explore query is absent", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () =>
-        createCookieStore({ librerss_dashboard_preview: "1" }),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => null,
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: false,
-        usePlaceholderData: true,
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({ librerss_dashboard_preview: "1" }),
+      deps: {
+        ...baseDeps,
+        runtimeFlags: {
+          allowSignup: false,
+          usePlaceholderData: true,
+        },
       },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        hasPreviewQuery?: boolean;
-        initialAutoLoginPath?: string;
-        initialPreviewMode?: boolean;
-      }) =>
-        React.createElement("div", {
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-has-preview-query": String(props.hasPreviewQuery === true),
-          "data-preview-mode": String(props.initialPreviewMode === true),
-        }),
-    }));
+      searchParams: {},
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({ searchParams: Promise.resolve({}) }),
+    expect(bootstrapState.initialAutoLoginPath).toBe(
+      "/api/auth/dev-login?returnTo=%2Fdashboard",
     );
-
-    expect(markup).toContain(
-      'data-auto-login-path="/api/auth/dev-login?returnTo=%2Fdashboard"',
-    );
-    expect(markup).toContain('data-has-preview-query="false"');
-    expect(markup).toContain('data-preview-mode="false"');
+    expect(bootstrapState.hasPreviewQuery).toBe(false);
+    expect(bootstrapState.initialPreviewMode).toBe(false);
   });
 
   test("falls back to an anonymous session when reading the stored session throws", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () =>
-        createCookieStore({ librerss_session: "broken-session-token" }),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => {
-        throw new Error("session lookup failed");
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({
+        librerss_session: "broken-session-token",
+      }),
+      deps: {
+        ...baseDeps,
+        getUserFromSessionToken: async () => {
+          throw new Error("session lookup failed");
+        },
+        isDevAutoLoginEnabled: () => false,
       },
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
-        allowSignup: false,
-        usePlaceholderData: false,
-      },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => false,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        initialAutoLoginPath?: string;
-        initialSession?: { authenticated?: boolean; user?: unknown };
-      }) =>
-        React.createElement("div", {
-          "data-authenticated": String(
-            props.initialSession?.authenticated === true,
-          ),
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-user": String(props.initialSession?.user ?? "null"),
-        }),
-    }));
+      searchParams: { explore: "0" },
+    });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({ searchParams: Promise.resolve({ explore: "0" }) }),
-    );
-
-    expect(markup).toContain('data-auto-login-path=""');
-    expect(markup).toContain('data-authenticated="false"');
-    expect(markup).toContain('data-user="null"');
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+    expect(bootstrapState.initialSession.authenticated).toBe(false);
+    expect(bootstrapState.initialSession.user).toBeNull();
   });
 
   test("treats the explore query as preview mode even without the preview cookie", async () => {
-    mock.module("next/headers", () => ({
-      cookies: async () => createCookieStore({}),
-    }));
-    mock.module("@/lib/auth/session", () => ({
-      getUserFromSessionToken: async () => {
-        throw new Error("preview mode should not load the stored session");
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({}),
+      deps: {
+        ...baseDeps,
+        getUserFromSessionToken: async () => {
+          throw new Error("preview mode should not load the stored session");
+        },
+        runtimeFlags: {
+          allowSignup: true,
+          usePlaceholderData: true,
+        },
       },
-      SESSION_COOKIE_NAME: "librerss_session",
-    }));
-    mock.module("@/lib/core/runtime", () => ({
-      RUNTIME_FLAGS: {
+      searchParams: { explore: ["1"] },
+    });
+
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+    expect(bootstrapState.hasPreviewQuery).toBe(true);
+    expect(bootstrapState.initialPreviewMode).toBe(true);
+  });
+
+  test("buildAnonymousDashboardSession reflects runtime flags", () => {
+    expect(
+      buildAnonymousDashboardSession({
         allowSignup: true,
         usePlaceholderData: true,
-      },
-    }));
-    mock.module("@/lib/auth/dev-auto-login", () => ({
-      buildDevAutoLoginRequestPath: () =>
-        "/api/auth/dev-login?returnTo=%2Fdashboard",
-      isDevAutoLoginEnabled: () => true,
-      isDevAutoLoginFailure: () => false,
-    }));
-    mock.module("@/app/dashboard/DashboardRouter", () => ({
-      DashboardRouter: (props: {
-        hasPreviewQuery?: boolean;
-        initialAutoLoginPath?: string;
-        initialPreviewMode?: boolean;
-      }) =>
-        React.createElement("div", {
-          "data-auto-login-path": props.initialAutoLoginPath ?? "",
-          "data-has-preview-query": String(props.hasPreviewQuery === true),
-          "data-preview-mode": String(props.initialPreviewMode === true),
-        }),
-    }));
+      }),
+    ).toEqual({
+      allowSignup: true,
+      authenticated: false,
+      usePlaceholderData: true,
+      user: null,
+    });
+  });
 
-    const { default: DashboardPage } = await loadDashboardPage();
-    const markup = renderToStaticMarkup(
-      await DashboardPage({ searchParams: Promise.resolve({ explore: ["1"] }) }),
-    );
-
-    expect(markup).toContain('data-auto-login-path=""');
-    expect(markup).toContain('data-has-preview-query="true"');
-    expect(markup).toContain('data-preview-mode="true"');
+  test("getInitialDashboardSession reuses the stored session when available", async () => {
+    expect(
+      await getInitialDashboardSession(
+        createCookieStore({ librerss_session: "stored-token" }),
+        {
+          getUserFromSessionToken: async () => ({
+            email: "reader@example.com",
+            userId: 7,
+          }),
+          runtimeFlags: {
+            allowSignup: false,
+            usePlaceholderData: false,
+          },
+          sessionCookieName: "librerss_session",
+        },
+      ),
+    ).toEqual({
+      allowSignup: false,
+      authenticated: true,
+      usePlaceholderData: false,
+      user: { email: "reader@example.com", id: 7 },
+    });
   });
 });

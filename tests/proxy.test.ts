@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 
-import { RateLimiter } from "@/lib/server/rate-limit";
+import { RateLimiter } from "@/lib/rate-limit";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
 // Create fresh rate limiter instance for each test
 let testRateLimiter: RateLimiter;
+
+async function importProxyModule() {
+  return import(`@/proxy?test=${Date.now()}-${Math.random()}`);
+}
 
 beforeEach(() => {
   mock.restore();
@@ -23,7 +27,7 @@ afterEach(() => {
 
 describe("Next.js proxy function", () => {
   test("blocks reserved path prefixes and returns firewall metadata", async () => {
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
     const req = new NextRequest("http://localhost:3000/@blocked", {
       headers: { accept: "application/json" },
     });
@@ -32,7 +36,9 @@ describe("Next.js proxy function", () => {
 
     expect(res.status).toBe(403);
     expect(res.headers.get("X-Librerss-Firewall-Action")).toBe("block");
-    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe("FW-RESERVED-PATH");
+    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe(
+      "FW-RESERVED-PATH",
+    );
     expect(res.headers.get("Cache-Control")).toBe("no-store");
 
     const payload = (await res.json()) as {
@@ -49,7 +55,7 @@ describe("Next.js proxy function", () => {
   });
 
   test("rewrites browser requests for reserved path prefixes to the 403 page", async () => {
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
     const req = new NextRequest("http://localhost:3000/~browser-block", {
       headers: { accept: "text/html,application/xhtml+xml" },
     });
@@ -61,11 +67,13 @@ describe("Next.js proxy function", () => {
       "http://localhost:3000/forbidden",
     );
     expect(res.headers.get("X-Librerss-Firewall-Action")).toBe("block");
-    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe("FW-RESERVED-PATH");
+    expect(res.headers.get("X-Librerss-Firewall-Code")).toBe(
+      "FW-RESERVED-PATH",
+    );
   });
 
   test("sets all required security headers (except CSP)", async () => {
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
     const req = new NextRequest("http://localhost:3000/dashboard");
 
     const res = proxy(req);
@@ -85,7 +93,7 @@ describe("Next.js proxy function", () => {
 
   test("enforces universal rate limiting", async () => {
     // Mock the module to use our test rate limiter
-    mock.module("@/lib/server/rate-limit", () => ({
+    mock.module("@/lib/rate-limit", () => ({
       rateLimiter: testRateLimiter,
       RateLimiter,
     }));
@@ -98,7 +106,7 @@ describe("Next.js proxy function", () => {
     process.env.RATE_LIMIT_PROXY_MAX_REQUESTS = "3";
     process.env.RATE_LIMIT_DISABLED_IN_DEV = "false";
 
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
 
     const clientIp = "203.0.113.42";
 
@@ -133,7 +141,7 @@ describe("Next.js proxy function", () => {
   });
 
   test("rate limiting is per-client (different IPs have separate buckets)", async () => {
-    mock.module("@/lib/server/rate-limit", () => ({
+    mock.module("@/lib/rate-limit", () => ({
       rateLimiter: testRateLimiter,
       RateLimiter,
     }));
@@ -145,7 +153,7 @@ describe("Next.js proxy function", () => {
     process.env.RATE_LIMIT_PROXY_MAX_REQUESTS = "2";
     process.env.RATE_LIMIT_DISABLED_IN_DEV = "false";
 
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
 
     const client1 = "203.0.113.10";
     const client2 = "203.0.113.20";
@@ -187,12 +195,12 @@ describe("Next.js proxy function", () => {
   });
 
   test("handles requests without X-Forwarded-For header", async () => {
-    mock.module("@/lib/server/rate-limit", () => ({
+    mock.module("@/lib/rate-limit", () => ({
       rateLimiter: testRateLimiter,
       RateLimiter,
     }));
 
-    const { proxy } = await import("@/proxy");
+    const { proxy } = await importProxyModule();
     const req = new NextRequest("http://localhost:3000/dashboard");
 
     const res = proxy(req);

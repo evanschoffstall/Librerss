@@ -3,9 +3,8 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 const mutableProcessEnv = process.env as Record<string, string | undefined>;
 
 async function clearExtractCache(): Promise<void> {
-  const { clearArticleExtractCacheForTests } = await import(
-    "@/lib/extract/cache"
-  );
+  const { clearArticleExtractCacheForTests } =
+    await import("@/lib/extract/cache");
 
   clearArticleExtractCacheForTests();
 }

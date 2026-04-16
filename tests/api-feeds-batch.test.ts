@@ -5,14 +5,24 @@ import type { BatchRouteDeps } from "@/app/api/feeds/batch/route";
 
 import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
-import { ServerServiceError } from "@/lib/server";
+import { serverApi } from "@/lib/server";
+
+const originalLoggerInfo = logger.info;
+const originalLoggerWarn = logger.warn;
+const originalLoggerError = logger.error;
 
 beforeEach(() => {
   mock.restore();
+  logger.info = (() => {}) as typeof logger.info;
+  logger.warn = (() => {}) as typeof logger.warn;
+  logger.error = (() => {}) as typeof logger.error;
 });
 
 afterEach(() => {
   mock.restore();
+  logger.info = originalLoggerInfo;
+  logger.warn = originalLoggerWarn;
+  logger.error = originalLoggerError;
 });
 
 describe("api/feeds/batch route", () => {
@@ -348,7 +358,7 @@ describe("api/feeds/batch route", () => {
       },
     ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
     deps.resolveUserProxyFn = async () => {
-      throw new ServerServiceError(
+      throw new serverApi.ServerServiceError(
         "Saved proxy password could not be read. Update it in settings and try again.",
         500,
         "proxy-password-unreadable",
@@ -735,7 +745,8 @@ describe("api/feeds/batch route", () => {
   test("uses the error responder when the batch fetch throws", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const logAndRespondErrorFn = mock(
-      () => new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      () =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
     );
     const deps: BatchRouteDeps = {
       fetchAndCacheFeedArticlesBatchFn: mock(async () => {

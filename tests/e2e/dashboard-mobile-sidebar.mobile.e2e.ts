@@ -60,7 +60,9 @@ function mobileFeedsTrayDialog(page: Page): Locator {
 
 /** Returns the Radix viewport that belongs to the currently open mobile feeds tray. */
 function mobileFeedsTrayViewport(page: Page): Locator {
-  return mobileFeedsTrayDialog(page).locator("[data-radix-scroll-area-viewport]");
+  return mobileFeedsTrayDialog(page).locator(
+    "[data-radix-scroll-area-viewport]",
+  );
 }
 
 /** Seeds the mirrored-toolbar preference before the dashboard reads it. */
@@ -83,7 +85,9 @@ async function wheelMobileFeedsTray(page: Page, deltaY: number) {
   const box = await viewport.boundingBox();
 
   if (!box) {
-    throw new Error("Expected the mobile feeds tray viewport to have a bounding box.");
+    throw new Error(
+      "Expected the mobile feeds tray viewport to have a bounding box.",
+    );
   }
 
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
@@ -122,7 +126,8 @@ test.describe("dashboard mobile feeds tray", () => {
     page,
   }) => {
     await openDashboardFeedsSidebar(page);
-    const lastInjectedRowName = await injectOverflowRowsIntoMobileFeedsTray(page);
+    const lastInjectedRowName =
+      await injectOverflowRowsIntoMobileFeedsTray(page);
 
     const trayDialog = mobileFeedsTrayDialog(page);
     const trayViewport = mobileFeedsTrayViewport(page);
@@ -131,7 +136,9 @@ test.describe("dashboard mobile feeds tray", () => {
     });
 
     const initialMetrics = await readSidebarTrayViewportMetrics(page);
-    expect(initialMetrics.scrollHeight).toBeGreaterThan(initialMetrics.clientHeight);
+    expect(initialMetrics.scrollHeight).toBeGreaterThan(
+      initialMetrics.clientHeight,
+    );
     expect(initialMetrics.scrollTop).toBe(0);
     expect(initialMetrics.dialogScrollTop).toBe(0);
     expect(initialMetrics.windowScrollY).toBe(0);
@@ -162,8 +169,11 @@ test.describe("dashboard mobile feeds tray", () => {
       .toBeGreaterThan(120);
 
     const bottomMetrics = await readSidebarTrayViewportMetrics(page);
-    const maxScrollTop = bottomMetrics.scrollHeight - bottomMetrics.clientHeight;
-    expect(bottomMetrics.scrollTop).toBeGreaterThan(Math.max(0, maxScrollTop - 72));
+    const maxScrollTop =
+      bottomMetrics.scrollHeight - bottomMetrics.clientHeight;
+    expect(bottomMetrics.scrollTop).toBeGreaterThan(
+      Math.max(0, maxScrollTop - 72),
+    );
     expect(bottomMetrics.dialogScrollTop).toBe(0);
     expect(bottomMetrics.windowScrollY).toBe(0);
     await expectNotClipped(

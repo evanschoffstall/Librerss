@@ -1,5 +1,6 @@
+import { logger } from "@/lib";
 import { toBodySnippet } from "@/lib/api/http";
-import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
+import { isAllowedFeedUrl } from "@/lib/core";
 import {
   detectResponseCompatibilitySignal,
   fetchHtmlWithHttpCloak,
@@ -7,13 +8,9 @@ import {
   pickDiagnosticHeaders,
   SOCKS_PROTOCOLS,
 } from "@/lib/fetch";
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { redactUrlForLogs } from "@/lib/utils/url";
+import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
 
-import {
-  EXTRACT_403_RETRIES,
-} from "./constants";
+import { EXTRACT_403_RETRIES } from "./constants";
 
 interface FetchHtmlDeps {
   delayFn?: (ms: number) => Promise<void>;
@@ -90,14 +87,8 @@ export async function fetchHtml(
   deps?: FetchHtmlDeps,
   options?: FetchHtmlOptions,
 ): Promise<string> {
-  const isAllowedUrl = deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl;
-  const delay =
-    deps?.delayFn ??
-    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
-  const httpCloakFetchFn = deps?.httpCloakFetchFn ?? fetchHtmlWithHttpCloak;
-  const allowInsecureTls = options?.allowInsecureTls === true;
-  const useProxy = options?.useProxy === true;
-  const proxyUrl = useProxy ? options.proxyUrl : undefined;
+  const { allowInsecureTls, delay, httpCloakFetchFn, isAllowedUrl, proxyUrl } =
+    resolveFetchHtmlOptions(deps, options);
   const proxyMode = resolveProxyMode(proxyUrl);
   const redactProxyUrl = proxyUrl ? redactUrlForLogs(proxyUrl) : null;
   const httpCloakResult = await runHttpCloakStage({
@@ -227,6 +218,57 @@ function logStageSuccess(label: string, context: StageLogContext): void {
   );
 }
 
+function resolveCompatibilityOutcome(error: unknown): {
+  httpCloakUpstreamError: HttpCloakUpstreamError | null;
+  preferredError?: Error;
+  retryable: boolean;
+  signal: ReturnType<typeof detectResponseCompatibilitySignal>["signal"];
+} {
+  const httpCloakUpstreamError =
+    error instanceof HttpCloakUpstreamError ? error : null;
+  if (!httpCloakUpstreamError) {
+    return {
+      httpCloakUpstreamError: null,
+      retryable: false,
+      signal: { detected: false } as const,
+    };
+  }
+
+  const compatibility = detectResponseCompatibilitySignal(
+    httpCloakUpstreamError.statusCode,
+    httpCloakUpstreamError.responseHeaders as Record<string, unknown>,
+    httpCloakUpstreamError.responseBody,
+  );
+
+  return {
+    httpCloakUpstreamError,
+    preferredError: compatibility.signal.detected
+      ? createCompatibilityError(
+          compatibility.signal.provider,
+          httpCloakUpstreamError.statusCode,
+        )
+      : undefined,
+    retryable: compatibility.retryable,
+    signal: compatibility.signal,
+  };
+}
+
+function resolveFetchHtmlOptions(
+  deps: FetchHtmlDeps | undefined,
+  options: FetchHtmlOptions | undefined,
+) {
+  const useProxy = options?.useProxy === true;
+
+  return {
+    allowInsecureTls: options?.allowInsecureTls === true,
+    delay:
+      deps?.delayFn ??
+      ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
+    httpCloakFetchFn: deps?.httpCloakFetchFn ?? fetchHtmlWithHttpCloak,
+    isAllowedUrl: deps?.isAllowedFeedUrlFn ?? isAllowedFeedUrl,
+    proxyUrl: useProxy ? options.proxyUrl : undefined,
+  };
+}
 function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
   if (proxyUrl) {
     return SOCKS_PROTOCOLS.has(new URL(proxyUrl).protocol) ? "socks" : "http";
@@ -234,6 +276,31 @@ function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
 
   return "direct";
 }
+
+function resolveStageFailureExtras(
+  options: HttpCloakStageOptions,
+  compatibility: ReturnType<typeof resolveCompatibilityOutcome>,
+): Omit<StageLogExtras, "error"> {
+  const { httpCloakUpstreamError } = compatibility;
+  const responseBody = httpCloakUpstreamError?.responseBody;
+  const responseHeaders = httpCloakUpstreamError?.responseHeaders;
+
+  return {
+    headers: httpCloakUpstreamError?.requestHeaders,
+    note: compatibility.signal.detected
+      ? `${compatibility.signal.provider} access constraint detected during HTTPCloak stage`
+      : undefined,
+    proxyMode: httpCloakUpstreamError?.proxyMode ?? options.proxyMode,
+    redirectHop: httpCloakUpstreamError?.redirectHop,
+    responseBodyLength: responseBody?.length,
+    responseBodySnippet: responseBody ? toBodySnippet(responseBody) : undefined,
+    responseHeaders: responseHeaders
+      ? pickDiagnosticHeaders(responseHeaders)
+      : undefined,
+    statusCode: httpCloakUpstreamError?.statusCode,
+  };
+}
+
 /**
  * Execute the shared HTTPCloak transport with bounded retries for retryable
  * upstream responses.
@@ -265,42 +332,19 @@ async function runHttpCloakStage(
     } catch (error) {
       lastError = error;
 
-      const httpCloakUpstreamError =
-        error instanceof HttpCloakUpstreamError ? error : null;
-      const compatibility = httpCloakUpstreamError
-        ? detectResponseCompatibilitySignal(
-            httpCloakUpstreamError.statusCode,
-            httpCloakUpstreamError.responseHeaders as Record<string, unknown>,
-            httpCloakUpstreamError.responseBody,
-          )
-        : { retryable: false, signal: { detected: false } as const };
-
-      if (compatibility.signal.detected && httpCloakUpstreamError) {
-        preferredError ??= createCompatibilityError(
-          compatibility.signal.provider,
-          httpCloakUpstreamError.statusCode,
-        );
+      const compatibility = resolveCompatibilityOutcome(error);
+      if (compatibility.preferredError) {
+        preferredError ??= compatibility.preferredError;
       }
 
       if (
-        handleStageFailure(options, attempt, compatibility.retryable, error, {
-          headers: httpCloakUpstreamError?.requestHeaders,
-          note: compatibility.signal.detected
-            ? `${compatibility.signal.provider} access constraint detected during HTTPCloak stage`
-            : undefined,
-          proxyMode: httpCloakUpstreamError
-            ? httpCloakUpstreamError.proxyMode
-            : options.proxyMode,
-          redirectHop: httpCloakUpstreamError?.redirectHop,
-          responseBodyLength: httpCloakUpstreamError?.responseBody.length,
-          responseBodySnippet: httpCloakUpstreamError
-            ? toBodySnippet(httpCloakUpstreamError.responseBody)
-            : undefined,
-          responseHeaders: httpCloakUpstreamError
-            ? pickDiagnosticHeaders(httpCloakUpstreamError.responseHeaders)
-            : undefined,
-          statusCode: httpCloakUpstreamError?.statusCode,
-        })
+        handleStageFailure(
+          options,
+          attempt,
+          compatibility.retryable,
+          error,
+          resolveStageFailureExtras(options, compatibility),
+        )
       ) {
         continue;
       }

@@ -17,10 +17,10 @@ import {
   test,
 } from "bun:test";
 
-import type { Article } from "@/lib";
+import type { Article } from "@/lib/core";
 
-import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
-import { ArticleService } from "@/lib";
+import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
+import { ArticleService } from "@/lib/api";
 
 import { createMockArticle } from "./support/test-utils";
 
@@ -275,6 +275,73 @@ describe("useArticleActions - State Management", () => {
     });
   });
 
+  test("keeps updating state active until overlapping read and starred mutations settle", async () => {
+    let resolveReadMutation: (() => void) | undefined;
+    let resolveStarMutation: (() => void) | undefined;
+
+    ArticleService.updateArticleStatus = mock(
+      async (
+        _articleId: number,
+        patch: { isRead?: boolean; isStarred?: boolean },
+      ) =>
+        await new Promise<void>((resolve) => {
+          if (patch.isRead !== undefined) {
+            resolveReadMutation = resolve;
+            return;
+          }
+
+          resolveStarMutation = resolve;
+        }),
+    ) as unknown as typeof ArticleService.updateArticleStatus;
+
+    const article = createMockArticle({ id: 6, isRead: false, isStarred: false });
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    let readMutationPromise!: Promise<void>;
+    let starMutationPromise!: Promise<void>;
+    await act(async () => {
+      readMutationPromise = result.current.handleToggleReadState(article);
+      starMutationPromise = result.current.handleToggleStarredState(article);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.updatingArticleState[article.link]).toBe(true);
+    });
+
+    await act(async () => {
+      resolveReadMutation?.();
+      await readMutationPromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.updatingArticleState[article.link]).toBe(true);
+    });
+
+    await act(async () => {
+      resolveStarMutation?.();
+      await starMutationPromise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.updatingArticleState).toEqual({});
+    });
+  });
+
   test("handleArticleToggle expands collapsed article", async () => {
     const article = createMockArticle();
     const setFeed = mock(() => {});
@@ -488,8 +555,7 @@ describe("useArticleActions - State Management", () => {
     });
     let feedState = [firstArticle, secondArticle];
     const setFeed = mock((updater: SetStateAction<Article[]>) => {
-      feedState =
-        typeof updater === "function" ? updater(feedState) : updater;
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
     });
     const setExpandedArticleKey = mock(() => {});
 
@@ -504,7 +570,10 @@ describe("useArticleActions - State Management", () => {
     );
 
     await runWithAct(async () => {
-      await result.current.handleMarkArticlesRead([firstArticle, secondArticle]);
+      await result.current.handleMarkArticlesRead([
+        firstArticle,
+        secondArticle,
+      ]);
     });
 
     expect(feedState).toEqual([
@@ -647,11 +716,15 @@ describe("useArticleActions - State Management", () => {
     });
 
     if (expandedArticleKey === null) {
-      throw new Error("Expected the article to expand before hydration settled.");
+      throw new Error(
+        "Expected the article to expand before hydration settled.",
+      );
     }
 
     if (expandedArticleKey !== article.link) {
-      throw new Error("Expected the article key to update before hydration settled.");
+      throw new Error(
+        "Expected the article key to update before hydration settled.",
+      );
     }
 
     expect(setExpandedArticleKey).toHaveBeenCalled();
@@ -1248,8 +1321,12 @@ describe("useArticleActions - Article Hydration Integration", () => {
       value: () => 0,
     });
 
-    window.requestAnimationFrame = mock(() => 1) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.requestAnimationFrame = mock(
+      () => 1,
+    ) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -1291,7 +1368,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: 140,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 
@@ -1358,7 +1437,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       rafCallbacks.push(callback);
       return rafCallbacks.length;
     }) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -1401,7 +1482,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: articleTop,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 
@@ -1505,12 +1588,12 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     let expandedArticleKey: null | string = article.link;
     const setFeed = mock(() => {});
-    const setExpandedArticleKey = mock((updater: SetStateAction<null | string>) => {
-      expandedArticleKey =
-        typeof updater === "function"
-          ? updater(expandedArticleKey)
-          : updater;
-    });
+    const setExpandedArticleKey = mock(
+      (updater: SetStateAction<null | string>) => {
+        expandedArticleKey =
+          typeof updater === "function" ? updater(expandedArticleKey) : updater;
+      },
+    );
 
     const { rerender, result } = renderHook(
       ({ currentExpandedKey }) =>
@@ -1555,8 +1638,12 @@ describe("useArticleActions - Article Hydration Integration", () => {
       value: () => now,
     });
 
-    window.requestAnimationFrame = mock(() => 1) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.requestAnimationFrame = mock(
+      () => 1,
+    ) as typeof window.requestAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -1600,7 +1687,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: articleTop,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 
@@ -1670,7 +1759,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       rafCallbacks.push(callback);
       return rafCallbacks.length;
     }) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -1715,7 +1806,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: articleTop,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 
@@ -1794,7 +1887,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       rafCallbacks.push(callback);
       return rafCallbacks.length;
     }) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
 
     const viewport = document.createElement("div");
     viewport.setAttribute("data-radix-scroll-area-viewport", "");
@@ -1839,7 +1934,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: articleTop,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 
@@ -1963,7 +2060,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       rafCallbacks.push(callback);
       return rafCallbacks.length;
     }) as typeof window.requestAnimationFrame;
-    window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+    window.cancelAnimationFrame = mock(
+      () => {},
+    ) as typeof window.cancelAnimationFrame;
     Object.defineProperty(global, "ResizeObserver", {
       configurable: true,
       value: ResizeObserverMock as unknown as typeof ResizeObserver,
@@ -2012,7 +2111,9 @@ describe("useArticleActions - Article Hydration Integration", () => {
       x: 0,
       y: articleTop,
     })) as typeof articleElement.getBoundingClientRect;
-    articleElement.closest = mock(() => viewport) as typeof articleElement.closest;
+    articleElement.closest = mock(
+      () => viewport,
+    ) as typeof articleElement.closest;
     viewport.appendChild(articleElement);
     document.body.appendChild(viewport);
 

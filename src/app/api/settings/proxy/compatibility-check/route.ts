@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { parseJsonBodyOrResponse } from "@/lib/api/http";
-import { CONFIG } from "@/lib/config";
+import { CONFIG, logger } from "@/lib";
 import {
   fetchHtmlWithHttpCloak,
   HttpCloakUpstreamError,
   pickDiagnosticHeaders,
 } from "@/lib/fetch";
-import { logger } from "@/lib/logger";
-import {
-  requireMutableAuthenticatedUser,
-  resolveRouteHandlerDeps,
-  resolveUserProxy, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
+import { resolveUserProxy } from "@/lib/outbound-proxy";
+import { serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -44,15 +40,25 @@ interface CompatibilityCheckDeps {
   fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
   httpCloakUpstreamErrorClass?: typeof HttpCloakUpstreamError;
   loggerInstance?: typeof logger;
-  parseJsonBodyOrResponseFn?: typeof parseJsonBodyOrResponse;
+  parseJsonBodyOrResponseFn?: (
+    request: NextRequest,
+  ) => Promise<CompatibilityCheckRequest | Response>;
   pickDiagnosticHeadersFn?: typeof pickDiagnosticHeaders;
   rateLimitConfig?: {
     maxAttempts: number;
     windowMs: number;
   };
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  requireMutableAuthenticatedUserFn?: typeof serverApi.requireMutableAuthenticatedUser;
   resolveUserProxyFn?: typeof resolveUserProxy;
-  serviceErrorClass?: typeof ServerServiceError;
+  serviceErrorClass?: typeof serverApi.ServerServiceError;
+}
+
+interface CompatibilityCheckExecutionContext {
+  allowInsecureTls: boolean;
+  loggerInstance: typeof logger;
+  proxyUrl?: string;
+  useProxy: boolean;
+  userId: number;
 }
 
 interface CompatibilityCheckRequest {
@@ -70,214 +76,347 @@ interface CompatibilityCheckResult {
   vendor: string;
 }
 
+interface ResolvedCompatibilityCheckDeps {
+  fetchHtmlWithHttpCloakFn: typeof fetchHtmlWithHttpCloak;
+  httpCloakUpstreamErrorClass: typeof HttpCloakUpstreamError;
+  loggerInstance: typeof logger;
+  parseJsonBodyOrResponseFn: (
+    request: NextRequest,
+  ) => Promise<CompatibilityCheckRequest | Response>;
+  pickDiagnosticHeadersFn: typeof pickDiagnosticHeaders;
+  rateLimitConfig: {
+    maxAttempts: number;
+    windowMs: number;
+  };
+  requireMutableAuthenticatedUserFn: typeof serverApi.requireMutableAuthenticatedUser;
+  resolveUserProxyFn: typeof resolveUserProxy;
+  serviceErrorClass: typeof serverApi.ServerServiceError;
+}
+
+interface ResolvedUserProxyConfig {
+  allowInsecureTls: boolean;
+  proxyUrl?: string;
+}
+
 /**
  * Runs vendor-sample compatibility checks for the authenticated user's current
  * network path and optional proxy settings.
  */
 export async function POST(
   request: NextRequest,
-  depsOrContext: CompatibilityCheckDeps | RouteHandlerContext = {},
+  depsOrContext: CompatibilityCheckDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<CompatibilityCheckDeps>(depsOrContext);
-  const parseJsonBodyOrResponseFn =
-    deps.parseJsonBodyOrResponseFn ?? parseJsonBodyOrResponse;
-  const requireMutableAuthenticatedUserFn =
-    deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-  const resolveUserProxyFn = deps.resolveUserProxyFn ?? resolveUserProxy;
-  const fetchHtmlWithHttpCloakFn =
-    deps.fetchHtmlWithHttpCloakFn ?? fetchHtmlWithHttpCloak;
-  const pickDiagnosticHeadersFn =
-    deps.pickDiagnosticHeadersFn ?? pickDiagnosticHeaders;
-  const loggerInstance = deps.loggerInstance ?? logger;
-  const httpCloakUpstreamErrorClass =
-    deps.httpCloakUpstreamErrorClass ?? HttpCloakUpstreamError;
-  const serverServiceErrorClass =
-    deps.serviceErrorClass ?? ServerServiceError;
-  const rateLimitConfig = deps.rateLimitConfig ?? {
-    maxAttempts: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS,
-    windowMs: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS,
-  };
+  const deps = resolveCompatibilityCheckDeps(
+    serverApi.resolveRouteHandlerDeps<CompatibilityCheckDeps>(depsOrContext),
+  );
 
-  const authResult = await requireMutableAuthenticatedUserFn(request, {
+  const authResult = await deps.requireMutableAuthenticatedUserFn(request, {
     rateLimit: {
       key: "proxy-compatibility-check",
-      maxAttempts: rateLimitConfig.maxAttempts,
+      maxAttempts: deps.rateLimitConfig.maxAttempts,
       scope: "user",
-      windowMs: rateLimitConfig.windowMs,
+      windowMs: deps.rateLimitConfig.windowMs,
     },
   });
   if (authResult instanceof Response) return authResult;
 
-  const body = await parseJsonBodyOrResponseFn<CompatibilityCheckRequest>(request);
+  const body = await deps.parseJsonBodyOrResponseFn(request);
   if (body instanceof Response) return body;
 
-  const useProxy = body.useProxy ?? false;
+  const executionContext = await resolveCompatibilityExecutionContext(
+    authResult.userId,
+    body.useProxy ?? false,
+    deps,
+  );
+  if (executionContext instanceof Response) {
+    return executionContext;
+  }
 
-  let proxyUrl: string | undefined;
-  let allowInsecureTls = false;
+  executionContext.loggerInstance.info(
+    "Connection compatibility check started",
+    {
+      proxyConfigured: !!executionContext.proxyUrl,
+      sites: COMPATIBILITY_CHECK_SITES.map((site) => site.label),
+      useProxy: executionContext.useProxy,
+      userId: executionContext.userId,
+    },
+  );
 
-  if (useProxy) {
-    try {
-      const resolved = await resolveUserProxyFn(authResult.userId);
-      proxyUrl = resolved.proxyUrl;
-      allowInsecureTls = resolved.allowInsecureTls;
-    } catch (error) {
-      if (
-        error instanceof serverServiceErrorClass &&
-        error.reason === "proxy-password-unreadable"
-      ) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: error.status },
-        );
-      }
-      throw error;
+  const results = await runCompatibilityChecks(executionContext, deps);
+
+  return NextResponse.json({ results });
+}
+
+function buildFailedCompatibilityCheckResult(
+  result: CompatibilityCheckResult,
+  site: (typeof COMPATIBILITY_CHECK_SITES)[number],
+  error: unknown,
+  executionContext: CompatibilityCheckExecutionContext,
+  deps: ResolvedCompatibilityCheckDeps,
+): CompatibilityCheckResult {
+  result.success = false;
+  result.compatibilitySignalDetected = true;
+
+  if (error instanceof deps.httpCloakUpstreamErrorClass) {
+    result.statusCode = error.statusCode;
+    result.error = `HTTP ${error.statusCode}`;
+    result.compatibilitySignalDetected = hasCompatibilitySignal(
+      site.vendor,
+      error.responseBody.toLowerCase(),
+    );
+
+    executionContext.loggerInstance.error(
+      "Connection compatibility check failed with upstream response",
+      {
+        compatibilitySignalDetected: result.compatibilitySignalDetected,
+        proxyMode: error.proxyMode,
+        requestHeaders: deps.pickDiagnosticHeadersFn(error.requestHeaders),
+        responseHeaders: deps.pickDiagnosticHeadersFn(error.responseHeaders),
+        responseSnippet: error.responseBody.slice(0, 500),
+        site: site.label,
+        statusCode: error.statusCode,
+        url: site.url,
+        useProxy: executionContext.useProxy,
+        vendor: site.vendor,
+      },
+    );
+
+    return result;
+  }
+
+  result.error = error instanceof Error ? error.message : "Request failed";
+  executionContext.loggerInstance.error(
+    "Connection compatibility check failed",
+    {
+      error: result.error,
+      site: site.label,
+      url: site.url,
+      useProxy: executionContext.useProxy,
+      vendor: site.vendor,
+    },
+  );
+  return result;
+}
+
+function buildSuccessfulCompatibilityCheckResult(
+  result: CompatibilityCheckResult,
+  site: (typeof COMPATIBILITY_CHECK_SITES)[number],
+  html: string,
+  requestHeaders: Record<string, string | string[] | undefined>,
+  executionContext: CompatibilityCheckExecutionContext,
+  deps: ResolvedCompatibilityCheckDeps,
+): CompatibilityCheckResult {
+  result.success = true;
+  result.statusCode = 200;
+  result.responseSize = Buffer.byteLength(html, "utf-8");
+  result.compatibilitySignalDetected = hasCompatibilitySignal(
+    site.vendor,
+    html.toLowerCase(),
+  );
+
+  executionContext.loggerInstance.info(
+    "Connection compatibility check completed",
+    {
+      compatibilitySignalDetected: result.compatibilitySignalDetected,
+      htmlSnippet: html.slice(0, 500),
+      requestHeaders: deps.pickDiagnosticHeadersFn(requestHeaders),
+      responseSize: result.responseSize,
+      site: site.label,
+      statusCode: 200,
+      success: true,
+      url: site.url,
+      useProxy: executionContext.useProxy,
+      vendor: site.vendor,
+    },
+  );
+
+  return result;
+}
+
+function hasCompatibilitySignal(vendor: string, bodyLower: string) {
+  const signals = COMPATIBILITY_SIGNAL_BY_VENDOR[vendor];
+
+  return signals ? signals.some((signal) => bodyLower.includes(signal)) : false;
+}
+
+function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
+  if (!value || typeof value !== "object") {
+    return { allowInsecureTls: false };
+  }
+
+  const candidate = value as {
+    allowInsecureTls?: unknown;
+    proxyUrl?: unknown;
+  };
+
+  return {
+    allowInsecureTls: candidate.allowInsecureTls === true,
+    proxyUrl:
+      typeof candidate.proxyUrl === "string" && candidate.proxyUrl.length > 0
+        ? candidate.proxyUrl
+        : undefined,
+  };
+}
+
+async function parseCompatibilityCheckBody(
+  request: NextRequest,
+): Promise<CompatibilityCheckRequest | Response> {
+  try {
+    const body = (await request.json()) as unknown;
+    if (body === null || Array.isArray(body) || typeof body !== "object") {
+      return NextResponse.json(
+        { error: "JSON body must be an object" },
+        { status: 400 },
+      );
     }
+    return body as CompatibilityCheckRequest;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+}
 
+function resolveCompatibilityCheckDeps(
+  deps: CompatibilityCheckDeps,
+): ResolvedCompatibilityCheckDeps {
+  return {
+    fetchHtmlWithHttpCloakFn:
+      deps.fetchHtmlWithHttpCloakFn ?? fetchHtmlWithHttpCloak,
+    httpCloakUpstreamErrorClass:
+      deps.httpCloakUpstreamErrorClass ?? HttpCloakUpstreamError,
+    loggerInstance: deps.loggerInstance ?? logger,
+    parseJsonBodyOrResponseFn:
+      deps.parseJsonBodyOrResponseFn ?? parseCompatibilityCheckBody,
+    pickDiagnosticHeadersFn:
+      deps.pickDiagnosticHeadersFn ?? pickDiagnosticHeaders,
+    rateLimitConfig: deps.rateLimitConfig ?? {
+      maxAttempts: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_MAX_ATTEMPTS,
+      windowMs: CONFIG.RATE_LIMIT_PROXY_COMPATIBILITY_WINDOW_MS,
+    },
+    requireMutableAuthenticatedUserFn:
+      deps.requireMutableAuthenticatedUserFn ??
+      serverApi.requireMutableAuthenticatedUser,
+    resolveUserProxyFn: deps.resolveUserProxyFn ?? resolveUserProxy,
+    serviceErrorClass: deps.serviceErrorClass ?? serverApi.ServerServiceError,
+  };
+}
+
+async function resolveCompatibilityExecutionContext(
+  userId: number,
+  useProxy: boolean,
+  deps: ResolvedCompatibilityCheckDeps,
+): Promise<CompatibilityCheckExecutionContext | Response> {
+  if (!useProxy) {
+    return {
+      allowInsecureTls: false,
+      loggerInstance: deps.loggerInstance,
+      useProxy,
+      userId,
+    };
+  }
+
+  try {
+    const resolved = normalizeResolvedUserProxy(
+      await deps.resolveUserProxyFn(userId),
+    );
+    const proxyUrl = resolved.proxyUrl;
     if (!proxyUrl) {
       return NextResponse.json(
         { error: "No proxy configured. Configure a proxy first." },
         { status: 400 },
       );
     }
+
+    const allowInsecureTls = resolved.allowInsecureTls;
+
+    return {
+      allowInsecureTls,
+      loggerInstance: deps.loggerInstance,
+      proxyUrl,
+      useProxy,
+      userId,
+    };
+  } catch (error) {
+    if (
+      error instanceof deps.serviceErrorClass &&
+      error.reason === "proxy-password-unreadable"
+    ) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+
+    throw error;
   }
+}
 
-  loggerInstance.info("Connection compatibility check started", {
-    proxyConfigured: !!proxyUrl,
-    sites: COMPATIBILITY_CHECK_SITES.map((site) => site.label),
-    useProxy,
-    userId: authResult.userId,
-  });
-
-  const runCompatibilityCheck = (
-    site: (typeof COMPATIBILITY_CHECK_SITES)[number],
-  ): Promise<CompatibilityCheckResult> => {
-    return (async () => {
-      const result: CompatibilityCheckResult = {
-        compatibilitySignalDetected: false,
-        site: site.label,
-        success: false,
-        url: site.url,
-        vendor: site.vendor,
-      };
-
-      try {
-        const { html, requestHeaders } = await fetchHtmlWithHttpCloakFn(
-          site.url,
-          () => Promise.resolve(true),
-          {
-            allowInsecureTls,
-            proxyUrl,
-          },
-        );
-
-        result.success = true;
-        result.statusCode = 200;
-        result.responseSize = Buffer.byteLength(html, "utf-8");
-
-        result.compatibilitySignalDetected = hasCompatibilitySignal(
-          site.vendor,
-          html.toLowerCase(),
-        );
-
-        loggerInstance.info("Connection compatibility check completed", {
-          compatibilitySignalDetected: result.compatibilitySignalDetected,
-          htmlSnippet: html.slice(0, 500),
-          requestHeaders: pickDiagnosticHeadersFn(requestHeaders),
-          responseSize: result.responseSize,
-          site: site.label,
-          statusCode: 200,
-          success: true,
-          url: site.url,
-          useProxy,
-          vendor: site.vendor,
-        });
-      } catch (err) {
-        result.success = false;
-        result.compatibilitySignalDetected = true;
-
-        if (err instanceof httpCloakUpstreamErrorClass) {
-          result.statusCode = err.statusCode;
-          result.error = `HTTP ${err.statusCode}`;
-          result.compatibilitySignalDetected = hasCompatibilitySignal(
-            site.vendor,
-            err.responseBody.toLowerCase(),
-          );
-
-          loggerInstance.error(
-            "Connection compatibility check failed with upstream response",
-            {
-              compatibilitySignalDetected:
-                result.compatibilitySignalDetected,
-              proxyMode: err.proxyMode,
-              requestHeaders: pickDiagnosticHeadersFn(err.requestHeaders),
-              responseHeaders: pickDiagnosticHeadersFn(err.responseHeaders),
-              responseSnippet: err.responseBody.slice(0, 500),
-              site: site.label,
-              statusCode: err.statusCode,
-              url: site.url,
-              useProxy,
-              vendor: site.vendor,
-            },
-          );
-        } else {
-          result.error = err instanceof Error ? err.message : "Request failed";
-          loggerInstance.error("Connection compatibility check failed", {
-            error: result.error,
-            site: site.label,
-            url: site.url,
-            useProxy,
-            vendor: site.vendor,
-          });
-        }
-      }
-
-      return result;
-    })();
+async function runCompatibilityCheck(
+  site: (typeof COMPATIBILITY_CHECK_SITES)[number],
+  executionContext: CompatibilityCheckExecutionContext,
+  deps: ResolvedCompatibilityCheckDeps,
+): Promise<CompatibilityCheckResult> {
+  const result: CompatibilityCheckResult = {
+    compatibilitySignalDetected: false,
+    site: site.label,
+    success: false,
+    url: site.url,
+    vendor: site.vendor,
   };
 
-  const results = await Promise.all(
-    COMPATIBILITY_CHECK_SITES.map((site) => runCompatibilityCheck(site)),
+  try {
+    const { html, requestHeaders } = await deps.fetchHtmlWithHttpCloakFn(
+      site.url,
+      () => Promise.resolve(true),
+      {
+        allowInsecureTls: executionContext.allowInsecureTls,
+        proxyUrl: executionContext.proxyUrl,
+      },
+    );
+
+    return buildSuccessfulCompatibilityCheckResult(
+      result,
+      site,
+      html,
+      requestHeaders,
+      executionContext,
+      deps,
+    );
+  } catch (error) {
+    return buildFailedCompatibilityCheckResult(
+      result,
+      site,
+      error,
+      executionContext,
+      deps,
+    );
+  }
+}
+
+async function runCompatibilityChecks(
+  executionContext: CompatibilityCheckExecutionContext,
+  deps: ResolvedCompatibilityCheckDeps,
+): Promise<CompatibilityCheckResult[]> {
+  return Promise.all(
+    COMPATIBILITY_CHECK_SITES.map((site) =>
+      runCompatibilityCheck(site, executionContext, deps),
+    ),
   );
-
-  return NextResponse.json({ results });
 }
 
-function hasCompatibilitySignal(vendor: string, bodyLower: string) {
-  if (vendor === "DataDome") {
-    return (
-      bodyLower.includes("datadome") ||
-      bodyLower.includes("captcha-delivery") ||
-      bodyLower.includes("geo.captcha-delivery")
-    );
-  }
-
-  if (vendor === "PerimeterX") {
-    return (
-      bodyLower.includes("perimeterx") ||
-      bodyLower.includes("_px") ||
-      bodyLower.includes("px-captcha")
-    );
-  }
-
-  if (vendor === "Cloudflare") {
-    return (
-      bodyLower.includes("cloudflare") ||
-      bodyLower.includes("cf-browser-verification") ||
-      bodyLower.includes("__cf_chl_") ||
-      bodyLower.includes("/cdn-cgi/challenge-platform")
-    );
-  }
-
-  if (vendor === "reCAPTCHA") {
-    return (
-      bodyLower.includes("g-recaptcha") ||
-      bodyLower.includes("grecaptcha") ||
-      bodyLower.includes("/recaptcha/api") ||
-      bodyLower.includes("google.com/recaptcha") ||
-      bodyLower.includes("i'm not a robot")
-    );
-  }
-
-  return false;
-}
+const COMPATIBILITY_SIGNAL_BY_VENDOR: Partial<Record<string, string[]>> = {
+  Cloudflare: [
+    "cloudflare",
+    "cf-browser-verification",
+    "__cf_chl_",
+    "/cdn-cgi/challenge-platform",
+  ],
+  DataDome: ["datadome", "captcha-delivery", "geo.captcha-delivery"],
+  PerimeterX: ["perimeterx", "_px", "px-captcha"],
+  reCAPTCHA: [
+    "g-recaptcha",
+    "grecaptcha",
+    "/recaptcha/api",
+    "google.com/recaptcha",
+    "i'm not a robot",
+  ],
+};

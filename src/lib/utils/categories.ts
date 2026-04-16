@@ -3,7 +3,7 @@
  * Centralizes category handling logic
  */
 
-import type { CategoryTreeNode } from "@/lib/core/types";
+import type { CategoryTreeNode } from "@/lib/types";
 
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 

@@ -3,9 +3,10 @@ import type { SetStateAction } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { UseSettingsProxyStateResult } from "@/app/dashboard/hooks/useSettingsProxyState";
+import type { UseSettingsProxyStateResult } from "@/app/dashboard/settings-state/useSettingsProxyState";
 
-import { previewText } from "@/app/dashboard/services/settings-proxy";
+import { previewText } from "@/app/dashboard/dashboard-services/settings-proxy";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const proxyState = createProxyState();
 const proxyEvents = createProxyEvents();
@@ -31,7 +32,9 @@ describe("SettingsProxySection", () => {
     expect(getByText("Compatibility Check")).toBeTruthy();
     expect(queryByRole("button", { name: "Run Check" })).toBeNull();
     expect(queryByRole("switch")).toBeNull();
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      0,
+    );
   });
 
   test("keeps hydrated status badges visible while a refresh request is pending", async () => {
@@ -51,7 +54,9 @@ describe("SettingsProxySection", () => {
     expect(view.queryByText("Connected")).not.toBeNull();
     expect(view.queryByText("Exit 203.0.113.21")).not.toBeNull();
     expect(view.queryByRole("button", { name: "Run Check" })).not.toBeNull();
-    expect(view.queryByDisplayValue("https://proxy.example.test")).not.toBeNull();
+    expect(
+      view.queryByDisplayValue("https://proxy.example.test"),
+    ).not.toBeNull();
   });
 
   test("renders a configured proxy surface and runs save and clear actions", async () => {
@@ -126,7 +131,9 @@ describe("SettingsProxySection", () => {
     const view = await renderProxySection();
 
     expect(view.queryByText(previewText(proxyState.error))).not.toBeNull();
-    expect(view.queryByText(previewText(proxyState.compatibilityError))).not.toBeNull();
+    expect(
+      view.queryByText(previewText(proxyState.compatibilityError)),
+    ).not.toBeNull();
   });
 
   test("toggles insecure TLS and runs compatibility checks", async () => {
@@ -193,7 +200,9 @@ describe("SettingsProxySection", () => {
     const saveButton = view.getByRole("button", { name: /Save/u });
     const runCheckButton = view.getByRole("button", { name: /Checking…/u });
     const tlsSwitch = view.getByRole("switch");
-    const proxyUrlInput = view.getByDisplayValue("https://proxy.example.test") as HTMLInputElement;
+    const proxyUrlInput = view.getByDisplayValue(
+      "https://proxy.example.test",
+    ) as HTMLInputElement;
 
     expect(view.getAllByText("Checking")).toHaveLength(2);
     expect((saveButton as HTMLButtonElement).disabled).toBeTrue();
@@ -201,7 +210,6 @@ describe("SettingsProxySection", () => {
     expect(tlsSwitch.getAttribute("data-disabled")).not.toBeNull();
     expect(proxyUrlInput.disabled).toBeTrue();
   });
-
 });
 
 function createProxyEvents() {
@@ -256,7 +264,9 @@ function createProxyState(): UseSettingsProxyStateResult {
       );
     },
     setProxyUrl: (value: SetStateAction<string>) => {
-      proxyEvents.setProxyUrl.push(resolveStateAction(proxyState.proxyUrl, value));
+      proxyEvents.setProxyUrl.push(
+        resolveStateAction(proxyState.proxyUrl, value),
+      );
     },
     setProxyUsername: (value: SetStateAction<string>) => {
       proxyEvents.setProxyUsername.push(
@@ -275,15 +285,19 @@ async function renderProxySection() {
     "src",
     "app",
     "dashboard",
-    "components",
-    "settings",
+    "dashboard-components",
+    "settings-dialog",
     "SettingsProxySection.tsx",
   ].join("/");
   const { SettingsProxySectionContent } = (await import(
     `${modulePath}?settings-proxy-section-test`
-  )) as typeof import("@/app/dashboard/components/settings/SettingsProxySection");
+  )) as typeof import("@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection");
 
-  return render(<SettingsProxySectionContent {...proxyState} />);
+  return render(
+    <TooltipProvider>
+      <SettingsProxySectionContent {...proxyState} />
+    </TooltipProvider>,
+  );
 }
 
 function resetProxyEvents() {

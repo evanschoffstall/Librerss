@@ -88,7 +88,12 @@ async function captureAuditTimeline(
       SHOULD_CAPTURE_ALL_AUDIT_FRAMES ||
       frameTime === AUDIT_FRAME_TIMES_MS.at(-1)
     ) {
-      await attachAuditScreenshot(page, clip, testInfo, `${name}-${frameTime}ms`);
+      await attachAuditScreenshot(
+        page,
+        clip,
+        testInfo,
+        `${name}-${frameTime}ms`,
+      );
     }
     metrics.push(await readMetrics(frameTime));
     previousFrameTime = frameTime;
@@ -124,9 +129,11 @@ async function readArticleMotionMetrics(
   return await page.evaluate(
     ({ nextFollowerKey, nextTargetKey, nextTimeMs }) => {
       const readMetrics = (articleKey: string) => {
-        const article = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
-          (candidate) => candidate.dataset.articleKey === articleKey,
-        );
+        const article = [
+          ...document.querySelectorAll<HTMLElement>(
+            "article[data-article-key]",
+          ),
+        ].find((candidate) => candidate.dataset.articleKey === articleKey);
 
         if (!article) {
           return null;
@@ -162,22 +169,32 @@ async function readAuditClipForArticles(
   return await page.evaluate((targetArticleKeys) => {
     const articles = targetArticleKeys
       .map((articleKey) => {
-        return [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
-          (candidate) => candidate.dataset.articleKey === articleKey,
-        );
+        return [
+          ...document.querySelectorAll<HTMLElement>(
+            "article[data-article-key]",
+          ),
+        ].find((candidate) => candidate.dataset.articleKey === articleKey);
       })
       .filter((article): article is HTMLElement => Boolean(article));
 
     if (articles.length === 0) {
-      throw new Error("Expected at least one article to be present for clip capture.");
+      throw new Error(
+        "Expected at least one article to be present for clip capture.",
+      );
     }
 
-    const viewport = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].reduce<HTMLElement | null>((selected, candidate) => {
+    const viewport = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ),
+    ].reduce<HTMLElement | null>((selected, candidate) => {
       if (!selected) {
         return candidate;
       }
 
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
+      return candidate.scrollHeight > selected.scrollHeight
+        ? candidate
+        : selected;
     }, null);
 
     if (!viewport) {
@@ -194,8 +211,14 @@ async function readAuditClipForArticles(
     const maxHeight = document.documentElement.clientHeight;
 
     return {
-      height: Math.min(maxHeight - Math.max(0, top - padding), bottom - top + padding * 2),
-      width: Math.min(maxWidth - Math.max(0, left - padding), right - left + padding * 2),
+      height: Math.min(
+        maxHeight - Math.max(0, top - padding),
+        bottom - top + padding * 2,
+      ),
+      width: Math.min(
+        maxWidth - Math.max(0, left - padding),
+        right - left + padding * 2,
+      ),
       x: Math.max(0, left - padding),
       y: Math.max(0, top - padding),
     };
@@ -207,7 +230,9 @@ async function readAuditClipForLocator(locator: Locator): Promise<AuditClip> {
   const box = await locator.boundingBox();
 
   if (!box) {
-    throw new Error("Expected target locator to have a measurable bounding box.");
+    throw new Error(
+      "Expected target locator to have a measurable bounding box.",
+    );
   }
 
   const padding = 16;
@@ -232,7 +257,10 @@ test.describe("dashboard visual audit", () => {
     const article = firstArticleCard(page);
     const articleKey = await readArticleKey(article);
     const followerKey = await readArticleKey(articleCard(page, 1));
-    const clip = await readAuditClipForArticles(page, [articleKey, followerKey]);
+    const clip = await readAuditClipForArticles(page, [
+      articleKey,
+      followerKey,
+    ]);
 
     await attachAuditScreenshot(page, clip, testInfo, "expand-before");
     await toggleArticle(article);
@@ -265,10 +293,27 @@ test.describe("dashboard visual audit", () => {
       buttonReadFollowerKey,
     ]);
 
-    await attachAuditScreenshot(page, buttonReadClip, testInfo, "button-read-before");
-    await buttonReadArticle.getByRole("button", { name: "Mark as read" }).click();
-    await captureAuditTimeline(page, buttonReadClip, testInfo, "button-read", (timeMs) =>
-      readArticleMotionMetrics(page, buttonReadKey, buttonReadFollowerKey, timeMs),
+    await attachAuditScreenshot(
+      page,
+      buttonReadClip,
+      testInfo,
+      "button-read-before",
+    );
+    await buttonReadArticle
+      .getByRole("button", { name: "Mark as read" })
+      .click();
+    await captureAuditTimeline(
+      page,
+      buttonReadClip,
+      testInfo,
+      "button-read",
+      (timeMs) =>
+        readArticleMotionMetrics(
+          page,
+          buttonReadKey,
+          buttonReadFollowerKey,
+          timeMs,
+        ),
     );
     await expect(articleCardByKey(page, buttonReadKey)).toHaveCount(0);
 
@@ -280,10 +325,25 @@ test.describe("dashboard visual audit", () => {
       swipeReadFollowerKey,
     ]);
 
-    await attachAuditScreenshot(page, swipeReadClip, testInfo, "swipe-read-before");
+    await attachAuditScreenshot(
+      page,
+      swipeReadClip,
+      testInfo,
+      "swipe-read-before",
+    );
     await swipeArticle(swipeReadArticle, { endRatio: 0.92, startRatio: 0.24 });
-    await captureAuditTimeline(page, swipeReadClip, testInfo, "swipe-read", (timeMs) =>
-      readArticleMotionMetrics(page, swipeReadKey, swipeReadFollowerKey, timeMs),
+    await captureAuditTimeline(
+      page,
+      swipeReadClip,
+      testInfo,
+      "swipe-read",
+      (timeMs) =>
+        readArticleMotionMetrics(
+          page,
+          swipeReadKey,
+          swipeReadFollowerKey,
+          timeMs,
+        ),
     );
     await expect(articleCardByKey(page, swipeReadKey)).toHaveCount(0);
   });
@@ -305,8 +365,13 @@ test.describe("dashboard visual audit", () => {
 
     await attachAuditScreenshot(page, starClip, testInfo, "swipe-star-before");
     await swipeArticle(starArticle, { endRatio: 0.08, startRatio: 0.78 });
-    await captureAuditTimeline(page, starClip, testInfo, "swipe-star", (timeMs) =>
-      readArticleMotionMetrics(page, starArticleKey, starFollowerKey, timeMs),
+    await captureAuditTimeline(
+      page,
+      starClip,
+      testInfo,
+      "swipe-star",
+      (timeMs) =>
+        readArticleMotionMetrics(page, starArticleKey, starFollowerKey, timeMs),
     );
     await expect(
       starArticle.getByRole("button", { name: "Remove star" }),
@@ -319,9 +384,15 @@ test.describe("dashboard visual audit", () => {
     await page
       .locator('button[aria-label="Refresh selected feed"]:visible')
       .click();
-    await captureAuditTimeline(page, tokenBarClip, testInfo, "refresh", async (timeMs) => ({
-      timeMs,
-    }));
+    await captureAuditTimeline(
+      page,
+      tokenBarClip,
+      testInfo,
+      "refresh",
+      async (timeMs) => ({
+        timeMs,
+      }),
+    );
     await expect(page.getByText("demo", { exact: true })).toBeVisible();
   });
 });

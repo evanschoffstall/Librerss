@@ -18,25 +18,20 @@ import {
 import { createElement } from "react";
 import { toast } from "sonner";
 
+import type { Article, CategoryTreeNode } from "@/lib/core";
+
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
 import {
   escapeArticleKey,
   useArticleHydration,
-} from "@/app/dashboard/hooks/useArticleHydration";
-import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
-import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
-import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
-import {
-  useFeedLoader,
-} from "@/app/dashboard/hooks/useFeedLoader";
-import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
-import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
-import {
-  type Article,
-  ArticleService,
-  type CategoryTreeNode,
-  FeedService,
-} from "@/lib";
+} from "@/app/dashboard/dashboard-hooks/useArticleHydration";
+import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
+import { useCategoryOrderState } from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
+import { useDashboardEvents } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
+import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
+import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
+import { ArticleService, FeedService } from "@/lib/api";
 
 describe("useFeedLoader", () => {
   test("reuses a prefetched batch query without clearing the feed", async () => {
@@ -191,27 +186,29 @@ describe("useFeedLoader", () => {
       feedRef.current = feedState;
     });
 
-    FeedService.getFeedsBatch = mock(async (_urls: string[], options?: { articleLimit?: number }) => {
-      if (options?.articleLimit === 8) {
+    FeedService.getFeedsBatch = mock(
+      async (_urls: string[], options?: { articleLimit?: number }) => {
+        if (options?.articleLimit === 8) {
+          return [
+            {
+              articles: [pageEightArticle],
+              lastFetchedAt: new Date("2026-03-14T12:03:00.000Z"),
+              ok: true,
+              url: prefetchedFeedUrl,
+            },
+          ];
+        }
+
         return [
           {
-            articles: [pageEightArticle],
-            lastFetchedAt: new Date("2026-03-14T12:03:00.000Z"),
+            articles: [pageFourArticle],
+            lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
             ok: true,
             url: prefetchedFeedUrl,
           },
         ];
-      }
-
-      return [
-        {
-          articles: [pageFourArticle],
-          lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
-          ok: true,
-          url: prefetchedFeedUrl,
-        },
-      ];
-    }) as typeof FeedService.getFeedsBatch;
+      },
+    ) as typeof FeedService.getFeedsBatch;
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       createElement(QueryClientProvider, { client: queryClient }, children);
@@ -554,7 +551,9 @@ describe("useDashboardEvents", () => {
     );
 
     act(() => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
+      );
     });
 
     await waitFor(() => {
@@ -583,7 +582,9 @@ describe("useDashboardEvents", () => {
     );
 
     act(() => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+      window.dispatchEvent(
+        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
+      );
     });
 
     await waitFor(() => {
@@ -769,6 +770,7 @@ const originalGetFeedsBatch = FeedService.getFeedsBatch;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
 const originalConsoleError = console.error;
 const originalConsoleInfo = console.info;
+const originalEnableTestLogOutput = process.env.ENABLE_TEST_LOG_OUTPUT;
 const originalClientFeedRefreshDiagnosticsEnabled =
   process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
 const muteConsoleError = (() => {}) as typeof console.error;
@@ -776,6 +778,7 @@ const muteConsoleInfo = (() => {}) as typeof console.info;
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED = "false";
+  process.env.ENABLE_TEST_LOG_OUTPUT = "true";
 });
 
 afterEach(() => {
@@ -787,6 +790,11 @@ afterEach(() => {
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
   console.error = originalConsoleError;
   console.info = originalConsoleInfo;
+  if (originalEnableTestLogOutput === undefined) {
+    delete process.env.ENABLE_TEST_LOG_OUTPUT;
+  } else {
+    process.env.ENABLE_TEST_LOG_OUTPUT = originalEnableTestLogOutput;
+  }
   if (originalClientFeedRefreshDiagnosticsEnabled === undefined) {
     delete process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
   } else {

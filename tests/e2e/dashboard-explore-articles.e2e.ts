@@ -1,6 +1,3 @@
-
-import type { Page } from "@playwright/test";
-
 import {
   articleCard,
   articleCardByKey,
@@ -22,27 +19,6 @@ function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   );
 }
 
-async function openFirstArticleForFeed(page: Page, feedName: string) {
-  const feedButton = page.locator("button").filter({ hasText: feedName }).first();
-  await feedButton.scrollIntoViewIfNeeded();
-  await feedButton.click();
-
-  const article = articleCard(page, 0);
-  await toggleArticle(article);
-  await expectArticleExpanded(article, true);
-  return article;
-}
-
-async function readExpandedContentImageSources(article: ReturnType<typeof articleCard>) {
-  return await article.locator("img").evaluateAll((nodes) =>
-    nodes
-      .map((node) => node.getAttribute("src") ?? "")
-      .filter(
-        (src) => src.length > 0 && !src.includes("google.com/s2/favicons"),
-      ),
-  );
-}
-
 test.describe("dashboard explore article interactions", () => {
   test("expands an explore article without changing row animation state", async ({
     page,
@@ -56,15 +32,21 @@ test.describe("dashboard explore article interactions", () => {
     await expectArticleExpanded(article, false);
     await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
     await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-    await expect(article.locator("[data-article-preview='true']")).toHaveCount(1);
+    await expect(article.locator("[data-article-preview='true']")).toHaveCount(
+      1,
+    );
 
     await toggleArticle(article);
 
     await expectArticleExpanded(article, true);
     await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
     await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-    await expect(article.locator("[data-article-preview='true']")).toHaveCount(0);
-    await expect(article.getByRole("link", { name: "Open article" })).toBeVisible();
+    await expect(article.locator("[data-article-preview='true']")).toHaveCount(
+      0,
+    );
+    await expect(
+      article.getByRole("link", { name: "Open article" }),
+    ).toBeVisible();
     await expect(
       article.getByRole("button", { name: "Share article options" }),
     ).toBeVisible();
@@ -103,9 +85,7 @@ test.describe("dashboard explore article interactions", () => {
     await expectArticleExpanded(article, false);
     if (initialScrollTop > 0) {
       await expect
-        .poll(
-          async () => (await readFeedViewportMetrics(page)).scrollTop,
-        )
+        .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
         .toBeGreaterThan(0);
     }
     await expectNotClipped(
@@ -168,8 +148,12 @@ test.describe("dashboard explore article interactions", () => {
       await expectArticleExpanded(article, true);
       await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
       await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-      await expect(article.locator("[data-article-preview='true']")).toHaveCount(0);
-      await expect(article.getByRole("link", { name: "Open article" })).toBeVisible();
+      await expect(
+        article.locator("[data-article-preview='true']"),
+      ).toHaveCount(0);
+      await expect(
+        article.getByRole("link", { name: "Open article" }),
+      ).toBeVisible();
       await expect(
         article.getByRole("button", { name: "View raw article HTML" }),
       ).toBeVisible();
@@ -200,7 +184,9 @@ test.describe("dashboard explore article interactions", () => {
           !(node instanceof HTMLElement) ||
           !(viewport instanceof HTMLElement)
         ) {
-          throw new Error("Expected expanded article header and viewport to be present.");
+          throw new Error(
+            "Expected expanded article header and viewport to be present.",
+          );
         }
 
         const articleRect = node.getBoundingClientRect();
@@ -234,27 +220,16 @@ test.describe("dashboard explore article interactions", () => {
     ).toBeVisible();
   });
 
-  test("shows a content image for NASA Image of the Day articles in explore mode", async ({
+  test("does not surface removed image placeholder feeds in explore mode", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
 
-    const article = await openFirstArticleForFeed(page, "NASA Image of the Day");
-
-    await expect
-      .poll(async () => (await readExpandedContentImageSources(article)).length)
-      .toBeGreaterThan(0);
-  });
-
-  test("shows a content image for ESA Images articles in explore mode", async ({
-    page,
-  }) => {
-    await gotoPreviewDashboard(page);
-
-    const article = await openFirstArticleForFeed(page, "ESA Images");
-
-    await expect
-      .poll(async () => (await readExpandedContentImageSources(article)).length)
-      .toBeGreaterThan(0);
+    await expect(
+      page.locator("button").filter({ hasText: "ESA Images" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
+    ).toHaveCount(0);
   });
 });

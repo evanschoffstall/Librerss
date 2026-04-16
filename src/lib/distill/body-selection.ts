@@ -53,30 +53,31 @@ export function findArticleBody(
   html: string,
   minLength: number,
 ): null | string {
-  let body = findFirstByAttr(html, "itemprop", "articleBody");
-  if (body && body.trim().length >= minLength) return body;
+  const schemaBody = findFirstByAttr(html, "itemprop", "articleBody");
+  if (meetsMinLength(schemaBody, minLength)) {
+    return schemaBody;
+  }
 
-  body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
+  const body = findFirstByClassContains(
+    html,
+    CONTENT_CLASS_PATTERNS,
+    minLength,
+  );
   if (body) return body;
 
-  const articles = findAllByTag(html, "article");
-  if (articles.length > 0) {
-    body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
+  const articleBody = findLargestTagBody(html, "article", minLength);
+  if (articleBody) {
+    return articleBody;
   }
 
   for (const role of ["main", "article"] as const) {
-    body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) return body;
+    const roleBody = findFirstByAttr(html, "role", role);
+    if (meetsMinLength(roleBody, minLength)) {
+      return roleBody;
+    }
   }
 
-  const mains = findAllByTag(html, "main");
-  if (mains.length > 0) {
-    body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
-  }
-
-  return null;
+  return findLargestTagBody(html, "main", minLength);
 }
 
 function classOrIdContains(attrsStr: string, segment: string): boolean {
@@ -148,6 +149,30 @@ function findFirstByClassContains(
     }
   }
   return null;
+}
+
+function findLargestTagBody(
+  html: string,
+  tagName: string,
+  minLength: number,
+): null | string {
+  const matches = findAllByTag(html, tagName);
+  const largestMatch = matches.reduce<null | string>(
+    (largest, candidate) =>
+      largest === null || candidate.length > largest.length
+        ? candidate
+        : largest,
+    null,
+  );
+
+  return meetsMinLength(largestMatch, minLength) ? largestMatch : null;
+}
+
+function meetsMinLength(
+  value: null | string,
+  minLength: number,
+): value is string {
+  return value !== null && value.trim().length >= minLength;
 }
 
 function segmentMatch(attrValue: string, segment: string): boolean {

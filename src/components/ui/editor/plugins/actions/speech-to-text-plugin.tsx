@@ -10,12 +10,12 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import type { LexicalCommand, LexicalEditor, RangeSelection } from "lexical";
 import {
-    $getSelection,
-    $isRangeSelection,
-    COMMAND_PRIORITY_EDITOR,
-    createCommand,
-    REDO_COMMAND,
-    UNDO_COMMAND,
+  $getSelection,
+  $isRangeSelection,
+  COMMAND_PRIORITY_EDITOR,
+  createCommand,
+  REDO_COMMAND,
+  UNDO_COMMAND,
 } from "lexical";
 import { MicIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -24,9 +24,9 @@ import { Button } from "@/components/ui/button";
 import { useReport } from "@/components/ui/editor/editor-hooks/use-report";
 import { CAN_USE_DOM } from "@/components/ui/editor/shared/can-use-dom";
 import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
 
 export const SPEECH_TO_TEXT_COMMAND: LexicalCommand<boolean> = createCommand(

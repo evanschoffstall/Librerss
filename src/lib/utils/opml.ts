@@ -1,6 +1,6 @@
-import type { CategoryTreeNode } from "@/lib/core/types";
+import type { CategoryTreeNode } from "@/lib/types";
 
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
 import { tryNormalizeFeedUrl } from "./url";

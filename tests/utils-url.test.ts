@@ -366,25 +366,23 @@ describe("utils/url – injectProxyCredentials", () => {
 
 describe("utils/url – credential extraction", () => {
   test("extracts and strips embedded URL credentials", async () => {
-    const { getUrlCredentials, stripUrlCredentials } = await import(
-      "@/lib/utils/url"
-    );
+    const { getUrlCredentials, stripUrlCredentials } =
+      await import("@/lib/utils/url");
     const embeddedProxyUrl = `http://${"alice"}:${"secret"}@proxy.example.com:8080`;
 
     expect(getUrlCredentials(embeddedProxyUrl)).toEqual({
-        password: "secret",
-        sanitizedUrl: "http://proxy.example.com:8080",
-        username: "alice",
-      });
+      password: "secret",
+      sanitizedUrl: "http://proxy.example.com:8080",
+      username: "alice",
+    });
     expect(stripUrlCredentials(embeddedProxyUrl)).toBe(
       "http://proxy.example.com:8080",
     );
   });
 
   test("returns null for invalid credential-bearing URLs", async () => {
-    const { getUrlCredentials, stripUrlCredentials } = await import(
-      "@/lib/utils/url"
-    );
+    const { getUrlCredentials, stripUrlCredentials } =
+      await import("@/lib/utils/url");
 
     expect(getUrlCredentials("not-a-url")).toBeNull();
     expect(stripUrlCredentials("not-a-url")).toBe("not-a-url");
@@ -393,13 +391,11 @@ describe("utils/url – credential extraction", () => {
   test("adds the default port to socks URLs that omit it", async () => {
     const { ensureProxyUrlHasExplicitPort } = await import("@/lib/utils/url");
 
+    expect(ensureProxyUrlHasExplicitPort("socks5://proxy.example.com")).toBe(
+      "socks5://proxy.example.com:1080",
+    );
     expect(
-      ensureProxyUrlHasExplicitPort("socks5://proxy.example.com"),
-    ).toBe("socks5://proxy.example.com:1080");
-    expect(
-      ensureProxyUrlHasExplicitPort(
-        "socks5://alice:secret@proxy.example.com",
-      ),
+      ensureProxyUrlHasExplicitPort("socks5://alice:secret@proxy.example.com"),
     ).toBe("socks5://alice:secret@proxy.example.com:1080");
   });
 

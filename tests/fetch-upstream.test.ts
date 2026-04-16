@@ -6,13 +6,22 @@ import { logger } from "@/lib/logger";
 
 const TEST_URL = "https://example.com/article";
 const TEST_HTML = "<html><body>Test content</body></html>";
+const originalLoggerInfo = logger.info;
+const originalLoggerWarn = logger.warn;
+const originalLoggerError = logger.error;
 
 beforeEach(() => {
   mock.restore();
+  logger.info = (() => {}) as typeof logger.info;
+  logger.warn = (() => {}) as typeof logger.warn;
+  logger.error = (() => {}) as typeof logger.error;
 });
 
 afterEach(() => {
   mock.restore();
+  logger.info = originalLoggerInfo;
+  logger.warn = originalLoggerWarn;
+  logger.error = originalLoggerError;
 });
 
 function createHttpCloakUpstreamError(
@@ -20,16 +29,16 @@ function createHttpCloakUpstreamError(
   responseBody = "blocked",
   responseHeaders: Record<string, string> = {},
 ): HttpCloakUpstreamError {
-  return new HttpCloakUpstreamError(
-    statusCode,
+  return new HttpCloakUpstreamError({
+    allowInsecureTls: false,
+    proxyAddress: null,
+    proxyMode: "direct",
+    redirectHop: 0,
+    requestHeaders: {},
     responseBody,
-    "direct",
-    null,
-    false,
-    0,
     responseHeaders,
-    {},
-  );
+    statusCode,
+  });
 }
 
 describe("fetchHtml", () => {
@@ -262,7 +271,7 @@ describe("fetchHtml", () => {
         403,
         "<html>px-captcha challenge</html>",
         {
-        "x-px-original-token": "token",
+          "x-px-original-token": "token",
         },
       );
     });

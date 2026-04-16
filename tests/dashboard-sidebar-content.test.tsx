@@ -1,7 +1,11 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, mock, test } from "bun:test";
 
-function createCategory(key: string, label: string, children: { key: string; label: string }[] = []) {
+function createCategory(
+  key: string,
+  label: string,
+  children: { key: string; label: string }[] = [],
+) {
   return {
     children,
     key,
@@ -11,19 +15,23 @@ function createCategory(key: string, label: string, children: { key: string; lab
 
 describe("DashboardSidebarContent", () => {
   test("renders the sidebar skeleton structure while categories are loading", async () => {
-    const { DashboardSidebarSkeleton } = await import(
-      "@/app/dashboard/components/DashboardSidebarContent"
-    );
+    const { DashboardSidebarSkeleton } =
+      await import("@/app/dashboard/dashboard-components/layout");
     const { container } = render(<DashboardSidebarSkeleton />);
 
-    expect(container.querySelector('[data-dashboard-sidebar-skeleton="true"]')).toBeTruthy();
-    expect(container.querySelectorAll('[data-dashboard-sidebar-skeleton-row="true"]')).toHaveLength(6);
+    expect(
+      container.querySelector('[data-dashboard-sidebar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-sidebar-skeleton-row="true"]',
+      ),
+    ).toHaveLength(6);
   });
 
   test("renders the empty sidebar state when no categories are available", async () => {
-    const { DashboardSidebarContent } = await import(
-      "@/app/dashboard/components/DashboardSidebarContent"
-    );
+    const { DashboardSidebarContent } =
+      await import("@/app/dashboard/dashboard-components/layout");
     const { getByText } = render(
       <DashboardSidebarContent
         isCategoriesLoading={false}
@@ -42,9 +50,8 @@ describe("DashboardSidebarContent", () => {
   });
 
   test("renders category buttons and feed rows and wires their interactions", async () => {
-    const { DashboardSidebarContent } = await import(
-      "@/app/dashboard/components/DashboardSidebarContent"
-    );
+    const { DashboardSidebarContent } =
+      await import("@/app/dashboard/dashboard-components/layout");
     const onCategoryClick = mock(() => {});
     const onCategoryPrefetch = mock(() => {});
     const onFeedClick = mock(() => {});
@@ -84,7 +91,9 @@ describe("DashboardSidebarContent", () => {
     expect(onCategoryClick).toHaveBeenCalledWith(sidebarCategories[0]);
     expect(onCategoryPrefetch).toHaveBeenCalledTimes(2);
     expect(onFeedClick).toHaveBeenCalledWith(sidebarCategories[0].children[0]);
-    expect(onFeedPrefetch).toHaveBeenCalledWith(sidebarCategories[0].children[1]);
+    expect(onFeedPrefetch).toHaveBeenCalledWith(
+      sidebarCategories[0].children[1],
+    );
     expect(onFeedPrefetch).toHaveBeenCalledTimes(2);
   });
 });

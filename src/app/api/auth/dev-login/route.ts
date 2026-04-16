@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { logger } from "@/lib";
 import {
+  authenticateCredentials,
   buildDevAutoLoginFailurePath,
   DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY,
   getDevAutoLoginCredentials,
-} from "@/lib/auth/dev-auto-login";
-import { authenticateCredentials, setSessionCookie } from "@/lib/auth/session";
-import { logger } from "@/lib/logger";
+  setSessionCookie,
+} from "@/lib/auth";
 import { logAndRespondError } from "@/lib/server";
 
 const DEFAULT_RETURN_PATH = "/dashboard";
@@ -34,7 +35,9 @@ export async function GET(request: NextRequest) {
 
     if (!result.ok) {
       const warn =
-        typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
+        typeof logger.warn === "function"
+          ? logger.warn.bind(logger)
+          : undefined;
       warn?.("Development auto-login failed", { email: credentials.email });
 
       return NextResponse.redirect(
@@ -71,7 +74,8 @@ function getRequestOrigin(request: NextRequest): URL {
   }
 
   const forwardedProtocol = request.headers.get("x-forwarded-proto");
-  const protocol = forwardedProtocol ?? request.nextUrl.protocol.replace(/:$/u, "");
+  const protocol =
+    forwardedProtocol ?? request.nextUrl.protocol.replace(/:$/u, "");
 
   return new URL(`${protocol}://${host}`);
 }

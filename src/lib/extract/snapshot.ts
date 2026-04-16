@@ -37,27 +37,32 @@ function normalizePlaceholderSnapshotHtml(
 ): string {
   const articleOrigin = new URL(articleUrl);
 
-  return html.replace(
-    /\b(href|poster|src)=(['"])(.*?)\2/gi,
-    (match, attributeName: string, quote: string, rawValue: string) => {
-      const normalizedValue = normalizeUrlAttributeValue(articleOrigin, rawValue);
-      if (normalizedValue === rawValue) {
-        return match;
-      }
+  return html
+    .replace(
+      /\b(href|poster|src)=(['"])(.*?)\2/gi,
+      (match, attributeName: string, quote: string, rawValue: string) => {
+        const normalizedValue = normalizeUrlAttributeValue(
+          articleOrigin,
+          rawValue,
+        );
+        if (normalizedValue === rawValue) {
+          return match;
+        }
 
-      return `${attributeName}=${quote}${normalizedValue}${quote}`;
-    },
-  ).replace(
-    /\bsrcset=(['"])(.*?)\1/gi,
-    (match, quote: string, rawValue: string) => {
-      const normalizedValue = normalizeSrcsetValue(articleOrigin, rawValue);
-      if (normalizedValue === rawValue) {
-        return match;
-      }
+        return `${attributeName}=${quote}${normalizedValue}${quote}`;
+      },
+    )
+    .replace(
+      /\bsrcset=(['"])(.*?)\1/gi,
+      (match, quote: string, rawValue: string) => {
+        const normalizedValue = normalizeSrcsetValue(articleOrigin, rawValue);
+        if (normalizedValue === rawValue) {
+          return match;
+        }
 
-      return `srcset=${quote}${normalizedValue}${quote}`;
-    },
-  );
+        return `srcset=${quote}${normalizedValue}${quote}`;
+      },
+    );
 }
 
 /** Normalizes every candidate URL inside a srcset attribute. */

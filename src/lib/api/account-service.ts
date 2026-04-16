@@ -1,4 +1,4 @@
-import { getApiClient } from "./http";
+import { getApiClient } from "@/lib/api/http";
 
 const accountServiceBaseUrl = "/api/account";
 

@@ -3,19 +3,18 @@
  * Persists across requests within the same Node.js process.
  */
 
-import { lookup } from "node:dns/promises";
-
-import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { isBlockedResolvedAddress, normalizeHostname } from "@/lib/utils/ssrf";
-
-interface DnsCacheEntry {
-  blocked: boolean;
-  expiresAt: number;
-}
+import { CONFIG, logger } from "@/lib";
+import {
+  type DnsCacheEntry,
+  type DnsLookupFn,
+  type DnsLookupRuntimeDeps,
+  isBlockedResolvedAddress,
+  resolveBlockedAddressWithCache,
+} from "@/lib/utils";
 
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
+
+let _lookupFn: DnsLookupFn | null = null;
 
 export function clearDnsCacheForTests(): void {
   DNS_CACHE.clear();
@@ -23,92 +22,27 @@ export function clearDnsCacheForTests(): void {
 
 export async function resolvesToBlockedAddress(
   hostname: string,
-  deps?: {
-    clearTimeoutFn?: typeof clearTimeout;
-    isBlockedResolvedAddressFn?: typeof isBlockedResolvedAddress;
-    lookupFn?: typeof lookup;
-    nowFn?: () => number;
-    setTimeoutFn?: typeof setTimeout;
-    warnFn?: typeof logger.warn;
-  },
+  deps?: DnsLookupRuntimeDeps,
 ): Promise<boolean> {
-  const normalizedHostname = normalizeHostname(hostname);
-  if (!normalizedHostname) {
-    return true;
-  }
-
-  const now = deps?.nowFn ?? Date.now;
-  const lookupFn = deps?.lookupFn ?? lookup;
-  const isBlockedAddress =
-    deps?.isBlockedResolvedAddressFn ?? isBlockedResolvedAddress;
-  const warn = deps?.warnFn ?? logger.warn.bind(logger);
-  const setTimeoutFn = deps?.setTimeoutFn ?? setTimeout;
-  const clearTimeoutFn = deps?.clearTimeoutFn ?? clearTimeout;
-
-  const cached = DNS_CACHE.get(normalizedHostname);
-  if (cached && cached.expiresAt > now()) return cached.blocked;
-
-  try {
-    const lookupPromise = lookupFn(normalizedHostname, {
-      all: true,
-      verbatim: true,
-    });
-    let timeoutHandle: null | ReturnType<typeof setTimeout> = null;
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      timeoutHandle = setTimeoutFn(() => {
-        reject(new Error("DNS lookup timeout"));
-      }, CONFIG.DNS_LOOKUP_TIMEOUT_MS);
-    });
-
-    const records = await Promise.race([lookupPromise, timeoutPromise]).finally(
-      () => {
-        if (timeoutHandle) {
-          clearTimeoutFn(timeoutHandle);
-        }
-      },
-    );
-    const isBlocked = records.some((r) => isBlockedAddress(r.address));
-
-    setCacheSafe(normalizedHostname, {
-      blocked: isBlocked,
-      expiresAt: now() + CONFIG.DNS_CACHE_TTL_MS,
-    });
-
-    return isBlocked;
-  } catch (error) {
-    warn("DNS lookup failed for feed validation", {
-      error: toErrorMessage(error),
-      hostname: normalizedHostname,
-    });
-
-    // Fail-closed: treat unresolvable hostnames as blocked.
-    // Short TTL (60 s) to avoid prolonged false-positives from transient failures.
-    setCacheSafe(normalizedHostname, {
-      blocked: true,
-      expiresAt: now() + 60_000,
-    });
-
-    return true;
-  }
+  return resolveBlockedAddressWithCache({
+    cache: DNS_CACHE,
+    cacheTtlMs: CONFIG.DNS_CACHE_TTL_MS,
+    defaults: {
+      isBlockedResolvedAddressFn: isBlockedResolvedAddress,
+      lookupFn: await getLookupFn(),
+      warnFn: logger.warn.bind(logger),
+    },
+    deps,
+    hostname,
+    maxEntries: CONFIG.DNS_CACHE_MAX_ENTRIES,
+    timeoutMs: CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+  });
 }
 
-function setCacheSafe(key: string, value: DnsCacheEntry): void {
-  if (DNS_CACHE.size >= CONFIG.DNS_CACHE_MAX_ENTRIES) {
-    const now = Date.now();
-    for (const [k, entry] of DNS_CACHE.entries()) {
-      if (entry.expiresAt <= now) DNS_CACHE.delete(k);
-    }
-
-    if (DNS_CACHE.size >= CONFIG.DNS_CACHE_MAX_ENTRIES) {
-      // Evict oldest 20% to avoid thundering-herd on full flush.
-      const evictCount = Math.ceil(CONFIG.DNS_CACHE_MAX_ENTRIES * 0.2);
-      let evicted = 0;
-      for (const k of DNS_CACHE.keys()) {
-        DNS_CACHE.delete(k);
-        if (++evicted >= evictCount) break;
-      }
-    }
+async function getLookupFn(): Promise<DnsLookupFn> {
+  if (!_lookupFn) {
+    const mod = await import("node:dns/promises");
+    _lookupFn = mod.lookup as DnsLookupFn;
   }
-
-  DNS_CACHE.set(key, value);
+  return _lookupFn;
 }

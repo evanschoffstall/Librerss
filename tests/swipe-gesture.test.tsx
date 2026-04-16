@@ -6,7 +6,7 @@ import {
   SWIPE_RELEASE_MS,
   type SwipePhase,
   useSwipeGesture,
-} from "@/app/dashboard/hooks/useSwipeGesture";
+} from "@/app/dashboard/dashboard-components/article-view/hooks";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

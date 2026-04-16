@@ -89,10 +89,7 @@ function assertWithinOutputLimit(
     return;
   }
 
-  const outputBytes =
-    typeof output === "string"
-      ? Buffer.byteLength(output, "utf8")
-      : output.byteLength;
+  const outputBytes = getOutputByteLength(output);
 
   if (outputBytes > maxOutputBytes) {
     throw new Error(TOO_LARGE_ERROR_MESSAGE);
@@ -102,13 +99,15 @@ function assertWithinOutputLimit(
 function buildNodeZlibOptions(
   maxOutputBytes: number | undefined,
 ): zlib.ZlibOptions {
-  return maxOutputBytes === undefined ? {} : { maxOutputLength: maxOutputBytes };
+  return maxOutputBytes === undefined
+    ? {}
+    : { maxOutputLength: maxOutputBytes };
 }
 
 function buildNodeZstdOptions(
   maxOutputBytes: number | undefined,
 ): zlib.ZstdOptions {
-  return maxOutputBytes === undefined ? {} : { maxOutputLength: maxOutputBytes };
+  return buildNodeZlibOptions(maxOutputBytes) as zlib.ZstdOptions;
 }
 
 async function decompressBodyToBuffer(
@@ -171,12 +170,10 @@ function decompressWithNodeLimit(
   });
 }
 
-function decompressZstd(
-  buf: Buffer,
-  maxOutputBytes?: number,
-): Promise<Buffer> {
-  const nativeDecompress = (zlib as Record<string, unknown>)
-    .zstdDecompress as typeof zlib.brotliDecompress | undefined;
+function decompressZstd(buf: Buffer, maxOutputBytes?: number): Promise<Buffer> {
+  const nativeDecompress = (zlib as Record<string, unknown>).zstdDecompress as
+    | typeof zlib.brotliDecompress
+    | undefined;
 
   if (!nativeDecompress) {
     throw new Error("Native zstd decompression is unavailable in this runtime");
@@ -188,31 +185,40 @@ function decompressZstd(
 }
 
 function detectContentEncodingFromBody(body: Buffer): string | undefined {
-  if (body.length >= 4) {
-    const firstFourBytes = body.subarray(0, 4).toString("hex");
+  const firstFourBytes =
+    body.length >= 4 ? body.subarray(0, 4).toString("hex") : null;
 
-    if (firstFourBytes === "28b52ffd") {
-      return "zstd";
-    }
+  if (firstFourBytes === "28b52ffd") {
+    return "zstd";
   }
 
-  if (body.length >= 2) {
-    const firstTwoBytes = body.subarray(0, 2).toString("hex");
+  const firstTwoBytes =
+    body.length >= 2 ? body.subarray(0, 2).toString("hex") : null;
 
-    if (firstTwoBytes === "1f8b") {
-      return "gzip";
-    }
-
-    if (["78da", "789c", "7801"].includes(firstTwoBytes)) {
-      return "deflate";
-    }
+  if (firstTwoBytes === null) {
+    return undefined;
   }
 
-  return undefined;
+  return CONTENT_ENCODING_SIGNATURES[firstTwoBytes];
 }
 
+function getOutputByteLength(output: Buffer | string): number {
+  return typeof output === "string"
+    ? Buffer.byteLength(output, "utf8")
+    : output.byteLength;
+}
+
+const CONTENT_ENCODING_SIGNATURES: Record<string, string> = {
+  "1f8b": "gzip",
+  "78da": "deflate",
+  "789c": "deflate",
+  "7801": "deflate",
+};
+
 function isDataError(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "Z_DATA_ERROR";
+  return (
+    error instanceof Error && "code" in error && error.code === "Z_DATA_ERROR"
+  );
 }
 
 function isTooLargeError(error: unknown): boolean {

@@ -27,7 +27,9 @@ describe("content encoding utilities", () => {
   test("returns utf8 text directly when no content encoding is present", async () => {
     const body = Buffer.from("plain utf8 text", "utf8");
 
-    await expect(decodeTextBody(body, undefined)).resolves.toBe("plain utf8 text");
+    await expect(decodeTextBody(body, undefined)).resolves.toBe(
+      "plain utf8 text",
+    );
   });
 
   test("decodes gzip bodies while ignoring identity markers", async () => {
@@ -47,7 +49,9 @@ describe("content encoding utilities", () => {
   });
 
   test("detects deflate bodies when the upstream header is missing", async () => {
-    const body = zlib.deflateSync(Buffer.from("headerless deflate payload", "utf8"));
+    const body = zlib.deflateSync(
+      Buffer.from("headerless deflate payload", "utf8"),
+    );
 
     await expect(decodeTextBody(body, undefined)).resolves.toBe(
       "headerless deflate payload",
@@ -61,7 +65,9 @@ describe("content encoding utilities", () => {
   });
 
   test("falls back to inflateRaw when deflate payloads are raw streams", async () => {
-    const body = zlib.deflateRawSync(Buffer.from("raw deflate payload", "utf8"));
+    const body = zlib.deflateRawSync(
+      Buffer.from("raw deflate payload", "utf8"),
+    );
 
     await expect(decodeTextBody(body, "deflate")).resolves.toBe(
       "raw deflate payload",
@@ -79,7 +85,9 @@ describe("content encoding utilities", () => {
   test("returns the original bytes for unknown encodings", async () => {
     const body = Buffer.from("leave me alone", "utf8");
 
-    await expect(decompressBody(body, "compress")).resolves.toBe("leave me alone");
+    await expect(decompressBody(body, "compress")).resolves.toBe(
+      "leave me alone",
+    );
   });
 
   test("still enforces output limits for unknown encodings", async () => {
@@ -124,23 +132,25 @@ describe("content encoding utilities", () => {
   });
 
   test("detects and decodes zstd bodies when native zstd support is available", async () => {
-    const nativeZstdCompress = (zlib as Record<string, unknown>).zstdCompress as
-      | typeof zlib.brotliCompress
-      | undefined;
+    const nativeZstdCompress = (zlib as Record<string, unknown>)
+      .zstdCompress as typeof zlib.brotliCompress | undefined;
 
     if (!nativeZstdCompress) {
       return;
     }
 
     const body = await new Promise<Buffer>((resolve, reject) => {
-      nativeZstdCompress(Buffer.from("native zstd payload", "utf8"), (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+      nativeZstdCompress(
+        Buffer.from("native zstd payload", "utf8"),
+        (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
 
-        resolve(result);
-      });
+          resolve(result);
+        },
+      );
     });
 
     await expect(decodeTextBody(body, undefined)).resolves.toBe(
@@ -149,28 +159,34 @@ describe("content encoding utilities", () => {
   });
 
   test("throws when native zstd decompression is unavailable", async () => {
-    const nativeZstdCompress = (zlib as Record<string, unknown>).zstdCompress as
-      | typeof zlib.brotliCompress
-      | undefined;
-    const originalZstdDecompress = (zlib as Record<string, unknown>).zstdDecompress;
+    const nativeZstdCompress = (zlib as Record<string, unknown>)
+      .zstdCompress as typeof zlib.brotliCompress | undefined;
+    const originalZstdDecompress = (zlib as Record<string, unknown>)
+      .zstdDecompress;
     const zstdDecompressDescriptor = Object.getOwnPropertyDescriptor(
       zlib,
       "zstdDecompress",
     );
 
-    if (!nativeZstdCompress || zstdDecompressDescriptor?.configurable === false) {
+    if (
+      !nativeZstdCompress ||
+      zstdDecompressDescriptor?.configurable === false
+    ) {
       return;
     }
 
     const body = await new Promise<Buffer>((resolve, reject) => {
-      nativeZstdCompress(Buffer.from("streaming zstd payload", "utf8"), (error, result) => {
-        if (error) {
-          reject(error);
-          return;
-        }
+      nativeZstdCompress(
+        Buffer.from("streaming zstd payload", "utf8"),
+        (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
 
-        resolve(result);
-      });
+          resolve(result);
+        },
+      );
     });
 
     try {

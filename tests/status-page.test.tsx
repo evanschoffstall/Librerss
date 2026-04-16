@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 import { AlertTriangle, FileQuestion } from "lucide-react";
 
-import { StatusPage } from "@/app/components/StatusPage";
+import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
 describe("StatusPage", () => {

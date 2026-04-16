@@ -2,7 +2,7 @@ import {
   clientFeedBatchConcurrency,
   clientFeedBatchMaxUrls,
   clientFeedRequestTimeoutMs,
-} from "@/lib/config";
+} from "@/lib";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const BATCH_REQUEST_TIMEOUT_BUFFER_MS = 5_000;
@@ -87,7 +87,9 @@ export function resolveBatchRequestTimeoutMs(urlCount: number): number {
   const normalizedConcurrency = Math.max(1, clientFeedBatchConcurrency());
   const waveCount = Math.ceil(normalizedUrlCount / normalizedConcurrency);
 
-  return waveCount * clientFeedRequestTimeoutMs() + BATCH_REQUEST_TIMEOUT_BUFFER_MS;
+  return (
+    waveCount * clientFeedRequestTimeoutMs() + BATCH_REQUEST_TIMEOUT_BUFFER_MS
+  );
 }
 
 /**
@@ -202,7 +204,10 @@ async function parseResponseBody<T>(
   }
 
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-  if (contentType.includes("application/json") || contentType.includes("+json")) {
+  if (
+    contentType.includes("application/json") ||
+    contentType.includes("+json")
+  ) {
     return (await response.json()) as T;
   }
 
@@ -240,7 +245,9 @@ async function request<T>(
         : null;
 
     throw new ApiError(
-      error instanceof Error ? error.message : `Request failed for ${method} ${url}`,
+      error instanceof Error
+        ? error.message
+        : `Request failed for ${method} ${url}`,
       code,
       method,
       headersToRecord(headers),

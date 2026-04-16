@@ -1,16 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
+import type { Article } from "@/lib/core";
+
+import {
+  buildPreview,
+  filterArticlesByState,
+  getArticleSourceLabel,
+  getRichContentClass,
+} from "@/app/dashboard/dashboard-services/article";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "@/app/dashboard/services/article-collection";
-import {
-  buildPreview,
-  getArticleSourceLabel,
-  getRichContentClass,
-} from "@/app/dashboard/services/article-content";
-import { filterArticlesByState } from "@/app/dashboard/services/article-filters";
-import { type Article } from "@/lib";
+} from "@/app/dashboard/dashboard-services/article-collection";
 
 function createArticle(overrides: Partial<Article> = {}): Article {
   return {

@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-const runtimeModuleHref = new URL("../src/lib/core/runtime.ts", import.meta.url)
-  .href;
+const runtimeModuleHref = new URL(
+  "../src/lib/core/placeholder/mode.ts",
+  import.meta.url,
+).href;
 
 function loadRuntimeModule() {
   return import(
@@ -60,7 +62,7 @@ describe("core/runtime and utils/rate-limit", () => {
     process.env.ALLOW_SIGNUP = "off";
 
     const { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } =
-      await import("@/lib/core/runtime");
+      await import("@/lib/core/placeholder");
     expect(RUNTIME_FLAGS.hasDatabaseUrl).toBe(false);
     expect(RUNTIME_FLAGS.usePlaceholderData).toBe(true);
     expect(RUNTIME_FLAGS.allowSignup).toBe(false);
@@ -80,7 +82,7 @@ describe("core/runtime and utils/rate-limit", () => {
     const previousSignup = process.env.ALLOW_SIGNUP;
     delete process.env.ALLOW_SIGNUP;
 
-    const { RUNTIME_FLAGS } = await import("@/lib/core/runtime");
+    const { RUNTIME_FLAGS } = await import("@/lib/core/placeholder");
     expect(RUNTIME_FLAGS.allowSignup).toBe(false);
 
     process.env.ALLOW_SIGNUP = previousSignup;

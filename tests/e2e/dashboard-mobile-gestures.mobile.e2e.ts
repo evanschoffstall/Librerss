@@ -75,8 +75,7 @@ async function dragTouchSurface(
 
   const swipeSignalDuringDrag = await measureTarget.evaluate((node) => {
     return {
-      swipeActive:
-        node.getAttribute("data-swipe-active") === "true",
+      swipeActive: node.getAttribute("data-swipe-active") === "true",
       swipeDirection: node.getAttribute("data-swipe-direction") ?? "idle",
     };
   });
@@ -143,17 +142,14 @@ test.describe("dashboard mobile gestures", () => {
     await expectArticleExpanded(article, true);
 
     const headerZone = article.locator("[data-article-swipe-zone='header']");
-    const swipeSignalDuringDrag = await dragTouchSurface(
-      headerZone,
-      {
-        endXRatio: 0.94,
-        endYRatio: 0.58,
-        measureTarget: article,
-        startXRatio: 0.2,
-        startYRatio: 0.46,
-        steps: 7,
-      },
-    );
+    const swipeSignalDuringDrag = await dragTouchSurface(headerZone, {
+      endXRatio: 0.94,
+      endYRatio: 0.58,
+      measureTarget: article,
+      startXRatio: 0.2,
+      startYRatio: 0.46,
+      steps: 7,
+    });
 
     expect(swipeSignalDuringDrag.swipeActive).toBe(true);
     expect(swipeSignalDuringDrag.swipeDirection).toBe("read");
@@ -208,7 +204,9 @@ test.describe("dashboard mobile gestures", () => {
       .locator("article[data-article-key]:visible")
       .count();
     const articleIndex = Math.max(0, visibleArticleCount - 2);
-    const articleKey = await readArticleKey(await locateViewportArticle(page, articleIndex));
+    const articleKey = await readArticleKey(
+      await locateViewportArticle(page, articleIndex),
+    );
     const article = articleCardByKey(page, articleKey);
 
     await toggleArticle(article);

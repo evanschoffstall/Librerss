@@ -1,38 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import type { getDb } from "@/lib/db";
+
+import { logger } from "@/lib";
 import { jsonError } from "@/lib/api/http";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { logger } from "@/lib/logger";
-import {
-  exportAccountData,
-  requireMutableAuthenticatedUser,
-  type RouteHandlerContext,
-  ServerServiceError,
-} from "@/lib/server";
+import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import { exportAccountData, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
 interface AccountExportRouteDeps {
   exportAccountDataFn?: typeof exportAccountData;
-  getDbFn?: () => unknown;
+  getDbFn?: () => Pick<ReturnType<typeof getDb>, "select">;
   infoFn?: typeof logger.info;
   requireAuthFn?: (
     request: NextRequest,
   ) => Promise<Response | { userId: number }>;
   runtimeFlags?: Pick<typeof RUNTIME_FLAGS, "usePlaceholderData">;
-  serverServiceErrorClass?: typeof ServerServiceError;
+  serverServiceErrorClass?: typeof serverApi.ServerServiceError;
 }
 
 export async function GET(
   request: NextRequest,
-  depsOrContext: AccountExportRouteDeps | RouteHandlerContext = {},
+  depsOrContext: AccountExportRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
   const deps = resolveAccountExportRouteDeps(depsOrContext);
   const exportAccountDataForRoute =
     deps.exportAccountDataFn ?? exportAccountData;
   const ServerServiceErrorForRoute =
-    deps.serverServiceErrorClass ?? ServerServiceError;
-  const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
+    deps.serverServiceErrorClass ?? serverApi.ServerServiceError;
+  const requireAuth =
+    deps.requireAuthFn ?? serverApi.requireMutableAuthenticatedUser;
   const authResult = await requireAuth(request);
   if (authResult instanceof Response) return authResult;
 
@@ -69,7 +67,10 @@ export async function GET(
  * function without depending on the globally mocked server barrel.
  */
 export function resolveAccountExportRouteDeps(
-  depsOrContext: AccountExportRouteDeps | RouteHandlerContext | undefined,
+  depsOrContext:
+    | AccountExportRouteDeps
+    | serverApi.RouteHandlerContext
+    | undefined,
 ): AccountExportRouteDeps {
   if (
     depsOrContext === undefined ||

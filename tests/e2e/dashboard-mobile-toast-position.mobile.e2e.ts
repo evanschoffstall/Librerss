@@ -132,7 +132,10 @@ async function triggerInvalidFeedToast(page: Page) {
   await page
     .getByPlaceholder("https://example.com/feed.xml")
     .fill("not-a-valid-url");
-  await page.getByRole("button", { name: /^Add Feed$/ }).last().click();
+  await page
+    .getByRole("button", { name: /^Add Feed$/ })
+    .last()
+    .click();
 
   await expect(latestToast(page)).toBeVisible({ timeout: 10_000 });
 }
@@ -163,32 +166,28 @@ test.describe("dashboard mobile toast placement", () => {
       mobileToastTop: true,
       mobileToolbarBottom: true,
       mobileToolbarMirror: true,
-      name:
-        "uses a true top inset when top toasts are enabled and the mirrored mobile toolbar stays at the bottom",
+      name: "uses a true top inset when top toasts are enabled and the mirrored mobile toolbar stays at the bottom",
     },
     {
       expectedTop: { max: 32, min: 0 },
       mobileToastTop: true,
       mobileToolbarBottom: true,
       mobileToolbarMirror: false,
-      name:
-        "keeps the same true top inset when top toasts are enabled and the bottom toolbar is not mirrored",
+      name: "keeps the same true top inset when top toasts are enabled and the bottom toolbar is not mirrored",
     },
     {
       expectedTop: { max: 96, min: 56 },
       mobileToastTop: true,
       mobileToolbarBottom: false,
       mobileToolbarMirror: true,
-      name:
-        "keeps a toolbar clearance when top toasts are enabled and the mirrored mobile toolbar is pinned to the top",
+      name: "keeps a toolbar clearance when top toasts are enabled and the mirrored mobile toolbar is pinned to the top",
     },
     {
       expectedTop: { max: 96, min: 56 },
       mobileToastTop: true,
       mobileToolbarBottom: false,
       mobileToolbarMirror: false,
-      name:
-        "keeps a toolbar clearance when top toasts are enabled and the top toolbar is not mirrored",
+      name: "keeps a toolbar clearance when top toasts are enabled and the top toolbar is not mirrored",
     },
   ] satisfies MobileToastPreferenceMatrixCase[]) {
     test(matrixCase.name, async ({ page }) => {
@@ -203,7 +202,9 @@ test.describe("dashboard mobile toast placement", () => {
       await triggerInvalidFeedToast(page);
 
       const toastMetrics = await readLatestToastMetrics(page);
-      expect(toastMetrics.top).toBeGreaterThanOrEqual(matrixCase.expectedTop.min);
+      expect(toastMetrics.top).toBeGreaterThanOrEqual(
+        matrixCase.expectedTop.min,
+      );
       expect(toastMetrics.top).toBeLessThanOrEqual(matrixCase.expectedTop.max);
       expect(toastMetrics.rightGap).toBeLessThanOrEqual(24);
       expect(toastMetrics.bottomGap).toBeGreaterThan(120);

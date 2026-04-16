@@ -94,12 +94,14 @@ export function resolveAllowedDevOrigins(
     .map((value) => getHostnameFromValue(value))
     .filter((hostname): hostname is string => hostname !== null);
 
-  return [...new Set([
-    ...(isDevelopment ? [ANY_IPV4_HOST_PATTERN] : []),
-    ...getLocalNetworkInterfaceHosts(getInterfaces),
-    getHostnameFromValue(process.env.PLAYWRIGHT_BASE_URL),
-    ...explicitOriginHosts,
-  ])].filter((hostname): hostname is string => hostname !== null);
+  return [
+    ...new Set([
+      ...(isDevelopment ? [ANY_IPV4_HOST_PATTERN] : []),
+      ...getLocalNetworkInterfaceHosts(getInterfaces),
+      getHostnameFromValue(process.env.PLAYWRIGHT_BASE_URL),
+      ...explicitOriginHosts,
+    ]),
+  ].filter((hostname): hostname is string => hostname !== null);
 }
 
 /**
@@ -247,9 +249,9 @@ const SERVER_CONFIG_KEYS = [
 ] as const;
 
 const buildTimeServerConfig = Object.fromEntries(
-  SERVER_CONFIG_KEYS
-    .filter((key) => process.env[key] !== undefined)
-    .map((key) => [key, process.env[key] as string]),
+  SERVER_CONFIG_KEYS.filter((key) => process.env[key] !== undefined).map(
+    (key) => [key, process.env[key] as string],
+  ),
 );
 const httpCloakPlatformPackageSpecifier =
   getHttpCloakPlatformPackageSpecifier();

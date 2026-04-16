@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,36 +7,36 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { useEffect } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
-import { $trimTextContentFromAnchor } from "@lexical/selection"
-import { $restoreEditorState } from "@lexical/utils"
+import { useEffect } from "react";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { $trimTextContentFromAnchor } from "@lexical/selection";
+import { $restoreEditorState } from "@lexical/utils";
 import {
   $getSelection,
   $isRangeSelection,
   EditorState,
   RootNode,
-} from "lexical"
+} from "lexical";
 
 export function MaxLengthPlugin({ maxLength }: { maxLength: number }): null {
-  const [editor] = useLexicalComposerContext()
+  const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
-    let lastRestoredEditorState: EditorState | null = null
+    let lastRestoredEditorState: EditorState | null = null;
 
     return editor.registerNodeTransform(RootNode, (rootNode: RootNode) => {
-      const selection = $getSelection()
+      const selection = $getSelection();
       if (!$isRangeSelection(selection) || !selection.isCollapsed()) {
-        return
+        return;
       }
-      const prevEditorState = editor.getEditorState()
+      const prevEditorState = editor.getEditorState();
       const prevTextContentSize = prevEditorState.read(() =>
-        rootNode.getTextContentSize()
-      )
-      const textContentSize = rootNode.getTextContentSize()
+        rootNode.getTextContentSize(),
+      );
+      const textContentSize = rootNode.getTextContentSize();
       if (prevTextContentSize !== textContentSize) {
-        const delCount = textContentSize - maxLength
-        const anchor = selection.anchor
+        const delCount = textContentSize - maxLength;
+        const anchor = selection.anchor;
 
         if (delCount > 0) {
           // Restore the old editor state instead if the last
@@ -45,15 +45,15 @@ export function MaxLengthPlugin({ maxLength }: { maxLength: number }): null {
             prevTextContentSize === maxLength &&
             lastRestoredEditorState !== prevEditorState
           ) {
-            lastRestoredEditorState = prevEditorState
-            $restoreEditorState(editor, prevEditorState)
+            lastRestoredEditorState = prevEditorState;
+            $restoreEditorState(editor, prevEditorState);
           } else {
-            $trimTextContentFromAnchor(editor, anchor, delCount)
+            $trimTextContentFromAnchor(editor, anchor, delCount);
           }
         }
       }
-    })
-  }, [editor, maxLength])
+    });
+  }, [editor, maxLength]);
 
-  return null
+  return null;
 }

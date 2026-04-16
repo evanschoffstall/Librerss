@@ -1,0 +1,1 @@
+export { LEGAL_CONSENT_VERSION, LEGAL_LAST_UPDATED } from "@/lib";

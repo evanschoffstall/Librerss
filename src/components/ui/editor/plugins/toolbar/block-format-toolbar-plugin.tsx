@@ -9,10 +9,10 @@ import { useToolbarContext } from "@/components/ui/editor/context/toolbar-contex
 import { useUpdateToolbarHandler } from "@/components/ui/editor/editor-hooks/use-update-toolbar";
 import { blockTypeToBlockName } from "@/components/ui/editor/plugins/toolbar/block-format/block-format-data";
 import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectTrigger,
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectTrigger,
 } from "@/components/ui/select";
 
 export function BlockFormatDropDown({

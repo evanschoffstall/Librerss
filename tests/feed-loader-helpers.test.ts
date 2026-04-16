@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Article } from "@/lib";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
+import type { Article } from "@/lib/core";
 
 import {
   classifyFeedBatchError,
@@ -12,7 +12,7 @@ import {
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
-} from "@/app/dashboard/services/feed-loader-helpers";
+} from "@/app/dashboard/dashboard-services/feed-loader-state";
 
 function makeArticle(overrides: Partial<Article> = {}): Article {
   return {
@@ -74,8 +74,18 @@ describe("getNewestLastFetchedAt", () => {
     const older = new Date("2024-01-01");
     const newer = new Date("2024-06-01");
     const items: BatchFeedResponseItem[] = [
-      { articles: [], lastFetchedAt: older, ok: true, url: "https://a.example" },
-      { articles: [], lastFetchedAt: newer, ok: true, url: "https://b.example" },
+      {
+        articles: [],
+        lastFetchedAt: older,
+        ok: true,
+        url: "https://a.example",
+      },
+      {
+        articles: [],
+        lastFetchedAt: newer,
+        ok: true,
+        url: "https://b.example",
+      },
     ];
     expect(getNewestLastFetchedAt(items)).toEqual(newer);
   });
@@ -137,37 +147,35 @@ describe("mergeHydratedContent", () => {
     expect(merged[0]!.content).toBe("rich HTML content");
   });
 
-    test("preserveLocalFeedState retains previously loaded older articles missing from fresh payload", () => {
-      const prev = [
-        makeArticle({
-          link: "https://example.com/newer",
-          title: "Newer",
-        }),
-        makeArticle({
-          link: "https://example.com/older",
-          title: "Older",
-        }),
-      ];
-      const fresh = [
-        makeArticle({
-          link: "https://example.com/newer",
-          title: "Newer (refetched)",
-        }),
-      ];
+  test("preserveLocalFeedState retains previously loaded older articles missing from fresh payload", () => {
+    const prev = [
+      makeArticle({
+        link: "https://example.com/newer",
+        title: "Newer",
+      }),
+      makeArticle({
+        link: "https://example.com/older",
+        title: "Older",
+      }),
+    ];
+    const fresh = [
+      makeArticle({
+        link: "https://example.com/newer",
+        title: "Newer (refetched)",
+      }),
+    ];
 
-      const merged = mergeHydratedContent(prev, fresh, {
-        preserveLocalFeedState: true,
-      });
-
-      expect(merged).toHaveLength(2);
-      expect(merged[0]?.link).toBe("https://example.com/newer");
-      expect(merged[1]?.link).toBe("https://example.com/older");
+    const merged = mergeHydratedContent(prev, fresh, {
+      preserveLocalFeedState: true,
     });
 
+    expect(merged).toHaveLength(2);
+    expect(merged[0]?.link).toBe("https://example.com/newer");
+    expect(merged[1]?.link).toBe("https://example.com/older");
+  });
+
   test("keeps fresh content when no previous match", () => {
-    const prev = [
-      makeArticle({ content: "old", link: "https://old.example" }),
-    ];
+    const prev = [makeArticle({ content: "old", link: "https://old.example" })];
     const fresh = [
       makeArticle({ content: "fresh", link: "https://new.example" }),
     ];
@@ -176,12 +184,8 @@ describe("mergeHydratedContent", () => {
   });
 
   test("does not merge when content is identical, returns prev for reference stability", () => {
-    const prev = [
-      makeArticle({ content: "same", link: "https://a.example" }),
-    ];
-    const fresh = [
-      makeArticle({ content: "same", link: "https://a.example" }),
-    ];
+    const prev = [makeArticle({ content: "same", link: "https://a.example" })];
+    const fresh = [makeArticle({ content: "same", link: "https://a.example" })];
     const merged = mergeHydratedContent(prev, fresh);
     // Prev reference is reused when all display fields match so the virtualizer and
     // React.memo can skip re-rendering unchanged rows during auto-refresh.
@@ -190,7 +194,11 @@ describe("mergeHydratedContent", () => {
 
   test("returns fresh reference when a display field changed (isRead)", () => {
     const prev = [
-      makeArticle({ content: "same", isRead: false, link: "https://a.example" }),
+      makeArticle({
+        content: "same",
+        isRead: false,
+        link: "https://a.example",
+      }),
     ];
     const fresh = [
       makeArticle({ content: "same", isRead: true, link: "https://a.example" }),
@@ -229,7 +237,11 @@ describe("mergeHydratedContent", () => {
 
   test("returns fresh reference when a display field changed (isStarred)", () => {
     const prev = [
-      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+      makeArticle({
+        content: "x",
+        isStarred: false,
+        link: "https://a.example",
+      }),
     ];
     const fresh = [
       makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
@@ -244,7 +256,11 @@ describe("mergeHydratedContent", () => {
       makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
     ];
     const fresh = [
-      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+      makeArticle({
+        content: "x",
+        isStarred: false,
+        link: "https://a.example",
+      }),
     ];
 
     const merged = mergeHydratedContent(prev, fresh, {
@@ -264,9 +280,9 @@ describe("resolveExpandedArticleKey", () => {
 
   test("returns key when article exists with that key", () => {
     const articles = [makeArticle({ link: "https://match.example" })];
-    expect(
-      resolveExpandedArticleKey("https://match.example", articles),
-    ).toBe("https://match.example");
+    expect(resolveExpandedArticleKey("https://match.example", articles)).toBe(
+      "https://match.example",
+    );
   });
 
   test("returns null when no article matches key", () => {

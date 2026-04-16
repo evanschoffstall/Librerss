@@ -17,7 +17,7 @@ const editorConfig: InitialConfigType = {
   namespace: "Editor",
   theme: editorTheme,
   nodes,
-  onError: (error: Error) => { },
+  onError: (error: Error) => {},
 };
 
 // Type the props properly to avoid Next.js serialization warnings

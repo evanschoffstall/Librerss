@@ -1,19 +1,20 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import type { CategoryTreeNode } from "@/lib/core";
+
 import {
   CompatibilityResultBadge,
   ProxyRoutingBadge,
   StatusBadge,
-} from "@/app/dashboard/components/settings/SettingsProxyBadges";
+} from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxyBadges";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { type CategoryTreeNode } from "@/lib";
 
-import type { SettingsModalState } from "../src/app/dashboard/hooks/useSettingsModalState";
+import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
 
-import { SettingsDisplaySection } from "../src/app/dashboard/components/settings/SettingsDisplaySection";
-import { SettingsFeedManagementSection } from "../src/app/dashboard/components/settings/SettingsFeedManagementSection";
-import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/components/settings/SettingsProxyCompatibilityPanel";
+import { SettingsDisplaySection } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection";
+import { SettingsFeedManagementSection } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection";
+import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsProxyCompatibilityPanel";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -84,7 +85,13 @@ describe("settings real components", () => {
     });
     const categories = [createCategory("News", "feed-1")];
 
-    const { container, getByLabelText, getByPlaceholderText, getByRole, getByText } = render(
+    const {
+      container,
+      getByLabelText,
+      getByPlaceholderText,
+      getByRole,
+      getByText,
+    } = render(
       <SettingsFeedManagementSection
         categories={categories}
         onRemoveCategory={mock(async () => true)}
@@ -112,7 +119,8 @@ describe("settings real components", () => {
     });
     fireEvent.click(getByText("Add Category"));
 
-    const fileInput = container.querySelector<HTMLInputElement>("input[type='file']");
+    const fileInput =
+      container.querySelector<HTMLInputElement>("input[type='file']");
     if (!fileInput) {
       throw new Error("Expected the OPML input to render.");
     }
@@ -130,19 +138,19 @@ describe("settings real components", () => {
         "Example Feed",
         "https://example.com/feed-1.xml",
       );
-      expect(state.sharedFeedRowProps.onToggleExtractionDisabled).toHaveBeenCalledWith(
-        "feed-1",
-        true,
-      );
-      expect(state.sharedFeedRowProps.onToggleProxyEnabled).toHaveBeenCalledWith(
-        "feed-1",
-        true,
-      );
+      expect(
+        state.sharedFeedRowProps.onToggleExtractionDisabled,
+      ).toHaveBeenCalledWith("feed-1", true);
+      expect(
+        state.sharedFeedRowProps.onToggleProxyEnabled,
+      ).toHaveBeenCalledWith("feed-1", true);
       expect(state.sharedFeedRowProps.onToggleFeedEnabled).toHaveBeenCalledWith(
         "feed-1",
         false,
       );
-      expect(state.sharedFeedRowProps.onRemoveFeed).toHaveBeenCalledWith("feed-1");
+      expect(state.sharedFeedRowProps.onRemoveFeed).toHaveBeenCalledWith(
+        "feed-1",
+      );
       expect(state.handleAddCategory).toHaveBeenCalled();
       expect(state.handleOpmlFileChange).toHaveBeenCalled();
     });
@@ -175,9 +183,7 @@ describe("settings real components", () => {
           <StatusBadge status="checking" />
           <StatusBadge status="reachable" />
           <StatusBadge status="unreachable" />
-          <ProxyRoutingBadge
-            status="checking"
-          />
+          <ProxyRoutingBadge status="checking" />
           <ProxyRoutingBadge
             routingCheck={{
               directIp: "198.51.100.7",
@@ -252,7 +258,7 @@ describe("settings real components", () => {
       expect(onRunCompatibilityCheck).toHaveBeenCalled();
     });
 
-  expect(getAllByText("Checking").length).toBeGreaterThan(0);
+    expect(getAllByText("Checking").length).toBeGreaterThan(0);
     expect(getByText("Connected")).toBeTruthy();
     expect(getByText("Exit 203.0.113.21")).toBeTruthy();
     expect(getByText("Unreachable")).toBeTruthy();

@@ -1,3 +1,5 @@
+import type { CategoryTreeNode, FeedSource } from "@/lib/types";
+
 // Type definitions and interfaces for LibreRSS
 
 export interface Article {
@@ -27,26 +29,4 @@ export interface AuthUser {
   id: number;
 }
 
-export interface CategoryTreeNode {
-  children?: CategoryTreeNode[];
-  data?: {
-    category?: string;
-    enabled?: boolean;
-    extractionDisabled?: boolean;
-    proxyEnabled?: boolean;
-    sourceId?: number;
-    url: string;
-  };
-  key: string;
-  label: string;
-}
-
-export interface FeedSource {
-  category?: string;
-  enabled?: boolean;
-  extractionDisabled?: boolean;
-  id: number;
-  name: string;
-  proxyEnabled?: boolean;
-  url: string;
-}
+export type { CategoryTreeNode, FeedSource };

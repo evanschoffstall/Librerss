@@ -6,35 +6,36 @@ import {
   parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
-import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
-import { getDb } from "@/lib/db/db";
+import { isAllowedFeedUrl } from "@/lib/core";
+import { getDb } from "@/lib/db";
 import {
   createArticle,
   type CreateArticleParams,
   listUserArticles,
-  logAndRespondError,
-  requireAuthenticatedUser, requireMutableAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError } from "@/lib/server";
-import { parseDateOrNull } from "@/lib/utils/dates";
-import { isValidUrl } from "@/lib/utils/url";
+  serverApi,
+} from "@/lib/server";
+import { isValidUrl, parseDateOrNull } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 interface ArticlesRouteDeps {
   getDbFn?: typeof getDb;
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
-  logAndRespondErrorFn?: typeof logAndRespondError;
-  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
+  requireAuthenticatedUserFn?: typeof serverApi.requireAuthenticatedUser;
+  requireMutableAuthenticatedUserFn?: typeof serverApi.requireMutableAuthenticatedUser;
 }
 
 export async function GET(
   request: NextRequest,
-  depsOrContext: ArticlesRouteDeps | RouteHandlerContext = {},
+  depsOrContext: ArticlesRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
+  const deps =
+    serverApi.resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
   const requireAuth =
-    deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+    deps.requireAuthenticatedUserFn ?? serverApi.requireAuthenticatedUser;
+  const respondError =
+    deps.logAndRespondErrorFn ?? serverApi.logAndRespondError;
 
   try {
     const authResult = await requireAuth(request);
@@ -45,19 +46,23 @@ export async function GET(
     });
     return NextResponse.json(articles);
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
     return respondError("Articles GET error", error);
   }
 }
 
 export async function POST(
   request: NextRequest,
-  depsOrContext: ArticlesRouteDeps | RouteHandlerContext = {},
+  depsOrContext: ArticlesRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
+  const deps =
+    serverApi.resolveRouteHandlerDeps<ArticlesRouteDeps>(depsOrContext);
   const requireMutableAuth =
-    deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+    deps.requireMutableAuthenticatedUserFn ??
+    serverApi.requireMutableAuthenticatedUser;
+  const respondError =
+    deps.logAndRespondErrorFn ?? serverApi.logAndRespondError;
 
   try {
     const user = await requireMutableAuth(request);
@@ -75,7 +80,8 @@ export async function POST(
     });
     return NextResponse.json(article);
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
     return respondError("Articles POST error", error);
   }
 }
@@ -109,7 +115,8 @@ function parseCreateArticlePayload(
   const feedId = parsePositiveInt(payload.feed_id);
 
   if (!rawTitle) return jsonError("Title is required", 400);
-  if (!link || !isValidUrl(link)) return jsonError("A valid article link is required", 400);
+  if (!link || !isValidUrl(link))
+    return jsonError("A valid article link is required", 400);
   if (!feedId) return jsonError("A valid feed_id is required", 400);
 
   const parsedDates = parseCreateArticleDates(payload);

@@ -1,26 +1,35 @@
 import { eq } from "drizzle-orm";
 import { NextRequest, NextResponse } from "next/server";
 
-import { LEGAL_CONSENT_VERSION } from "@/app/components/legal/metadata";
+import { CONFIG, LEGAL_CONSENT_VERSION, logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { normalizeEmailInput } from "@/lib/auth/credentials";
 import {
   createSession,
   hashPassword,
+  normalizeEmailInput,
   setSessionCookie,
-} from "@/lib/auth/session";
-import { CONFIG } from "@/lib/config";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb, isUniqueConstraintError } from "@/lib/db/db";
-import { users } from "@/lib/db/schema";
-import { logger } from "@/lib/logger";
-import {
-  logAndRespondError,
-  requireMutableRequest,
-  resolveRouteHandlerDeps,
-  type RouteHandlerContext,
-} from "@/lib/server";
-import { isStrongPassword, isValidEmail } from "@/lib/utils/validation";
+} from "@/lib/auth";
+import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import { getDb, isUniqueConstraintError, users } from "@/lib/db";
+import { serverApi } from "@/lib/server";
+import { isStrongPassword, isValidEmail } from "@/lib/utils";
+
+interface ResolvedSignupRouteDeps {
+  appLogger: Pick<typeof logger, "error" | "info" | "warn">;
+  createSessionFn: typeof createSession;
+  getDbFn: typeof getDb;
+  hashPasswordFn: typeof hashPassword;
+  isUniqueConstraintErrorFn: typeof isUniqueConstraintError;
+  logAndRespondErrorFn: typeof serverApi.logAndRespondError;
+  requireMutableRequestFn: typeof serverApi.requireMutableRequest;
+  runtimeFlags: Pick<
+    typeof RUNTIME_FLAGS,
+    "allowSignup" | "usePlaceholderData"
+  >;
+  setSessionCookieFn: typeof setSessionCookie;
+}
+
+type SignupDb = Pick<ReturnType<typeof getDb>, "insert" | "select">;
 
 interface SignupPayload {
   acceptedLegalVersion: string;
@@ -33,119 +42,94 @@ interface SignupRouteDeps {
   getDbFn?: () => unknown;
   hashPasswordFn?: typeof hashPassword;
   isUniqueConstraintErrorFn?: typeof isUniqueConstraintError;
-  logAndRespondErrorFn?: typeof logAndRespondError;
+  logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
   logger?: Pick<typeof logger, "error" | "info" | "warn">;
-  requireMutableRequestFn?: typeof requireMutableRequest;
-  runtimeFlags?: Pick<typeof RUNTIME_FLAGS, "allowSignup" | "usePlaceholderData">;
+  requireMutableRequestFn?: typeof serverApi.requireMutableRequest;
+  runtimeFlags?: Pick<
+    typeof RUNTIME_FLAGS,
+    "allowSignup" | "usePlaceholderData"
+  >;
   setSessionCookieFn?: typeof setSessionCookie;
 }
 
 export async function POST(
   request: NextRequest,
-  depsOrContext: RouteHandlerContext | SignupRouteDeps = {},
+  depsOrContext: serverApi.RouteHandlerContext | SignupRouteDeps = {},
 ) {
-  const deps = resolveRouteHandlerDeps<SignupRouteDeps>(depsOrContext);
-  const appLogger = deps.logger ?? logger;
-  const requireRequest = deps.requireMutableRequestFn ?? requireMutableRequest;
-  const runtimeFlags = deps.runtimeFlags ?? RUNTIME_FLAGS;
+  const deps =
+    serverApi.resolveRouteHandlerDeps<SignupRouteDeps>(depsOrContext);
+  const resolvedDeps = resolveSignupRouteDeps(deps);
+
   try {
-    const requestError = requireRequest(request, {
-      rateLimit: {
-        key: "signup",
-        maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
-        windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
-      },
-    });
+    const requestError = resolveSignupRequestError(request, resolvedDeps);
     if (requestError) {
       return requestError;
     }
 
-    if (!runtimeFlags.allowSignup) {
-      appLogger.warn("Signup attempt when signup is disabled");
-      return jsonError("Signup is disabled by server configuration", 403);
+    const availabilityError = resolveSignupAvailabilityError(resolvedDeps);
+    if (availabilityError) {
+      return availabilityError;
     }
 
-    if (runtimeFlags.usePlaceholderData) {
-      appLogger.warn("Signup attempt when using placeholder data");
-      return jsonError(
-        "Signup is disabled when DATABASE_URL is not configured",
-        503,
-      );
-    }
-
-    const db = ((deps.getDbFn?.() ?? getDb()) as Pick<
-      ReturnType<typeof getDb>,
-      "insert" | "select"
-    >);
-
-    const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
-    if (payloadOrResponse instanceof Response) {
-      return payloadOrResponse;
-    }
-
-    const parsedPayload = parseSignupPayload(payloadOrResponse);
+    const db = resolvedDeps.getDbFn() as SignupDb;
+    const parsedPayload = await resolveSignupPayload(request);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
     }
-    const { acceptedLegalVersion, email, password } = parsedPayload;
 
-    // Check for existing user
-    const existingUsers = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-
-    if (existingUsers.length > 0) {
-      appLogger.warn("Signup attempt with existing email", { email });
-      // Don't reveal that email exists (prevents enumeration)
-      return jsonError(
-        "Unable to create account. Please try a different email or contact support.",
-        400,
-      );
-    }
-
-    // Create user
-    const passwordHash = await (deps.hashPasswordFn ?? hashPassword)(password);
-
-    const createdUsers = await db
-      .insert(users)
-      .values({ email, passwordHash })
-      .returning({ email: users.email, id: users.id });
-
-    if (createdUsers.length === 0) {
-      appLogger.error("Failed to create user during signup", { email });
-      return jsonError("Failed to create account", 500);
-    }
-    const createdUser = createdUsers[0];
-
-    // Create session
-    const token = await (deps.createSessionFn ?? createSession)(createdUser.id);
-
-    appLogger.info("User signed up successfully", {
-      acceptedLegalVersion,
-      email: createdUser.email,
-      userId: createdUser.id,
-    });
-
-    const response = NextResponse.json({ user: createdUser }, { status: 201 });
-    (deps.setSessionCookieFn ?? setSessionCookie)(response, token);
-
-    return response;
-  } catch (error) {
-    if ((deps.isUniqueConstraintErrorFn ?? isUniqueConstraintError)(error)) {
-      appLogger.warn("Signup attempt with existing email");
-      return jsonError(
-        "Unable to create account. Please try a different email or contact support.",
-        400,
-      );
-    }
-
-    return (deps.logAndRespondErrorFn ?? logAndRespondError)(
-      "Signup error",
-      error,
+    const existingUserError = await resolveExistingUserError(
+      db,
+      parsedPayload.email,
+      resolvedDeps.appLogger,
     );
+    if (existingUserError) {
+      return existingUserError;
+    }
+
+    return await createSignupSuccessResponse(db, parsedPayload, resolvedDeps);
+  } catch (error) {
+    if (resolvedDeps.isUniqueConstraintErrorFn(error)) {
+      resolvedDeps.appLogger.warn("Signup attempt with existing email");
+      return jsonError(
+        "Unable to create account. Please try a different email or contact support.",
+        400,
+      );
+    }
+
+    return resolvedDeps.logAndRespondErrorFn("Signup error", error);
   }
+}
+
+async function createSignupSuccessResponse(
+  db: SignupDb,
+  payload: SignupPayload,
+  deps: ResolvedSignupRouteDeps,
+): Promise<Response> {
+  const passwordHash = await deps.hashPasswordFn(payload.password);
+  const createdUsers = await db
+    .insert(users)
+    .values({ email: payload.email, passwordHash })
+    .returning({ email: users.email, id: users.id });
+
+  if (createdUsers.length === 0) {
+    deps.appLogger.error("Failed to create user during signup", {
+      email: payload.email,
+    });
+    return jsonError("Failed to create account", 500);
+  }
+
+  const createdUser = createdUsers[0];
+
+  const token = await deps.createSessionFn(createdUser.id);
+  deps.appLogger.info("User signed up successfully", {
+    acceptedLegalVersion: payload.acceptedLegalVersion,
+    email: createdUser.email,
+    userId: createdUser.id,
+  });
+
+  const response = NextResponse.json({ user: createdUser }, { status: 201 });
+  deps.setSessionCookieFn(response, token);
+  return response;
 }
 
 function parseSignupPayload(
@@ -184,4 +168,88 @@ function parseSignupPayload(
   }
 
   return { acceptedLegalVersion, email, password };
+}
+
+async function resolveExistingUserError(
+  db: SignupDb,
+  email: string,
+  appLogger: ResolvedSignupRouteDeps["appLogger"],
+): Promise<null | Response> {
+  const existingUsers = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+
+  if (existingUsers.length === 0) {
+    return null;
+  }
+
+  appLogger.warn("Signup attempt with existing email", { email });
+  return jsonError(
+    "Unable to create account. Please try a different email or contact support.",
+    400,
+  );
+}
+
+function resolveSignupAvailabilityError(
+  deps: ResolvedSignupRouteDeps,
+): null | Response {
+  if (!deps.runtimeFlags.allowSignup) {
+    deps.appLogger.warn("Signup attempt when signup is disabled");
+    return jsonError("Signup is disabled by server configuration", 403);
+  }
+
+  if (!deps.runtimeFlags.usePlaceholderData) {
+    return null;
+  }
+
+  deps.appLogger.warn("Signup attempt when using placeholder data");
+  return jsonError(
+    "Signup is disabled when DATABASE_URL is not configured",
+    503,
+  );
+}
+
+async function resolveSignupPayload(
+  request: NextRequest,
+): Promise<Response | SignupPayload> {
+  const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
+  if (payloadOrResponse instanceof Response) {
+    return payloadOrResponse;
+  }
+
+  return parseSignupPayload(payloadOrResponse);
+}
+
+function resolveSignupRequestError(
+  request: NextRequest,
+  deps: ResolvedSignupRouteDeps,
+): null | Response {
+  return deps.requireMutableRequestFn(request, {
+    rateLimit: {
+      key: "signup",
+      maxAttempts: CONFIG.RATE_LIMIT_SIGNUP_MAX_ATTEMPTS,
+      windowMs: CONFIG.RATE_LIMIT_SIGNUP_WINDOW_MS,
+    },
+  });
+}
+
+function resolveSignupRouteDeps(
+  deps: SignupRouteDeps,
+): ResolvedSignupRouteDeps {
+  return {
+    appLogger: deps.logger ?? logger,
+    createSessionFn: deps.createSessionFn ?? createSession,
+    getDbFn: (deps.getDbFn ?? getDb) as typeof getDb,
+    hashPasswordFn: deps.hashPasswordFn ?? hashPassword,
+    isUniqueConstraintErrorFn:
+      deps.isUniqueConstraintErrorFn ?? isUniqueConstraintError,
+    logAndRespondErrorFn:
+      deps.logAndRespondErrorFn ?? serverApi.logAndRespondError,
+    requireMutableRequestFn:
+      deps.requireMutableRequestFn ?? serverApi.requireMutableRequest,
+    runtimeFlags: deps.runtimeFlags ?? RUNTIME_FLAGS,
+    setSessionCookieFn: deps.setSessionCookieFn ?? setSessionCookie,
+  };
 }

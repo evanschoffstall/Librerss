@@ -1,11 +1,10 @@
 import { NextRequest } from "next/server";
 
+import { logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { logger } from "@/lib/logger";
-import { toError } from "@/lib/utils/errors";
+import { getUserFromRequest, requireSameOrigin } from "@/lib/auth";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import { toError } from "@/lib/utils";
 
 import { rateLimiter } from "./rate-limit";
 

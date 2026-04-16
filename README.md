@@ -6,7 +6,7 @@
 
 # LibreRSS
 
-*A modern RSS reader for people who want precious signal, not sludge.*
+_A modern RSS reader for people who want precious signal, not sludge._
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
@@ -33,16 +33,16 @@ It is for people who still want the web to feel readable. If you want one place 
 
 ## Highlights
 
-| Capability | What it gives you |
-| --- | --- |
-| Universal feed support | Subscribe to RSS, Atom, and JSON feeds from across the open web. |
-| Category organization | Group sources into a browsing model that stays usable as your feed list grows. |
+| Capability               | What it gives you                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Universal feed support   | Subscribe to RSS, Atom, and JSON feeds from across the open web.                          |
+| Category organization    | Group sources into a browsing model that stays usable as your feed list grows.            |
 | Distraction-free reading | Keep focus on the article instead of interface chrome, prompts, and engagement mechanics. |
-| Fast dashboard workflows | Add, sort, refresh, and manage feeds from one responsive control surface. |
-| Light and dark themes | Choose the reading environment that fits the room, the hour, and your eyes. |
-| Self-hosted ownership | Keep feed data, sessions, and deployment choices under your control. |
-| Invite-only mode | Disable public signup for personal, private, or small-team use. |
-| Streaming refresh | Watch updates arrive in a flow that feels live without feeling frantic. |
+| Fast dashboard workflows | Add, sort, refresh, and manage feeds from one responsive control surface.                 |
+| Light and dark themes    | Choose the reading environment that fits the room, the hour, and your eyes.               |
+| Self-hosted ownership    | Keep feed data, sessions, and deployment choices under your control.                      |
+| Invite-only mode         | Disable public signup for personal, private, or small-team use.                           |
+| Streaming refresh        | Watch updates arrive in a flow that feels live without feeling frantic.                   |
 
 ## Quick start
 
@@ -133,14 +133,14 @@ You should be able to:
 
 ### Core commands
 
-| Command | Purpose |
-| --- | --- |
-| `bun dev` | Start the standard local Next.js development server. |
+| Command             | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `bun dev`           | Start the standard local Next.js development server.  |
 | `bun run dev:local` | Bind the dev server to `0.0.0.0:3000` for LAN access. |
-| `bun run build` | Create a production build. |
-| `bun run start` | Run the production server after building. |
-| `bun check summary` | Run the repository quality summary. |
-| `bun check --junit` | Run the Bun unit and integration test suite. |
+| `bun run build`     | Create a production build.                            |
+| `bun run start`     | Run the production server after building.             |
+| `bun check summary` | Run the repository quality summary.                   |
+| `bun check --junit` | Run the Bun unit and integration test suite.          |
 
 ### Quality tooling
 
@@ -166,29 +166,29 @@ bun run test:e2e
 
 Other useful variants:
 
-| Command | Purpose |
-| --- | --- |
-| `bun run test:e2e:headed` | Run the suite with a visible browser window. |
-| `bun run test:e2e:ui` | Open the Playwright UI runner. |
+| Command                     | Purpose                                             |
+| --------------------------- | --------------------------------------------------- |
+| `bun run test:e2e:headed`   | Run the suite with a visible browser window.        |
+| `bun run test:e2e:ui`       | Open the Playwright UI runner.                      |
 | `bun run test:e2e:coverage` | Generate Playwright coverage artifacts and reports. |
 
 ## Database workflow
 
-| Command | Purpose |
-| --- | --- |
-| `bun run db:provision` | Verify the connection and apply the full schema. |
-| `bun run db:push` | Push schema changes directly without generating migration files. |
-| `bun run db:generate` | Generate SQL migrations with Drizzle Kit. |
-| `bun run db:studio` | Open Drizzle Studio in the browser. |
+| Command                | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `bun run db:provision` | Verify the connection and apply the full schema.                 |
+| `bun run db:push`      | Push schema changes directly without generating migration files. |
+| `bun run db:generate`  | Generate SQL migrations with Drizzle Kit.                        |
+| `bun run db:studio`    | Open Drizzle Studio in the browser.                              |
 
 ## Stack
 
-| Layer | Technology |
-| --- | --- |
-| Framework | Next.js 16, React 19, TypeScript 5 |
-| Runtime | Bun |
-| Styling | Tailwind CSS v4, shadcn/ui, Radix UI |
-| Data | PostgreSQL, Drizzle ORM |
+| Layer            | Technology                                                                  |
+| ---------------- | --------------------------------------------------------------------------- |
+| Framework        | Next.js 16, React 19, TypeScript 5                                          |
+| Runtime          | Bun                                                                         |
+| Styling          | Tailwind CSS v4, shadcn/ui, Radix UI                                        |
+| Data             | PostgreSQL, Drizzle ORM                                                     |
 | Content pipeline | Feed parsing, article distillation, sanitization, and extract orchestration |
 
 ## Project structure

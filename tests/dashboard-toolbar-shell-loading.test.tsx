@@ -4,7 +4,7 @@ import {
   readDashboardShellLoadingFromDocument,
   readDashboardShellLoadingFromEvent,
   resolveDashboardShellLoadingState,
-} from "@/app/dashboard/hooks/useDashboardToolbarState";
+} from "@/app/dashboard/toolbar/useDashboardShellLoadingState";
 
 describe("useDashboardToolbarState shell loading", () => {
   const originalReadyStateDescriptor = Object.getOwnPropertyDescriptor(
@@ -26,7 +26,11 @@ describe("useDashboardToolbarState shell loading", () => {
     delete document.documentElement.dataset.dashboardShellLoading;
 
     if (originalReadyStateDescriptor) {
-      Object.defineProperty(document, "readyState", originalReadyStateDescriptor);
+      Object.defineProperty(
+        document,
+        "readyState",
+        originalReadyStateDescriptor,
+      );
     }
   });
 
@@ -57,7 +61,10 @@ describe("useDashboardToolbarState shell loading", () => {
   });
 
   test("prefers the document dataset before bus events arrive", () => {
-    document.documentElement.setAttribute("data-dashboard-shell-loading", "true");
+    document.documentElement.setAttribute(
+      "data-dashboard-shell-loading",
+      "true",
+    );
 
     expect(readDashboardShellLoadingFromDocument()).toBe(true);
     expect(
@@ -68,7 +75,10 @@ describe("useDashboardToolbarState shell loading", () => {
       }),
     ).toBe(true);
 
-    document.documentElement.setAttribute("data-dashboard-shell-loading", "false");
+    document.documentElement.setAttribute(
+      "data-dashboard-shell-loading",
+      "false",
+    );
     expect(readDashboardShellLoadingFromDocument()).toBe(false);
 
     delete document.documentElement.dataset.dashboardShellLoading;

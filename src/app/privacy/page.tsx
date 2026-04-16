@@ -1,5 +1,5 @@
-import { getPrivacyPageContent } from "../components/legal/content";
-import { LegalDocumentPage } from "../components/LegalDocumentPage";
+import { LegalDocumentPage } from "@/app/app-components";
+import { getPrivacyPageContent } from "@/app/app-components/legal";
 
 /**
  * Renders the deployment-aware privacy policy page.

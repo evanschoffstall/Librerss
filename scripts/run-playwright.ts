@@ -139,9 +139,7 @@ function createStartupError(message: string, recentOutput: string) {
 }
 
 /** Generates the aggregated Playwright coverage reports after a coverage run. */
-async function generatePlaywrightCoverageReport(
-  rawCoverageOutputDir: string,
-) {
+async function generatePlaywrightCoverageReport(rawCoverageOutputDir: string) {
   try {
     await access(join(process.cwd(), rawCoverageOutputDir));
   } catch {
@@ -164,7 +162,9 @@ async function generatePlaywrightCoverageReport(
   const { code, signal } = await waitForChildExit(generatorProcess);
 
   if (signal) {
-    console.error(`Playwright coverage generation exited from signal ${signal}.`);
+    console.error(
+      `Playwright coverage generation exited from signal ${signal}.`,
+    );
     return 1;
   }
 
@@ -226,9 +226,7 @@ async function main() {
     ]);
 
     await Promise.allSettled(
-      temporaryPaths.map((target) =>
-        removePlaywrightRuntimeDirectory(target),
-      ),
+      temporaryPaths.map((target) => removePlaywrightRuntimeDirectory(target)),
     );
   };
 
@@ -344,10 +342,7 @@ async function main() {
     const coverageExitCode = PLAYWRIGHT_COVERAGE_ENABLED
       ? await generatePlaywrightCoverageReport(rawCoverageOutputDir)
       : 0;
-    const exitCode =
-      code === 0
-        ? coverageExitCode
-        : (code ?? 1);
+    const exitCode = code === 0 ? coverageExitCode : (code ?? 1);
 
     await exitWithCleanup(exitCode);
   } catch (error) {

@@ -6,16 +6,15 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import {
-    AccountService,
-    ArticleService,
-    AuthService,
-    FeedService
-} from "@/lib";
+  AccountService,
+  ArticleService,
+  AuthService,
+  FeedService,
+} from "@/lib/api";
 import {
-    resetApiClientForTesting,
-    setApiClientForTesting
+  resetApiClientForTesting,
+  setApiClientForTesting,
 } from "@/lib/api/http";
-
 
 // Create a mock axios instance
 const mockAxiosInstance: any = {

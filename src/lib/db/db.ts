@@ -1,5 +1,4 @@
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
+import { logger } from "@/lib";
 
 import type { Database, DatabasePool, DatabaseProviderResult } from "./types";
 
@@ -109,6 +108,10 @@ function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   return createNodePostgresDatabase(options);
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -131,7 +134,7 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
 
     globalForDb.hasLoggedInitialDbConnectionWarning = true;
 
-    const message = toErrorMessage(error);
+    const message = getErrorMessage(error);
     dbDependencies.warn("[db] Initial database connectivity check failed", {
       error: message,
       note: "The app will continue running, but database-backed features may fail until the connection is restored.",

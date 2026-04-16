@@ -19,7 +19,9 @@ const reporter: ReporterDescription[] = [
   [consoleReporter],
   ["html", { open: "never", outputFolder: htmlReportDir }],
   ...(junitReportPath
-    ? ([["junit", { outputFile: junitReportPath }]] satisfies ReporterDescription[])
+    ? ([
+        ["junit", { outputFile: junitReportPath }],
+      ] satisfies ReporterDescription[])
     : []),
 ];
 

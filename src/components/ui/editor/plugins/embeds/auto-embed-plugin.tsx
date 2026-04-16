@@ -9,11 +9,11 @@
  *
  */
 import {
-    AutoEmbedOption,
-    EmbedConfig,
-    EmbedMatchResult,
-    LexicalAutoEmbedPlugin,
-    URL_MATCHER,
+  AutoEmbedOption,
+  EmbedConfig,
+  EmbedMatchResult,
+  LexicalAutoEmbedPlugin,
+  URL_MATCHER,
 } from "@lexical/react/LexicalAutoEmbedPlugin";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { PopoverPortal } from "@radix-ui/react-popover";
@@ -23,10 +23,10 @@ import { JSX, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
-    Command,
-    CommandGroup,
-    CommandItem,
-    CommandList,
+  Command,
+  CommandGroup,
+  CommandItem,
+  CommandList,
 } from "@/components/ui/command";
 import { DialogFooter } from "@/components/ui/dialog";
 import { useEditorModal } from "@/components/ui/editor/editor-hooks/use-modal";
@@ -34,9 +34,9 @@ import { INSERT_TWEET_COMMAND } from "@/components/ui/editor/plugins/embeds/twit
 import { INSERT_YOUTUBE_COMMAND } from "@/components/ui/editor/plugins/embeds/youtube-plugin";
 import { Input } from "@/components/ui/input";
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
 
 export interface CustomEmbedConfig extends EmbedConfig {

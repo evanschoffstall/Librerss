@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import {
   articleCard,
+  configureArticlesPerPage,
   gotoPreviewDashboard,
   openDashboardSettings,
   readFeedViewportMetrics,
@@ -27,16 +28,24 @@ const MIN_STABLE_HEADER_OFFSET_TOP_PX = 96;
 const MIN_STABLE_HEADER_BOTTOM_CLEARANCE_PX = 120;
 
 /** Aligns an article header to the preferred stable offset before measuring expansion drift. */
-async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) {
+async function alignArticleHeaderToStableOffset(
+  page: Page,
+  articleKey: string,
+) {
   await expect
     .poll(async () => {
-      const offsets = await maybeReadArticleHeaderViewportOffsets(page, articleKey);
+      const offsets = await maybeReadArticleHeaderViewportOffsets(
+        page,
+        articleKey,
+      );
 
       if (!offsets) {
         return false;
       }
 
-      const targetHeaderTop = resolveStableHeaderOffsetTop(offsets.viewportHeight);
+      const targetHeaderTop = resolveStableHeaderOffsetTop(
+        offsets.viewportHeight,
+      );
       const stableHeaderTopMin = Math.max(48, targetHeaderTop - 72);
       const stableHeaderTopMax = Math.max(
         stableHeaderTopMin,
@@ -52,61 +61,62 @@ async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) 
 
       await page.evaluate(
         ({ targetArticleKey, targetHeaderTop }) => {
-          const candidate = [...document.querySelectorAll<HTMLElement>(
-            `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-          )]
-            .map((article) => {
-              const header = article.querySelector<HTMLElement>(
-                "[data-article-swipe-zone='header']",
-              );
-              const viewport = article.closest<HTMLElement>(
-                "[data-radix-scroll-area-viewport]",
-              );
+          const candidate =
+            [
+              ...document.querySelectorAll<HTMLElement>(
+                `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+              ),
+            ]
+              .map((article) => {
+                const header = article.querySelector<HTMLElement>(
+                  "[data-article-swipe-zone='header']",
+                );
+                const viewport = article.closest<HTMLElement>(
+                  "[data-radix-scroll-area-viewport]",
+                );
 
-              if (!header || !viewport) {
-                return null;
-              }
+                if (!header || !viewport) {
+                  return null;
+                }
 
-              if (
-                !viewport.isConnected ||
-                viewport.getBoundingClientRect().height <= 0 ||
-                viewport.getBoundingClientRect().width <= 0 ||
-                window.getComputedStyle(viewport).visibility === "hidden"
-              ) {
-                return null;
-              }
+                if (
+                  !viewport.isConnected ||
+                  viewport.getBoundingClientRect().height <= 0 ||
+                  viewport.getBoundingClientRect().width <= 0 ||
+                  window.getComputedStyle(viewport).visibility === "hidden"
+                ) {
+                  return null;
+                }
 
-              const viewportRect = viewport.getBoundingClientRect();
-              const headerRect = header.getBoundingClientRect();
-              const headerTop = headerRect.top - viewportRect.top;
-              const headerBottom = headerRect.bottom - viewportRect.top;
+                const viewportRect = viewport.getBoundingClientRect();
+                const headerRect = header.getBoundingClientRect();
+                const headerTop = headerRect.top - viewportRect.top;
+                const headerBottom = headerRect.bottom - viewportRect.top;
 
-              return {
-                article,
-                header,
-                intersectsViewport:
-                  headerBottom > 0 && headerTop < viewport.clientHeight,
-                viewport,
-                visibleScore:
-                  Math.abs(Math.max(0, headerTop)) +
-                  Math.abs(
-                    Math.min(0, viewport.clientHeight - headerBottom),
-                  ),
-              };
-            })
-            .filter(
-              (
-                nextCandidate,
-              ): nextCandidate is NonNullable<typeof nextCandidate> =>
-                nextCandidate !== null,
-            )
-            .sort((left, right) => {
-              if (left.intersectsViewport !== right.intersectsViewport) {
-                return left.intersectsViewport ? -1 : 1;
-              }
+                return {
+                  article,
+                  header,
+                  intersectsViewport:
+                    headerBottom > 0 && headerTop < viewport.clientHeight,
+                  viewport,
+                  visibleScore:
+                    Math.abs(Math.max(0, headerTop)) +
+                    Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
+                };
+              })
+              .filter(
+                (
+                  nextCandidate,
+                ): nextCandidate is NonNullable<typeof nextCandidate> =>
+                  nextCandidate !== null,
+              )
+              .sort((left, right) => {
+                if (left.intersectsViewport !== right.intersectsViewport) {
+                  return left.intersectsViewport ? -1 : 1;
+                }
 
-              return left.visibleScore - right.visibleScore;
-            })[0] ?? null;
+                return left.visibleScore - right.visibleScore;
+              })[0] ?? null;
 
           if (!candidate) {
             return;
@@ -119,7 +129,7 @@ async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) 
             new Event("touchmove", { bubbles: true, cancelable: true }),
           );
           viewport.scrollTop +=
-            (headerRect.top - viewportRect.top) - targetHeaderTop;
+            headerRect.top - viewportRect.top - targetHeaderTop;
           viewport.dispatchEvent(new Event("scroll"));
         },
         {
@@ -136,72 +146,98 @@ async function alignArticleHeaderToStableOffset(page: Page, articleKey: string) 
 /** Collapses an expanded article directly by key without requiring its header to stay interactable in the viewport. */
 async function collapseArticleByKey(page: Page, articleKey: string) {
   await page.evaluate((targetArticleKey) => {
-    const article = [...document.querySelectorAll<HTMLElement>(
-      `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-    )]
-      .find((candidate) => candidate.getAttribute("aria-expanded") === "true") ??
+    const article =
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+        ),
+      ].find(
+        (candidate) => candidate.getAttribute("aria-expanded") === "true",
+      ) ??
       document.querySelector<HTMLElement>(
         `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
       );
 
     if (!article) {
-      throw new Error("Expected the expanded article to remain mounted while collapsing.");
+      throw new Error(
+        "Expected the expanded article to remain mounted while collapsing.",
+      );
     }
 
-    const header = article.querySelector<HTMLElement>("[data-article-swipe-zone='header']");
+    const header = article.querySelector<HTMLElement>(
+      "[data-article-swipe-zone='header']",
+    );
 
     (header ?? article).click();
   }, articleKey);
 }
 
 /** Reads article header offsets when the article is currently rendered, otherwise returns null. */
-async function maybeReadArticleHeaderViewportOffsets(page: Page, articleKey: string) {
-  const state = await page.evaluate((targetArticleKey): null | RenderedArticleState => {
-    const candidates = [...document.querySelectorAll<HTMLElement>(
-      `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-    )]
-      .map((article) => {
-        const header = article.querySelector<HTMLElement>("[data-article-swipe-zone='header']");
-        const viewport = article.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+async function maybeReadArticleHeaderViewportOffsets(
+  page: Page,
+  articleKey: string,
+) {
+  const state = await page.evaluate(
+    (targetArticleKey): null | RenderedArticleState => {
+      const candidates = [
+        ...document.querySelectorAll<HTMLElement>(
+          `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+        ),
+      ]
+        .map((article) => {
+          const header = article.querySelector<HTMLElement>(
+            "[data-article-swipe-zone='header']",
+          );
+          const viewport = article.closest<HTMLElement>(
+            "[data-radix-scroll-area-viewport]",
+          );
 
-        if (!header || !viewport) {
-          return null;
-        }
+          if (!header || !viewport) {
+            return null;
+          }
 
-        if (
-          !viewport.isConnected ||
-          viewport.getBoundingClientRect().height <= 0 ||
-          viewport.getBoundingClientRect().width <= 0 ||
-          window.getComputedStyle(viewport).visibility === "hidden"
-        ) {
-          return null;
-        }
+          if (
+            !viewport.isConnected ||
+            viewport.getBoundingClientRect().height <= 0 ||
+            viewport.getBoundingClientRect().width <= 0 ||
+            window.getComputedStyle(viewport).visibility === "hidden"
+          ) {
+            return null;
+          }
 
-        const viewportRect = viewport.getBoundingClientRect();
-        const headerRect = header.getBoundingClientRect();
-        const headerTop = headerRect.top - viewportRect.top;
-        const headerBottom = headerRect.bottom - viewportRect.top;
+          const viewportRect = viewport.getBoundingClientRect();
+          const headerRect = header.getBoundingClientRect();
+          const headerTop = headerRect.top - viewportRect.top;
+          const headerBottom = headerRect.bottom - viewportRect.top;
 
-        return {
-          expanded: article.getAttribute("aria-expanded"),
-          headerTop: Math.round(headerTop * 100) / 100,
-          intersectsViewport: headerBottom > 0 && headerTop < viewport.clientHeight,
-          scrollTop: Math.round(viewport.scrollTop * 100) / 100,
-          viewportHeight: viewport.clientHeight,
-          visibleScore: Math.abs(Math.max(0, headerTop)) + Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
-        };
-      })
-      .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
-      .sort((left, right) => {
-        if (left.intersectsViewport !== right.intersectsViewport) {
-          return left.intersectsViewport ? -1 : 1;
-        }
+          return {
+            expanded: article.getAttribute("aria-expanded"),
+            headerTop: Math.round(headerTop * 100) / 100,
+            intersectsViewport:
+              headerBottom > 0 && headerTop < viewport.clientHeight,
+            scrollTop: Math.round(viewport.scrollTop * 100) / 100,
+            viewportHeight: viewport.clientHeight,
+            visibleScore:
+              Math.abs(Math.max(0, headerTop)) +
+              Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
+          };
+        })
+        .filter(
+          (candidate): candidate is NonNullable<typeof candidate> =>
+            candidate !== null,
+        )
+        .sort((left, right) => {
+          if (left.intersectsViewport !== right.intersectsViewport) {
+            return left.intersectsViewport ? -1 : 1;
+          }
 
-        return left.visibleScore - right.visibleScore;
-      });
+          return left.visibleScore - right.visibleScore;
+        });
 
-    return candidates[0] ?? null;
-  }, articleKey);
+      return candidates[0] ?? null;
+    },
+    articleKey,
+  );
 
   if (!state) {
     return null;
@@ -217,12 +253,18 @@ async function maybeReadArticleHeaderViewportOffsets(page: Page, articleKey: str
 /** Reads the current expanded state for the best rendered instance of an article key. */
 async function readArticleExpandedState(page: Page, articleKey: string) {
   return await page.evaluate((targetArticleKey) => {
-    const candidates = [...document.querySelectorAll<HTMLElement>(
-      `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-    )]
+    const candidates = [
+      ...document.querySelectorAll<HTMLElement>(
+        `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+      ),
+    ]
       .map((article) => {
-        const header = article.querySelector<HTMLElement>("[data-article-swipe-zone='header']");
-        const viewport = article.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+        const header = article.querySelector<HTMLElement>(
+          "[data-article-swipe-zone='header']",
+        );
+        const viewport = article.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
 
         if (!header || !viewport) {
           return null;
@@ -235,11 +277,17 @@ async function readArticleExpandedState(page: Page, articleKey: string) {
 
         return {
           expanded: article.getAttribute("aria-expanded"),
-          intersectsViewport: headerBottom > 0 && headerTop < viewport.clientHeight,
-          visibleScore: Math.abs(Math.max(0, headerTop)) + Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
+          intersectsViewport:
+            headerBottom > 0 && headerTop < viewport.clientHeight,
+          visibleScore:
+            Math.abs(Math.max(0, headerTop)) +
+            Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
         };
       })
-      .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+      .filter(
+        (candidate): candidate is NonNullable<typeof candidate> =>
+          candidate !== null,
+      )
       .sort((left, right) => {
         if (left.intersectsViewport !== right.intersectsViewport) {
           return left.intersectsViewport ? -1 : 1;
@@ -253,11 +301,16 @@ async function readArticleExpandedState(page: Page, articleKey: string) {
 }
 
 /** Measures an article header's offset inside its owning feed viewport. */
-async function readArticleHeaderViewportOffsets(page: Page, articleKey: string) {
+async function readArticleHeaderViewportOffsets(
+  page: Page,
+  articleKey: string,
+) {
   const state = await maybeReadArticleHeaderViewportOffsets(page, articleKey);
 
   if (!state) {
-      throw new Error("Expected an article header rendered inside the feed viewport.");
+    throw new Error(
+      "Expected an article header rendered inside the feed viewport.",
+    );
   }
 
   return state;
@@ -273,7 +326,11 @@ async function readInvertedScrollAttribute(page: Page) {
 async function readLastArticleViewportGap(page: Page) {
   return await page.evaluate(() => {
     const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ),
+      ].find(
         (candidate) =>
           candidate.isConnected &&
           candidate.getBoundingClientRect().height > 0 &&
@@ -283,16 +340,24 @@ async function readLastArticleViewportGap(page: Page) {
       ) ?? null;
 
     if (!viewport) {
-      throw new Error("Expected a feed viewport and at least one rendered article.");
+      throw new Error(
+        "Expected a feed viewport and at least one rendered article.",
+      );
     }
 
     const viewportBottom = viewport.getBoundingClientRect().bottom;
-    const bottomVisibleArticle = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")]
+    const bottomVisibleArticle = [
+      ...document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ]
       .map((article) => ({
         bottom: article.getBoundingClientRect().bottom,
         top: article.getBoundingClientRect().top,
       }))
-      .filter((article) => article.top < viewportBottom && article.bottom <= viewportBottom + 0.5)
+      .filter(
+        (article) =>
+          article.top < viewportBottom &&
+          article.bottom <= viewportBottom + 0.5,
+      )
       .reduce<null | { bottom: number; top: number }>((selected, candidate) => {
         if (!selected) {
           return candidate;
@@ -302,10 +367,14 @@ async function readLastArticleViewportGap(page: Page) {
       }, null);
 
     if (!bottomVisibleArticle) {
-      throw new Error("Expected a bottommost visible article in the feed viewport.");
+      throw new Error(
+        "Expected a bottommost visible article in the feed viewport.",
+      );
     }
 
-    return Math.round((viewportBottom - bottomVisibleArticle.bottom) * 100) / 100;
+    return (
+      Math.round((viewportBottom - bottomVisibleArticle.bottom) * 100) / 100
+    );
   });
 }
 
@@ -313,7 +382,11 @@ async function readLastArticleViewportGap(page: Page) {
 async function readStableVisibleArticleKey(page: Page) {
   return await page.evaluate((targetHeaderTop) => {
     const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ),
+      ].find(
         (candidate) =>
           candidate.isConnected &&
           candidate.getBoundingClientRect().height > 0 &&
@@ -323,7 +396,9 @@ async function readStableVisibleArticleKey(page: Page) {
       ) ?? null;
 
     if (!viewport) {
-      throw new Error("Expected a feed viewport before reading the visible article key.");
+      throw new Error(
+        "Expected a feed viewport before reading the visible article key.",
+      );
     }
 
     const viewportRect = viewport.getBoundingClientRect();
@@ -332,12 +407,17 @@ async function readStableVisibleArticleKey(page: Page) {
       targetHeaderTop,
       Math.max(96, viewport.clientHeight - 120),
     );
-    const stableTop = viewportRect.top + Math.max(48, resolvedTargetHeaderTop - 72);
+    const stableTop =
+      viewportRect.top + Math.max(48, resolvedTargetHeaderTop - 72);
     const stableBottom = viewportRect.top + viewport.clientHeight - 120;
-    const visibleArticles = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")]
+    const visibleArticles = [
+      ...document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ]
       .map((article) => ({
         article,
-        header: article.querySelector<HTMLElement>("[data-article-swipe-zone='header']"),
+        header: article.querySelector<HTMLElement>(
+          "[data-article-swipe-zone='header']",
+        ),
       }))
       .filter(
         ({ header }) =>
@@ -348,21 +428,27 @@ async function readStableVisibleArticleKey(page: Page) {
       .sort((left, right) => {
         const leftTop = left.header!.getBoundingClientRect().top;
         const rightTop = right.header!.getBoundingClientRect().top;
-        const leftInStableBand = leftTop >= stableTop && leftTop <= stableBottom;
-        const rightInStableBand = rightTop >= stableTop && rightTop <= stableBottom;
+        const leftInStableBand =
+          leftTop >= stableTop && leftTop <= stableBottom;
+        const rightInStableBand =
+          rightTop >= stableTop && rightTop <= stableBottom;
 
         if (leftInStableBand !== rightInStableBand) {
           return leftInStableBand ? -1 : 1;
         }
 
-        return Math.abs(leftTop - (viewportRect.top + resolvedTargetHeaderTop)) -
-          Math.abs(rightTop - (viewportRect.top + resolvedTargetHeaderTop));
+        return (
+          Math.abs(leftTop - (viewportRect.top + resolvedTargetHeaderTop)) -
+          Math.abs(rightTop - (viewportRect.top + resolvedTargetHeaderTop))
+        );
       });
 
     const visibleArticle = visibleArticles[0]?.article ?? null;
 
     if (!visibleArticle) {
-      throw new Error("Expected at least one visible article in the feed viewport.");
+      throw new Error(
+        "Expected at least one visible article in the feed viewport.",
+      );
     }
 
     return visibleArticle.getAttribute("data-article-key");
@@ -380,10 +466,17 @@ function resolveStableHeaderOffsetTop(viewportHeight: number) {
 }
 
 /** Scrolls the owning feed viewport with explicit user-scroll intent semantics. */
-async function scrollFeedViewportWithIntent(page: Page, targetScrollTop: number) {
+async function scrollFeedViewportWithIntent(
+  page: Page,
+  targetScrollTop: number,
+) {
   return await page.evaluate((nextScrollTop) => {
     const viewport =
-      [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")].find(
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ),
+      ].find(
         (candidate) =>
           candidate.isConnected &&
           candidate.getBoundingClientRect().height > 0 &&
@@ -396,7 +489,9 @@ async function scrollFeedViewportWithIntent(page: Page, targetScrollTop: number)
       throw new Error("Expected a feed viewport before scrolling.");
     }
 
-    viewport.dispatchEvent(new Event("touchmove", { bubbles: true, cancelable: true }));
+    viewport.dispatchEvent(
+      new Event("touchmove", { bubbles: true, cancelable: true }),
+    );
     viewport.scrollTop = nextScrollTop;
     viewport.dispatchEvent(new Event("scroll"));
 
@@ -421,12 +516,18 @@ async function setLocalStoragePreference(
 /** Toggles the best currently rendered instance for an article key. */
 async function toggleArticleByKey(page: Page, articleKey: string) {
   await page.evaluate((targetArticleKey) => {
-    const candidates = [...document.querySelectorAll<HTMLElement>(
-      `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
-    )]
+    const candidates = [
+      ...document.querySelectorAll<HTMLElement>(
+        `article[data-article-key="${CSS.escape(targetArticleKey)}"]`,
+      ),
+    ]
       .map((article) => {
-        const header = article.querySelector<HTMLElement>("[data-article-swipe-zone='header']");
-        const viewport = article.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+        const header = article.querySelector<HTMLElement>(
+          "[data-article-swipe-zone='header']",
+        );
+        const viewport = article.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        );
 
         if (!header || !viewport) {
           return null;
@@ -450,11 +551,17 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
           article,
           expanded: article.getAttribute("aria-expanded") === "true",
           header,
-          intersectsViewport: headerBottom > 0 && headerTop < viewport.clientHeight,
-          visibleScore: Math.abs(Math.max(0, headerTop)) + Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
+          intersectsViewport:
+            headerBottom > 0 && headerTop < viewport.clientHeight,
+          visibleScore:
+            Math.abs(Math.max(0, headerTop)) +
+            Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
         };
       })
-      .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
+      .filter(
+        (candidate): candidate is NonNullable<typeof candidate> =>
+          candidate !== null,
+      )
       .sort((left, right) => {
         if (left.expanded !== right.expanded) {
           return left.expanded ? -1 : 1;
@@ -487,7 +594,9 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
 }
 
 test.describe("dashboard mobile inverted scroll", () => {
-  test("activates inverted scroll by default on mobile and anchors the feed at the bottom", async ({ page }) => {
+  test("activates inverted scroll by default on mobile and anchors the feed at the bottom", async ({
+    page,
+  }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
@@ -502,7 +611,8 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     await expect
       .poll(async () => {
-        const { clientHeight, scrollHeight, scrollTop } = await readFeedViewportMetrics(page);
+        const { clientHeight, scrollHeight, scrollTop } =
+          await readFeedViewportMetrics(page);
         return Math.round(scrollHeight - (scrollTop + clientHeight));
       })
       .toBeLessThanOrEqual(2);
@@ -579,6 +689,84 @@ test.describe("dashboard mobile inverted scroll", () => {
     expect(invertedAttr).toBeNull();
   });
 
+  test("reloads the inverted setting and loads the next page after one quick away-and-return boundary gesture", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await configureArticlesPerPage(page, 4);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    await openDashboardSettings(page);
+    const invertedScrollSwitch = page.locator("#mobile-inverted-scroll");
+    if (await invertedScrollSwitch.isChecked()) {
+      await invertedScrollSwitch.click();
+      await expect(invertedScrollSwitch).not.toBeChecked();
+    }
+    await page.keyboard.press("Escape");
+
+    await openDashboardSettings(page);
+    if (!(await invertedScrollSwitch.isChecked())) {
+      await invertedScrollSwitch.click();
+      await expect(invertedScrollSwitch).toBeChecked();
+    }
+    await page.keyboard.press("Escape");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const invertedAttr = await readInvertedScrollAttribute(page);
+    expect(invertedAttr).toBe("true");
+
+    await expect
+      .poll(async () => {
+        return (await readFeedViewportMetrics(page)).scrollHeight;
+      })
+      .toBeGreaterThan(0);
+    const baselineMetrics = await readFeedViewportMetrics(page);
+    const baselineScrollHeight = baselineMetrics.scrollHeight;
+
+    const firstMoveTarget = Math.max(
+      96,
+      Math.floor((await readFeedViewportMetrics(page)).scrollHeight * 0.25),
+    );
+    await scrollFeedViewportWithIntent(page, firstMoveTarget);
+
+    const preservedVisibleArticleKey = await readStableVisibleArticleKey(page);
+    if (!preservedVisibleArticleKey) {
+      throw new Error(
+        "Expected a visible article key before triggering inverted pagination.",
+      );
+    }
+
+    await scrollFeedViewportWithIntent(page, 0);
+
+    await expect
+      .poll(async () => {
+        const metrics = await readFeedViewportMetrics(page);
+        const preservedOffsets = await maybeReadArticleHeaderViewportOffsets(
+          page,
+          preservedVisibleArticleKey,
+        );
+
+        return {
+          preservedVisible: preservedOffsets !== null,
+          scrollHeight: metrics.scrollHeight,
+          scrollTop: metrics.scrollTop,
+        };
+      })
+      .toMatchObject({
+        preservedVisible: true,
+      });
+
+    const postHydrationMetrics = await readFeedViewportMetrics(page);
+    expect(postHydrationMetrics.scrollHeight).toBeGreaterThan(
+      baselineScrollHeight,
+    );
+    expect(postHydrationMetrics.scrollTop).toBeGreaterThan(0);
+  });
+
   test("renders article cards with a valid feed surface in inverted mode", async ({
     page,
   }) => {
@@ -590,7 +778,9 @@ test.describe("dashboard mobile inverted scroll", () => {
     const invertedAttr = await readInvertedScrollAttribute(page);
     expect(invertedAttr).toBe("true");
 
-    const articleCount = await page.locator("article[data-article-key]").count();
+    const articleCount = await page
+      .locator("article[data-article-key]")
+      .count();
     expect(articleCount).toBeGreaterThan(0);
 
     const feedMetrics = await readFeedViewportMetrics(page);
@@ -616,15 +806,25 @@ test.describe("dashboard mobile inverted scroll", () => {
       throw new Error("Expected a visible article key.");
     }
     await alignArticleHeaderToStableOffset(page, targetArticleKey);
-    const before = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+    const before = await readArticleHeaderViewportOffsets(
+      page,
+      targetArticleKey,
+    );
 
     for (let cycle = 0; cycle < 4; cycle += 1) {
       await toggleArticleByKey(page, targetArticleKey);
-      await expect.poll(async () => await readArticleExpandedState(page, targetArticleKey)).toBe("true");
+      await expect
+        .poll(
+          async () => await readArticleExpandedState(page, targetArticleKey),
+        )
+        .toBe("true");
 
       await expect
         .poll(async () => {
-          const during = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+          const during = await readArticleHeaderViewportOffsets(
+            page,
+            targetArticleKey,
+          );
 
           return (
             during.headerTop >= -1 &&
@@ -635,20 +835,30 @@ test.describe("dashboard mobile inverted scroll", () => {
         })
         .toBe(true);
 
-      const during = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+      const during = await readArticleHeaderViewportOffsets(
+        page,
+        targetArticleKey,
+      );
 
       expect(during.headerTop).toBeGreaterThanOrEqual(-1);
       expect(during.headerTop).toBeLessThanOrEqual(during.viewportHeight - 60);
-      expect(
-        Math.abs(during.headerTop - before.headerTop),
-      ).toBeLessThanOrEqual(STABLE_HEADER_POSITION_TOLERANCE_PX);
+      expect(Math.abs(during.headerTop - before.headerTop)).toBeLessThanOrEqual(
+        STABLE_HEADER_POSITION_TOLERANCE_PX,
+      );
 
       await toggleArticleByKey(page, targetArticleKey);
-      await expect.poll(async () => await readArticleExpandedState(page, targetArticleKey)).toBe("false");
+      await expect
+        .poll(
+          async () => await readArticleExpandedState(page, targetArticleKey),
+        )
+        .toBe("false");
 
       await expect
         .poll(async () => {
-          const after = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+          const after = await readArticleHeaderViewportOffsets(
+            page,
+            targetArticleKey,
+          );
 
           return (
             after.headerTop >= -1 &&
@@ -659,13 +869,16 @@ test.describe("dashboard mobile inverted scroll", () => {
         })
         .toBe(true);
 
-      const after = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+      const after = await readArticleHeaderViewportOffsets(
+        page,
+        targetArticleKey,
+      );
 
       expect(after.headerTop).toBeGreaterThanOrEqual(-1);
       expect(after.headerTop).toBeLessThanOrEqual(after.viewportHeight - 60);
-      expect(
-        Math.abs(after.headerTop - before.headerTop),
-      ).toBeLessThanOrEqual(STABLE_HEADER_POSITION_TOLERANCE_PX);
+      expect(Math.abs(after.headerTop - before.headerTop)).toBeLessThanOrEqual(
+        STABLE_HEADER_POSITION_TOLERANCE_PX,
+      );
     }
   });
 
@@ -687,10 +900,15 @@ test.describe("dashboard mobile inverted scroll", () => {
       throw new Error("Expected a visible article key.");
     }
     await alignArticleHeaderToStableOffset(page, targetArticleKey);
-    const before = await readArticleHeaderViewportOffsets(page, targetArticleKey);
+    const before = await readArticleHeaderViewportOffsets(
+      page,
+      targetArticleKey,
+    );
 
     await toggleArticleByKey(page, targetArticleKey);
-    await expect.poll(async () => await readArticleExpandedState(page, targetArticleKey)).toBe("true");
+    await expect
+      .poll(async () => await readArticleExpandedState(page, targetArticleKey))
+      .toBe("true");
 
     await page.waitForTimeout(300);
 
@@ -723,14 +941,24 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     const secondTargetArticleKey = await readStableVisibleArticleKey(page);
     if (!secondTargetArticleKey) {
-      throw new Error("Expected a second visible article key after restoring the viewport.");
+      throw new Error(
+        "Expected a second visible article key after restoring the viewport.",
+      );
     }
 
     await alignArticleHeaderToStableOffset(page, secondTargetArticleKey);
-    const secondBefore = await readArticleHeaderViewportOffsets(page, secondTargetArticleKey);
+    const secondBefore = await readArticleHeaderViewportOffsets(
+      page,
+      secondTargetArticleKey,
+    );
 
     await toggleArticleByKey(page, secondTargetArticleKey);
-    await expect.poll(async () => await readArticleExpandedState(page, secondTargetArticleKey)).toBe("true");
+    await expect
+      .poll(
+        async () =>
+          await readArticleExpandedState(page, secondTargetArticleKey),
+      )
+      .toBe("true");
 
     await page.waitForTimeout(300);
 
@@ -740,7 +968,9 @@ test.describe("dashboard mobile inverted scroll", () => {
     );
     await page.waitForTimeout(300);
     const settledMidway = (await readFeedViewportMetrics(page)).scrollTop;
-    expect(Math.abs(settledMidway - secondBefore.scrollTop)).toBeGreaterThan(100);
+    expect(Math.abs(settledMidway - secondBefore.scrollTop)).toBeGreaterThan(
+      100,
+    );
 
     expect(Math.abs(settledMidway - scrolledMidway)).toBeGreaterThanOrEqual(0);
 
@@ -760,6 +990,5 @@ test.describe("dashboard mobile inverted scroll", () => {
         );
       })
       .toBe(true);
-
   });
 });

@@ -10,15 +10,15 @@
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $insertNodeToNearestRoot } from "@lexical/utils";
 import {
-    COMMAND_PRIORITY_EDITOR,
-    createCommand,
-    LexicalCommand,
+  COMMAND_PRIORITY_EDITOR,
+  createCommand,
+  LexicalCommand,
 } from "lexical";
 import { JSX, useEffect } from "react";
 
 import {
-    $createTweetNode,
-    TweetNode,
+  $createTweetNode,
+  TweetNode,
 } from "@/components/ui/editor/nodes/embeds/tweet-node";
 
 export const INSERT_TWEET_COMMAND: LexicalCommand<string> = createCommand(

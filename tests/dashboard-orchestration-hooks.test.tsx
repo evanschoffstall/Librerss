@@ -2,10 +2,10 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import type { CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
 
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
-import { FeedService } from "@/lib";
+import { FeedService } from "@/lib/api";
 
 const originalDateNow = Date.now;
 const originalClearTimeout = globalThis.clearTimeout;
@@ -85,12 +85,13 @@ describe("dashboard orchestration hooks", () => {
       "src",
       "app",
       "dashboard",
-      "hooks",
+      "dashboard-hooks",
+      "category-tree",
       "useFeedSourceActions.ts",
     ].join("/");
     const { useFeedSourceActions } = (await import(
       `${modulePath}?dashboard-orchestration-feed-source-real`
-    )) as typeof import("@/app/dashboard/hooks/useFeedSourceActions");
+    )) as typeof import("@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions");
     const categories = [
       createCategoryNode("News", "cat-news", [
         createFeedNode({
@@ -158,12 +159,12 @@ describe("dashboard orchestration hooks", () => {
       "src",
       "app",
       "dashboard",
-      "hooks",
+      "dashboard-hooks",
       "useCategoryCrudActions.ts",
     ].join("/");
     const { useCategoryCrudActions } = (await import(
       `${modulePath}?dashboard-orchestration-category-crud-real`
-    )) as typeof import("@/app/dashboard/hooks/useCategoryCrudActions");
+    )) as typeof import("@/app/dashboard/dashboard-hooks/useCategoryCrudActions");
     const categories = [createCategoryNode("News", "cat-news")];
     const loadFeedSources = mock(async () => categories);
     const setCategories = mock(() => {});
@@ -197,7 +198,9 @@ describe("dashboard orchestration hooks", () => {
     const renamed = await act(async () =>
       result.current.renameCategory("News", "News"),
     );
-    const removed = await act(async () => result.current.removeCategory("News"));
+    const removed = await act(async () =>
+      result.current.removeCategory("News"),
+    );
 
     expect(result.current.customCategoryLabels).toEqual(["Tech", "Science"]);
     expect(orderedCategoryLabels).toEqual(["Tech"]);
@@ -214,12 +217,12 @@ describe("dashboard orchestration hooks", () => {
       "src",
       "app",
       "dashboard",
-      "hooks",
+      "dashboard-hooks",
       "useDashboardCategoryTree.ts",
     ].join("/");
     const { useDashboardCategoryTree } = (await import(
       `${modulePath}?dashboard-orchestration-category-tree-real`
-    )) as typeof import("@/app/dashboard/hooks/useDashboardCategoryTree");
+    )) as typeof import("@/app/dashboard/dashboard-hooks/useDashboardCategoryTree");
     const categories = [createCategoryNode("News", "cat-news")];
     const fetchAllFeeds = mock(async () => {});
     const fetchCategoryFeeds = mock(async () => {});
@@ -273,12 +276,12 @@ describe("dashboard orchestration hooks", () => {
       "src",
       "app",
       "dashboard",
-      "hooks",
+      "dashboard-hooks",
       "useDashboardIntervals.ts",
     ].join("/");
     const { STALE_TAB_THRESHOLD_MS, useDashboardIntervals } = (await import(
       `${modulePath}?dashboard-orchestration-intervals-real`
-    )) as typeof import("@/app/dashboard/hooks/useDashboardIntervals");
+    )) as typeof import("@/app/dashboard/dashboard-hooks/useDashboardIntervals");
     const intervalCallbacks = new Map<number, () => void>();
     const timeoutCallbacks = new Map<number, () => void>();
     const clearIntervalMock = mock((id: number) => {
@@ -319,9 +322,7 @@ describe("dashboard orchestration hooks", () => {
     const setRelativeRefreshTick = mock(
       (value: React.SetStateAction<number>) => {
         relativeRefreshTick =
-          typeof value === "function"
-            ? value(relativeRefreshTick)
-            : value;
+          typeof value === "function" ? value(relativeRefreshTick) : value;
       },
     );
 

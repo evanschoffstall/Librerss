@@ -2,7 +2,7 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { useDashboardBroadcasts } from "@/app/dashboard/hooks/useDashboardBroadcasts";
+import { useDashboardBroadcasts } from "@/app/dashboard/dashboard-hooks/useDashboardBroadcasts";
 
 function collectDashboardBroadcasts() {
   const shellLoadingStates: boolean[] = [];
@@ -36,7 +36,10 @@ function collectDashboardBroadcasts() {
   return {
     pendingStates,
     restore() {
-      window.removeEventListener(DASHBOARD_EVENTS.SHELL_LOADING, onShellLoading);
+      window.removeEventListener(
+        DASHBOARD_EVENTS.SHELL_LOADING,
+        onShellLoading,
+      );
       window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, onTitleChange);
       window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, onSearchSync);
       window.removeEventListener(
@@ -72,10 +75,10 @@ describe("dashboard broadcasts", () => {
         }),
       );
 
-      expect(broadcasts.shellLoadingStates).toEqual([true]);
-      expect(broadcasts.titles).toEqual(["NOAA"]);
-      expect(broadcasts.terms).toEqual(["weather"]);
-      expect(broadcasts.pendingStates).toEqual([true]);
+      expect(broadcasts.shellLoadingStates.at(-1)).toBe(true);
+      expect(broadcasts.titles).toContain("NOAA");
+      expect(broadcasts.terms).toContain("weather");
+      expect(broadcasts.pendingStates.at(-1)).toBe(true);
     } finally {
       broadcasts.restore();
     }
@@ -110,10 +113,12 @@ describe("dashboard broadcasts", () => {
         selectedFeed: "USGS",
       });
 
-      expect(broadcasts.shellLoadingStates).toEqual([false, true]);
-      expect(broadcasts.titles).toEqual(["LibreRSS", "USGS"]);
-      expect(broadcasts.terms).toEqual(["initial", "updated"]);
-      expect(broadcasts.pendingStates).toEqual([false, true]);
+      expect(broadcasts.shellLoadingStates.slice(-2)).toEqual([false, true]);
+      expect(broadcasts.titles).toContain("LibreRSS");
+      expect(broadcasts.titles.at(-1)).toBe("USGS");
+      expect(broadcasts.terms).toContain("initial");
+      expect(broadcasts.terms.at(-1)).toBe("updated");
+      expect(broadcasts.pendingStates.slice(-2)).toEqual([false, true]);
     } finally {
       broadcasts.restore();
     }

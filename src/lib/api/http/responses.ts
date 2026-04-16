@@ -1,6 +1,6 @@
-import type { Article } from "@/lib/core/types";
+import type { Article } from "@/lib/core";
 
-import { parseDateOrNull } from "@/lib/utils/dates";
+import { parseDateOrNull } from "@/lib/utils";
 
 // ── Response builders ─────────────────────────────────────────────────────────
 

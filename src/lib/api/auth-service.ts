@@ -1,8 +1,7 @@
-import type { AuthSession, AuthUser } from "@/lib/core/types";
+import type { AuthSession, AuthUser } from "@/lib/core";
 
-import { LEGAL_CONSENT_VERSION } from "@/app/components/legal/metadata";
-
-import { getApiClient } from "./http";
+import { LEGAL_CONSENT_VERSION } from "@/lib";
+import { getApiClient } from "@/lib/api/http";
 
 interface AuthSessionResponse {
   user: AuthUser;

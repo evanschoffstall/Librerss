@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
-import { getUserOwnedArticleById } from "@/lib/core/article-records";
-import { upsertArticleStatuses } from "@/lib/core/article-status";
-import {
-  type AuthenticatedUser,
-  logAndRespondError,
-  requireMutableUserAndJsonBody,
-  resolveRouteHandlerDeps,
-  type RouteHandlerContext, ServerServiceError, updateArticleStatus } from "@/lib/server";
-import { isSafePositiveItemId } from "@/lib/utils/validation";
+import { getUserOwnedArticleById, upsertArticleStatuses } from "@/lib/core/server";
+import { serverApi, updateArticleStatus } from "@/lib/server";
+import { isSafePositiveItemId } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,18 +19,20 @@ interface StatusPostDeps {
   requireMutableUserAndJsonBodyFn?: (
     request: NextRequest,
   ) => Promise<
-    Response | { body: Record<string, unknown>; user: AuthenticatedUser }
+    | Response
+    | { body: Record<string, unknown>; user: serverApi.AuthenticatedUser }
   >;
   upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
 export async function POST(
   request: NextRequest,
-  depsOrContext: RouteHandlerContext | StatusPostDeps = {},
+  depsOrContext: serverApi.RouteHandlerContext | StatusPostDeps = {},
 ) {
-  const deps = resolveRouteHandlerDeps<StatusPostDeps>(depsOrContext);
+  const deps = serverApi.resolveRouteHandlerDeps<StatusPostDeps>(depsOrContext);
   const requireAuth =
-    deps.requireMutableUserAndJsonBodyFn ?? requireMutableUserAndJsonBody;
+    deps.requireMutableUserAndJsonBodyFn ??
+    serverApi.requireMutableUserAndJsonBody;
 
   try {
     const authAndBody = await requireAuth(request);
@@ -46,18 +42,24 @@ export async function POST(
     const payload = parseStatusPayload(body);
     if (payload instanceof Response) return payload;
 
-    await updateArticleStatus(user.userId, payload.articleId, {
-      isRead: payload.isRead,
-      isStarred: payload.isStarred,
-    }, {
-      getUserOwnedArticleByIdFn: deps.getUserOwnedArticleByIdFn,
-      upsertArticleStatusesFn: deps.upsertArticleStatusesFn,
-    });
+    await updateArticleStatus(
+      user.userId,
+      payload.articleId,
+      {
+        isRead: payload.isRead,
+        isStarred: payload.isStarred,
+      },
+      {
+        getUserOwnedArticleByIdFn: deps.getUserOwnedArticleByIdFn,
+        upsertArticleStatusesFn: deps.upsertArticleStatusesFn,
+      },
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return logAndRespondError("Article status update error", error);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
+    return serverApi.logAndRespondError("Article status update error", error);
   }
 }
 

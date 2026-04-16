@@ -2,18 +2,18 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextResponse } from "next/server";
 
 import {
-  normalizeEmailInput,
-  parseEmailPasswordFromFormData,
-  parseEmailPasswordFromRecord,
-  parseEmailPasswordFromSearchParams,
-} from "@/lib/auth/credentials";
-import {
   clearSessionCookie,
   hashPassword,
   SESSION_COOKIE_NAME,
   setSessionCookie,
   verifyPassword,
-} from "@/lib/auth/session";
+} from "@/lib/auth";
+import {
+  normalizeEmailInput,
+  parseEmailPasswordFromFormData,
+  parseEmailPasswordFromRecord,
+  parseEmailPasswordFromSearchParams,
+} from "@/lib/auth/credentials";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

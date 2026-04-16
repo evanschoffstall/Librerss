@@ -63,7 +63,9 @@ async function expandStandardMobileWindow(page: Page) {
 
 /** Verifies refresh collapses an expanded mobile feed back to the minimum overflow window. */
 async function expectMobileRefreshCollapse(page: Page) {
-  await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+  await page
+    .getByRole("button", { exact: true, name: "Refresh selected feed" })
+    .click();
 
   await expect
     .poll(async () => {
@@ -137,7 +139,9 @@ test.describe("dashboard mobile feed pagination", () => {
         const nextWindow = await readRenderedItemWindow(page);
         expect(nextWindow.minIndex).not.toBeNull();
         expect(previousWindow.minIndex).not.toBeNull();
-        expect(nextWindow.minIndex!).toBeLessThanOrEqual(previousWindow.minIndex!);
+        expect(nextWindow.minIndex!).toBeLessThanOrEqual(
+          previousWindow.minIndex!,
+        );
         previousWindow = nextWindow;
       }
     });
@@ -231,8 +235,15 @@ test.describe("dashboard mobile feed pagination", () => {
         page,
         STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
       );
-      expect(anchorAfterLoad?.articleKey).toBe(anchorBeforeLoad?.articleKey ?? null);
-      expect(Math.abs((anchorAfterLoad?.offsetTop ?? 0) - (anchorBeforeLoad?.offsetTop ?? 0))).toBeLessThanOrEqual(24);
+      expect(anchorAfterLoad?.articleKey).toBe(
+        anchorBeforeLoad?.articleKey ?? null,
+      );
+      expect(
+        Math.abs(
+          (anchorAfterLoad?.offsetTop ?? 0) -
+            (anchorBeforeLoad?.offsetTop ?? 0),
+        ),
+      ).toBeLessThanOrEqual(24);
     });
 
     test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({
@@ -313,7 +324,9 @@ test.describe("dashboard mobile feed pagination", () => {
       const expandedCount = await readRenderedArticleCount(page);
       const expandedMetrics = await readFeedViewportMetrics(page);
 
-      expect(expandedMetrics.scrollHeight).toBeGreaterThan(expandedMetrics.clientHeight);
+      expect(expandedMetrics.scrollHeight).toBeGreaterThan(
+        expandedMetrics.clientHeight,
+      );
 
       await expectMobileRefreshCollapse(page);
       const collapsedCount = await readRenderedArticleCount(page);

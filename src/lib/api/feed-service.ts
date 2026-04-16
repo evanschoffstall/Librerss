@@ -1,7 +1,4 @@
-import type { ArticleFilter } from "@/lib/core/article-filters";
-import type { Article, FeedSource } from "@/lib/core/types";
-
-import { normalizeDistinctUrlList } from "@/lib/utils/url";
+import type { Article, ArticleFilter, FeedSource } from "@/lib/core";
 
 import {
   type BatchFeedResponseItem,
@@ -11,7 +8,8 @@ import {
   normalizeBatchItem,
   resolveBatchRequestTimeoutMs,
   withRequestDeadline,
-} from "./http";
+} from "@/lib/api/http";
+import { normalizeDistinctUrlList } from "@/lib/utils";
 
 interface CategoryOrderResponse {
   orderedLabels?: unknown;

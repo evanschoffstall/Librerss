@@ -1,4 +1,4 @@
-import { envBooleanOptional } from "@/lib/config";
+import { envBooleanOptional } from "@/lib";
 import { normalizePostgresConnectionString } from "@/lib/db/connection-string";
 
 /** Supported runtime database drivers for the application. */

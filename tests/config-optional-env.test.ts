@@ -48,9 +48,7 @@ describe("config optional env helpers", () => {
         COVERAGE_OPTIONAL_TEXT: "  hello world  ",
       },
       () => {
-        expect(envStringOptional("COVERAGE_OPTIONAL_TEXT")).toBe(
-          "hello world",
-        );
+        expect(envStringOptional("COVERAGE_OPTIONAL_TEXT")).toBe("hello world");
         expect(envStringOptional("COVERAGE_OPTIONAL_BLANK")).toBeUndefined();
         expect(envStringOptional("COVERAGE_OPTIONAL_MISSING")).toBeUndefined();
       },

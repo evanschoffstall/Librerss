@@ -11,7 +11,7 @@ import {
   setFeedListMobileViewport,
 } from "./feed-list-test-utils";
 
-let FeedList: typeof import("@/app/dashboard/components/feed/FeedList").FeedList;
+let FeedList: typeof import("@/app/dashboard/dashboard-components/feed-view/FeedList").FeedList;
 const originalConsoleError = console.error;
 
 type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
@@ -93,7 +93,11 @@ beforeEach(async () => {
   console.error = ((...args: unknown[]) => {
     const [firstArg] = args;
     if (typeof firstArg === "string") {
-      if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
+      if (
+        firstArg.includes(
+          "`NaN` is an invalid value for the `paddingBottom` css style property.",
+        )
+      ) {
         return;
       }
     }
@@ -101,11 +105,14 @@ beforeEach(async () => {
     originalConsoleError(...args);
   }) as typeof console.error;
   mock.module("motion/react", () => ({
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
     motion,
   }));
   installFeedListDomMocks();
-  ({ FeedList } = await import("@/app/dashboard/components/feed/FeedList"));
+  ({ FeedList } =
+    await import("@/app/dashboard/dashboard-components/feed-view/FeedList"));
 });
 
 afterEach(() => {
@@ -176,9 +183,9 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(getByText("Viewport fill article 10")).toBeTruthy();
       expect(queryByText("Viewport fill article 11")).toBeNull();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
-        10,
-      );
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(10);
     });
   });
 
@@ -242,10 +249,15 @@ describe("FeedList", () => {
 
     testContainer = container;
 
-    await waitFor(() => {
-      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
-      expect(renderedRows).toBe(12);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        const renderedRows = container.querySelectorAll(
+          "[data-scroll-restore-key]",
+        ).length;
+        expect(renderedRows).toBe(12);
+      },
+      { timeout: 5000 },
+    );
 
     expect(getByText("Starred auto-fill article 12")).toBeTruthy();
     expect(queryByText("Starred auto-fill article 14")).toBeNull();
@@ -313,9 +325,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Starred exhausted article 6")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(
-        6,
-      );
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(6);
       expect(
         container.querySelector("[data-feed-load-more-sentinel='true']"),
       ).toBeNull();
@@ -377,8 +389,12 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
-      expect(container.querySelectorAll("[data-feed-load-more-skeletons='true']")).toHaveLength(1);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-feed-load-more-skeletons='true']"),
+      ).toHaveLength(1);
       expect(
         container.querySelectorAll(
           "[data-feed-load-more-skeletons='true'] [data-dashboard-feed-list-skeleton-item='true']",
@@ -443,8 +459,12 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(6);
-      expect(container.querySelectorAll("[data-feed-load-more-skeletons='true']")).toHaveLength(1);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(6);
+      expect(
+        container.querySelectorAll("[data-feed-load-more-skeletons='true']"),
+      ).toHaveLength(1);
       expect(
         container.querySelectorAll(
           "[data-feed-load-more-skeletons='true'] [data-dashboard-feed-list-skeleton-item='true']",
@@ -554,7 +574,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Idle auto-fill article 8")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
     });
 
     await flushFeedListAsyncWork();
@@ -565,7 +587,10 @@ describe("FeedList", () => {
   test("requests another desktop page after unread removals shrink a user-owned viewport", async () => {
     let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
-    const initialArticles = buildSequentialFeedListArticles("desktop-refill", 12);
+    const initialArticles = buildSequentialFeedListArticles(
+      "desktop-refill",
+      12,
+    );
     const onLoadMore = mock(() => {});
 
     const { container, getByText, rerender } = renderFeedList(
@@ -629,7 +654,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("desktop-refill article 12")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -672,7 +699,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(onLoadMore).toHaveBeenCalledTimes(1);
     });
 
@@ -703,7 +732,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
       expect(onLoadMore).toHaveBeenCalledTimes(1);
     });
 
@@ -714,7 +745,10 @@ describe("FeedList", () => {
 
   test("waits to refill desktop unread depletion until the remaining unread window drops below a page plus overflow", async () => {
     let testContainer: HTMLElement | null = null;
-    const initialArticles = buildSequentialFeedListArticles("desktop-deplete", 12);
+    const initialArticles = buildSequentialFeedListArticles(
+      "desktop-deplete",
+      12,
+    );
     const onLoadMore = mock(() => {});
 
     const { container, getByText, rerender } = renderFeedList(
@@ -769,7 +803,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("desktop-deplete article 12")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
     });
 
     rerender(
@@ -800,7 +836,9 @@ describe("FeedList", () => {
 
     await flushFeedListAsyncWork();
 
-    expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(5);
+    expect(
+      container.querySelectorAll("[data-scroll-restore-key]"),
+    ).toHaveLength(5);
     expect(onLoadMore).toHaveBeenCalledTimes(0);
 
     rerender(
@@ -830,7 +868,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(onLoadMore).toHaveBeenCalledTimes(1);
     });
   });
@@ -842,7 +882,10 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const initialArticles = buildSequentialFeedListArticles("inverted-deplete", 12);
+    const initialArticles = buildSequentialFeedListArticles(
+      "inverted-deplete",
+      12,
+    );
     const onLoadMore = mock(() => {});
     let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
@@ -908,7 +951,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("inverted-deplete article 12")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
     });
 
     rerender(
@@ -939,7 +984,9 @@ describe("FeedList", () => {
 
     await flushFeedListAsyncWork();
 
-    expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(5);
+    expect(
+      container.querySelectorAll("[data-scroll-restore-key]"),
+    ).toHaveLength(5);
     expect(onLoadMore).toHaveBeenCalledTimes(0);
 
     rerender(
@@ -969,7 +1016,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(onLoadMore).toHaveBeenCalledTimes(1);
     });
   });
@@ -980,7 +1029,10 @@ describe("FeedList", () => {
       JSON.stringify(false),
     );
 
-    const articles = buildSequentialFeedListArticles("desktop-server-exhausted", 12);
+    const articles = buildSequentialFeedListArticles(
+      "desktop-server-exhausted",
+      12,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -1040,7 +1092,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("desktop-server-exhausted article 12")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
       expect(
         container.querySelector("[data-feed-load-more-sentinel='true']"),
       ).toBeNull();
@@ -1071,7 +1125,10 @@ describe("FeedList", () => {
       JSON.stringify(false),
     );
 
-    const articles = buildSequentialFeedListArticles("desktop-restored-bottom", 12);
+    const articles = buildSequentialFeedListArticles(
+      "desktop-restored-bottom",
+      12,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -1226,7 +1283,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Inverted server underfill article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(queryByText("Inverted server underfill article 5")).toBeNull();
     });
 
@@ -1254,8 +1313,14 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const articlesPageOne = buildSequentialFeedListArticles("inverted-consecutive", 4);
-    const articlesPageTwo = buildSequentialFeedListArticles("inverted-consecutive", 8);
+    const articlesPageOne = buildSequentialFeedListArticles(
+      "inverted-consecutive",
+      4,
+    );
+    const articlesPageTwo = buildSequentialFeedListArticles(
+      "inverted-consecutive",
+      8,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -1276,8 +1341,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows * 80, 400);
             },
@@ -1377,8 +1443,14 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const articlesPageOne = buildSequentialFeedListArticles("inverted-boundary-rearm", 4);
-    const articlesPageTwo = buildSequentialFeedListArticles("inverted-boundary-rearm", 8);
+    const articlesPageOne = buildSequentialFeedListArticles(
+      "inverted-boundary-rearm",
+      4,
+    );
+    const articlesPageTwo = buildSequentialFeedListArticles(
+      "inverted-boundary-rearm",
+      8,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -1399,8 +1471,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows * 80, 400);
             },
@@ -1517,8 +1590,14 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const articlesPageOne = buildSequentialFeedListArticles("inverted-cooldown-rearm", 4);
-    const articlesPageTwo = buildSequentialFeedListArticles("inverted-cooldown-rearm", 8);
+    const articlesPageOne = buildSequentialFeedListArticles(
+      "inverted-cooldown-rearm",
+      4,
+    );
+    const articlesPageTwo = buildSequentialFeedListArticles(
+      "inverted-cooldown-rearm",
+      8,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -1539,8 +1618,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows * 80, 400);
             },
@@ -1654,7 +1734,10 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const articles = buildSequentialFeedListArticles("inverted-anchor-release", 12);
+    const articles = buildSequentialFeedListArticles(
+      "inverted-anchor-release",
+      12,
+    );
     let measuredGrowth = 0;
     let scrollTop = 160;
 
@@ -1675,8 +1758,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 4) * 140 + measuredGrowth;
             },
@@ -1714,7 +1798,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -1731,7 +1817,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
     });
 
     await flushFeedListAsyncWork();
@@ -1785,7 +1873,10 @@ describe("FeedList", () => {
     );
     setFeedListMobileViewport(true);
 
-    const articles = buildSequentialFeedListArticles("inverted-height-floor", 24);
+    const articles = buildSequentialFeedListArticles(
+      "inverted-height-floor",
+      24,
+    );
     let viewportHeightFactor = 120;
     let scrollTop = 0;
 
@@ -1860,7 +1951,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
     });
 
     await act(async () => {
@@ -1878,7 +1971,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
     });
 
     const stableScrollTop = 260;
@@ -1954,8 +2049,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 4) * 140;
             },
@@ -1994,7 +2090,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Standard scroll article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(queryByText("Standard scroll article 12")).toBeNull();
     });
 
@@ -2014,7 +2112,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Standard scroll article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
       expect(getByText("Standard scroll article 8")).toBeTruthy();
       expect(queryByText("Standard scroll article 12")).toBeNull();
     });
@@ -2052,8 +2152,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 4) * 140;
             },
@@ -2092,7 +2193,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Standard scroll rearm article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(queryByText("Standard scroll rearm article 8")).toBeNull();
     });
 
@@ -2111,7 +2214,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
       expect(getByText("Standard scroll rearm article 8")).toBeTruthy();
       expect(queryByText("Standard scroll rearm article 12")).toBeNull();
     });
@@ -2123,7 +2228,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(12);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(12);
       expect(getByText("Standard scroll rearm article 12")).toBeTruthy();
     });
   });
@@ -2135,7 +2242,10 @@ describe("FeedList", () => {
     );
 
     const firstPage = buildSequentialFeedListArticles("desktop-server-lock", 8);
-    const secondPage = buildSequentialFeedListArticles("desktop-server-lock", 12);
+    const secondPage = buildSequentialFeedListArticles(
+      "desktop-server-lock",
+      12,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -2156,8 +2266,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 8) * 140;
             },
@@ -2278,8 +2389,14 @@ describe("FeedList", () => {
       JSON.stringify(false),
     );
 
-    const firstPage = buildSequentialFeedListArticles("desktop-cooldown-rearm", 8);
-    const secondPage = buildSequentialFeedListArticles("desktop-cooldown-rearm", 12);
+    const firstPage = buildSequentialFeedListArticles(
+      "desktop-cooldown-rearm",
+      8,
+    );
+    const secondPage = buildSequentialFeedListArticles(
+      "desktop-cooldown-rearm",
+      12,
+    );
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
@@ -2300,8 +2417,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 8) * 140;
             },
@@ -2441,8 +2559,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 4) * 140;
             },
@@ -2481,7 +2600,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Standard scroll idle article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(queryByText("Standard scroll idle article 12")).toBeNull();
     });
 
@@ -2500,7 +2621,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
       expect(queryByText("Standard scroll idle article 12")).toBeNull();
     });
   });
@@ -2537,8 +2660,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                container.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = container.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return Math.max(renderedRows, 4) * 140;
             },
@@ -2578,7 +2702,9 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Refresh epoch article 4")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(4);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(4);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -2596,7 +2722,9 @@ describe("FeedList", () => {
     });
 
     await waitFor(() => {
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(8);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(8);
       expect(getByText("Refresh epoch article 8")).toBeTruthy();
       expect(queryByText("Refresh epoch article 12")).toBeNull();
     });
@@ -2628,7 +2756,9 @@ describe("FeedList", () => {
     );
 
     await waitFor(() => {
-      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+      const renderedRows = container.querySelectorAll(
+        "[data-scroll-restore-key]",
+      ).length;
 
       expect(renderedRows).toBeGreaterThanOrEqual(4);
       expect(renderedRows).toBeLessThanOrEqual(6);
@@ -2677,7 +2807,9 @@ describe("FeedList", () => {
       expect(getByText("Desktop inverted scroll article 1")).toBeTruthy();
     });
 
-    expect(container.querySelector("[data-feed-load-more-sentinel='true']")).toBeNull();
+    expect(
+      container.querySelector("[data-feed-load-more-sentinel='true']"),
+    ).toBeNull();
   });
 
   test("renders the standard feed surface while an article is expanded", async () => {
@@ -2716,7 +2848,9 @@ describe("FeedList", () => {
       expect(
         container.querySelector("[data-feed-virtualizer='true']"),
       ).toBeNull();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(2);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(2);
     });
   });
 
@@ -2730,7 +2864,7 @@ describe("FeedList", () => {
     const { container, getByText, rerender } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-        articleFilter="all"
+          articleFilter="all"
           articlesPerPage={12}
           expandedArticleKey={article.link}
           feedViewKey="system-all-feeds:all"
@@ -2761,7 +2895,7 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-        articleFilter="all"
+            articleFilter="all"
             articlesPerPage={12}
             expandedArticleKey={null}
             feedViewKey="system-all-feeds:all"
@@ -2802,7 +2936,7 @@ describe("FeedList", () => {
     const { container, getByText, rerender } = renderFeedList(
       <div data-radix-scroll-area-viewport="">
         <FeedList
-        articleFilter="all"
+          articleFilter="all"
           articlesPerPage={12}
           expandedArticleKey={null}
           feedViewKey="system-all-feeds:all"
@@ -2848,7 +2982,7 @@ describe("FeedList", () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <div data-radix-scroll-area-viewport="">
           <FeedList
-        articleFilter="all"
+            articleFilter="all"
             articlesPerPage={12}
             expandedArticleKey={null}
             feedViewKey="feed:nasa:all"
@@ -3181,7 +3315,9 @@ describe("FeedList", () => {
     // Auto-fill expands all 10 articles (same pattern as existing viewport-fill test)
     await waitFor(() => {
       expect(getByText("Refresh epoch article 10")).toBeTruthy();
-      expect(container.querySelectorAll("[data-scroll-restore-key]")).toHaveLength(10);
+      expect(
+        container.querySelectorAll("[data-scroll-restore-key]"),
+      ).toHaveLength(10);
     });
 
     // Simulate the user having scrolled
@@ -3218,7 +3354,9 @@ describe("FeedList", () => {
     expect(scrollTop).toBe(0);
     // Visible count resets to articlesPerPage, then re-autofills until the viewport regains overflow.
     await waitFor(() => {
-      const renderedRows = container.querySelectorAll("[data-scroll-restore-key]").length;
+      const renderedRows = container.querySelectorAll(
+        "[data-scroll-restore-key]",
+      ).length;
 
       expect(renderedRows).toBeGreaterThanOrEqual(8);
       expect(renderedRows).toBeLessThanOrEqual(10);

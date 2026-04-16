@@ -199,9 +199,7 @@ describe("db-config", () => {
       connectionStringModule.normalizePostgresConnectionString(
         "postgres://user:pass@example.com/db?sslmode=verify-ca",
       ),
-    ).toBe(
-      "postgres://user:pass@example.com/db?sslmode=verify-full",
-    );
+    ).toBe("postgres://user:pass@example.com/db?sslmode=verify-full");
   });
 
   test("preserves explicit libpq compatibility requests", async () => {
@@ -215,51 +213,51 @@ describe("db-config", () => {
     ).toBe(
       "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=true",
     );
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=on",
-        ),
-      ).toBe(
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
         "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=on",
-      );
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
-        ),
-      ).toBe(
+      ),
+    ).toBe(
+      "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=on",
+    );
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
         "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
-      );
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "postgresql://user:pass@example.com/db?sslmode=prefer&uselibpqcompat=%20TRUE%20",
-        ),
-      ).toBe(
+      ),
+    ).toBe(
+      "postgresql://user:pass@example.com/db?sslmode=require&uselibpqcompat=1",
+    );
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
         "postgresql://user:pass@example.com/db?sslmode=prefer&uselibpqcompat=%20TRUE%20",
-      );
-    });
+      ),
+    ).toBe(
+      "postgresql://user:pass@example.com/db?sslmode=prefer&uselibpqcompat=%20TRUE%20",
+    );
+  });
 
-    test("leaves invalid, non-postgres, and unsupported sslmode strings untouched", async () => {
-      const connectionStringModule: typeof import("@/lib/db/connection-string") =
-        await import(`@/lib/db/connection-string?passthrough=${Date.now()}`);
+  test("leaves invalid, non-postgres, and unsupported sslmode strings untouched", async () => {
+    const connectionStringModule: typeof import("@/lib/db/connection-string") =
+      await import(`@/lib/db/connection-string?passthrough=${Date.now()}`);
 
-      expect(
-        connectionStringModule.normalizePostgresConnectionString("not-a-url"),
-      ).toBe("not-a-url");
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "mysql://user:pass@example.com/db?sslmode=require",
-        ),
-      ).toBe("mysql://user:pass@example.com/db?sslmode=require");
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "postgresql://user:pass@example.com/db",
-        ),
-      ).toBe("postgresql://user:pass@example.com/db");
-      expect(
-        connectionStringModule.normalizePostgresConnectionString(
-          "postgresql://user:pass@example.com/db?sslmode=disable",
-        ),
-      ).toBe("postgresql://user:pass@example.com/db?sslmode=disable");
+    expect(
+      connectionStringModule.normalizePostgresConnectionString("not-a-url"),
+    ).toBe("not-a-url");
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "mysql://user:pass@example.com/db?sslmode=require",
+      ),
+    ).toBe("mysql://user:pass@example.com/db?sslmode=require");
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "postgresql://user:pass@example.com/db",
+      ),
+    ).toBe("postgresql://user:pass@example.com/db");
+    expect(
+      connectionStringModule.normalizePostgresConnectionString(
+        "postgresql://user:pass@example.com/db?sslmode=disable",
+      ),
+    ).toBe("postgresql://user:pass@example.com/db?sslmode=disable");
   });
 
   test("parses connection and pool configuration from env", async () => {
@@ -634,8 +632,8 @@ describe("db initialization", () => {
 
     const overriddenQueryMock = mock(
       async (_queryText: string, _params?: readonly unknown[]) => ({
-      rowCount: 1,
-      rows: [{ ok: true }],
+        rowCount: 1,
+        rows: [{ ok: true }],
       }),
     );
 
@@ -644,18 +642,28 @@ describe("db initialization", () => {
     }));
 
     const queryExecutorModule: typeof import("@/lib/db/query-executor") =
-      await import(`@/lib/db/query-executor?node-postgres-query-executor=${Date.now()}`);
+      await import(
+        `@/lib/db/query-executor?node-postgres-query-executor=${Date.now()}`
+      );
 
     queryExecutorModule.setSqlQueryExecutorFactoryForTesting(() => ({
       close: mock(async () => undefined),
-      query: async <TRow extends Record<string, unknown> = Record<string, unknown>>(
+      query: async <
+        TRow extends Record<string, unknown> = Record<string, unknown>,
+      >(
         queryText: string,
         params?: readonly unknown[],
       ): Promise<SqlQueryResult<TRow>> =>
-        (await overriddenQueryMock(queryText, params)) as unknown as SqlQueryResult<TRow>,
+        (await overriddenQueryMock(
+          queryText,
+          params,
+        )) as unknown as SqlQueryResult<TRow>,
     }));
 
-    expect((await queryExecutorModule.createSqlQueryExecutor().query("SELECT 1")).rowCount).toBe(1);
+    expect(
+      (await queryExecutorModule.createSqlQueryExecutor().query("SELECT 1"))
+        .rowCount,
+    ).toBe(1);
 
     queryExecutorModule.resetSqlQueryExecutorFactoryForTesting();
 

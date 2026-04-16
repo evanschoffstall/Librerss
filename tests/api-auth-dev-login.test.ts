@@ -13,7 +13,12 @@ async function loadDevLoginRoute() {
 }
 
 function withDevAutoLoginEnv(
-  env: Partial<Record<"DEV_AUTO_LOGIN_EMAIL" | "DEV_AUTO_LOGIN_PASSWORD" | "NODE_ENV", string | undefined>>,
+  env: Partial<
+    Record<
+      "DEV_AUTO_LOGIN_EMAIL" | "DEV_AUTO_LOGIN_PASSWORD" | "NODE_ENV",
+      string | undefined
+    >
+  >,
   callback: () => Promise<void>,
 ) {
   const previousEnv = {
@@ -103,19 +108,25 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
+            {
+              headers: {
+                host: "192.168.2.117:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(authenticateCredentials).toHaveBeenCalledWith(
           "reader@example.com",
           "Password123!",
         );
-        expect(setSessionCookie).toHaveBeenCalledWith(response, "session-token");
+        expect(setSessionCookie).toHaveBeenCalledWith(
+          response,
+          "session-token",
+        );
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe(
           "http://192.168.2.117:3000/dashboard?tab=feeds",
@@ -149,12 +160,15 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
+            {
+              headers: {
+                host: "192.168.2.117:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(setSessionCookie).not.toHaveBeenCalled();
@@ -195,12 +209,15 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=https%3A%2F%2Fevil.example%2Fsteal", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=https%3A%2F%2Fevil.example%2Fsteal",
+            {
+              headers: {
+                host: "192.168.2.117:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(response.headers.get("location")).toBe(
@@ -239,12 +256,15 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2F%2Fevil.example%2Fsteal", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2F%2Fevil.example%2Fsteal",
+            {
+              headers: {
+                host: "192.168.2.117:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(response.headers.get("location")).toBe(

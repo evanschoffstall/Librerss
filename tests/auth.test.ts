@@ -12,13 +12,13 @@ import { createMockRequest } from "./support/test-utils";
 
 describe("session", () => {
   test("hashPassword creates v2 prefixed hash", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const hash = await hashPassword("TestPass123!");
     expect(hash).toMatch(/^v2:[0-9a-f]+:[0-9a-f]+$/);
   });
 
   test("hashPassword creates unique hashes for same password", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const password = "TestPass123!";
     const hash1 = await hashPassword(password);
     const hash2 = await hashPassword(password);
@@ -27,20 +27,20 @@ describe("session", () => {
   });
 
   test("verifyPassword validates correct password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const password = "TestPass123!";
     const hash = await hashPassword(password);
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
   test("verifyPassword rejects incorrect password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const hash = await hashPassword("TestPass123!");
     expect(await verifyPassword("WrongPass123!", hash)).toBe(false);
   });
 
   test("verifyPassword handles legacy v1 hashes", async () => {
-    const { verifyPassword } = await import("@/lib/auth/session");
+    const { verifyPassword } = await import("@/lib/auth");
     // This is a pre-computed v1 hash for testing backward compatibility
     // Real production code should only generate v2 hashes
     const legacyHash =
@@ -51,13 +51,13 @@ describe("session", () => {
   });
 
   test("SESSION_COOKIE_NAME is defined", async () => {
-    const { SESSION_COOKIE_NAME } = await import("@/lib/auth/session");
+    const { SESSION_COOKIE_NAME } = await import("@/lib/auth");
     expect(SESSION_COOKIE_NAME).toBe("librerss_session");
   });
 
   test("setSessionCookie and clearSessionCookie set expected cookie metadata", async () => {
     const { clearSessionCookie, SESSION_COOKIE_NAME, setSessionCookie } =
-      await import("@/lib/auth/session");
+      await import("@/lib/auth");
 
     const response = NextResponse.json({ ok: true });
     setSessionCookie(response, "token-123");
@@ -75,8 +75,8 @@ describe("session", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      const { createSession } = await import("@/lib/auth/session");
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+      const { createSession } = await import("@/lib/auth");
+      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
       const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
       expect(token).toBe(PLACEHOLDER_ADMIN_USER.sessionToken);
@@ -97,8 +97,8 @@ describe("session", () => {
         getUserFromRequest,
         getUserFromSessionToken,
         SESSION_COOKIE_NAME,
-      } = await import("@/lib/auth/session");
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+      } = await import("@/lib/auth");
+      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
       expect(await getUserFromSessionToken("")).toBeNull();
       expect(await getUserFromSessionToken("wrong-token")).toBeNull();
@@ -130,7 +130,7 @@ describe("session", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      const { authenticateCredentials } = await import("@/lib/auth/session");
+      const { authenticateCredentials } = await import("@/lib/auth");
 
       const unknownEmail = await authenticateCredentials(
         "nope@example.com",
@@ -418,7 +418,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { createSession } = await import("@/lib/auth/session");
+    const { createSession } = await import("@/lib/auth");
     const token = await createSession(123);
 
     expect(typeof token).toBe("string");
@@ -444,7 +444,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { deleteSessionByToken } = await import("@/lib/auth/session");
+    const { deleteSessionByToken } = await import("@/lib/auth");
     await deleteSessionByToken("session-token");
 
     expect(state.deleteSessionCalls).toBe(1);
@@ -466,7 +466,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { getUserFromSessionToken } = await import("@/lib/auth/session");
+    const { getUserFromSessionToken } = await import("@/lib/auth");
 
     expect(await getUserFromSessionToken("")).toBeNull();
     expect(await getUserFromSessionToken("missing-token")).toBeNull();
@@ -497,7 +497,7 @@ describe("session non-placeholder paths", () => {
     }));
 
     const { getUserFromRequest, getUserFromSessionToken, SESSION_COOKIE_NAME } =
-      await import("@/lib/auth/session");
+      await import("@/lib/auth");
 
     const fromToken = await getUserFromSessionToken("active-token");
     expect(fromToken?.userId).toBe(7);
@@ -515,7 +515,7 @@ describe("session non-placeholder paths", () => {
   });
 
   test("authenticateCredentials handles missing user, wrong password, and success", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
     const state = {
       activeSessionRows: [],
@@ -532,7 +532,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { authenticateCredentials } = await import("@/lib/auth/session");
+    const { authenticateCredentials } = await import("@/lib/auth");
 
     state.userRows = [];
     const missingUser = await authenticateCredentials(

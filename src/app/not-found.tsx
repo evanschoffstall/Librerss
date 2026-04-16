@@ -1,7 +1,7 @@
 import { ArrowLeft, FileQuestion } from "lucide-react";
 import Link from "next/link";
 
-import { StatusPage } from "@/app/components/StatusPage";
+import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
 /**

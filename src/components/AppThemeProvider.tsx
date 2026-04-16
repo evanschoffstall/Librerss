@@ -6,14 +6,13 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
-import { DashboardToolbar } from "@/app/dashboard/components/DashboardToolbar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   MOBILE_TOAST_TOP_STORAGE_KEY,
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-} from "@/app/dashboard/constants";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile, useLocalStorage } from "@/lib";
+} from "@/lib";
+import { useIsMobile, useLocalStorage } from "@/lib/hooks";
 
 const dashboardToolbarAwareTopToastOffset = { left: 16, right: 16, top: 63 };
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
@@ -156,7 +155,10 @@ function NextDevToolsThemeBridge() {
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const isMobileViewport = useIsMobile();
-  const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, true);
+  const [isMobileToastTop] = useLocalStorage(
+    MOBILE_TOAST_TOP_STORAGE_KEY,
+    true,
+  );
   const [isMobileToolbarBottom] = useLocalStorage(
     MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
     true,
@@ -249,7 +251,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardToolbar startInShellLoading={true} />;
+    return null;
   }
 
   return (
@@ -268,11 +270,7 @@ function ThemeModeToggle() {
           }}
           type="button"
         >
-          {isDark ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
+          {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
       ) : (
         <Skeleton className="size-4 rounded-full" />

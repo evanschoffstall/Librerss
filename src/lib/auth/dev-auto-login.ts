@@ -1,6 +1,6 @@
+import { envStringOptional, isDevelopment } from "@/lib";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
-import { envStringOptional, isDevelopment } from "@/lib/config";
-import { isValidEmail } from "@/lib/utils/validation";
+import { isValidEmail } from "@/lib/utils";
 
 const DEV_AUTO_LOGIN_EMAIL_KEY = "DEV_AUTO_LOGIN_EMAIL";
 const DEV_AUTO_LOGIN_PASSWORD_KEY = "DEV_AUTO_LOGIN_PASSWORD";

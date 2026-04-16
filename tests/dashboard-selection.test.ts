@@ -1,11 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
 
+import type { CategoryTreeNode } from "@/lib/core";
+
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
 import {
   initializeDashboardSelection,
   refreshCurrentSelection,
-} from "@/app/dashboard/services/selection";
-import { type CategoryTreeNode } from "@/lib";
+} from "@/app/dashboard/dashboard-services/selection";
 
 /** Creates a promise whose resolution can be controlled by the test. */
 function createDeferredPromise() {
@@ -63,7 +64,9 @@ describe("initializeDashboardSelection", () => {
 
   test("fetches the selected enabled feed during boot", async () => {
     const categories = [
-      createCategory("News", [createFeed("feed-1", "https://example.com/feed.xml")]),
+      createCategory("News", [
+        createFeed("feed-1", "https://example.com/feed.xml"),
+      ]),
     ];
     const fetchFeed = mock(async () => {});
     const fetchAllFeeds = mock(async () => {});
@@ -204,16 +207,22 @@ describe("refreshCurrentSelection", () => {
       selectedCategory: "missing",
     });
 
-    expect(fetchFeed).toHaveBeenCalledWith("https://feeds.bbci.co.uk/news/world/rss.xml", {
-      forceRefresh: false,
-      keepExistingFeed: undefined,
-      requestSource: undefined,
-      skipRefresh: undefined,
-    });
+    expect(fetchFeed).toHaveBeenCalledWith(
+      "https://feeds.bbci.co.uk/news/world/rss.xml",
+      {
+        forceRefresh: false,
+        keepExistingFeed: undefined,
+        requestSource: undefined,
+        skipRefresh: undefined,
+      },
+    );
   });
 });
 
-function createCategory(label: string, children: CategoryTreeNode[]): CategoryTreeNode {
+function createCategory(
+  label: string,
+  children: CategoryTreeNode[],
+): CategoryTreeNode {
   return {
     children,
     key: `cat-${label.toLowerCase()}`,
@@ -221,7 +230,11 @@ function createCategory(label: string, children: CategoryTreeNode[]): CategoryTr
   };
 }
 
-function createFeed(key: string, url: string, enabled = true): CategoryTreeNode {
+function createFeed(
+  key: string,
+  url: string,
+  enabled = true,
+): CategoryTreeNode {
   return {
     children: [],
     data: {

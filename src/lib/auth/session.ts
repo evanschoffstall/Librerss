@@ -10,10 +10,8 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 
-import { CONFIG } from "@/lib/config";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { sessions, users } from "@/lib/db/schema";
+import { CONFIG } from "@/lib";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/placeholder";
 
 // Re-type the promisify wrapper to include the optional options parameter that
 // @types/node does not expose through the standard promisify overloads.
@@ -83,6 +81,7 @@ export async function createSession(userId: number): Promise<string> {
     return PLACEHOLDER_ADMIN_USER.sessionToken;
   }
 
+  const { getDb, sessions } = await import("@/lib/db");
   const db = getDb();
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashSessionToken(token);
@@ -134,6 +133,7 @@ export async function deleteSessionByToken(token: string): Promise<void> {
     return;
   }
 
+  const { getDb, sessions } = await import("@/lib/db");
   const db = getDb();
   const tokenHash = hashSessionToken(token);
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
@@ -168,6 +168,7 @@ export async function getUserFromSessionToken(
     };
   }
 
+  const { getDb, sessions, users } = await import("@/lib/db");
   const db = getDb();
   const tokenHash = hashSessionToken(token);
 
@@ -243,27 +244,10 @@ export async function authenticateCredentials(
   { email: string; ok: true; token: string; userId: number } | { ok: false }
 > {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    if (email !== PLACEHOLDER_ADMIN_USER.email) {
-      return { ok: false };
-    }
-
-    const isValid = await verifyPassword(
-      password,
-      PLACEHOLDER_ADMIN_USER.passwordHash,
-    );
-    if (!isValid) {
-      return { ok: false };
-    }
-
-    const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
-    return {
-      email: PLACEHOLDER_ADMIN_USER.email,
-      ok: true,
-      token,
-      userId: PLACEHOLDER_ADMIN_USER.id,
-    };
+    return authenticatePlaceholderCredentials(email, password);
   }
 
+  const { getDb, users } = await import("@/lib/db");
   const db = getDb();
 
   const usersByEmail = await db
@@ -290,4 +274,31 @@ export async function authenticateCredentials(
 
   const token = await createSession(user.id);
   return { email: user.email, ok: true, token, userId: user.id };
+}
+
+async function authenticatePlaceholderCredentials(
+  email: string,
+  password: string,
+): Promise<
+  { email: string; ok: true; token: string; userId: number } | { ok: false }
+> {
+  if (email !== PLACEHOLDER_ADMIN_USER.email) {
+    return { ok: false };
+  }
+
+  const isValid = await verifyPassword(
+    password,
+    PLACEHOLDER_ADMIN_USER.passwordHash,
+  );
+  if (!isValid) {
+    return { ok: false };
+  }
+
+  const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
+  return {
+    email: PLACEHOLDER_ADMIN_USER.email,
+    ok: true,
+    token,
+    userId: PLACEHOLDER_ADMIN_USER.id,
+  };
 }

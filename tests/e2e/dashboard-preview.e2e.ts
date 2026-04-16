@@ -17,13 +17,17 @@ function createPreviewSearchTerm(title: string) {
     .find((token) => token.length >= 5);
 
   if (!candidate) {
-    throw new Error("Expected the preview article title to include a searchable token.");
+    throw new Error(
+      "Expected the preview article title to include a searchable token.",
+    );
   }
 
   return candidate;
 }
 
-async function openPreviewFeeds(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+async function openPreviewFeeds(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+) {
   const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
   if (await openFeedsButton.isVisible()) {
     await openFeedsButton.click();
@@ -37,7 +41,9 @@ function previewFeedButton(
   return page.locator("button").filter({ hasText: feedName }).first();
 }
 
-async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+async function selectPreviewSource(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+) {
   const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
   if (await openFeedsButton.isVisible()) {
     await openFeedsButton.click();
@@ -47,6 +53,27 @@ async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>
 }
 
 test.describe("dashboard preview mode", () => {
+  test("opens the mobile actions popup from the three-dots toolbar button", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 820, width: 390 });
+    await gotoPreviewDashboard(page);
+
+    const actionsTrigger = page.getByRole("button", {
+      name: "Open actions menu",
+    });
+    await expect(actionsTrigger).toBeVisible({ timeout: 15_000 });
+
+    await actionsTrigger.click();
+
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible(
+      { timeout: 15_000 },
+    );
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible(
+      { timeout: 15_000 },
+    );
+  });
+
   test("enters preview from the login view and signs out back to landing", async ({
     page,
   }) => {
@@ -69,12 +96,16 @@ test.describe("dashboard preview mode", () => {
     const firstArticle = await locateViewportArticle(page, 0);
     const firstArticleKey = await readArticleKey(firstArticle);
 
-    const firstTitle = (await firstArticle.getByRole("heading").first().textContent())?.trim();
+    const firstTitle = (
+      await firstArticle.getByRole("heading").first().textContent()
+    )?.trim();
     if (!firstTitle) {
       throw new Error("Expected the first preview article to have a title.");
     }
 
-    await page.getByPlaceholder("Search...").fill(createPreviewSearchTerm(firstTitle));
+    await page
+      .getByPlaceholder("Search...")
+      .fill(createPreviewSearchTerm(firstTitle));
     await expect(
       page.getByRole("heading", {
         name: firstTitle,
@@ -85,9 +116,7 @@ test.describe("dashboard preview mode", () => {
     const restoredArticle = await locateViewportArticle(page, 0);
     await expect(restoredArticle).toContainText(firstTitle);
     await expect(restoredArticle).toBeVisible({ timeout: 15_000 });
-    await restoredArticle
-      .getByRole("button", { name: "Star article" })
-      .click();
+    await restoredArticle.getByRole("button", { name: "Star article" }).click();
     await page.getByRole("button", { exact: true, name: "starred" }).click();
     const starredArticle = await locateViewportArticle(page, 0);
     await expect(starredArticle).toBeVisible({
@@ -173,13 +202,21 @@ test.describe("dashboard preview mode", () => {
     await expect(previewFeedButton(page, "NIH Research Matters")).toBeVisible();
     await expect(previewFeedButton(page, "NHLBI All News")).toBeVisible();
     await expect(previewFeedButton(page, "NINDS Press Releases")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Images")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Earth Observation")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Human Exploration")).toBeVisible();
+    await expect(
+      previewFeedButton(page, "ESA Earth Observation"),
+    ).toBeVisible();
+    await expect(
+      previewFeedButton(page, "ESA Human Exploration"),
+    ).toBeVisible();
     await expect(previewFeedButton(page, "ESA Top News")).toBeVisible();
     await expect(previewFeedButton(page, "NASA Breaking News")).toBeVisible();
-    await expect(previewFeedButton(page, "NASA Image of the Day")).toBeVisible();
     await expect(previewFeedButton(page, "NASA STEM Learning")).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "ESA Images" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
+    ).toHaveCount(0);
 
     await previewFeedButton(page, "NIH Research Matters").click();
     await expect(

@@ -11,7 +11,16 @@ import {
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 function withDevAutoLoginEnv(
-  env: Partial<Record<"DEV_AUTO_LOGIN_EMAIL" | "DEV_AUTO_LOGIN_PASSWORD" | "NODE_ENV" | "PLAYWRIGHT_NEXT_DIST_DIR" | "PLAYWRIGHT_PORT", string | undefined>>,
+  env: Partial<
+    Record<
+      | "DEV_AUTO_LOGIN_EMAIL"
+      | "DEV_AUTO_LOGIN_PASSWORD"
+      | "NODE_ENV"
+      | "PLAYWRIGHT_NEXT_DIST_DIR"
+      | "PLAYWRIGHT_PORT",
+      string | undefined
+    >
+  >,
   callback: () => void,
 ) {
   const previousEnv = {

@@ -1,10 +1,12 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { applyReadSwipeAction ,
+import type { Article } from "@/lib/core";
+
+import {
+  applyReadSwipeAction,
   ArticleCard,
-} from "@/app/dashboard/components/ArticleCard";
-import { type Article } from "@/lib";
+} from "@/app/dashboard/dashboard-components/article-view/ArticleCard";
 
 beforeEach(() => {
   mock.restore();
@@ -104,9 +106,9 @@ describe("ArticleCard", () => {
     expect(hydrationEl?.querySelectorAll("div").length).toBeGreaterThan(0);
     expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
     expect(articleSurface?.style.userSelect).toBe("text");
-    expect((hydrationEl as HTMLElement | null)?.style.transform ?? "").not.toContain(
-      "translateY",
-    );
+    expect(
+      (hydrationEl as HTMLElement | null)?.style.transform ?? "",
+    ).not.toContain("translateY");
   });
 
   test("swaps loading skeleton for hydrated expanded content", async () => {
@@ -160,7 +162,9 @@ describe("ArticleCard", () => {
       expect(
         container.querySelector('[data-article-hydration-state="loading"]'),
       ).toBeNull();
-      expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
+      expect(
+        container.querySelector('[data-article-preview="true"]'),
+      ).toBeNull();
       expect(container.textContent?.includes(hydratedContent)).toBe(true);
     });
   });

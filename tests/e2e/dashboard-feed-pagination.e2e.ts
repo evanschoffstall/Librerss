@@ -44,7 +44,9 @@ async function expandDesktopFeedWindow(page: Page) {
  * minimum overflow while still leaving the next page available to load.
  */
 async function expectDesktopRefreshCollapse(page: Page) {
-  await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+  await page
+    .getByRole("button", { exact: true, name: "Refresh selected feed" })
+    .click();
 
   await expect
     .poll(async () => {
@@ -66,22 +68,31 @@ async function expectDesktopRefreshCollapse(page: Page) {
 async function readFeedViewportMetrics(page: Page) {
   return await page.evaluate(() => {
     const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]"),
+      document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ),
     );
     const viewport = candidates
-      .filter((candidate) => candidate.querySelector("article[data-article-key]") !== null)
+      .filter(
+        (candidate) =>
+          candidate.querySelector("article[data-article-key]") !== null,
+      )
       .sort((left, right) => right.scrollHeight - left.scrollHeight)[0];
 
     if (!viewport) {
       throw new Error("Expected the active feed viewport to be present.");
     }
 
-    const maxScrollTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    const maxScrollTop = Math.max(
+      0,
+      viewport.scrollHeight - viewport.clientHeight,
+    );
 
     return {
       clientHeight: viewport.clientHeight,
       maxScrollTop,
-      remaining: viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight),
+      remaining:
+        viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight),
       scrollHeight: viewport.scrollHeight,
       scrollTop: viewport.scrollTop,
     };
@@ -96,11 +107,38 @@ async function rearmDesktopPaginationAfterRefresh(page: Page) {
   await page.waitForTimeout(800);
 
   const rearmMetrics = await readFeedViewportMetrics(page);
-  await setFeedViewportScrollTop(page, Math.floor(rearmMetrics.maxScrollTop * 0.95));
+  await setFeedViewportScrollTop(
+    page,
+    Math.floor(rearmMetrics.maxScrollTop * 0.95),
+  );
 }
 
 test.describe("dashboard feed pagination", () => {
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
+    test(`does not render the entire explore corpus at once on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await configureArticlesPerPage(page, 4);
+
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBeLessThan(40);
+      await expect
+        .poll(async () => {
+          return await hasLoadMoreSentinel(page);
+        })
+        .toBe(true);
+    });
+
     test(`keeps the configured page size and loads at least three pages on ${viewportCase.name}`, async ({
       page,
     }) => {
@@ -166,7 +204,10 @@ test.describe("dashboard feed pagination", () => {
         .toBeGreaterThanOrEqual(3);
 
       const initialMetrics = await readFeedViewportMetrics(page);
-      await setFeedViewportScrollTop(page, Math.floor(initialMetrics.maxScrollTop * 0.7));
+      await setFeedViewportScrollTop(
+        page,
+        Math.floor(initialMetrics.maxScrollTop * 0.7),
+      );
 
       await expect
         .poll(async () => {
@@ -194,7 +235,10 @@ test.describe("dashboard feed pagination", () => {
         Math.floor(firstRevealMetrics.maxScrollTop * 0.4),
       );
       const rearmMetrics = await readFeedViewportMetrics(page);
-      await setFeedViewportScrollTop(page, Math.floor(rearmMetrics.maxScrollTop * 0.95));
+      await setFeedViewportScrollTop(
+        page,
+        Math.floor(rearmMetrics.maxScrollTop * 0.95),
+      );
 
       await expect
         .poll(async () => {
@@ -280,7 +324,9 @@ test.describe("dashboard feed pagination", () => {
         })
         .toBeGreaterThanOrEqual(12);
 
-      await page.getByRole("button", { exact: true, name: "Refresh selected feed" }).click();
+      await page
+        .getByRole("button", { exact: true, name: "Refresh selected feed" })
+        .click();
 
       await expect
         .poll(async () => {

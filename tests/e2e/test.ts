@@ -1,8 +1,8 @@
 import {
-    test as base,
-    expect,
-    type Page,
-    type TestInfo,
+  test as base,
+  expect,
+  type Page,
+  type TestInfo,
 } from "@playwright/test";
 import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -16,7 +16,10 @@ const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
 /** Builds a stable, filesystem-safe name for persisted per-test coverage payloads. */
 function createCoverageFileName(testInfo: TestInfo) {
   const titlePath = testInfo.titlePath.join(" > ");
-  const titleHash = createHash("sha1").update(titlePath).digest("hex").slice(0, 12);
+  const titleHash = createHash("sha1")
+    .update(titlePath)
+    .digest("hex")
+    .slice(0, 12);
   const sanitizedTitle = titlePath
     .toLowerCase()
     .replace(/[^a-z0-9]+/gu, "-")

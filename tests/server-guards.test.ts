@@ -80,7 +80,9 @@ describe("server guards", () => {
       expect(response).toBeInstanceOf(Response);
       if (response instanceof Response) {
         expect(response.status).toBe(401);
-        await expect(response.json()).resolves.toEqual({ error: "Unauthorized" });
+        await expect(response.json()).resolves.toEqual({
+          error: "Unauthorized",
+        });
       }
     } finally {
       if (previousDatabaseUrl === undefined) {
@@ -161,10 +163,16 @@ describe("server guards", () => {
         },
       };
 
-      const firstResult = await requireMutableAuthenticatedUser(request, options);
+      const firstResult = await requireMutableAuthenticatedUser(
+        request,
+        options,
+      );
       expect(firstResult).not.toBeInstanceOf(Response);
 
-      const secondResult = await requireMutableAuthenticatedUser(request, options);
+      const secondResult = await requireMutableAuthenticatedUser(
+        request,
+        options,
+      );
       expect(secondResult).toBeInstanceOf(Response);
       if (secondResult instanceof Response) {
         expect(secondResult.status).toBe(429);
@@ -234,7 +242,9 @@ describe("server guards", () => {
 
       expect(result).not.toBeInstanceOf(Response);
       if (!(result instanceof Response)) {
-        expect(result.body).toEqual({ feedUrl: "https://example.com/feed.xml" });
+        expect(result.body).toEqual({
+          feedUrl: "https://example.com/feed.xml",
+        });
         expect(result.user.email).toBe("admin@admin.com");
         expect(result.user.userId).toBe(0);
       }

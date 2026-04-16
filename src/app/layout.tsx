@@ -4,10 +4,11 @@ import { Analytics } from "@vercel/analytics/next";
 import { Geist } from "next/font/google";
 import React from "react";
 
+import { AppThemeProvider, DebugBorder, DebugGrid } from "@/components";
+import { isDevelopment } from "@/lib";
+import { PUBLIC_APP_NAME, PUBLIC_BRAND_ASSETS } from "@/public";
+
 import "./globals.css";
-import { AppThemeProvider } from "@/components/AppThemeProvider";
-import { DebugBorder, DebugGrid } from "@/components/DebugOverlays";
-import { isDevelopment } from "@/lib/config";
 
 const geist = Geist({
   subsets: ["latin"],
@@ -17,10 +18,10 @@ const geist = Geist({
 export const metadata: Metadata = {
   description: "Free cloud RSS Service",
   icons: {
-    apple: "/favicon.svg",
-    icon: "/favicon.svg",
+    apple: PUBLIC_BRAND_ASSETS.favicon,
+    icon: PUBLIC_BRAND_ASSETS.favicon,
   },
-  title: "LibreRSS",
+  title: PUBLIC_APP_NAME,
 };
 
 export const viewport: Viewport = {

@@ -35,8 +35,6 @@ interface MockToasterProps {
 const toasterProps: MockToasterProps[] = [];
 const closeToastMocks = [mock(() => {}), mock(() => {})];
 const originalMatchMedia = window.matchMedia;
-let currentIsMobileToastTop = false;
-let currentIsMobileToolbarBottom = true;
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
@@ -53,9 +51,6 @@ async function renderAppThemeProvider(options?: {
     isMobileViewport = true,
   } = options ?? {};
 
-  currentIsMobileToastTop = isMobileToastTop;
-  currentIsMobileToolbarBottom = isMobileToolbarBottom;
-
   toasterProps.length = 0;
   window.localStorage.clear();
   window.localStorage.setItem(
@@ -68,7 +63,8 @@ async function renderAppThemeProvider(options?: {
   );
   setMobileViewport(isMobileViewport);
 
-  const { AppThemeProvider } = await import("../src/components/AppThemeProvider");
+  const { AppThemeProvider } =
+    await import("../src/components/AppThemeProvider");
 
   render(
     <AppThemeProvider>
@@ -116,19 +112,6 @@ describe("AppThemeProvider", () => {
       ThemeProvider: MockThemeProvider,
       useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
     }));
-    mock.module("@/lib/hooks/useLocalStorage", () => ({
-      useLocalStorage: (key: string, initialValue: boolean) => {
-        if (key === MOBILE_TOAST_TOP_STORAGE_KEY) {
-          return [currentIsMobileToastTop, mock(() => {})] as const;
-        }
-
-        if (key === MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY) {
-          return [currentIsMobileToolbarBottom, mock(() => {})] as const;
-        }
-
-        return [initialValue, mock(() => {})] as const;
-      },
-    }));
     mock.module("next/navigation", () => ({
       usePathname: () => "/dashboard",
       useSearchParams: () => new URLSearchParams("view=dashboard"),
@@ -145,16 +128,8 @@ describe("AppThemeProvider", () => {
           <div data-testid="mock-toaster">
             <ol>
               {closeToastMocks.map((closeToast, index) => (
-                <li
-                  data-dismissible="true"
-                  data-sonner-toast=""
-                  key={index}
-                >
-                  <button
-                    data-close-button
-                    onClick={closeToast}
-                    type="button"
-                  >
+                <li data-dismissible="true" data-sonner-toast="" key={index}>
+                  <button data-close-button onClick={closeToast} type="button">
                     Close toast {index + 1}
                   </button>
                   <div data-testid={`toast-body-${index + 1}`}>
@@ -167,9 +142,12 @@ describe("AppThemeProvider", () => {
         );
       },
     }));
-    mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
-      DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
-    }));
+    mock.module(
+      "@/app/dashboard/dashboard-components/DashboardToolbar",
+      () => ({
+        DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
+      }),
+    );
   });
 
   afterEach(() => {
@@ -228,6 +206,17 @@ describe("AppThemeProvider", () => {
 
     expect(closeToastMocks[0]).toHaveBeenCalledTimes(1);
     expect(closeToastMocks[1]).not.toHaveBeenCalled();
+  });
+
+  test("does not inject a pulsing dashboard toolbar shell on the dashboard route", async () => {
+    await renderAppThemeProvider();
+
+    expect(document.body.querySelector(".animate-pulse")).toBeNull();
+    expect(
+      document.body.querySelector(
+        ".pointer-events-none.fixed.inset-x-0.bottom-0.z-50",
+      ),
+    ).toBeNull();
   });
 
   test.each([

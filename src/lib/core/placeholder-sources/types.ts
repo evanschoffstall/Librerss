@@ -1,4 +1,4 @@
-import type { FeedSource } from "@/lib/core/types";
+import type { FeedSource } from "@/lib/types";
 
 /** Describes one bundled placeholder article and its local snapshot slug. */
 export interface PlaceholderSeed {

@@ -43,7 +43,9 @@ test.describe("dashboard toolbar loading", () => {
         return null;
       }
 
-      const rowGap = secondRowRect ? secondRowRect.top - firstRowRect.bottom : 0;
+      const rowGap = secondRowRect
+        ? secondRowRect.top - firstRowRect.bottom
+        : 0;
 
       return {
         count: skeletonRows.length,
@@ -89,5 +91,40 @@ test.describe("dashboard toolbar loading", () => {
     await expect(
       page.getByRole("button", { name: "Refresh selected feed" }).first(),
     ).toBeVisible();
+
+    const toolbarPulseState = await page.evaluate(() => {
+      const visiblePulseNodes = Array.from(document.querySelectorAll("*")).filter(
+        (node) => {
+          if (!(node instanceof HTMLElement)) {
+            return false;
+          }
+
+          const rect = node.getBoundingClientRect();
+          if (rect.width <= 0 || rect.height <= 0) {
+            return false;
+          }
+
+          const style = getComputedStyle(node);
+          return (
+            style.animationName.includes("pulse") ||
+            node.className.toString().includes("animate-pulse")
+          );
+        },
+      );
+      const leakedToolbarShell = Array.from(document.body.children).some(
+        (node) =>
+          node instanceof HTMLElement &&
+          node.className.includes("pointer-events-none fixed inset-x-0") &&
+          node.className.includes("z-50") &&
+          node.querySelector(".animate-pulse") !== null,
+      );
+
+      return {
+        leakedToolbarShell,
+        visiblePulseCount: visiblePulseNodes.length,
+      };
+    });
+
+    expect(toolbarPulseState.leakedToolbarShell).toBe(false);
   });
 });

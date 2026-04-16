@@ -4,7 +4,7 @@ import {
   resolveArticleWindowAvailability,
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
-} from "@/app/dashboard/services/article-window-availability";
+} from "@/app/dashboard/dashboard-services/article";
 
 describe("dashboard article window availability", () => {
   test("disables server pagination completely when the article window is inactive", () => {

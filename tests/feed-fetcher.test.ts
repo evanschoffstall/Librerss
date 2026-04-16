@@ -5,9 +5,13 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import type { FeedRecord } from "@/lib/core/feed-refresh";
+import type { FeedRecord } from "@/lib/core/refresher";
 import type { getDb } from "@/lib/db/db";
 
+import {
+  isAllowedFeedUrl,
+  PUBLIC_FEED_URL_ERROR,
+} from "@/lib/core";
 import {
   fetchAndCacheFeedArticles,
   fetchAndCacheFeedArticlesBatch,
@@ -15,12 +19,7 @@ import {
   isUpstreamFeedError,
   resetFeedFetcherDependenciesForTesting,
   setFeedFetcherDependenciesForTesting,
-} from "@/lib/core/feed-fetcher";
-import {
-  isAllowedFeedUrl,
-  PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feed-url-validator";
-
+} from "@/lib/core/server";
 // Mock dependencies
 const mockDb = {
   insert: mock(() => ({
@@ -320,10 +319,15 @@ describe("Feed Fetcher - Batch Operations", () => {
       getCachedBatch,
     });
 
-    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed"], {
-      articleLimit: 24,
-      skipRefresh: true,
-    });
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      {
+        articleLimit: 24,
+        skipRefresh: true,
+      },
+    );
 
     expect(getCachedBatch).toHaveBeenCalledWith(
       1,
@@ -509,9 +513,14 @@ describe("Feed Fetcher - Batch Operations", () => {
       })),
     });
 
-    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed-a"], {
-      articleLimit: 12,
-    });
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a"],
+      {
+        articleLimit: 12,
+      },
+    );
 
     expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
       mockDb,
@@ -559,7 +568,9 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes,
-      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed", []]]),
+      ),
       queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
@@ -584,16 +595,18 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
     expect(executeParallelRefreshes).toHaveBeenCalledWith(
-      mockDb,
-      expect.any(Map),
-      ["https://example.com/feed"],
-      false,
-      false,
-      false,
-      {
-        allowInsecureTls: true,
-        proxyUrl: "socks5://proxy.example:1080",
-      },
+      expect.objectContaining({
+        allowedUrls: ["https://example.com/feed"],
+        db: mockDb,
+        feedByUrl: expect.any(Map),
+        forceRefresh: false,
+        forceResolveUpstream: false,
+        proxyTransport: {
+          allowInsecureTls: true,
+          proxyUrl: "socks5://proxy.example:1080",
+        },
+        skipRefresh: false,
+      }),
     );
   });
 
@@ -614,7 +627,9 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes,
       getCachedBatch,
-      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed", []]]),
+      ),
       queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
@@ -636,13 +651,15 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(getCachedBatch).toHaveBeenCalledTimes(1);
     expect(executeParallelRefreshes).toHaveBeenCalledWith(
-      mockDb,
-      expect.any(Map),
-      ["https://example.com/feed"],
-      false,
-      true,
-      true,
-      undefined,
+      expect.objectContaining({
+        allowedUrls: ["https://example.com/feed"],
+        db: mockDb,
+        feedByUrl: expect.any(Map),
+        forceRefresh: true,
+        forceResolveUpstream: true,
+        proxyTransport: undefined,
+        skipRefresh: false,
+      }),
     );
   });
 });

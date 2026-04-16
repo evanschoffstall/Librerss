@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { DEFAULT_CATEGORY_LABEL } from "@/lib";
-import { handleFeedRead } from "@/lib/api/feeds/read";
-import { invalidateUserFeedSourceListCache } from "@/lib/core/feed-cache";
+import { handleFeedRead } from "@/lib/api/feed-source-api/read";
+import { invalidateUserFeedSourceListCache } from "@/lib/core/server";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils";
 
 const TEST_USER_ID = 424242;
 

@@ -50,6 +50,6 @@ export function useReport(): (arg0: string) => ReturnType<typeof setTimeout> {
       timer.current = setTimeout(cleanup, 1000);
       return timer.current;
     },
-    [cleanup]
+    [cleanup],
   );
 }

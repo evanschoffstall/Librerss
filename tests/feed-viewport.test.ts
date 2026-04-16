@@ -5,7 +5,7 @@ import {
   isDashboardFeedViewport,
   observeFeedViewportLayout,
   resolveFeedViewport,
-} from "@/app/dashboard/services/feed-viewport";
+} from "@/app/dashboard/dashboard-services/feed-data";
 
 class MutationObserverMock {
   static instances: MutationObserverMock[] = [];
@@ -39,8 +39,10 @@ const originalMutationObserver = globalThis.MutationObserver;
 beforeEach(() => {
   ResizeObserverMock.instances = [];
   MutationObserverMock.instances = [];
-  globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
-  globalThis.MutationObserver = MutationObserverMock as unknown as typeof MutationObserver;
+  globalThis.ResizeObserver =
+    ResizeObserverMock as unknown as typeof ResizeObserver;
+  globalThis.MutationObserver =
+    MutationObserverMock as unknown as typeof MutationObserver;
 });
 
 afterEach(() => {
@@ -114,7 +116,10 @@ describe("feed viewport helpers", () => {
     expect(onLayoutChange).toHaveBeenCalledTimes(1);
 
     activeAnchor = secondAnchor;
-    mutationObserver.callback([], mutationObserver as unknown as MutationObserver);
+    mutationObserver.callback(
+      [],
+      mutationObserver as unknown as MutationObserver,
+    );
     expect(resizeObserver.disconnect).toHaveBeenCalled();
     expect(resizeObserver.observe).toHaveBeenCalledWith(secondAnchor);
     expect(onLayoutChange).toHaveBeenCalledTimes(2);

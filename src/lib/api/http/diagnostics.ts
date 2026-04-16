@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import { isApiError } from "./client";
 
@@ -74,14 +74,7 @@ export function toBodySnippet(
   maxLength = 240,
 ): string | undefined {
   if (typeof data === "string") {
-    const compact = data.replace(/\s+/g, " ").trim();
-    if (!compact) {
-      return undefined;
-    }
-
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
+    return toCompactSnippet(data, maxLength);
   }
 
   if (
@@ -91,14 +84,11 @@ export function toBodySnippet(
     typeof (data as { toString: unknown }).toString === "function"
   ) {
     const text = (data as { toString: () => string }).toString();
-    const compact = text.replace(/\s+/g, " ").trim();
-    if (!compact || compact === "[object Object]") {
+    if (text === "[object Object]") {
       return undefined;
     }
 
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
+    return toCompactSnippet(text, maxLength);
   }
 
   return undefined;
@@ -116,6 +106,17 @@ function pickAllowedHeaders(
     }
     return acc;
   }, {});
+}
+
+function toCompactSnippet(text: string, maxLength: number): string | undefined {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact) {
+    return undefined;
+  }
+
+  return compact.length > maxLength
+    ? `${compact.slice(0, maxLength)}…`
+    : compact;
 }
 
 function toHeaderRecord(headers: unknown): Record<string, string> {

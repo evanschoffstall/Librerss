@@ -4,7 +4,7 @@ beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 describe("lib/core/feed-parser additional coverage", () => {
   test("toPendingArticle maps RSS item to pending article format", async () => {
-    const { toPendingArticle } = await import("@/lib/core/feed-parser");
+    const { toPendingArticle } = await import("@/lib/core/parser");
 
     const item = {
       content: "<p>Content</p>",
@@ -25,7 +25,7 @@ describe("lib/core/feed-parser additional coverage", () => {
   });
 
   test("toPendingArticle rejects items with invalid links", async () => {
-    const { toPendingArticle } = await import("@/lib/core/feed-parser");
+    const { toPendingArticle } = await import("@/lib/core/parser");
 
     const item = {
       link: "javascript:alert(1)",
@@ -38,7 +38,7 @@ describe("lib/core/feed-parser additional coverage", () => {
   });
 
   test("toPendingArticle rejects items without links", async () => {
-    const { toPendingArticle } = await import("@/lib/core/feed-parser");
+    const { toPendingArticle } = await import("@/lib/core/parser");
 
     const item = {
       pubDate: "2024-01-01T00:00:00Z",

@@ -1,43 +1,48 @@
-/**
- * Canonical server barrel.
- *
- * Keep this surface centered on runtime-facing guards and proxy helpers used
- * by route handlers. Test-only utilities should be imported from their direct
- * modules to avoid inflating the public server API.
- */
 export {
-    type AuthenticatedUser,
-    logAndRespondError,
-    requireAuthenticatedUser,
-    requireMutableAuthenticatedUser,
-    requireMutableRequest,
-    requireMutableUserAndJsonBody,
-} from "./guards";
+  type BatchRequestCompletedOptions,
+  type BatchRequestState,
+  type BatchUrlDescriptor,
+  buildBatchIntent,
+  buildBatchResultItem,
+  buildInvalidBatchResultResponse,
+  createBatchSuccessResponse,
+  ensureBatchUrlCount,
+  logBatchDiagnostics,
+  logBatchRequestCompleted,
+  logBatchRequestReceived,
+  logBatchRequestReceivedWhenEnabled,
+  logBatchStatusSummary,
+  logBatchWarnings,
+  type NormalizedBatchUrls,
+  resolveNormalizedBatchUrls,
+  validateBatchRequestState,
+} from "./batch-endpoint";
+export { getHostname } from "./extract-endpoint";
+export { requireMutableFeedAccess } from "./feed-access";
 export {
-    detectProxyProtocol,
-    MAX_PROXY_CREDENTIAL_LENGTH,
-    MAX_PROXY_URL_LENGTH,
-    normalizeProxyUrl,
-    probeProxy,
-    type ProxyStatus,
-} from "./proxy";
-export {
-    encryptStoredProxyPassword,
-    materializeStoredProxyPassword,
-    type ResolvedStoredProxyPassword,
-    resolveStoredProxyPassword,
-} from "./proxy-credentials";
+  type AuthenticatedUser,
+  isRouteHandlerContext,
+  type RouteHandlerContext,
+  ServerServiceError,
+} from "./guard-contracts";
 export { RateLimiter, rateLimiter } from "./rate-limit";
+export * as serverApi from "./server-api";
+export { logAndRespondError } from "./server-api";
 export {
-    blockedRequestPolicies,
-    type BlockedRequestPolicy,
-    createBlockedRequestResponse,
-    matchBlockedRequestPolicy,
-} from "./request-blocks";
-export {
-    isRouteHandlerContext,
-    resolveRouteHandlerDeps,
-    type RouteHandlerContext,
-} from "./route-context";
-export * from "./services";
-
+  createArticle,
+  type CreateArticleParams,
+  createFeed,
+  deleteAccount,
+  deleteFeed,
+  exportAccountData,
+  getArticleById,
+  getCategoryOrder,
+  listUserArticles,
+  markStreamRead,
+  renameFeed,
+  saveCategoryOrder,
+  setFeedEnabled,
+  type StatusUpdate,
+  updateArticleStatus,
+  updateFeedSettings,
+} from "@/lib/server/services";

@@ -40,7 +40,9 @@ interface MonocartCoverageReport {
   cleanCache: () => Promise<void>;
   generate: () => Promise<unknown>;
 }
-type MonocartCoverageReportFactory = (options: Record<string, unknown>) => MonocartCoverageReport;
+type MonocartCoverageReportFactory = (
+  options: Record<string, unknown>,
+) => MonocartCoverageReport;
 interface V8CoverageEntry {
   url: string;
 }
@@ -114,9 +116,10 @@ async function listFilesRecursively(directoryPath: string): Promise<string[]> {
 
 /** Creates the Playwright-to-source coverage reports used by the repo checks. */
 async function main(): Promise<void> {
-  const monocartModule = (await import("monocart-coverage-reports")) as unknown as {
-    default: MonocartCoverageReportFactory;
-  };
+  const monocartModule =
+    (await import("monocart-coverage-reports")) as unknown as {
+      default: MonocartCoverageReportFactory;
+    };
   const MCR = monocartModule.default;
   const rawCoverageDirectoryPath = join(
     process.cwd(),
@@ -220,7 +223,9 @@ function normalizeCoveragePath(
   const normalizedDistFilePath = normalizeDistFilePath(distFilePath);
 
   if (normalizedSourcePath.startsWith(PROJECT_SOURCE_DIRECTORY_PATH)) {
-    return normalizedSourcePath.slice(process.cwd().replaceAll("\\", "/").length + 1);
+    return normalizedSourcePath.slice(
+      process.cwd().replaceAll("\\", "/").length + 1,
+    );
   }
 
   if (normalizedSourcePath.startsWith("src/")) {
@@ -300,7 +305,8 @@ async function rewriteLcovFile(
       return [];
     }
 
-    lines[lines.indexOf(sourceFileLine)] = `SF:${normalizeCoveragePath(sourcePath)}`;
+    lines[lines.indexOf(sourceFileLine)] =
+      `SF:${normalizeCoveragePath(sourcePath)}`;
     return [`${lines.join("\n")}\nend_of_record\n`];
   });
 
@@ -321,10 +327,13 @@ async function rewriteSummaryFile(
         sourcePath !== "total" &&
         isTrackedProjectSourceFile(sourcePath, projectSourceFilePathSet),
     )
-    .map(([sourcePath, summaryEntry]) => [
-      normalizeCoveragePath(sourcePath),
-      summaryEntry as CoverageSummaryEntry,
-    ] as const);
+    .map(
+      ([sourcePath, summaryEntry]) =>
+        [
+          normalizeCoveragePath(sourcePath),
+          summaryEntry as CoverageSummaryEntry,
+        ] as const,
+    );
   const totalEntry = Object.fromEntries(
     SUMMARY_METRIC_KEYS.map((metricKey) => [
       metricKey,

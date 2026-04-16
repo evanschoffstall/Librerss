@@ -2,7 +2,7 @@
 
 import { AlertTriangle, RotateCcw } from "lucide-react";
 
-import { StatusPage } from "@/app/components/StatusPage";
+import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
 /**

@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import { jsonError } from "./responses";
 
@@ -40,26 +40,7 @@ export async function parseFormOrQueryParams(
   }
 
   if (contentType.toLowerCase().includes("multipart/form-data")) {
-    try {
-      const formData = await request.formData();
-      const params = new URLSearchParams();
-
-      let totalBytes = 0;
-      for (const [key, value] of Array.from(formData.entries())) {
-        if (typeof value === "string") {
-          totalBytes +=
-            Buffer.byteLength(key, "utf8") + Buffer.byteLength(value, "utf8");
-          if (totalBytes > maxBytes) {
-            return bodyTooLarge;
-          }
-          params.append(key, value);
-        }
-      }
-
-      return params;
-    } catch {
-      return jsonError("Invalid form body", 400);
-    }
+    return parseMultipartFormBody(request, maxBytes, bodyTooLarge);
   }
 
   const raw = await request.text();
@@ -162,4 +143,34 @@ function isBodyTooLargeByUtf8Length(raw: string, maxBytes: number): boolean {
 
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function parseMultipartFormBody(
+  request: Request,
+  maxBytes: number,
+  bodyTooLarge: Response,
+): Promise<Response | URLSearchParams> {
+  try {
+    const formData = await request.formData();
+    const params = new URLSearchParams();
+
+    let totalBytes = 0;
+    for (const [key, value] of Array.from(formData.entries())) {
+      if (typeof value !== "string") {
+        continue;
+      }
+
+      totalBytes +=
+        Buffer.byteLength(key, "utf8") + Buffer.byteLength(value, "utf8");
+      if (totalBytes > maxBytes) {
+        return bodyTooLarge;
+      }
+
+      params.append(key, value);
+    }
+
+    return params;
+  } catch {
+    return jsonError("Invalid form body", 400);
+  }
 }

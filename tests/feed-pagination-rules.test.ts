@@ -6,7 +6,7 @@ import {
   resolveNextVisibleCount,
   resolvePaginationBoundaryState,
   shouldAutoFillViewport,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/paginationRules";
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
 
 function defineViewportMetric(
   viewport: HTMLElement,

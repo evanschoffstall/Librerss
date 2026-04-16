@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { CONFIG, logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { normalizeEmailInput } from "@/lib/auth/credentials";
-import { authenticateCredentials, setSessionCookie } from "@/lib/auth/session";
-import { CONFIG } from "@/lib/config";
-import { logger } from "@/lib/logger";
-import { logAndRespondError, requireMutableRequest } from "@/lib/server";
-import { isValidEmail } from "@/lib/utils/validation";
+import {
+  authenticateCredentials,
+  normalizeEmailInput,
+  setSessionCookie,
+} from "@/lib/auth";
+import { serverApi } from "@/lib/server";
+import { isValidEmail } from "@/lib/utils";
 
 interface LoginPayload {
   email: string;
@@ -15,7 +17,7 @@ interface LoginPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const requestError = requireMutableRequest(request, {
+    const requestError = serverApi.requireMutableRequest(request, {
       rateLimit: {
         key: "login",
         maxAttempts: CONFIG.RATE_LIMIT_LOGIN_MAX_ATTEMPTS,
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    return logAndRespondError("Login error", error);
+    return serverApi.logAndRespondError("Login error", error);
   }
 }
 

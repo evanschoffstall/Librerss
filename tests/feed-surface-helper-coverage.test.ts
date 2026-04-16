@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import {
+  buildFeedSurfacePresentationState,
+  buildFeedVirtualListEntries,
   collectFullyVisibleArticleKeys,
   findInvertedExpansionHeaderAnchor,
   findInvertedExpansionLockAnchor,
@@ -8,29 +10,19 @@ import {
   findVisibleInvertedRemovalAnchorArticleKey,
   getViewportOffsetTop,
   isInvertedExpansionLockViewport,
+  isInvertedFeedScrollMode,
   observeInvertedExpansionScrollLockLayout,
   readPreparedArticleKey,
-  resolveInvertedExpansionLockViewport,
-  shouldAutoAnchorInvertedScrollViewport,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/dom";
-import {
-  isInvertedFeedScrollMode,
   resolveFeedScrollMode,
   resolveFeedScrollModeArticles,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/feed-scroll-mode";
-import {
-  buildFeedVirtualListEntries,
   resolveFeedVirtualListOverscanCount,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/feed-virtual-list-layout";
-import {
+  resolveInvertedExpansionLockViewport,
   resolveInvertedPaginationAnchorScrollTop,
   resolveNextVisibleCount,
   resolvePaginationBoundaryState,
+  shouldAutoAnchorInvertedScrollViewport,
   shouldAutoFillViewport,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/paginationRules";
-import {
-  buildFeedSurfacePresentationState,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/presentation";
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 
@@ -60,11 +52,13 @@ function appendArticle(
   const articleElement = document.createElement("article");
   articleElement.dataset.articleKey = articleKey;
   articleElement.dataset.scrollRestoreKey = articleKey;
-  articleElement.getBoundingClientRect = () => createRect(articleTop, articleHeight);
+  articleElement.getBoundingClientRect = () =>
+    createRect(articleTop, articleHeight);
 
   const headerElement = document.createElement("div");
   headerElement.dataset.articleSwipeZone = "header";
-  headerElement.getBoundingClientRect = () => createRect(headerTop, headerHeight);
+  headerElement.getBoundingClientRect = () =>
+    createRect(headerTop, headerHeight);
 
   articleElement.append(headerElement);
   viewport.append(articleElement);
@@ -88,8 +82,14 @@ function createRect(top: number, height: number) {
 
 describe("feed scroll mode helpers", () => {
   test("resolve the mode and article order for standard and inverted feeds", () => {
-    const first = buildFeedListArticle({ id: 1, link: "https://example.com/a" });
-    const second = buildFeedListArticle({ id: 2, link: "https://example.com/b" });
+    const first = buildFeedListArticle({
+      id: 1,
+      link: "https://example.com/a",
+    });
+    const second = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/b",
+    });
     const visibleArticles = [first, second];
 
     expect(isInvertedFeedScrollMode("inverted")).toBe(true);
@@ -97,7 +97,9 @@ describe("feed scroll mode helpers", () => {
     expect(resolveFeedScrollMode(true, true)).toBe("inverted");
     expect(resolveFeedScrollMode(true, false)).toBe("standard");
     expect(resolveFeedScrollMode(false, true)).toBe("standard");
-    expect(resolveFeedScrollModeArticles(visibleArticles, "standard")).toBe(visibleArticles);
+    expect(resolveFeedScrollModeArticles(visibleArticles, "standard")).toBe(
+      visibleArticles,
+    );
     expect(resolveFeedScrollModeArticles(visibleArticles, "inverted")).toEqual([
       second,
       first,
@@ -107,18 +109,34 @@ describe("feed scroll mode helpers", () => {
 
 describe("feed virtual list layout helpers", () => {
   test("build virtual entries in the expected boundary order", () => {
-    const first = buildFeedListArticle({ id: 1, link: "https://example.com/a" });
-    const second = buildFeedListArticle({ id: 2, link: "https://example.com/b" });
+    const first = buildFeedListArticle({
+      id: 1,
+      link: "https://example.com/a",
+    });
+    const second = buildFeedListArticle({
+      id: 2,
+      link: "https://example.com/b",
+    });
 
     expect(
-      buildFeedVirtualListEntries([first, second], "feed-view", "standard", false),
+      buildFeedVirtualListEntries(
+        [first, second],
+        "feed-view",
+        "standard",
+        false,
+      ),
     ).toEqual([
       { article: first, key: first.link, kind: "article" },
       { article: second, key: second.link, kind: "article" },
     ]);
 
     expect(
-      buildFeedVirtualListEntries([first, second], "feed-view", "standard", true),
+      buildFeedVirtualListEntries(
+        [first, second],
+        "feed-view",
+        "standard",
+        true,
+      ),
     ).toEqual([
       { article: first, key: first.link, kind: "article" },
       { article: second, key: second.link, kind: "article" },
@@ -126,7 +144,12 @@ describe("feed virtual list layout helpers", () => {
     ]);
 
     expect(
-      buildFeedVirtualListEntries([first, second], "feed-view", "inverted", true),
+      buildFeedVirtualListEntries(
+        [first, second],
+        "feed-view",
+        "inverted",
+        true,
+      ),
     ).toEqual([
       { key: "feed-view:load-more-boundary", kind: "boundary" },
       { article: first, key: first.link, kind: "article" },
@@ -135,11 +158,21 @@ describe("feed virtual list layout helpers", () => {
   });
 
   test("resolve overscan from viewport padding contracts", () => {
-    expect(resolveFeedVirtualListOverscanCount(0, "standard", null, false)).toBe(1500);
-    expect(resolveFeedVirtualListOverscanCount(200, "standard", null, false)).toBe(8);
-    expect(resolveFeedVirtualListOverscanCount(100, "inverted", null, false)).toBe(15);
-    expect(resolveFeedVirtualListOverscanCount(200, "inverted", "expanded", false)).toBe(50);
-    expect(resolveFeedVirtualListOverscanCount(200, "inverted", null, true)).toBe(50);
+    expect(
+      resolveFeedVirtualListOverscanCount(0, "standard", null, false),
+    ).toBe(600);
+    expect(
+      resolveFeedVirtualListOverscanCount(200, "standard", null, false),
+    ).toBe(5);
+    expect(
+      resolveFeedVirtualListOverscanCount(100, "inverted", null, false),
+    ).toBe(4);
+    expect(
+      resolveFeedVirtualListOverscanCount(200, "inverted", "expanded", false),
+    ).toBe(50);
+    expect(
+      resolveFeedVirtualListOverscanCount(200, "inverted", null, true),
+    ).toBe(50);
   });
 });
 
@@ -206,18 +239,37 @@ describe("feed surface presentation helpers", () => {
 describe("feed pagination rule helpers", () => {
   test("cover remaining pagination boundary and auto-fill branches", () => {
     const viewport = document.createElement("div");
-    Object.defineProperty(viewport, "clientHeight", { configurable: true, value: 400 });
-    Object.defineProperty(viewport, "scrollHeight", { configurable: true, value: 920 });
-    Object.defineProperty(viewport, "scrollTop", { configurable: true, value: Number.NaN });
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 400,
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      value: 920,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: Number.NaN,
+    });
 
     expect(
-      resolvePaginationBoundaryState({ isInvertedScroll: true, scrollViewport: viewport }),
+      resolvePaginationBoundaryState({
+        isInvertedScroll: true,
+        scrollViewport: viewport,
+      }),
     ).toEqual({ hasMovedAwayFromBoundary: false, hasReachedBoundary: false });
     expect(
-      resolvePaginationBoundaryState({ isInvertedScroll: false, scrollViewport: viewport }),
+      resolvePaginationBoundaryState({
+        isInvertedScroll: false,
+        scrollViewport: viewport,
+      }),
     ).toEqual({ hasMovedAwayFromBoundary: false, hasReachedBoundary: false });
     expect(
-      resolveNextVisibleCount({ articlesPerPage: 5, currentVisibleCount: 12, filteredFeedLength: 12 }),
+      resolveNextVisibleCount({
+        articlesPerPage: 5,
+        currentVisibleCount: 12,
+        filteredFeedLength: 12,
+      }),
     ).toBe(12);
     expect(
       shouldAutoFillViewport({
@@ -255,20 +307,29 @@ describe("feed DOM helpers", () => {
     document.body.append(viewport);
 
     expect(collectFullyVisibleArticleKeys(viewport)).toEqual(["article-1"]);
-    expect(findInvertedExpansionHeaderAnchor("article-1")).toBe(first.headerElement);
+    expect(findInvertedExpansionHeaderAnchor("article-1")).toBe(
+      first.headerElement,
+    );
     expect(findInvertedExpansionHeaderAnchor(null)).toBeNull();
-    expect(findInvertedExpansionLockAnchor("article-1")).toBe(first.articleElement);
+    expect(findInvertedExpansionLockAnchor("article-1")).toBe(
+      first.articleElement,
+    );
     expect(findInvertedExpansionLockAnchor(null)).toBeNull();
     expect(getViewportOffsetTop(first.articleElement, viewport)).toBe(10);
     expect(getViewportOffsetTop(null, viewport)).toBe(0);
     expect(isInvertedExpansionLockViewport(viewport)).toBe(true);
     expect(
-      resolveInvertedExpansionLockViewport("article-1", document.createElement("div")),
+      resolveInvertedExpansionLockViewport(
+        "article-1",
+        document.createElement("div"),
+      ),
     ).toBe(viewport);
 
     const disconnectedFallback = document.createElement("div");
     document.body.innerHTML = "";
-    expect(resolveInvertedExpansionLockViewport("missing", disconnectedFallback)).toBeNull();
+    expect(
+      resolveInvertedExpansionLockViewport("missing", disconnectedFallback),
+    ).toBeNull();
   });
 
   test("pick top-visible and survivor anchors directly from the DOM helper surface", () => {
@@ -284,8 +345,14 @@ describe("feed DOM helpers", () => {
     appendArticle(viewport, "article-3", 270, 96, 270, 44);
     document.body.append(viewport);
 
-    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe("article-1");
-    expect(findVisibleInvertedRemovalAnchorArticleKey(new Set(["article-1"]))).toBe("article-2");
+    // article-1 header top=90 is partially above the viewport (top=100) but its
+    // bottom (134) extends into the viewport, so it IS the topmost visible anchor.
+    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
+      "article-1",
+    );
+    expect(
+      findVisibleInvertedRemovalAnchorArticleKey(new Set(["article-1"])),
+    ).toBe("article-2");
 
     document.body.innerHTML = "";
     expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBeNull();
@@ -300,7 +367,9 @@ describe("feed DOM helpers", () => {
       ),
     ).toBe("article-1");
     expect(
-      readPreparedArticleKey(new CustomEvent("dashboard", { detail: { articleKey: 1 } })),
+      readPreparedArticleKey(
+        new CustomEvent("dashboard", { detail: { articleKey: 1 } }),
+      ),
     ).toBeNull();
 
     expect(
@@ -354,8 +423,10 @@ describe("feed DOM helpers", () => {
     }
 
     try {
-      globalThis.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
-      globalThis.MutationObserver = MutationObserverMock as unknown as typeof MutationObserver;
+      globalThis.ResizeObserver =
+        ResizeObserverMock as unknown as typeof ResizeObserver;
+      globalThis.MutationObserver =
+        MutationObserverMock as unknown as typeof MutationObserver;
 
       const viewport = document.createElement("div");
       viewport.dataset.radixScrollAreaViewport = "";

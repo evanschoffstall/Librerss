@@ -1,8 +1,7 @@
-import { decompressBody } from "@/lib/utils/content-encoding";
 import {
+  decompressBody,
   HttpCloakUpstreamError,
   pickDiagnosticHeaders,
 } from "@/lib/utils/httpcloak";
 
-export { decompressBody };
-export { HttpCloakUpstreamError, pickDiagnosticHeaders };
+export { decompressBody, HttpCloakUpstreamError, pickDiagnosticHeaders };

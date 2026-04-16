@@ -7,6 +7,12 @@
  * different caching and failure semantics.
  */
 
+import {
+  cacheLookupResult,
+  type DnsCacheEntry,
+  type DnsResolveDeps,
+} from "./dns-resolution";
+
 const BLOCKED_HOST_PATTERNS = [
   /^localhost$/i,
   /^0\./, // 0.0.0.0/8 — "This Network" (RFC 1122); 0.0.0.0 routes to localhost on Linux/macOS
@@ -26,6 +32,29 @@ const BLOCKED_HOST_PATTERNS = [
   /^fd[0-9a-f]{2}:/i, // fc00::/7 — IPv6 ULA (second half)
   /^fe80:/i, // fe80::/10 — IPv6 link-local
 ] as const;
+
+export function handleDnsLookupFailure(options: {
+  cache: Map<string, DnsCacheEntry>;
+  error: unknown;
+  hostname: string;
+  maxEntries: number;
+  nowFn: () => number;
+  toErrorMessageFn: (error: unknown) => string;
+  warnFn: DnsResolveDeps["warnFn"];
+}): boolean {
+  options.warnFn("DNS lookup failed for feed validation", {
+    error: options.toErrorMessageFn(options.error),
+    hostname: options.hostname,
+  });
+
+  return cacheLookupResult(
+    options.cache,
+    options.hostname,
+    true,
+    options.nowFn() + 60_000,
+    options.maxEntries,
+  );
+}
 
 export function isBlockedHost(hostname: string): boolean {
   const normalized = normalizeHostname(hostname);
@@ -76,15 +105,8 @@ function expandIpv6ToHextets(raw: string): null | number[] {
   }
 
   const [headRaw, tailRaw = ""] = withoutZone.split("::");
-  const headParts = headRaw ? headRaw.split(":").filter(Boolean) : [];
-  const tailParts = tailRaw ? tailRaw.split(":").filter(Boolean) : [];
-
-  const head = headParts.flatMap(
-    (part) => parseIpv6Hextet(part) ?? [Number.NaN],
-  );
-  const tail = tailParts.flatMap(
-    (part) => parseIpv6Hextet(part) ?? [Number.NaN],
-  );
+  const head = parseIpv6HextetSequence(headRaw);
+  const tail = parseIpv6HextetSequence(tailRaw);
   if (head.some(Number.isNaN) || tail.some(Number.isNaN)) {
     return null;
   }
@@ -166,4 +188,15 @@ function parseIpv6Hextet(part: string): null | number[] {
   }
 
   return [Number.parseInt(part, 16)];
+}
+
+function parseIpv6HextetSequence(value: string): number[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(":")
+    .filter(Boolean)
+    .flatMap((part) => parseIpv6Hextet(part) ?? [Number.NaN]);
 }

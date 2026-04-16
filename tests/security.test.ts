@@ -30,19 +30,19 @@ afterEach(() => {
 
 describe("PLACEHOLDER_ADMIN_USER.sessionToken", () => {
   test("is not the legacy hardcoded string", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     expect(PLACEHOLDER_ADMIN_USER.sessionToken).not.toBe(
       "librerss-placeholder-admin-session",
     );
   });
 
   test("is a 64-char hex string (32 random bytes)", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     expect(PLACEHOLDER_ADMIN_USER.sessionToken).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("is stable within the same process", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     const first = PLACEHOLDER_ADMIN_USER.sessionToken;
     const second = PLACEHOLDER_ADMIN_USER.sessionToken;
     expect(first).toBe(second);
@@ -405,26 +405,26 @@ describe("normalizeFeedUrl", () => {
 
 describe("hashPassword / verifyPassword – versioned scrypt", () => {
   test("hashPassword produces a v2: prefixed hash", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(hash).toMatch(/^v2:[0-9a-f]+:[0-9a-f]+$/);
   });
 
   test("new hashes do NOT use the legacy un-prefixed format", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     // Must start with 'v2:' — a bare '<salt>:<hex>' format would be legacy.
     expect(hash.startsWith("v2:")).toBe(true);
   });
 
   test("verifyPassword accepts a correct v2 password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(await verifyPassword("Aa1!correct", hash)).toBe(true);
   });
 
   test("verifyPassword rejects a wrong password against v2 hash", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(await verifyPassword("Aa1!wrong", hash)).toBe(false);
   });
@@ -446,7 +446,7 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
     const key = await scryptAsync(password, salt, 64, { N: 16384, p: 1, r: 8 });
     const legacyHash = `${salt}:${key.toString("hex")}`;
 
-    const { verifyPassword } = await import("@/lib/auth/session");
+    const { verifyPassword } = await import("@/lib/auth");
     expect(await verifyPassword(password, legacyHash)).toBe(true);
     expect(await verifyPassword("WrongPass1!", legacyHash)).toBe(false);
   });
@@ -454,8 +454,8 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
   test("placeholder password hash verifies correctly with v1 fallback", async () => {
     // The committed placeholder hash was derived with N=16384 (no v2: prefix).
     // verifyPassword must accept it via the v1 path so demo login works.
-    const { verifyPassword } = await import("@/lib/auth/session");
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { verifyPassword } = await import("@/lib/auth");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     // The placeholder hash must start without 'v2:' (legacy format).
     expect(PLACEHOLDER_ADMIN_USER.passwordHash).not.toMatch(/^v2:/);
     // Verify that verifyPassword does NOT throw on the legacy format.
@@ -582,19 +582,21 @@ describe("parseFormOrQueryParams", () => {
 describe("logger redaction", () => {
   test("redacts sensitive keys recursively", async () => {
     const previousLogLevel = process.env.LOG_LEVEL;
+    const previousEmitLogs = process.env.ENABLE_TEST_LOG_OUTPUT;
     process.env.LOG_LEVEL = "info";
+    process.env.ENABLE_TEST_LOG_OUTPUT = "true";
 
     // Import Logger class directly to create a fresh instance
     const { Logger } = await import("@/lib/logger");
     const logger = new Logger();
 
     const logs: string[] = [];
-    const originalLog = console.log;
+    const originalInfo = console.info;
     const originalWarn = console.warn;
     const originalError = console.error;
 
     // Override all console methods that the logger might use
-    console.log = (message?: unknown) => {
+    console.info = (message?: unknown) => {
       logs.push(String(message ?? ""));
     };
     console.warn = (message?: unknown) => {
@@ -610,13 +612,18 @@ describe("logger redaction", () => {
         token: "secret-token",
       });
     } finally {
-      console.log = originalLog;
+      console.info = originalInfo;
       console.warn = originalWarn;
       console.error = originalError;
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
       } else {
         process.env.LOG_LEVEL = previousLogLevel;
+      }
+      if (previousEmitLogs === undefined) {
+        delete process.env.ENABLE_TEST_LOG_OUTPUT;
+      } else {
+        process.env.ENABLE_TEST_LOG_OUTPUT = previousEmitLogs;
       }
     }
 
@@ -700,12 +707,15 @@ describe("RateLimiter trusted proxy extraction", () => {
     try {
       const config = { maxAttempts: 1, windowMs: 60_000 };
 
-      const malformedCompression = new Request("https://example.com/api/auth/login", {
-        headers: {
-          "x-forwarded-for": "2001::db8::1, 10.0.0.5",
+      const malformedCompression = new Request(
+        "https://example.com/api/auth/login",
+        {
+          headers: {
+            "x-forwarded-for": "2001::db8::1, 10.0.0.5",
+          },
+          method: "POST",
         },
-        method: "POST",
-      });
+      );
       const tooShort = new Request("https://example.com/api/auth/login", {
         headers: {
           "x-forwarded-for": "1:2, 10.0.0.5",

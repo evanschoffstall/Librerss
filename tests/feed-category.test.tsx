@@ -1,8 +1,9 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { FeedCategory } from "@/app/dashboard/components/feed/FeedCategory";
-import { type CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
+
+import { FeedCategory } from "@/app/dashboard/dashboard-components/feed-view/FeedCategory";
 
 beforeEach(() => {
   mock.restore();

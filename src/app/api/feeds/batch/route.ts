@@ -1,34 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { CONFIG, logger } from "@/lib";
 import {
   jsonErrorWithReason,
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
-import { CONFIG } from "@/lib/config";
 import {
   type ArticleFilter,
   isArticleFilter,
-} from "@/lib/core/article-filters";
-import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/feed-fetcher";
-import { getDb } from "@/lib/db/db";
-import { logger } from "@/lib/logger";
+} from "@/lib/core";
+import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
+import { getDb } from "@/lib/db";
+import { resolveUserProxy } from "@/lib/outbound-proxy";
 import {
-  logAndRespondError,
-  requireMutableAuthenticatedUser,
-  resolveRouteHandlerDeps,
-  resolveUserProxy,
-  type RouteHandlerContext,
-  ServerServiceError,
+  type BatchRequestCompletedOptions,
+  type BatchRequestState,
+  type BatchUrlDescriptor,
+  buildBatchIntent,
+  buildBatchResultItem,
+  buildInvalidBatchResultResponse,
+  createBatchSuccessResponse,
+  ensureBatchUrlCount,
+  logBatchRequestReceivedWhenEnabled,
+  resolveNormalizedBatchUrls,
+  serverApi,
+  validateBatchRequestState,
 } from "@/lib/server";
-import { parseDateOrNull } from "@/lib/utils/dates";
-import { normalizeDistinctUrlList, normalizeFeedUrl } from "@/lib/utils/url";
+import {
+  normalizeDistinctUrlList,
+  normalizeFeedUrl,
+  parseDateOrNull,
+} from "@/lib/utils";
 
 export interface BatchRouteDeps {
   fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
   getDbFn?: typeof getDb;
-  logAndRespondErrorFn?: typeof logAndRespondError;
-  requireMutableAuthenticatedUserFn?: typeof requireMutableAuthenticatedUser;
+  logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
+  requireMutableAuthenticatedUserFn?: typeof serverApi.requireMutableAuthenticatedUser;
   resolveUserProxyFn?: typeof resolveUserProxy;
+}
+
+interface BatchFetchExecutionResult {
+  batchMap: Awaited<
+    ReturnType<typeof fetchAndCacheFeedArticlesBatch>
+  >["articles"];
+  cachedCount: number;
+  cooldownLimitedCount: number;
+  lastFetchedByUrl: Awaited<
+    ReturnType<typeof fetchAndCacheFeedArticlesBatch>
+  >["lastFetchedByUrl"];
+  refreshedCount: number;
+  resolution: Awaited<
+    ReturnType<typeof fetchAndCacheFeedArticlesBatch>
+  >["resolution"];
+  results: ReturnType<typeof buildBatchResultItem>[];
+  upstreamErrors: Awaited<
+    ReturnType<typeof fetchAndCacheFeedArticlesBatch>
+  >["errors"];
 }
 
 interface BatchRequestBody {
@@ -42,291 +70,184 @@ interface BatchRequestBody {
   urls?: unknown;
 }
 
-interface BatchUrlDescriptor {
-  kind: "invalid" | "valid";
-  url: string;
+interface ResolvedBatchRequestState extends BatchRequestState {
+  user: Exclude<
+    Awaited<ReturnType<typeof serverApi.requireMutableAuthenticatedUser>>,
+    Response
+  >;
+}
+
+interface ResolvedBatchRequestUrls {
+  invalidUrlCount: number;
+  normalizedUrls: string[];
+  requestUrls: BatchUrlDescriptor[];
 }
 
 export async function POST(
   request: NextRequest,
-  depsOrContext: BatchRouteDeps | RouteHandlerContext = {},
+  depsOrContext: BatchRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
+  const deps = serverApi.resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
   const requestStartedAt = Date.now();
   try {
     const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
-    const requireMutableAuthenticatedUserForRoute =
-      deps.requireMutableAuthenticatedUserFn ?? requireMutableAuthenticatedUser;
-    const user = await requireMutableAuthenticatedUserForRoute(request, {
-      rateLimit: {
-        key: "feed-batch",
-        maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
-        scope: "user",
-        windowMs: CONFIG.RATE_LIMIT_FEED_BATCH_WINDOW_MS,
-      },
+    const requestState = await resolveBatchRequestStateForPost({
+      deps,
+      request,
     });
-    if (user instanceof Response) return user;
-
-    const bodyOrResponse = await parseJsonObjectBodyOrResponse(request);
-    if (bodyOrResponse instanceof Response) return bodyOrResponse;
-
-    const body = bodyOrResponse as BatchRequestBody;
-    const knownLastFetchedAtByUrlOrResponse = parseKnownLastFetchedAtByUrl(
-      body.knownLastFetchedAtByUrl,
-    );
-    if (knownLastFetchedAtByUrlOrResponse instanceof Response) {
-      return knownLastFetchedAtByUrlOrResponse;
-    }
-
-    const urls = normalizeDistinctUrlList(body.urls);
-    const knownLastFetchedAtByUrl = knownLastFetchedAtByUrlOrResponse;
-    const skipRefresh = body.skipRefresh === true;
-    const forceRefresh = body.forceRefresh === true;
-    const forceResolveUpstreamOrResponse = parseForceResolveUpstream(
-      body.forceResolveUpstream,
-    );
-    if (forceResolveUpstreamOrResponse instanceof Response) {
-      return forceResolveUpstreamOrResponse;
-    }
-    const forceResolveUpstream = forceResolveUpstreamOrResponse;
-    const articleFilterOrResponse = parseArticleFilter(body.articleFilter);
-    if (articleFilterOrResponse instanceof Response) {
-      return articleFilterOrResponse;
-    }
-    const articleFilter = articleFilterOrResponse;
-    const articleLimitOrResponse = parseArticleLimit(body.articleLimit);
-    if (articleLimitOrResponse instanceof Response) {
-      return articleLimitOrResponse;
-    }
-    const articleLimit = articleLimitOrResponse;
-    const requestSource =
-      typeof body.requestSource === "string"
-        ? body.requestSource
-        : "unspecified";
-
-    if (diagnosticsEnabled) {
-      logger.info("Feed batch request received", {
-        articleFilter,
-        articleLimit,
-        forceRefresh: forceRefresh || forceResolveUpstream,
-        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
-        requestedUrlCount: urls.length,
-        requestSource,
-        skipRefresh,
-        userId: user.userId,
-      });
-    }
-
-    const intent = forceResolveUpstream
-      ? "dev-force"
-      : forceRefresh
-        ? "force"
-        : skipRefresh
-          ? "skip"
-          : "auto";
-
-    if (urls.length === 0) {
-      logger.info(`Batch [0 feeds]: client=${intent} | empty request`);
-      return NextResponse.json([]);
-    }
-
-    if (urls.length > CONFIG.FEED_BATCH_MAX_URLS) {
-      return NextResponse.json(
-        {
-          error: `A maximum of ${CONFIG.FEED_BATCH_MAX_URLS} feed URLs can be loaded at once`,
-        },
-        { status: 400 },
-      );
-    }
-
-    const requestUrls = normalizeBatchRequestUrls(urls);
-    const normalizedUrls = requestUrls
-      .filter(
-        (item): item is { kind: "valid"; url: string } => item.kind === "valid",
-      )
-      .map((item) => item.url);
-    const invalidUrlCount = requestUrls.length - normalizedUrls.length;
-
-    if (normalizedUrls.length === 0) {
-      if (diagnosticsEnabled)
-        logger.info(
-          "Feed batch request had no valid URLs after normalization",
-          { invalidUrlCount, userId: user.userId },
-        );
-
-      return NextResponse.json(
-        requestUrls.map((item) => ({
-          articles: [],
-          error: "Invalid feed URL",
-          ok: false,
-          url: item.url,
-        })),
-        { status: 207 },
-      );
-    }
-
-    const db = (deps.getDbFn ?? getDb)();
-    const fetchAndCacheFeedArticlesBatchForRoute =
-      deps.fetchAndCacheFeedArticlesBatchFn ?? fetchAndCacheFeedArticlesBatch;
-    const resolveUserProxyForRoute = deps.resolveUserProxyFn ?? resolveUserProxy;
-
-    // Single batch call: ~3 DB round-trips regardless of how many feeds.
-    const {
-      articles: batchMap,
-      cachedCount,
-      cooldownLimitedCount,
-      errors: upstreamErrors,
-      lastFetchedByUrl,
-      refreshedCount,
-      resolution,
-      unchangedUrls,
-    } = await fetchAndCacheFeedArticlesBatchForRoute(
-      db,
-      user.userId,
-      normalizedUrls,
-      {
-        articleFilter,
-        articleLimit,
-        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
-        forceRefresh,
-        knownLastFetchedAtByUrl,
-        requestSource,
-        resolveProxyTransport: async () => {
-          const resolvedProxy = await resolveUserProxyForRoute(user.userId);
-
-          return {
-            allowInsecureTls: resolvedProxy.allowInsecureTls,
-            proxyUrl: resolvedProxy.proxyUrl,
-          };
-        },
-        skipRefresh,
-      },
-    );
-
-    const results = requestUrls.map((item) => {
-      if (item.kind === "invalid") {
-        return {
-          articles: [],
-          error: "Invalid feed URL",
-          ok: false,
-          url: item.url,
-        };
-      }
-
-      const normalizedUrl = item.url;
-      return {
-        articles: batchMap.get(normalizedUrl) ?? [],
-        // ok=false only when the URL was not found / not owned by the user;
-        // an empty-but-valid feed is still ok=true so clients can distinguish
-        // "fetched successfully but has no articles yet" from "auth/not-found".
-        ok:
-          batchMap.has(normalizedUrl) ||
-          lastFetchedByUrl.has(normalizedUrl) ||
-          unchangedUrls.has(normalizedUrl),
-        url: normalizedUrl,
-        ...(unchangedUrls.has(normalizedUrl) ? { unchanged: true } : {}),
-        ...(lastFetchedByUrl.has(normalizedUrl)
-          ? {
-              lastFetchedAt: lastFetchedByUrl.get(normalizedUrl)?.toISOString(),
-            }
-          : {}),
-        // Surface upstream fetch errors so the client can inform the user.
-        ...(upstreamErrors.has(normalizedUrl)
-          ? { error: upstreamErrors.get(normalizedUrl) }
-          : {}),
-      };
-    });
-
-    const hasRequestErrors = invalidUrlCount > 0;
-    const hasUpstreamErrors = upstreamErrors.size > 0;
-
-    // Always log cache/refresh breakdown for feed batch requests.
-    const n = normalizedUrls.length;
-    const plural = n !== 1 ? "s" : "";
-    const cooldownNote =
-      cooldownLimitedCount > 0
-        ? `, ${cooldownLimitedCount === n ? "all" : cooldownLimitedCount} throttled`
-        : "";
-    const durationMs = Date.now() - requestStartedAt;
-    logger.info(
-      `Batch [${n} feed${plural}]: client=${intent} resolved=${resolution} | ${refreshedCount} refreshed, ${cachedCount} cached${cooldownNote} in ${durationMs}ms`,
-    );
-
-    if (hasUpstreamErrors) {
-      const failures = [...upstreamErrors.entries()].map(
-        ([url, err]) => `  • ${url}: ${err}`,
-      );
-      logger.warn(
-        `Returning 207 Multi-Status — ${upstreamErrors.size} feed(s) have upstream errors:\n${failures.join("\n")}`,
-      );
-    }
-
-    if (hasRequestErrors) {
-      logger.warn(
-        `Returning 207 Multi-Status — ${invalidUrlCount} invalid feed URL(s) were rejected before fetch`,
-      );
-    }
-
-    if (diagnosticsEnabled) {
-      logger.info("Feed batch request completed", {
-        articleFilter,
-        articleLimit,
-        forceRefresh: forceRefresh || forceResolveUpstream,
-        ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
-        invalidUrlCount,
-        missingCount: results.filter((item) => !item.ok).length,
-        normalizedUrlCount: normalizedUrls.length,
-        okCount: results.filter((item) => item.ok).length,
-        requestSource,
-        skipRefresh,
-        totalArticles: results.reduce(
-          (sum, item) => sum + item.articles.length,
-          0,
-        ),
-        upstreamErrorCount: upstreamErrors.size,
-        userId: user.userId,
-      });
-    }
-
-    // Return 207 Multi-Status when some feeds had upstream errors so
-    // clients can distinguish partial failures from full success.
-    return NextResponse.json(results, {
-      status: hasRequestErrors || hasUpstreamErrors ? 207 : 200,
+    if (requestState instanceof Response) return requestState;
+    return await handleResolvedBatchPostRequest({
+      deps,
+      diagnosticsEnabled,
+      requestStartedAt,
+      requestState,
     });
   } catch (error) {
     if (
-      error instanceof ServerServiceError &&
+      error instanceof serverApi.ServerServiceError &&
       error.reason === "proxy-password-unreadable"
     ) {
       return jsonErrorWithReason(error.message, error.status, error.reason);
     }
 
-    return (deps.logAndRespondErrorFn ?? logAndRespondError)(
+    return (deps.logAndRespondErrorFn ?? serverApi.logAndRespondError)(
       "Feed batch fetch error",
       error,
     );
   }
 }
 
-function normalizeBatchRequestUrls(urls: string[]): BatchUrlDescriptor[] {
-  const descriptors: BatchUrlDescriptor[] = [];
-  const seenNormalizedUrls = new Set<string>();
+function buildBatchFetchRequestOptions(
+  options: Parameters<typeof executeBatchFetch>[0],
+  routeDeps: ReturnType<typeof resolveBatchRouteDependencies>,
+) {
+  return {
+    articleFilter: options.articleFilter,
+    articleLimit: options.articleLimit,
+    ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
+    forceRefresh: options.forceRefresh,
+    knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
+    requestSource: options.requestSource,
+    resolveProxyTransport: () =>
+      resolveBatchProxyTransport({
+        resolveUserProxyForRoute: routeDeps.resolveUserProxyForRoute,
+        userId: options.userId,
+      }),
+    skipRefresh: options.skipRefresh,
+  };
+}
 
-  for (const url of urls) {
-    try {
-      const normalizedUrl = normalizeFeedUrl(url);
-      if (seenNormalizedUrls.has(normalizedUrl)) {
-        continue;
-      }
+function buildBatchFetchResults(options: {
+  requestUrls: BatchUrlDescriptor[];
+  response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;
+}) {
+  return options.requestUrls.map((item) =>
+    buildBatchResultItem({
+      batchMap: options.response.articles,
+      item,
+      lastFetchedByUrl: options.response.lastFetchedByUrl,
+      unchangedUrls: options.response.unchangedUrls,
+      upstreamErrors: options.response.errors,
+    }),
+  );
+}
 
-      seenNormalizedUrls.add(normalizedUrl);
-      descriptors.push({ kind: "valid", url: normalizedUrl });
-    } catch {
-      descriptors.push({ kind: "invalid", url });
-    }
+async function executeBatchFetch(options: {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  deps: BatchRouteDeps;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  knownLastFetchedAtByUrl: Map<string, Date>;
+  normalizedUrls: string[];
+  requestSource: string;
+  requestUrls: BatchUrlDescriptor[];
+  skipRefresh: boolean;
+  userId: number;
+}): Promise<BatchFetchExecutionResult> {
+  const routeDeps = resolveBatchRouteDependencies(options.deps);
+  const batchResponse = await routeDeps.fetchAndCacheFeedArticlesBatchForRoute(
+    routeDeps.db,
+    options.userId,
+    options.normalizedUrls,
+    buildBatchFetchRequestOptions(options, routeDeps),
+  );
+
+  return {
+    batchMap: batchResponse.articles,
+    cachedCount: batchResponse.cachedCount,
+    cooldownLimitedCount: batchResponse.cooldownLimitedCount,
+    lastFetchedByUrl: batchResponse.lastFetchedByUrl,
+    refreshedCount: batchResponse.refreshedCount,
+    resolution: batchResponse.resolution,
+    results: buildBatchFetchResults({
+      requestUrls: options.requestUrls,
+      response: batchResponse,
+    }),
+    upstreamErrors: batchResponse.errors,
+  };
+}
+
+async function handleResolvedBatchPostRequest(options: {
+  deps: BatchRouteDeps;
+  diagnosticsEnabled: boolean;
+  requestStartedAt: number;
+  requestState: ResolvedBatchRequestState;
+}) {
+  const {
+    articleFilter,
+    articleLimit,
+    forceRefresh,
+    forceResolveUpstream,
+    knownLastFetchedAtByUrl,
+    requestSource,
+    skipRefresh,
+    user,
+  } = options.requestState;
+  const batchExecutionPreflight = resolveBatchExecutionPreflight({
+    diagnosticsEnabled: options.diagnosticsEnabled,
+    requestState: options.requestState,
+  });
+  if (batchExecutionPreflight instanceof Response) {
+    return batchExecutionPreflight;
   }
 
-  return descriptors;
+  const { intent, invalidUrlCount, normalizedUrls, requestUrls } =
+    batchExecutionPreflight;
+  const batchFetchResult = await executeBatchFetch({
+    articleFilter,
+    articleLimit,
+    deps: options.deps,
+    forceRefresh,
+    forceResolveUpstream,
+    knownLastFetchedAtByUrl,
+    normalizedUrls,
+    requestSource,
+    requestUrls,
+    skipRefresh,
+    userId: user.userId,
+  });
+
+  return createBatchSuccessResponse({
+    articleFilter,
+    articleLimit,
+    cachedCount: batchFetchResult.cachedCount,
+    cooldownLimitedCount: batchFetchResult.cooldownLimitedCount,
+    diagnosticsEnabled: options.diagnosticsEnabled,
+    forceRefresh,
+    forceResolveUpstream,
+    intent,
+    invalidUrlCount,
+    normalizedUrls,
+    refreshedCount: batchFetchResult.refreshedCount,
+    requestSource,
+    requestStartedAt: options.requestStartedAt,
+    resolution: batchFetchResult.resolution,
+    results: batchFetchResult.results,
+    skipRefresh,
+    upstreamErrors: batchFetchResult.upstreamErrors,
+    userId: user.userId,
+  } satisfies BatchRequestCompletedOptions);
 }
 
 function parseArticleFilter(value: unknown): ArticleFilter | Response {
@@ -418,4 +339,164 @@ function parseKnownLastFetchedAtByUrl(
       (entry): entry is readonly [string, Date] => entry !== null,
     ),
   );
+}
+
+function resolveBatchExecutionPreflight(options: {
+  diagnosticsEnabled: boolean;
+  requestState: ResolvedBatchRequestState;
+}) {
+  const {
+    articleFilter,
+    articleLimit,
+    forceRefresh,
+    forceResolveUpstream,
+    requestSource,
+    skipRefresh,
+    urls,
+    user,
+  } = options.requestState;
+
+  logBatchRequestReceivedWhenEnabled({
+    articleFilter,
+    articleLimit,
+    diagnosticsEnabled: options.diagnosticsEnabled,
+    forceRefresh,
+    forceResolveUpstream,
+    requestSource,
+    skipRefresh,
+    urls,
+    userId: user.userId,
+  });
+
+  const batchIntentState = resolveBatchIntentState({
+    forceRefresh,
+    forceResolveUpstream,
+    skipRefresh,
+    urls,
+  });
+  if (batchIntentState instanceof Response) {
+    return batchIntentState;
+  }
+
+  const resolvedRequestUrls = resolveBatchRequestUrls({
+    diagnosticsEnabled: options.diagnosticsEnabled,
+    urls,
+    userId: user.userId,
+  });
+  if (resolvedRequestUrls instanceof Response) {
+    return resolvedRequestUrls;
+  }
+
+  return {
+    ...resolvedRequestUrls,
+    intent: batchIntentState.intent,
+  };
+}
+
+function resolveBatchIntentState(options: {
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  skipRefresh: boolean;
+  urls: string[];
+}) {
+  const intent = buildBatchIntent({
+    forceRefresh: options.forceRefresh,
+    forceResolveUpstream: options.forceResolveUpstream,
+    skipRefresh: options.skipRefresh,
+  });
+
+  if (options.urls.length > 0) {
+    return { intent };
+  }
+
+  logger.info(`Batch [0 feeds]: client=${intent} | empty request`);
+  return NextResponse.json([]);
+}
+
+async function resolveBatchProxyTransport(options: {
+  resolveUserProxyForRoute: NonNullable<
+    ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
+  >;
+  userId: number;
+}) {
+  const resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
+
+  return {
+    allowInsecureTls: resolvedProxy.allowInsecureTls,
+    proxyUrl: resolvedProxy.proxyUrl,
+  };
+}
+
+async function resolveBatchRequestStateForPost(options: {
+  deps: BatchRouteDeps;
+  request: NextRequest;
+}): Promise<ResolvedBatchRequestState | Response> {
+  const requireMutableAuthenticatedUserForRoute =
+    options.deps.requireMutableAuthenticatedUserFn ??
+    serverApi.requireMutableAuthenticatedUser;
+  const user = await requireMutableAuthenticatedUserForRoute(options.request, {
+    rateLimit: {
+      key: "feed-batch",
+      maxAttempts: CONFIG.RATE_LIMIT_FEED_BATCH_MAX_REQUESTS,
+      scope: "user",
+      windowMs: CONFIG.RATE_LIMIT_FEED_BATCH_WINDOW_MS,
+    },
+  });
+  if (user instanceof Response) {
+    return user;
+  }
+
+  const bodyOrResponse = await parseJsonObjectBodyOrResponse(options.request);
+  if (bodyOrResponse instanceof Response) {
+    return bodyOrResponse;
+  }
+
+  const body = bodyOrResponse as BatchRequestBody;
+  const requestState = validateBatchRequestState({
+    body,
+    normalizeDistinctUrlList,
+    parseArticleFilter,
+    parseArticleLimit,
+    parseForceResolveUpstream,
+    parseKnownLastFetchedAtByUrl,
+  });
+
+  return requestState instanceof Response
+    ? requestState
+    : { ...requestState, user };
+}
+
+function resolveBatchRequestUrls(options: {
+  diagnosticsEnabled: boolean;
+  urls: string[];
+  userId: number;
+}): ResolvedBatchRequestUrls | Response {
+  const maxUrlResponse = ensureBatchUrlCount(options.urls);
+  if (maxUrlResponse) {
+    return maxUrlResponse;
+  }
+
+  const resolvedUrls = resolveNormalizedBatchUrls({
+    normalizeFeedUrl,
+    urls: options.urls,
+  });
+  if (resolvedUrls.normalizedUrls.length === 0) {
+    return buildInvalidBatchResultResponse({
+      diagnosticsEnabled: options.diagnosticsEnabled,
+      invalidUrlCount: resolvedUrls.invalidUrlCount,
+      requestUrls: resolvedUrls.requestUrls,
+      userId: options.userId,
+    });
+  }
+
+  return resolvedUrls;
+}
+
+function resolveBatchRouteDependencies(deps: BatchRouteDeps) {
+  return {
+    db: (deps.getDbFn ?? getDb)(),
+    fetchAndCacheFeedArticlesBatchForRoute:
+      deps.fetchAndCacheFeedArticlesBatchFn ?? fetchAndCacheFeedArticlesBatch,
+    resolveUserProxyForRoute: deps.resolveUserProxyFn ?? resolveUserProxy,
+  };
 }

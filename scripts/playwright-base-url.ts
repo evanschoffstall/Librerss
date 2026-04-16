@@ -16,7 +16,9 @@ export function buildPlaywrightBaseUrl(host: string, port: number) {
   }
 
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`PLAYWRIGHT_PORT must be a valid TCP port. Received: ${port}`);
+    throw new Error(
+      `PLAYWRIGHT_PORT must be a valid TCP port. Received: ${port}`,
+    );
   }
 
   return `http://${normalizedHost}:${port}`;

@@ -7,26 +7,21 @@
  */
 import { eq } from "drizzle-orm";
 
-import type {
-  CreateFeedPayload,
-  FeedSourceRecord,
-} from "@/lib/api/feeds/types";
-
+import { ServerServiceError } from "@/lib";
 import {
+  CreateFeedPayload,
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
+  FeedSourceRecord,
   renameFeedSourceForUser,
   setFeedSourceEnabledForUser,
   updateFeedSettingsForUser,
-} from "@/lib/api/feeds/repository";
+} from "@/lib/api/feed-source-api";
 import {
   invalidateUserCache,
   invalidateUserFeedSourceListCache,
-} from "@/lib/core/feed-cache";
-import { getDb } from "@/lib/db/db";
-import { categoryOrders } from "@/lib/db/schema";
-
-import { ServerServiceError } from "./errors";
+} from "@/lib/core/server";
+import { categoryOrders, getDb } from "@/lib/db";
 
 interface FeedServiceDeps {
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
@@ -42,10 +37,7 @@ interface FeedServiceDeps {
 export async function createFeed(
   userId: number,
   payload: CreateFeedPayload,
-  deps: Pick<
-    FeedServiceDeps,
-    "createOrUpdateFeedSourceFn" | "getDbFn"
-  > = {},
+  deps: Pick<FeedServiceDeps, "createOrUpdateFeedSourceFn" | "getDbFn"> = {},
 ) {
   const db = (deps.getDbFn ?? getDb)();
   const createOrUpdate =
@@ -89,9 +81,7 @@ export async function getCategoryOrder(
     .where(eq(categoryOrders.userId, userId))
     .limit(1);
 
-  return rows.length === 0
-    ? []
-    : safeParseLabelArray(rows[0].orderedLabels);
+  return rows.length === 0 ? [] : safeParseLabelArray(rows[0].orderedLabels);
 }
 
 export async function renameFeed(
@@ -101,8 +91,7 @@ export async function renameFeed(
   url: string,
   deps: Pick<FeedServiceDeps, "renameFeedSourceForUserFn"> = {},
 ): Promise<FeedSourceRecord> {
-  const rename =
-    deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
+  const rename = deps.renameFeedSourceForUserFn ?? renameFeedSourceForUser;
   const updated = await rename(userId, sourceId, name, url);
   if (!updated) throw new ServerServiceError("Feed source not found", 404);
 
@@ -154,8 +143,7 @@ export async function updateFeedSettings(
   settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
   deps: Pick<FeedServiceDeps, "updateFeedSettingsForUserFn"> = {},
 ): Promise<FeedSourceRecord> {
-  const update =
-    deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
+  const update = deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
   const updated = await update(userId, sourceId, settings);
   if (!updated) throw new ServerServiceError("Feed source not found", 404);
 
@@ -170,9 +158,7 @@ function safeParseLabelArray(raw: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (item): item is string => typeof item === "string",
-    );
+    return parsed.filter((item): item is string => typeof item === "string");
   } catch {
     return [];
   }

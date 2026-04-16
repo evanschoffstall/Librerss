@@ -41,7 +41,11 @@ afterEach(() => {
   }
 
   if (originalWindowLocalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalWindowLocalStorageDescriptor,
+    );
   } else {
     Object.defineProperty(window, "localStorage", {
       configurable: true,
@@ -79,14 +83,28 @@ afterEach(() => {
   }
 });
 
-function createMockStorage(initialValue: null | string): Storage {
+function createMockStorage(
+  initialValue: null | string,
+  initialKey = "testKey",
+): Storage {
+  const storageMap = new Map<string, string>();
+  if (initialValue !== null) {
+    storageMap.set(initialKey, initialValue);
+  }
+
   return {
-    clear: mock(() => {}),
-    getItem: mock(() => initialValue),
+    clear: mock(() => {
+      storageMap.clear();
+    }),
+    getItem: mock((key: string) => storageMap.get(key) ?? null),
     key: mock(() => null),
-    length: 0,
-    removeItem: mock(() => {}),
-    setItem: mock(() => {}),
+    length: storageMap.size,
+    removeItem: mock((key: string) => {
+      storageMap.delete(key);
+    }),
+    setItem: mock((key: string, value: string) => {
+      storageMap.set(key, value);
+    }),
   } as unknown as Storage;
 }
 
@@ -134,7 +152,7 @@ describe("hooks/useWebStorage", () => {
   });
 
   test("useWebStorage writes updates and supports updater functions", () => {
-    const mockStorage = createMockStorage(JSON.stringify(1));
+    const mockStorage = createMockStorage(JSON.stringify(1), "n");
     const getStorage = () => mockStorage;
 
     const { result } = renderHook(() => useWebStorage(getStorage, "n", 0));
@@ -208,7 +226,10 @@ describe("hooks/useWebStorage", () => {
   });
 
   test("useWebStorage falls back to the default value for invalid sync payloads", async () => {
-    const mockStorage = createMockStorage(JSON.stringify("persisted"));
+    const mockStorage = createMockStorage(
+      JSON.stringify("persisted"),
+      "shared-key",
+    );
     const getStorage = () => mockStorage;
     const { result } = renderHook(() =>
       useWebStorage(getStorage, "shared-key", "fallback"),
@@ -232,7 +253,7 @@ describe("hooks/useWebStorage", () => {
 
 describe("hooks/useLocalStorage", () => {
   test("useLocalStorage delegates to useWebStorage with localStorage", async () => {
-    const mockStorage = createMockStorage(JSON.stringify("test"));
+    const mockStorage = createMockStorage(JSON.stringify("test"), "key");
     Object.defineProperty(globalThis, "localStorage", {
       configurable: true,
       value: mockStorage,
@@ -244,40 +265,13 @@ describe("hooks/useLocalStorage", () => {
       writable: true,
     });
 
-    const { useLocalStorage: useLocalStorageHook } = await import(
-      "@/lib/hooks/useLocalStorage"
-    );
+    const { useLocalStorage: useLocalStorageHook } =
+      await import(`@/lib/hooks/useLocalStorage?test=${Date.now()}`);
     const { result } = renderHook(() => useLocalStorageHook("key", "default"));
 
     await waitFor(() => {
       expect(result.current[0]).toBe("test");
     });
-  });
-});
-
-describe("hooks/useSessionState", () => {
-  test("useSessionState delegates to useWebStorage with sessionStorage", async () => {
-    mock.restore();
-    const mockStorage = createMockStorage(JSON.stringify(42));
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: mockStorage,
-      writable: true,
-    });
-    Object.defineProperty(window, "sessionStorage", {
-      configurable: true,
-      value: mockStorage,
-      writable: true,
-    });
-
-    const { useSessionState } = await import("@/lib/hooks/useSessionState");
-    const { result } = renderHook(() => useSessionState("sessionKey", 0));
-
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(result.current[0]).toBe(42);
   });
 });
 

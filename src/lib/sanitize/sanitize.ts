@@ -1,6 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import {
   decodeHtmlEntities,
@@ -33,6 +33,18 @@ const NON_CONTENT_IMAGE_SOURCE_PATTERN =
 const NON_CONTENT_IMAGE_TEXT_PATTERN =
   /\b(?:avatar|logo|icon|menu|search|toggle|button|close|share|social|badge|placeholder|pixel|spacer|sprite)\b/i;
 
+function hasLikelyContentDescriptor(descriptor: string): boolean {
+  if (!descriptor) {
+    return false;
+  }
+
+  if (NON_CONTENT_IMAGE_TEXT_PATTERN.test(descriptor)) {
+    return false;
+  }
+
+  return descriptor.length >= 12 || /\S+\s+\S+/.test(descriptor);
+}
+
 function hasLikelyContentImageSignal(
   attribs: Record<string, string | undefined> | undefined,
 ): boolean {
@@ -45,18 +57,26 @@ function hasLikelyContentImageSignal(
     return false;
   }
 
-  const descriptor = `${attribs.alt ?? ""} ${attribs.title ?? ""}`.trim();
-  if (descriptor) {
-    if (NON_CONTENT_IMAGE_TEXT_PATTERN.test(descriptor)) {
-      return false;
-    }
-
-    if (descriptor.length >= 12 || /\S+\s+\S+/.test(descriptor)) {
-      return true;
-    }
+  const descriptor = readImageDescriptor(attribs);
+  if (hasLikelyContentDescriptor(descriptor)) {
+    return true;
   }
 
   return /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i.test(source);
+}
+
+function hasTooSmallSrcset(srcset: string): boolean {
+  return maxSrcsetWidth(srcset) < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX;
+}
+
+function isBelowMinimumDimensions(
+  width: null | number,
+  height: null | number,
+): boolean {
+  return (
+    (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) ||
+    (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX)
+  );
 }
 
 function isTooSmallImage(
@@ -70,15 +90,13 @@ function isTooSmallImage(
   if (width === null && height === null && !hasSrcset) {
     return !hasLikelyContentImageSignal(attribs);
   }
-  if (width !== null && width < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
-  if (height !== null && height < CONFIG.MIN_ARTICLE_IMAGE_HEIGHT_PX)
-    return true;
+  if (isBelowMinimumDimensions(width, height)) return true;
   // Reject images where every srcset width descriptor is below threshold
   // (catches small author avatars/icons that have srcset but no explicit dimensions).
   if (hasSrcset && width === null && height === null) {
-    const maxW = maxSrcsetWidth(srcset);
-    if (maxW < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX) return true;
+    return hasTooSmallSrcset(srcset);
   }
+
   return false;
 }
 
@@ -96,6 +114,12 @@ function parseDimension(value: string | undefined): null | number {
   const parsed = Number.parseFloat(normalized);
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
   return parsed;
+}
+
+function readImageDescriptor(
+  attribs: Record<string, string | undefined>,
+): string {
+  return `${attribs.alt ?? ""} ${attribs.title ?? ""}`.trim();
 }
 
 const ARTICLE_SANITIZE_OPTIONS = {

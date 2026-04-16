@@ -1,8 +1,8 @@
 import { $setBlocksType } from "@lexical/selection";
 import {
-    $createParagraphNode,
-    $getSelection,
-    $isRangeSelection,
+  $createParagraphNode,
+  $getSelection,
+  $isRangeSelection,
 } from "lexical";
 import { TextIcon } from "lucide-react";
 

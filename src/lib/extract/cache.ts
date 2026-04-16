@@ -1,4 +1,4 @@
-import { envBooleanOptional, isDevelopment } from "@/lib/config";
+import { envBooleanOptional, isDevelopment } from "@/lib";
 
 import {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,

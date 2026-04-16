@@ -1,7 +1,4 @@
-import {
-  expectPreviewDashboard,
-  gotoPreviewDashboard,
-} from "./helpers";
+import { expectPreviewDashboard, gotoPreviewDashboard } from "./helpers";
 import { expect, test } from "./test";
 
 /**

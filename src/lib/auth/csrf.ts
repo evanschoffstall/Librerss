@@ -17,12 +17,7 @@ export function requireSameOrigin(request: Request): null | Response {
   const origin = request.headers.get("origin");
   const referer = request.headers.get("referer");
 
-  if (
-    !origin &&
-    !referer &&
-    secFetchSite &&
-    ALLOWED_FETCH_SITES.has(secFetchSite)
-  ) {
+  if (allowsSameSiteFallback(origin, referer, secFetchSite)) {
     return null;
   }
 
@@ -33,24 +28,30 @@ export function requireSameOrigin(request: Request): null | Response {
       return forbiddenResponse();
     }
 
-    if (origin) {
-      if (!isSameOrigin(origin, expectedOrigin)) {
-        return forbiddenResponse();
-      }
-      return null;
+    const candidateOrigin = getOriginCandidate(origin, referer);
+    if (!candidateOrigin) {
+      return forbiddenResponse();
     }
 
-    if (referer) {
-      if (!isSameOrigin(referer, expectedOrigin)) {
-        return forbiddenResponse();
-      }
-      return null;
-    }
-
-    return forbiddenResponse();
+    return isSameOrigin(candidateOrigin, expectedOrigin)
+      ? null
+      : forbiddenResponse();
   } catch {
     return forbiddenResponse();
   }
+}
+
+function allowsSameSiteFallback(
+  origin: null | string,
+  referer: null | string,
+  secFetchSite: null | string,
+): boolean {
+  return (
+    !origin &&
+    !referer &&
+    typeof secFetchSite === "string" &&
+    ALLOWED_FETCH_SITES.has(secFetchSite)
+  );
 }
 
 function getExpectedOrigin(request: Request): null | string {
@@ -61,6 +62,13 @@ function getExpectedOrigin(request: Request): null | string {
 
   const requestUrl = new URL(request.url);
   return new URL(`${requestUrl.protocol}//${host}`).origin.toLowerCase();
+}
+
+function getOriginCandidate(
+  origin: null | string,
+  referer: null | string,
+): null | string {
+  return origin ?? referer;
 }
 
 function isSameOrigin(value: string, expectedOrigin: string): boolean {

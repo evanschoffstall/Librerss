@@ -1,10 +1,11 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { useSettingsCategoryState } from "@/app/dashboard/hooks/useSettingsCategoryState";
-import { useSettingsDrag } from "@/app/dashboard/hooks/useSettingsDrag";
-import { useSettingsFeedEditorState } from "@/app/dashboard/hooks/useSettingsFeedEditorState";
-import { type CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
+
+import { useSettingsCategoryState } from "@/app/dashboard/settings-state/useSettingsCategoryState";
+import { useSettingsDrag } from "@/app/dashboard/settings-state/useSettingsDrag";
+import { useSettingsFeedEditorState } from "@/app/dashboard/settings-state/useSettingsFeedEditorState";
 
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
@@ -22,7 +23,9 @@ beforeEach(() => {
     callback(0);
     return 1;
   }) as typeof window.requestAnimationFrame;
-  window.cancelAnimationFrame = mock(() => {}) as typeof window.cancelAnimationFrame;
+  window.cancelAnimationFrame = mock(
+    () => {},
+  ) as typeof window.cancelAnimationFrame;
 });
 
 afterEach(() => {
@@ -156,16 +159,19 @@ describe("useSettingsDrag", () => {
     await waitFor(() => {
       expect(result.current.draggingFeedKey).toBe("feed-1");
     });
-    expect(startEvent.dataTransfer.getData("application/x-librerss-feed-key")).toBe(
-      "feed-1",
-    );
+    expect(
+      startEvent.dataTransfer.getData("application/x-librerss-feed-key"),
+    ).toBe("feed-1");
 
     const overEvent = createDragEvent(startEvent.dataTransfer);
     act(() => {
       result.current.onFeedDragOver(overEvent, "News", 2);
     });
 
-    expect(result.current.feedDropTarget).toEqual({ categoryLabel: "News", index: 2 });
+    expect(result.current.feedDropTarget).toEqual({
+      categoryLabel: "News",
+      index: 2,
+    });
 
     const dropEvent = createDragEvent(startEvent.dataTransfer);
     await act(async () => {
@@ -374,7 +380,9 @@ describe("useSettingsFeedEditorState", () => {
         "Feed Name",
         "https://example.com/feed.xml",
       );
-      result.current.sharedFeedRowProps.onEditingFeedNameChange("  Updated Feed  ");
+      result.current.sharedFeedRowProps.onEditingFeedNameChange(
+        "  Updated Feed  ",
+      );
       result.current.sharedFeedRowProps.onEditingFeedUrlChange(
         "  https://example.com/updated.xml  ",
       );
@@ -407,7 +415,9 @@ describe("useSettingsFeedEditorState", () => {
     });
 
     expect(result.current.sharedFeedRowProps.editingFeedKey).toBe("feed-1");
-    expect(result.current.sharedFeedRowProps.editingFeedName).toBe("Retry Feed");
+    expect(result.current.sharedFeedRowProps.editingFeedName).toBe(
+      "Retry Feed",
+    );
   });
 
   test("tracks remove, enablement, and settings toggles through their busy keys", async () => {
@@ -431,9 +441,18 @@ describe("useSettingsFeedEditorState", () => {
 
     await act(async () => {
       await result.current.sharedFeedRowProps.onRemoveFeed("feed-1");
-      await result.current.sharedFeedRowProps.onToggleFeedEnabled("feed-1", false);
-      await result.current.sharedFeedRowProps.onToggleExtractionDisabled("feed-1", true);
-      await result.current.sharedFeedRowProps.onToggleProxyEnabled("feed-1", true);
+      await result.current.sharedFeedRowProps.onToggleFeedEnabled(
+        "feed-1",
+        false,
+      );
+      await result.current.sharedFeedRowProps.onToggleExtractionDisabled(
+        "feed-1",
+        true,
+      );
+      await result.current.sharedFeedRowProps.onToggleProxyEnabled(
+        "feed-1",
+        true,
+      );
     });
 
     expect(onRemoveFeed).toHaveBeenCalledWith("feed-1");

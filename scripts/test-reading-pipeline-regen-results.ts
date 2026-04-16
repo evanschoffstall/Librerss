@@ -1,16 +1,15 @@
 import { NextRequest } from "next/server";
-/**
- * Regenerates expected HTML outputs for the reading-pipeline fixtures.
- */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { format as formatWithPrettier, resolveConfig } from "prettier";
 
-import type { AuthenticatedUser } from "@/lib/server";
-
+/**
+ * Regenerates expected HTML outputs for the reading-pipeline fixtures.
+ */
 import { POST } from "@/app/api/articles/extract/route";
+import { serverApi } from "@/lib/server";
 
-const ANONYMOUS_USER: AuthenticatedUser = {
+const ANONYMOUS_USER: serverApi.AuthenticatedUser = {
   email: "anonymous",
   expiresAt: new Date(Date.now() + 86_400_000),
   sessionId: -1,
@@ -72,7 +71,7 @@ async function extractViaApiRoute(
   const response = await POST(request, {
     errorFn: () => {},
     fetchHtmlFn: async () => downloadedHtml,
-    parseAndValidateArticleUrlFn: async (rawUrl) => rawUrl.trim(),
+    parseAndValidateArticleUrlFn: async (rawUrl: string) => rawUrl.trim(),
     requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
     shouldUseExtractCacheFn: () => false,
     warnFn: () => {},
@@ -169,7 +168,10 @@ async function regenerateReadingExpectation(
     throw new Error(`${articleName} produced empty expectation output`);
   }
 
-  const formattedOutput = await formatExpectedReadingOutput(outputPath, cleaned);
+  const formattedOutput = await formatExpectedReadingOutput(
+    outputPath,
+    cleaned,
+  );
   const diffPath = generateDiff(
     fixtureDir,
     articleName,
@@ -200,7 +202,9 @@ function shouldAutoRunReadingFixtureRegeneration(argv: string[]): boolean {
   const invokedScriptPath = argv[1];
   return (
     typeof invokedScriptPath === "string" &&
-    invokedScriptPath.endsWith("/scripts/test-reading-pipeline-regen-results.ts")
+    invokedScriptPath.endsWith(
+      "/scripts/test-reading-pipeline-regen-results.ts",
+    )
   );
 }
 

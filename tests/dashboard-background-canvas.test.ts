@@ -9,7 +9,7 @@ import {
   getBackgroundParallaxOffset,
   shouldRenderBackgroundCanvasFrame,
   shouldRunBackgroundAnimation,
-} from "../src/app/dashboard/components/background-canvas";
+} from "../src/app/dashboard/dashboard-components/background-internals/background-canvas";
 
 describe("dashboard background canvas helpers", () => {
   test("caps device pixel ratio for decorative canvases", () => {

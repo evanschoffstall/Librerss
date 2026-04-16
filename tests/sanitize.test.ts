@@ -596,7 +596,7 @@ describe("sanitize – toPlainText", () => {
   });
 
   test("decodes &quot; entity", () => {
-    expect(toPlainText('He said &quot;hello&quot;')).toBe('He said "hello"');
+    expect(toPlainText("He said &quot;hello&quot;")).toBe('He said "hello"');
   });
 
   test("decodes &#39; numeric apostrophe entity", () => {
@@ -618,7 +618,9 @@ describe("sanitize – toPlainText", () => {
   });
 
   test("decodes dash entities", () => {
-    expect(toPlainText("A&mdash;B and C&ndash;D")).toBe("A\u2014B and C\u2013D");
+    expect(toPlainText("A&mdash;B and C&ndash;D")).toBe(
+      "A\u2014B and C\u2013D",
+    );
   });
 
   test("decodes &hellip; entity", () => {
@@ -632,9 +634,7 @@ describe("sanitize – toPlainText", () => {
   });
 
   test("decodes &#8217; right single quote", () => {
-    expect(toPlainText("It&#8217;s a great day")).toBe(
-      "It\u2019s a great day",
-    );
+    expect(toPlainText("It&#8217;s a great day")).toBe("It\u2019s a great day");
   });
 
   test("decodes mixed entities in a realistic article snippet", () => {
@@ -841,8 +841,7 @@ describe("sanitize – stripOrphanedRelatedBlocks", () => {
 
 describe("sanitize/content-sanitization – sanitizeRawContent fallback paths", () => {
   test("returns sanitized fallback for HTML that sanitizes to empty string", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // A <section> with only script tags will sanitize away the visible content
     // but fall back to plain-text path
     const input = "<section><script>evil()</script></section>";
@@ -852,8 +851,7 @@ describe("sanitize/content-sanitization – sanitizeRawContent fallback paths", 
   });
 
   test("handles pure HTML that has only images in section tags — fallback with image recovery", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // Section with img and NO text: sanitized output drops section → triggers
     // the recovered image + fallback text path
     const input =
@@ -864,8 +862,7 @@ describe("sanitize/content-sanitization – sanitizeRawContent fallback paths", 
   });
 
   test("sanitizeRawContent falls back to plain text when sanitized html is blank", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // Craft HTML that has only disallowed elements → sanitizer produces ""
     // then we fall back to toPlainText
     const input = "<noscript><iframe>hidden</iframe></noscript>text content";
@@ -915,8 +912,7 @@ describe("lib/sanitize/content-sanitization – image merge paths", () => {
 
 describe("sanitizeRawContent – recovered image merge paths", () => {
   test("merges recovered images when sanitized text has no images", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // HTML with an img that gets stripped by sanitizer but text survives
     const html = `<section><img src="https://example.com/photo.jpg" alt="Photo"><p>Article text here</p></section>`;
     const result = sanitizeRawContent(html);
@@ -925,16 +921,14 @@ describe("sanitizeRawContent – recovered image merge paths", () => {
   });
 
   test("returns sanitized HTML when images survive sanitization", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     const html = `<p>Text with <img src="https://example.com/img.jpg"> inline</p>`;
     const result = sanitizeRawContent(html);
     expect(result).toContain("Text with");
   });
 
   test("falls back to plain text when HTML sanitizes to empty", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // Script-only content that sanitizes to empty
     const html = `<script>alert('x')</script>Some visible text`;
     const result = sanitizeRawContent(html);
@@ -942,21 +936,18 @@ describe("sanitizeRawContent – recovered image merge paths", () => {
   });
 
   test("handles plain text input (no HTML)", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     const result = sanitizeRawContent("Just plain text content here");
     expect(result).toContain("Just plain text content here");
   });
 
   test("returns empty for whitespace-only input", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     expect(sanitizeRawContent("   ")).toBe("");
   });
 
   test("merges recovered images in fallback plain-text path", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // HTML where the main content sanitizes to empty but there IS an img and text
     const html = `<img src="https://example.com/photo.jpg"><script>alert(1)</script>Visible text`;
     const result = sanitizeRawContent(html);
@@ -968,8 +959,7 @@ describe("sanitizeRawContent – recovered image merge paths", () => {
 
 describe("lib/sanitize/content-sanitization – sanitizeRawContent image merge", () => {
   test("merges recovered image html with sanitized text when img stripped from sanitized", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // Raw HTML with an img that survives recoverSanitizedImageHtml but is
     // a different img (one with a simple src) alongside real text that sanitizer
     // will keep.  The img is stripped from sanitized output; the recovery inserts it.
@@ -982,8 +972,7 @@ describe("lib/sanitize/content-sanitization – sanitizeRawContent image merge",
   });
 
   test("returns fallback sanitized text for plain-text with no html", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     const result = sanitizeRawContent(
       "Just plain text without any HTML elements at all.",
     );
@@ -991,14 +980,12 @@ describe("lib/sanitize/content-sanitization – sanitizeRawContent image merge",
   });
 
   test("returns empty string for content that trims to empty", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     expect(sanitizeRawContent("   ")).toBe("");
   });
 
   test("merges recovered image with fallback-sanitized text (non-html path)", async () => {
-    const { sanitizeRawContent } =
-      await import("@/lib/sanitize/content-sanitization");
+    const { sanitizeRawContent } = await import("@/lib/sanitize/sanitization");
     // A string that sanitizer reduces to empty (all HTML stripped) but
     // has an img tag that recovery can extract; tests the fallback+image branch.
     const rawHtml =
@@ -1012,8 +999,7 @@ describe("lib/sanitize/content-sanitization – sanitizeRawContent image merge",
 
 describe("lib/sanitize/content-validation – stripShareEngagementToolbars branches", () => {
   test("cleanSanitizedHtml removes social-share ul via keyword in text content", async () => {
-    const { cleanSanitizedHtml } =
-      await import("@/lib/sanitize/content-validation");
+    const { cleanSanitizedHtml } = await import("@/lib/sanitize/validation");
     // A ul whose items contain social share URLs AND the word "share" in
     // the text — this triggers the SOCIAL_SHARE_LINK_RE + text-word branch.
     const html =
@@ -1026,8 +1012,7 @@ describe("lib/sanitize/content-validation – stripShareEngagementToolbars branc
   });
 
   test("cleanSanitizedHtml returns empty when post-strip content is pure nav boilerplate", async () => {
-    const { cleanSanitizedHtml } =
-      await import("@/lib/sanitize/content-validation");
+    const { cleanSanitizedHtml } = await import("@/lib/sanitize/validation");
     // Content with many footer keywords + high link/list-item density.
     // Six links, four list items — meets the boilerplate threshold.
     const navHtml =
@@ -1350,7 +1335,7 @@ describe("sanitize – full content preview pipeline preserves characters", () =
 
   test("preserves smart quotes around s-words", () => {
     const html =
-      '<p>She said &ldquo;success&rdquo; is the key to satisfaction.</p>';
+      "<p>She said &ldquo;success&rdquo; is the key to satisfaction.</p>";
     const result = collapsedPreview(html);
     expect(result).toContain("\u201Csuccess\u201D");
     expect(result).toContain("satisfaction");

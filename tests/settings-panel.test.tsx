@@ -1,8 +1,22 @@
 import { fireEvent, render } from "@testing-library/react";
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { createContext, useContext, useState } from "react";
 
-import { type CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
+
+import { SETTINGS_PANEL_TAB_STORAGE_KEY } from "@/app/dashboard/constants";
+import { TooltipProvider } from "@/components/ui/tooltip";
+
+import { createIsolatedStorage } from "./test-storage";
+
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 
 /*
  * Mock heavy dependencies so the settings panel renders without needing
@@ -13,30 +27,55 @@ mock.module("@/components/ui/dialog", () => ({
   Dialog: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dialog-root">{children}</div>
   ),
-  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogDescription: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  DialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogDescription: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+  DialogHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DialogTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
 }));
 
 mock.module("@/components/ui/drawer", () => ({
-  Drawer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DrawerClose: ({ children }: { children: React.ReactNode }) => <button type="button">{children}</button>,
-  DrawerContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DrawerDescription: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
-  DrawerHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DrawerTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  Drawer: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DrawerClose: ({ children }: { children: React.ReactNode }) => (
+    <button type="button">{children}</button>
+  ),
+  DrawerContent: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DrawerDescription: ({ children }: { children: React.ReactNode }) => (
+    <span>{children}</span>
+  ),
+  DrawerHeader: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DrawerTitle: ({ children }: { children: React.ReactNode }) => (
+    <h2>{children}</h2>
+  ),
 }));
 
 mock.module("@/components/ui/scroll-area", () => ({
-  ScrollArea: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ScrollArea: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
 }));
 
 /**
  * Lightweight Tabs implementation with real React context so TabsTrigger
  * can drive TabsContent visibility, matching Radix Tabs semantics.
  */
-const TabsCtx = createContext({ activeTab: "", setActiveTab: (_v: string) => {} });
+const TabsCtx = createContext({
+  activeTab: "",
+  setActiveTab: (_v: string) => {},
+});
 const useSettingsProxyStateMock = mock(() => ({
   allowInsecureTls: false,
   compatibilityCheckedAt: null,
@@ -80,7 +119,9 @@ mock.module("@/components/ui/tabs", () => {
     onValueChange?: (value: string) => void;
     value?: string;
   }) {
-    const [internalActiveTab, setInternalActiveTab] = useState(defaultValue ?? "");
+    const [internalActiveTab, setInternalActiveTab] = useState(
+      defaultValue ?? "",
+    );
     const activeTab = value ?? internalActiveTab;
     const handleTabChange = (nextValue: string) => {
       setInternalActiveTab(nextValue);
@@ -95,8 +136,18 @@ mock.module("@/components/ui/tabs", () => {
     );
   }
 
-  function TabsList({ children, className }: { children: React.ReactNode; className?: string }) {
-    return <div className={className} role="tablist">{children}</div>;
+  function TabsList({
+    children,
+    className,
+  }: {
+    children: React.ReactNode;
+    className?: string;
+  }) {
+    return (
+      <div className={className} role="tablist">
+        {children}
+      </div>
+    );
   }
 
   function TabsTrigger({
@@ -114,7 +165,9 @@ mock.module("@/components/ui/tabs", () => {
         className={className}
         data-state={activeTab === value ? "active" : "inactive"}
         data-value={value}
-        onClick={() => { setActiveTab(value); }}
+        onClick={() => {
+          setActiveTab(value);
+        }}
         role="tab"
         type="button"
       >
@@ -144,16 +197,159 @@ mock.module("@/components/ui/tabs", () => {
   return { Tabs, TabsContent, TabsList, TabsTrigger };
 });
 
-mock.module("@/app/dashboard/hooks/useSettingsModalState", () => ({
+mock.module("@/app/dashboard/settings-state", () => ({
   useSettingsModalState: () => ({}),
-}));
-
-mock.module("@/app/dashboard/hooks/useSettingsProxyState", () => ({
   useSettingsProxyState: useSettingsProxyStateMock,
 }));
 
+function installSettingsPanelModuleMocks() {
+  mock.module("@/components/ui/dialog", () => ({
+    Dialog: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="dialog-root">{children}</div>
+    ),
+    DialogContent: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DialogDescription: ({ children }: { children: React.ReactNode }) => (
+      <span>{children}</span>
+    ),
+    DialogHeader: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DialogTitle: ({ children }: { children: React.ReactNode }) => (
+      <h2>{children}</h2>
+    ),
+  }));
+  mock.module("@/components/ui/drawer", () => ({
+    Drawer: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DrawerClose: ({ children }: { children: React.ReactNode }) => (
+      <button type="button">{children}</button>
+    ),
+    DrawerContent: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DrawerDescription: ({ children }: { children: React.ReactNode }) => (
+      <span>{children}</span>
+    ),
+    DrawerHeader: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+    DrawerTitle: ({ children }: { children: React.ReactNode }) => (
+      <h2>{children}</h2>
+    ),
+  }));
+  mock.module("@/components/ui/scroll-area", () => ({
+    ScrollArea: ({ children }: { children: React.ReactNode }) => (
+      <div>{children}</div>
+    ),
+  }));
+  mock.module("@/components/ui/tabs", () => {
+    function Tabs({
+      children,
+      className,
+      defaultValue,
+      onValueChange,
+      value,
+    }: {
+      children: React.ReactNode;
+      className?: string;
+      defaultValue?: string;
+      onValueChange?: (value: string) => void;
+      value?: string;
+    }) {
+      const [internalActiveTab, setInternalActiveTab] = useState(
+        defaultValue ?? "",
+      );
+      const activeTab = value ?? internalActiveTab;
+      const handleTabChange = (nextValue: string) => {
+        setInternalActiveTab(nextValue);
+        onValueChange?.(nextValue);
+      };
+      return (
+        <TabsCtx.Provider value={{ activeTab, setActiveTab: handleTabChange }}>
+          <div className={className}>{children}</div>
+        </TabsCtx.Provider>
+      );
+    }
+
+    function TabsList({ children }: { children: React.ReactNode }) {
+      return <div role="tablist">{children}</div>;
+    }
+
+    function TabsTrigger({
+      children,
+      value,
+    }: {
+      children: React.ReactNode;
+      value: string;
+    }) {
+      const { activeTab, setActiveTab } = useContext(TabsCtx);
+      const state = activeTab === value ? "active" : "inactive";
+      return (
+        <button
+          aria-selected={activeTab === value}
+          data-state={state}
+          onClick={() => {
+            setActiveTab(value);
+          }}
+          role="tab"
+          type="button"
+        >
+          {children}
+        </button>
+      );
+    }
+
+    function TabsContent({
+      children,
+      value,
+    }: {
+      children: React.ReactNode;
+      value: string;
+    }) {
+      const { activeTab } = useContext(TabsCtx);
+      return activeTab === value ? <div role="tabpanel">{children}</div> : null;
+    }
+
+    return { Tabs, TabsContent, TabsList, TabsTrigger };
+  });
+  mock.module("@/app/dashboard/settings-state", () => ({
+    useSettingsModalState: () => ({}),
+    useSettingsProxyState: useSettingsProxyStateMock,
+  }));
+}
+
 afterEach(() => {
   mock.restore();
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  }
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+  }
+});
+
+beforeEach(() => {
+  mock.restore();
+  installSettingsPanelModuleMocks();
+  const isolatedLocalStorage = createIsolatedStorage();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  isolatedLocalStorage.removeItem(SETTINGS_PANEL_TAB_STORAGE_KEY);
 });
 
 const noop = () => {};
@@ -228,7 +424,11 @@ async function renderPanel(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 
-  return render(<SettingsPanel {...defaultProps} />);
+  return render(
+    <TooltipProvider>
+      <SettingsPanel {...defaultProps} />
+    </TooltipProvider>,
+  );
 }
 
 describe("SettingsPanel", () => {
@@ -280,7 +480,9 @@ describe("SettingsPanel", () => {
      * mock doesn't render. Instead verify the close handler is wired by
      * checking the component renders without error with the onClose prop.
      */
-    expect(container.querySelector("[data-testid='dialog-root']")).toBeDefined();
+    expect(
+      container.querySelector("[data-testid='dialog-root']"),
+    ).toBeDefined();
   });
 
   test("only one tab is active at a time", async () => {

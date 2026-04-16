@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 /**
  * Copyright (c) Meta Platforms, Inc. and affiliates.
@@ -7,20 +7,20 @@
  * LICENSE file in the root directory of this source tree.
  *
  */
-import { useEffect } from "react"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import { useEffect } from "react";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   $getSelection,
   $isRangeSelection,
   $setSelection,
   FOCUS_COMMAND,
-} from "lexical"
+} from "lexical";
 
-const COMMAND_PRIORITY_LOW = 1
-const TAB_TO_FOCUS_INTERVAL = 100
+const COMMAND_PRIORITY_LOW = 1;
+const TAB_TO_FOCUS_INTERVAL = 100;
 
-let lastTabKeyDownTimestamp = 0
-let hasRegisteredKeyDownListener = false
+let lastTabKeyDownTimestamp = 0;
+let hasRegisteredKeyDownListener = false;
 
 function registerKeyTimeStampTracker() {
   window.addEventListener(
@@ -28,39 +28,39 @@ function registerKeyTimeStampTracker() {
     (event: KeyboardEvent) => {
       // Tab
       if (event.key === "Tab") {
-        lastTabKeyDownTimestamp = event.timeStamp
+        lastTabKeyDownTimestamp = event.timeStamp;
       }
     },
-    true
-  )
+    true,
+  );
 }
 
 export function TabFocusPlugin(): null {
-  const [editor] = useLexicalComposerContext()
+  const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
     if (!hasRegisteredKeyDownListener) {
-      registerKeyTimeStampTracker()
-      hasRegisteredKeyDownListener = true
+      registerKeyTimeStampTracker();
+      hasRegisteredKeyDownListener = true;
     }
 
     return editor.registerCommand(
       FOCUS_COMMAND,
       (event: FocusEvent) => {
-        const selection = $getSelection()
+        const selection = $getSelection();
         if ($isRangeSelection(selection)) {
           if (
             lastTabKeyDownTimestamp + TAB_TO_FOCUS_INTERVAL >
             event.timeStamp
           ) {
-            $setSelection(selection.clone())
+            $setSelection(selection.clone());
           }
         }
-        return false
+        return false;
       },
-      COMMAND_PRIORITY_LOW
-    )
-  }, [editor])
+      COMMAND_PRIORITY_LOW,
+    );
+  }, [editor]);
 
-  return null
+  return null;
 }

@@ -1,22 +1,22 @@
 import { describe, expect, mock, test } from "bun:test";
 import * as zlib from "zlib";
 
-import {
-  fetchHtmlWithHttpCloak,
-} from "@/lib/fetch/httpcloak-client";
+import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 describe("fetch/httpcloak-client", () => {
   test("does not inject custom request headers into httpcloak", async () => {
     let capturedHeaders: Record<string, string> | undefined;
-    const requestFn = mock(async (_url: URL, headers: Record<string, string>) => {
-      capturedHeaders = headers;
-      return {
-        body: "<html>ok</html>",
-        headers: {} as Record<string, string | string[] | undefined>,
-        statusCode: 200,
-      };
-    });
+    const requestFn = mock(
+      async (_url: URL, headers: Record<string, string>) => {
+        capturedHeaders = headers;
+        return {
+          body: "<html>ok</html>",
+          headers: {} as Record<string, string | string[] | undefined>,
+          statusCode: 200,
+        };
+      },
+    );
 
     const result = await fetchHtmlWithHttpCloak(
       "https://example.com/article",
@@ -108,6 +108,27 @@ describe("fetch/httpcloak-client", () => {
     expect(requestFn).toHaveBeenCalledTimes(1);
   });
 
+  test("decodes gzip responses when content-encoding uses mixed-case header names", async () => {
+    const html = "<html><body>mixed-case headers</body></html>";
+    const requestFn = mock(async () => ({
+      body: zlib.gzipSync(Buffer.from(html, "utf8")).toString("latin1"),
+      headers: {
+        "Content-Encoding": "gzip",
+      } as Record<string, string | string[] | undefined>,
+      statusCode: 200,
+    }));
+
+    const result = await fetchHtmlWithHttpCloak(
+      "https://example.com/article",
+      async () => true,
+      undefined,
+      { requestFn },
+    );
+
+    expect(result.html).toBe(html);
+    expect(requestFn).toHaveBeenCalledTimes(1);
+  });
+
   test("prefers decoded HTTPCloak text when content-encoding headers remain set", async () => {
     const html = "<html><body>already decoded</body></html>";
     const requestFn = mock(async () => ({
@@ -133,9 +154,7 @@ describe("fetch/httpcloak-client", () => {
   test("throws HttpCloakUpstreamError with a decoded upstream body", async () => {
     const responseBody = "<html><body>cf-browser-verification</body></html>";
     const requestFn = mock(async () => ({
-      body: zlib.gzipSync(Buffer.from(responseBody, "utf8")).toString(
-        "latin1",
-      ),
+      body: zlib.gzipSync(Buffer.from(responseBody, "utf8")).toString("latin1"),
       headers: {
         "cf-ray": "abc123",
         "content-encoding": "gzip",

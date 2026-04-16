@@ -3,13 +3,15 @@ import type { SetStateAction } from "react";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
+import type { Article, CategoryTreeNode } from "@/lib/core";
+
 import {
   addCategoryLabel,
   moveCategoryByDropInOrder,
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
-} from "@/app/dashboard/services/category-operations";
+} from "@/app/dashboard/dashboard-services/category";
+import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import {
   addFeedSourceAndRefresh,
   moveFeedByDropAndPersist,
@@ -18,11 +20,14 @@ import {
   selectFeedByKeyFromCategories,
   setFeedSourceEnabledAndRefresh,
   updateFeedSettingsAndRefresh,
-} from "@/app/dashboard/services/feed-source-operations";
-import { importOpmlFeedsAndRefresh } from "@/app/dashboard/services/opml-import";
-import { type Article, type CategoryTreeNode, DEFAULT_CATEGORY_LABEL, FeedService } from "@/lib";
+} from "@/app/dashboard/dashboard-services/feed-data/source/operations";
+import { importOpmlFeedsAndRefresh } from "@/app/dashboard/dashboard-services/opml-import";
+import { FeedService } from "@/lib/api";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils";
 
-type FeedSourceResponse = Awaited<ReturnType<typeof FeedService.createFeedSource>>;
+type FeedSourceResponse = Awaited<
+  ReturnType<typeof FeedService.createFeedSource>
+>;
 
 const originalCreateFeedSource = FeedService.createFeedSource;
 const originalDeleteFeedSource = FeedService.deleteFeedSource;
@@ -61,13 +66,15 @@ function makeCategoryNode(
   };
 }
 
-function makeFeedNode(options: {
-  category?: string;
-  key?: string;
-  label?: string;
-  sourceId?: number;
-  url?: string;
-} = {}): CategoryTreeNode {
+function makeFeedNode(
+  options: {
+    category?: string;
+    key?: string;
+    label?: string;
+    sourceId?: number;
+    url?: string;
+  } = {},
+): CategoryTreeNode {
   const {
     category = DEFAULT_CATEGORY_LABEL,
     key = `cat-${category.toLowerCase()}-${options.sourceId ?? 1}`,
@@ -180,11 +187,9 @@ describe("dashboard category operations", () => {
   });
 
   test("reorders categories by drop position and leaves unknown labels untouched", () => {
-    expect(moveCategoryByDropInOrder(["News", "Tech", "Science"], "Tech", 0)).toEqual([
-      "Tech",
-      "News",
-      "Science",
-    ]);
+    expect(
+      moveCategoryByDropInOrder(["News", "Tech", "Science"], "Tech", 0),
+    ).toEqual(["Tech", "News", "Science"]);
     expect(
       moveCategoryByDropInOrder(["News", "Tech", "Science"], "Unknown", 2),
     ).toEqual(["News", "Tech", "Science"]);
@@ -193,7 +198,9 @@ describe("dashboard category operations", () => {
   test("removes empty categories immediately from local state", async () => {
     const categories = createStateHarness<CategoryTreeNode[]>([
       makeCategoryNode("News"),
-      makeCategoryNode("Tech", [makeFeedNode({ category: "Tech", sourceId: 2 })]),
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", sourceId: 2 }),
+      ]),
     ]);
     const customLabels = createStateHarness<string[]>(["News", "Tech"]);
     const orderedLabels = createStateHarness<string[]>(["News", "Tech"]);
@@ -208,14 +215,12 @@ describe("dashboard category operations", () => {
       loadFeedSources: mock(async () => categories.current),
       pendingCategoryRemovalLabel: pendingRemoval.current,
       selectedCategory: selectedCategory.current,
-      setCategories:
-        categories.setter as unknown as React.Dispatch<
-          React.SetStateAction<CategoryTreeNode[]>
-        >,
-      setCustomCategoryLabels:
-        customLabels.setter as unknown as React.Dispatch<
-          React.SetStateAction<string[]>
-        >,
+      setCategories: categories.setter as unknown as React.Dispatch<
+        React.SetStateAction<CategoryTreeNode[]>
+      >,
+      setCustomCategoryLabels: customLabels.setter as unknown as React.Dispatch<
+        React.SetStateAction<string[]>
+      >,
       setOrderedCategoryLabels:
         orderedLabels.setter as unknown as React.Dispatch<
           React.SetStateAction<string[]>
@@ -224,14 +229,15 @@ describe("dashboard category operations", () => {
         pendingRemoval.setter as unknown as React.Dispatch<
           React.SetStateAction<null | string>
         >,
-      setSelectedCategory:
-        selectedCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<string>
-        >,
+      setSelectedCategory: selectedCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
     });
 
     expect(removed).toBe(true);
-    expect(categories.current.map((category) => category.label)).toEqual(["Tech"]);
+    expect(categories.current.map((category) => category.label)).toEqual([
+      "Tech",
+    ]);
     expect(customLabels.current).toEqual(["Tech"]);
     expect(orderedLabels.current).toEqual(["Tech"]);
     expect(pendingRemoval.current).toBeNull();
@@ -239,7 +245,9 @@ describe("dashboard category operations", () => {
 
   test("requires confirmation before removing populated categories and refuses the last remaining category", async () => {
     const categories = [
-      makeCategoryNode("News", [makeFeedNode({ category: "News", sourceId: 1 })]),
+      makeCategoryNode("News", [
+        makeFeedNode({ category: "News", sourceId: 1 }),
+      ]),
     ];
     const pendingRemoval = createStateHarness<null | string>(null);
 
@@ -306,8 +314,16 @@ describe("dashboard category operations", () => {
   });
 
   test("reassigns feeds when removing a populated category and restores the selected feed", async () => {
-    const feedToMove = makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 });
-    const existingFeed = makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 });
+    const feedToMove = makeFeedNode({
+      category: "News",
+      key: "cat-news-1",
+      sourceId: 1,
+    });
+    const existingFeed = makeFeedNode({
+      category: "Tech",
+      key: "cat-tech-2",
+      sourceId: 2,
+    });
     const refreshedCategories = [
       makeCategoryNode("Tech", [
         makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 }),
@@ -339,14 +355,12 @@ describe("dashboard category operations", () => {
       loadFeedSources,
       pendingCategoryRemovalLabel: pendingRemoval.current,
       selectedCategory: selectedCategory.current,
-      setCategories:
-        categories.setter as unknown as React.Dispatch<
-          React.SetStateAction<CategoryTreeNode[]>
-        >,
-      setCustomCategoryLabels:
-        customLabels.setter as unknown as React.Dispatch<
-          React.SetStateAction<string[]>
-        >,
+      setCategories: categories.setter as unknown as React.Dispatch<
+        React.SetStateAction<CategoryTreeNode[]>
+      >,
+      setCustomCategoryLabels: customLabels.setter as unknown as React.Dispatch<
+        React.SetStateAction<string[]>
+      >,
       setOrderedCategoryLabels:
         orderedLabels.setter as unknown as React.Dispatch<
           React.SetStateAction<string[]>
@@ -355,10 +369,9 @@ describe("dashboard category operations", () => {
         pendingRemoval.setter as unknown as React.Dispatch<
           React.SetStateAction<null | string>
         >,
-      setSelectedCategory:
-        selectedCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<string>
-        >,
+      setSelectedCategory: selectedCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
     });
 
     expect(removed).toBe(true);
@@ -377,12 +390,20 @@ describe("dashboard category operations", () => {
 
   test("renames categories with feed reassignment and preserves the selected feed", async () => {
     const currentCategories = [
-      makeCategoryNode("News", [makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 })]),
-      makeCategoryNode("Tech", [makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 })]),
+      makeCategoryNode("News", [
+        makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 }),
+      ]),
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 }),
+      ]),
     ];
     const refreshedCategories = [
-      makeCategoryNode("World", [makeFeedNode({ category: "World", key: "cat-world-1", sourceId: 1 })]),
-      makeCategoryNode("Tech", [makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 })]),
+      makeCategoryNode("World", [
+        makeFeedNode({ category: "World", key: "cat-world-1", sourceId: 1 }),
+      ]),
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", key: "cat-tech-2", sourceId: 2 }),
+      ]),
     ];
     const customLabels = createStateHarness<string[]>(["News", "Tech"]);
     const orderedLabels = createStateHarness<string[]>(["News", "Tech"]);
@@ -538,22 +559,30 @@ describe("dashboard OPML and feed-source operations", () => {
       fetchFeed,
       loadFeedSources: mock(async () => [
         makeCategoryNode("News", [
-          makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1, url: "https://example.com/news.xml" }),
+          makeFeedNode({
+            category: "News",
+            key: "cat-news-1",
+            sourceId: 1,
+            url: "https://example.com/news.xml",
+          }),
         ]),
         makeCategoryNode("Tech", [
           makeFeedNode({ category: "Tech", key: "cat-tech-9", sourceId: 9 }),
-          makeFeedNode({ category: "Tech", key: "cat-tech-3", sourceId: 3, url: "https://example.com/tech.xml" }),
+          makeFeedNode({
+            category: "Tech",
+            key: "cat-tech-3",
+            sourceId: 3,
+            url: "https://example.com/tech.xml",
+          }),
         ]),
       ]),
       selectedCategory: selectedCategory.current,
-      setCustomCategoryLabels:
-        customLabels.setter as unknown as React.Dispatch<
-          React.SetStateAction<string[]>
-        >,
-      setSelectedCategory:
-        selectedCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<string>
-        >,
+      setCustomCategoryLabels: customLabels.setter as unknown as React.Dispatch<
+        React.SetStateAction<string[]>
+      >,
+      setSelectedCategory: selectedCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
     });
 
     expect(FeedService.createFeedSource).toHaveBeenCalledTimes(3);
@@ -580,7 +609,9 @@ describe("dashboard OPML and feed-source operations", () => {
         React.SetStateAction<string>
       >,
     });
-    expect(toast.error).toHaveBeenCalledWith("No valid feeds found in OPML file.");
+    expect(toast.error).toHaveBeenCalledWith(
+      "No valid feeds found in OPML file.",
+    );
 
     FeedService.createFeedSource = mock(async () => {
       throw new Error("boom");
@@ -602,7 +633,9 @@ describe("dashboard OPML and feed-source operations", () => {
       >,
     });
 
-    expect(toast.error).toHaveBeenCalledWith("Unable to import feeds from OPML.");
+    expect(toast.error).toHaveBeenCalledWith(
+      "Unable to import feeds from OPML.",
+    );
   });
 
   test("reports a success toast when every OPML feed imports cleanly", async () => {
@@ -674,7 +707,12 @@ describe("dashboard OPML and feed-source operations", () => {
         fetchFeed,
         loadFeedSources: mock(async () => [
           makeCategoryNode("News", [
-            makeFeedNode({ category: "News", key: "cat-news-4", sourceId: 4, url: "https://example.com/news.xml" }),
+            makeFeedNode({
+              category: "News",
+              key: "cat-news-4",
+              sourceId: 4,
+              url: "https://example.com/news.xml",
+            }),
           ]),
         ]),
         name: "Daily News",
@@ -705,10 +743,9 @@ describe("dashboard OPML and feed-source operations", () => {
       ensureCategoryLabelExists: mock(() => {}),
       key: "cat-news-2",
       loadFeedSources: mock(async () => sameCategory.current),
-      setCategories:
-        sameCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<CategoryTreeNode[]>
-        >,
+      setCategories: sameCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<CategoryTreeNode[]>
+      >,
       targetCategory: "News",
       targetIndex: 0,
     });
@@ -722,7 +759,9 @@ describe("dashboard OPML and feed-source operations", () => {
       throw new Error("persist failed");
     }) as typeof FeedService.createFeedSource;
     const crossCategory = createStateHarness<CategoryTreeNode[]>([
-      makeCategoryNode("News", [makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 })]),
+      makeCategoryNode("News", [
+        makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 }),
+      ]),
       makeCategoryNode("Tech"),
     ]);
     const ensureCategoryLabelExists = mock(() => {});
@@ -733,10 +772,9 @@ describe("dashboard OPML and feed-source operations", () => {
       ensureCategoryLabelExists,
       key: "cat-news-1",
       loadFeedSources,
-      setCategories:
-        crossCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<CategoryTreeNode[]>
-        >,
+      setCategories: crossCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<CategoryTreeNode[]>
+      >,
       targetCategory: "Tech",
       targetIndex: 0,
     });
@@ -765,21 +803,21 @@ describe("dashboard OPML and feed-source operations", () => {
 
     await removeFeedSourceAndRefresh({
       categories: [
-        makeCategoryNode("News", [makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 })]),
+        makeCategoryNode("News", [
+          makeFeedNode({ category: "News", key: "cat-news-1", sourceId: 1 }),
+        ]),
       ],
       fetchCategoryFeeds,
       fetchFeed,
       key: "cat-news-1",
       loadFeedSources: mock(async () => []),
       selectedCategory: selectedCategory.current,
-      setFeed:
-        feedState.setter as unknown as React.Dispatch<
-          React.SetStateAction<Article[]>
-        >,
-      setSelectedCategory:
-        selectedCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<string>
-        >,
+      setFeed: feedState.setter as unknown as React.Dispatch<
+        React.SetStateAction<Article[]>
+      >,
+      setSelectedCategory: selectedCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
     });
 
     expect(selectedCategory.current).toBe("");
@@ -804,10 +842,9 @@ describe("dashboard OPML and feed-source operations", () => {
       setFeed: mock(() => {}) as unknown as React.Dispatch<
         React.SetStateAction<Article[]>
       >,
-      setSelectedCategory:
-        selectedCategory.setter as unknown as React.Dispatch<
-          React.SetStateAction<string>
-        >,
+      setSelectedCategory: selectedCategory.setter as unknown as React.Dispatch<
+        React.SetStateAction<string>
+      >,
     });
 
     expect(selectedCategory.current).toBe("cat-news-2");

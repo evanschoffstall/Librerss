@@ -22,6 +22,7 @@ const sourceFiles = ["src/**"];
 const testFiles = ["tests/**"];
 const scriptFiles = ["scripts/**"];
 const rootConfigFiles = [
+  "check-suite.config.ts",
   "drizzle.config.ts",
   "eslint.config.mjs",
   "next.config.ts",
@@ -38,7 +39,6 @@ const barrelImportFiles = [
   "src/app/**/*.tsx",
   "src/components/**/*.ts",
   "src/components/**/*.tsx",
-  "src/proxy.ts",
 ];
 const projectFiles = [...sourceFiles, ...nonSourceProjectFiles];
 const apiAndLibraryFiles = ["src/lib/**", "src/app/api/**"];
@@ -85,14 +85,14 @@ const sourceTailwindRules = {
   "better-tailwindcss/enforce-canonical-classes": "error",
   "better-tailwindcss/enforce-consistent-class-order": "error",
   "better-tailwindcss/enforce-consistent-important-position": "error",
-  "better-tailwindcss/enforce-consistent-line-wrapping": "error",
+  "better-tailwindcss/enforce-consistent-line-wrapping": "off",
   "better-tailwindcss/enforce-consistent-variable-syntax": "error",
   "better-tailwindcss/enforce-shorthand-classes": "error",
   "better-tailwindcss/no-conflicting-classes": "error",
   "better-tailwindcss/no-deprecated-classes": "error",
   "better-tailwindcss/no-duplicate-classes": "error",
   "better-tailwindcss/no-restricted-classes": "error",
-  "better-tailwindcss/no-unnecessary-whitespace": "error",
+  "better-tailwindcss/no-unnecessary-whitespace": "off",
 };
 const sourceTypeScriptRules = {
   "@typescript-eslint/no-base-to-string": "error",
@@ -148,6 +148,12 @@ const testTypeScriptRelaxedRules = {
   "@typescript-eslint/no-non-null-assertion": "off",
   "@typescript-eslint/no-unused-vars": "off",
   "no-console": "off",
+};
+
+const _sourceReadabilityRules = {
+  "max-statements": ["error", 30],
+  "no-else-return": ["error", { allowElseIf: false }],
+  "sonarjs/cognitive-complexity": ["error", 12],
 };
 
 function normalizeIgnorePattern(pattern) {
@@ -275,6 +281,10 @@ export default [
         },
       ],
     },
+  },
+  {
+    files: sourceFiles,
+    rules: sourceTypeScriptRules,
   },
   {
     ...perfectionist.configs["recommended-natural"],

@@ -18,25 +18,24 @@ afterEach(() => {
 
 describe("feed-url-validator", () => {
   test("isAllowedFeedUrl accepts valid feed URLs", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core/feed-url-validator");
+    const { isAllowedFeedUrl } = await import("@/lib/core");
     expect(await isAllowedFeedUrl("https://example.com/feed.xml")).toBe(true);
     expect(await isAllowedFeedUrl("http://example.com/rss")).toBe(true);
   });
 
   test("isAllowedFeedUrl rejects non-http protocols", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core/feed-url-validator");
+    const { isAllowedFeedUrl } = await import("@/lib/core");
     expect(await isAllowedFeedUrl("ftp://example.com/feed")).toBe(false);
     expect(await isAllowedFeedUrl("javascript:alert(1)")).toBe(false);
   });
 
   test("isAllowedFeedUrl rejects URLs without protocol", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core/feed-url-validator");
+    const { isAllowedFeedUrl } = await import("@/lib/core");
     expect(await isAllowedFeedUrl("example.com/feed")).toBe(false);
   });
 
   test("assertPublicFeedUrl throws for invalid URLs", async () => {
-    const { assertPublicFeedUrl } =
-      await import("@/lib/core/feed-url-validator");
+    const { assertPublicFeedUrl } = await import("@/lib/core");
     await expect(assertPublicFeedUrl("not-a-url")).rejects.toThrow();
   });
 });
@@ -56,7 +55,7 @@ describe("article-status", () => {
   });
 
   test("upsertArticleStatuses short-circuits for empty articleIds", async () => {
-    const { upsertArticleStatuses } = await import("@/lib/core/article-status");
+    const { upsertArticleStatuses } = await import("@/lib/core/server");
     await expect(
       upsertArticleStatuses(1, [], { isRead: true, isStarred: false }),
     ).resolves.toBeUndefined();
@@ -64,7 +63,7 @@ describe("article-status", () => {
 
   test("canUseArticleStatusesTable caches available result", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -80,7 +79,7 @@ describe("article-status", () => {
 
   test("canUseArticleStatusesTable handles missing table errors", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
     const warn = mock(() => {});
@@ -111,7 +110,7 @@ describe("article-status", () => {
 
   test("upsertArticleStatuses chunks writes and preserves unspecified fields", async () => {
     const { resetArticleStatusTableStateForTests, upsertArticleStatuses } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -142,7 +141,7 @@ describe("article-status", () => {
 
 describe("feed-parser", () => {
   test("parseFeedItemDate uses fallback for missing/invalid values", async () => {
-    const { parseFeedItemDate } = await import("@/lib/core/feed-parser");
+    const { parseFeedItemDate } = await import("@/lib/core/parser");
     const fallback = new Date("2024-01-01T00:00:00.000Z");
     expect(parseFeedItemDate(undefined, fallback).toISOString()).toBe(
       fallback.toISOString(),
@@ -153,7 +152,7 @@ describe("feed-parser", () => {
   });
 
   test("dedupePendingArticles keeps newest item and trims links", async () => {
-    const { dedupePendingArticles } = await import("@/lib/core/feed-parser");
+    const { dedupePendingArticles } = await import("@/lib/core/parser");
     const now = new Date();
     const older = new Date(now.getTime() - 60_000);
     const items = [
@@ -181,7 +180,7 @@ describe("feed-parser", () => {
   });
 
   test("getPublicationDateRange returns oldest/newest and null for empty", async () => {
-    const { getPublicationDateRange } = await import("@/lib/core/feed-parser");
+    const { getPublicationDateRange } = await import("@/lib/core/parser");
     expect(getPublicationDateRange([])).toEqual({
       newestPublicationDate: null,
       oldestPublicationDate: null,
@@ -211,7 +210,7 @@ describe("feed-parser", () => {
   });
 
   test("toPendingArticle rejects invalid links and maps valid items", async () => {
-    const { toPendingArticle } = await import("@/lib/core/feed-parser");
+    const { toPendingArticle } = await import("@/lib/core/parser");
     const now = new Date("2024-01-01T00:00:00.000Z");
 
     const invalid = toPendingArticle(
@@ -244,7 +243,7 @@ describe("feed-parser", () => {
 
 describe("feed-http", () => {
   test("fetchFeedXml validates URL and follows validated redirects through HTTPCloak", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
 
     const assertPublicFeedUrlFn = mock(async () => {});
     const httpCloakRequestFn = mock(async (requestUrl: URL) => {
@@ -256,11 +255,11 @@ describe("feed-http", () => {
         };
       }
 
-        return {
-          body: "<rss />",
-          headers: {},
-          statusCode: 200,
-        };
+      return {
+        body: "<rss />",
+        headers: {},
+        statusCode: 200,
+      };
     });
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
@@ -279,7 +278,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml fails on redirects without location and redirect loops", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
 
     await expect(
       fetchFeedXml("https://example.com/feed.xml", {
@@ -305,7 +304,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml decodes plain text bodies from HTTPCloak", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
 
     const result = await fetchFeedXml("https://example.com/feed.xml", {
       assertPublicFeedUrlFn: async () => {},
@@ -320,7 +319,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml decodes compressed HTTPCloak feed responses", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
 
     const httpCloakRequestFn = mock(async () => ({
       body: zlib.gzipSync(Buffer.from("<rss><channel /></rss>", "utf8")),
@@ -339,11 +338,35 @@ describe("feed-http", () => {
     expect(httpCloakRequestFn).toHaveBeenCalledTimes(1);
   });
 
-  test("fetchFeedXml prefers decoded HTTPCloak text when content-encoding is preserved", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+  test("fetchFeedXml decodes compressed HTTPCloak responses with mixed-case headers", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
 
     const httpCloakRequestFn = mock(async () => ({
-      body: Buffer.from("<rss><channel><title>decoded</title></channel></rss>", "utf8"),
+      body: zlib.gzipSync(
+        Buffer.from("<rss><channel><title>ok</title></channel></rss>", "utf8"),
+      ),
+      headers: {
+        "Content-Encoding": "gzip",
+      },
+      statusCode: 200,
+    }));
+
+    const result = await fetchFeedXml("https://example.com/feed.xml", {
+      assertPublicFeedUrlFn: async () => {},
+      httpCloakRequestFn,
+    });
+
+    expect(result).toBe("<rss><channel><title>ok</title></channel></rss>");
+  });
+
+  test("fetchFeedXml prefers decoded HTTPCloak text when content-encoding is preserved", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: Buffer.from(
+        "<rss><channel><title>decoded</title></channel></rss>",
+        "utf8",
+      ),
       headers: {
         "content-encoding": "gzip",
       },
@@ -361,7 +384,7 @@ describe("feed-http", () => {
   });
 
   test("fetchFeedXml maps DataDome 403 responses to a descriptive message", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
     const { HttpCloakUpstreamError } = await import("@/lib/fetch/response");
 
     const httpCloakRequestFn = mock(async () => ({
@@ -389,8 +412,33 @@ describe("feed-http", () => {
     }
   });
 
+  test("fetchFeedXml detects vendor compatibility headers case-insensitively", async () => {
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
+    const { HttpCloakUpstreamError } = await import("@/lib/fetch/response");
+
+    const httpCloakRequestFn = mock(async () => ({
+      body: "blocked",
+      headers: { "X-DataDome": "protected" },
+      statusCode: 403,
+    }));
+
+    try {
+      await fetchFeedXml("https://example.com/feed.xml", {
+        assertPublicFeedUrlFn: async () => {},
+        httpCloakRequestFn,
+      });
+      expect.unreachable("Expected fetchFeedXml to throw");
+    } catch (error) {
+      expect(error).toBeInstanceOf(HttpCloakUpstreamError);
+      const httpCloakUpstreamError = error as InstanceType<
+        typeof HttpCloakUpstreamError
+      >;
+      expect(httpCloakUpstreamError.message).toContain("DataDome");
+    }
+  });
+
   test("fetchFeedXml throws non-DataDome upstream status errors directly", async () => {
-    const { fetchFeedXml } = await import("@/lib/core/feed-http");
+    const { fetchFeedXml } = await import("@/lib/core/http-client");
     const { HttpCloakUpstreamError } = await import("@/lib/fetch/response");
 
     try {
@@ -510,13 +558,11 @@ describe("feed-refresh", () => {
     "src",
     "lib",
     "core",
-    "feed-refresh.ts?core-feed-refresh",
+    "refresher.ts?core-feed-refresh",
   ].join("/");
 
   const importFeedRefresh = () =>
-    import(feedRefreshPath) as Promise<
-      typeof import("@/lib/core/feed-refresh")
-    >;
+    import(feedRefreshPath) as Promise<typeof import("@/lib/core/refresher")>;
 
   test("shouldRefreshFeed and shouldForceRefreshFeed compare age thresholds", async () => {
     const { shouldForceRefreshFeed, shouldRefreshFeed } =
@@ -579,8 +625,9 @@ describe("feed-refresh", () => {
     expect(update).toHaveBeenCalledTimes(1);
 
     // Verify the upsert includes a WHERE clause to skip no-op updates
-    const upsertCalls = onConflictDoUpdate.mock.calls as unknown as
-      [{ set: unknown; where: unknown }][];
+    const upsertCalls = onConflictDoUpdate.mock.calls as unknown as [
+      { set: unknown; where: unknown },
+    ][];
     const upsertArg = upsertCalls[0]?.[0];
     expect(upsertArg).toBeDefined();
     expect(upsertArg!.set).toBeDefined();
@@ -833,12 +880,12 @@ describe("feed-batch-pipeline", () => {
     "src",
     "lib",
     "core",
-    "feed-batch-pipeline.ts?core-feed-batch",
+    "pipeline.ts?core-feed-batch",
   ].join("/");
 
   const importFeedBatchHelpers = () =>
     import(feedBatchHelpersPath) as Promise<
-      typeof import("@/lib/core/feed-batch-pipeline")
+      typeof import("@/lib/core/pipeline")
     >;
 
   function createResolveDb(options: {
@@ -1084,7 +1131,7 @@ describe("feed-batch-pipeline", () => {
 
   test("queryTopArticlesPerFeed applies the requested filter before the global page limit", async () => {
     const { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } =
-      await import("@/lib/core/article-preview");
+      await import("@/lib/core/preview");
     const { CONFIG } = await import("@/lib/config");
     const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
 
@@ -1111,7 +1158,9 @@ describe("feed-batch-pipeline", () => {
       String(ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH),
     );
     expect(serializedQuery).toContain("selected_feed_ids");
-    expect(serializedQuery).toContain("COALESCE(status.is_read, false) = false");
+    expect(serializedQuery).toContain(
+      "COALESCE(status.is_read, false) = false",
+    );
     expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
     expect(serializedQuery).not.toContain("starred_candidates");
   });
@@ -1131,17 +1180,17 @@ describe("feed-batch-pipeline", () => {
       ],
     ]);
 
-    const result = await executeParallelRefreshes(
-      {
+    const result = await executeParallelRefreshes({
+      allowedUrls: ["https://a.com/feed"],
+      db: {
         update: mock(() => ({
           set: mock(() => ({ where: mock(async () => []) })),
         })),
       } as unknown as any,
-      feedByUrl as any,
-      ["https://a.com/feed"],
-      true,
-      false,
-    );
+      feedByUrl: feedByUrl as any,
+      forceRefresh: false,
+      skipRefresh: true,
+    });
 
     expect(result.refreshedCount).toBe(0);
     expect(result.errors.get("https://a.com/feed")).toBe("persisted-error");
@@ -1172,13 +1221,13 @@ describe("feed-batch-pipeline", () => {
       })),
     };
 
-    const result = await executeParallelRefreshes(
-      db as unknown as any,
-      feedByUrl as any,
-      ["not-a-url"],
-      false,
-      true,
-    );
+    const result = await executeParallelRefreshes({
+      allowedUrls: ["not-a-url"],
+      db: db as unknown as any,
+      feedByUrl: feedByUrl as any,
+      forceRefresh: true,
+      skipRefresh: false,
+    });
 
     expect(result.refreshedCount).toBe(1);
     expect(result.errors.has("not-a-url")).toBe(true);
@@ -1342,7 +1391,7 @@ describe("feed-batch-pipeline", () => {
 
   test("buildRefreshPlan: forceRefresh=true with fresh feed and no error returns force-cooldown-use-cache", async () => {
     const { buildRefreshPlan } = await importFeedBatchHelpers();
-    const { shouldForceRefreshFeed } = await import("@/lib/core/feed-refresh");
+    const { shouldForceRefreshFeed } = await import("@/lib/core/refresher");
 
     // Make a feed fresh enough that shouldForceRefreshFeed returns false
     const justRefreshed = new Date();
@@ -1385,7 +1434,7 @@ describe("feed-batch-pipeline", () => {
 
   // NOTE: The Promise.allSettled rejection path (lines 191-199 of feed-batch-pipeline)
   // cannot be tested stably in the full suite because feed-fetcher-comprehensive.test.ts
-  // mocks @/lib/core/feed-refresh, making refreshFeedFromUpstream always fulfill.
+  // mocks @/lib/core/refresher, making refreshFeedFromUpstream always fulfill.
   // The fulfilled-but-error path is already covered by "records upstream failures".
 
   test("executeParallelRefreshes: forceRefresh path uses shouldForceRefreshFeed filter", async () => {
@@ -1421,13 +1470,13 @@ describe("feed-batch-pipeline", () => {
     };
 
     // Should not throw regardless of whether the feed gets refreshed
-    const result = await executeParallelRefreshes(
-      db as unknown as any,
-      feedByUrl as any,
-      ["https://fresh-force.example.com/feed"],
-      false,
-      true,
-    );
+    const result = await executeParallelRefreshes({
+      allowedUrls: ["https://fresh-force.example.com/feed"],
+      db: db as unknown as any,
+      feedByUrl: feedByUrl as any,
+      forceRefresh: true,
+      skipRefresh: false,
+    });
 
     expect(result).toHaveProperty("errors");
     expect(result).toHaveProperty("refreshedCount");
@@ -1467,14 +1516,14 @@ describe("feed-batch-pipeline", () => {
       })),
     };
 
-    const result = await executeParallelRefreshes(
-      db as unknown as any,
-      feedByUrl as any,
-      urls,
-      false,
-      false,
-      true,
-    );
+    const result = await executeParallelRefreshes({
+      allowedUrls: urls,
+      db: db as unknown as any,
+      feedByUrl: feedByUrl as any,
+      forceRefresh: false,
+      forceResolveUpstream: true,
+      skipRefresh: false,
+    });
 
     expect(result.refreshedCount).toBe(urls.length);
     expect(result.refreshedUrls).toEqual(new Set(urls));
@@ -1486,13 +1535,13 @@ describe("feed-batch-pipeline", () => {
 
 describe("mark-stream-read", () => {
   test("markStreamAsRead is exported as callable async function", async () => {
-    const markStream = await import("@/lib/core/mark-stream-read");
+    const markStream = await import("@/lib/core/server");
     expect(typeof markStream.markStreamAsRead).toBe("function");
     expect(markStream.markStreamAsRead.length).toBe(3);
   });
 
   test("markStreamAsRead handles feed and default streams", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
 
     const rows = [{ articleId: 1 }, { articleId: 2 }];
     const chain: any = {
@@ -1523,7 +1572,7 @@ describe("mark-stream-read", () => {
   });
 
   test("markStreamAsRead handles starred stream with and without article statuses", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
     const { STARRED_STATE } = await import("@/lib/core/stream-ids");
 
     const starredRows = [{ articleId: 7 }];
@@ -1570,7 +1619,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
   };
 
   test("STARRED_STATE with useArticleStatuses=true runs starred query", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/starred", {
       canUseArticleStatusesTableFn: async () => true,
@@ -1581,7 +1630,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
   });
 
   test("STARRED_STATE with useArticleStatuses=false uses empty rows", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/starred", {
       canUseArticleStatusesTableFn: async () => false,
@@ -1592,7 +1641,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
   });
 
   test("user label stream runs category join query", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/label/Technology", {
       canUseArticleStatusesTableFn: async () => false,
@@ -1603,7 +1652,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
   });
 
   test("beforeMs is passed and filters by date", async () => {
-    const { markStreamAsRead } = await import("@/lib/core/mark-stream-read");
+    const { markStreamAsRead } = await import("@/lib/core/server");
     const upsertFn = mock(async () => {});
     await markStreamAsRead(1, "user/-/state/com.google/reading-list", {
       beforeMs: Date.now() - 3600_000,
@@ -1620,7 +1669,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
 describe("core/feed-cache – setCachedBatch eviction", () => {
   test("evicts oldest entry when per-user capacity is exceeded", async () => {
     const { getCachedBatch, invalidateUserCache, setCachedBatch } =
-      await import("@/lib/core/feed-cache");
+      await import("@/lib/core/server");
 
     const userId = 98765; // unique userId to isolate from other tests
     invalidateUserCache(userId);
@@ -1676,7 +1725,7 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
 describe("lib/core/article-status – canUseArticleStatusesTable branches", () => {
   test("returns false when db throws 42P01 error + sets missing state + warns once", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -1709,7 +1758,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
 
   test("returns false once state is missing (short-circuit at line 62)", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -1738,7 +1787,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
 
   test("warnMissingArticleStatusesTable skips second warn (line 36)", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -1763,7 +1812,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
     await canUseArticleStatusesTable({ db: fakeDb as any });
 
     // Reset state to "unknown" but leave warnedMissingArticleStatusesTable = true
-    await import("@/lib/core/article-status");
+    await import("@/lib/core/server");
     // Re-trigger by manually calling multiple times; state must be reset first
     resetArticleStatusTableStateForTests();
 
@@ -1776,7 +1825,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
 
   test("re-throws non-missing-relation errors", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -1795,7 +1844,7 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
 
   test("isMissingArticleStatusesTableError returns false for null error", async () => {
     const { canUseArticleStatusesTable, resetArticleStatusTableStateForTests } =
-      await import("@/lib/core/article-status");
+      await import("@/lib/core/server");
 
     resetArticleStatusTableStateForTests();
 
@@ -1830,18 +1879,16 @@ describe("lib/core/article-status – canUseArticleStatusesTable branches", () =
 describe("lib/core/feed-batch-pipeline – mapRowsToArticleMap safety branches", () => {
   // Use isolated import path (with a unique query-string cache key) to bypass
   // mock.module() live-binding contamination from other test files that mock
-  // "@/lib/core/feed-batch-pipeline" (same pattern as core.test.ts).
+  // "@/lib/core/pipeline" (same pattern as core.test.ts).
   const feedBatchPath = [
     "..",
     "src",
     "lib",
     "core",
-    "feed-batch-pipeline.ts?coverage-gap-fill-4",
+    "pipeline.ts?coverage-gap-fill-4",
   ].join("/");
   const importIsolatedBatchPipeline = () =>
-    import(feedBatchPath) as Promise<
-      typeof import("@/lib/core/feed-batch-pipeline")
-    >;
+    import(feedBatchPath) as Promise<typeof import("@/lib/core/pipeline")>;
   test("skips malformed row missing required fields (lines 370-373)", async () => {
     const { mapRowsToArticleMap } = await importIsolatedBatchPipeline();
     const feedByUrl = new Map([
@@ -1904,8 +1951,9 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
     try {
       // Zero TTL → any entry is immediately stale (Date.now() - cachedAt < 0 is false)
       process.env.FEED_CACHE_TTL_MINUTES = "0";
-      const { getCachedBatch, setCachedBatch } =
-        await import("@/lib/core/feed-cache");
+      const { getCachedBatch, setCachedBatch } = await import(
+        "@/lib/core/server"
+      );
       const mockResult = {
         articles: new Map(),
         errors: new Map(),

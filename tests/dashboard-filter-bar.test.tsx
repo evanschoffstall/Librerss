@@ -1,15 +1,15 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
 import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
-} from "@/app/dashboard/components/DashboardScaffold";
+  DashboardFilterBar,
+} from "@/app/dashboard/dashboard-components/layout";
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
-} from "@/app/dashboard/services/article-filters";
+} from "@/app/dashboard/dashboard-services/article";
 
 describe("DashboardFilterBar", () => {
   test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {
@@ -27,7 +27,9 @@ describe("DashboardFilterBar", () => {
       container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
     ).toBeTruthy();
     expect(
-      container.querySelectorAll('[data-dashboard-filter-bar-chip-skeleton="true"]'),
+      container.querySelectorAll(
+        '[data-dashboard-filter-bar-chip-skeleton="true"]',
+      ),
     ).toHaveLength(4);
     expect(queryByRole("button", { name: "unread" })).toBeNull();
   });
@@ -205,7 +207,9 @@ describe("DashboardFilterBar", () => {
     expect(queryByLabelText("Refreshing")).toBeNull();
     expect(queryByText("2m ago")).toBeTruthy();
     expect(
-      container.querySelector("span[aria-live='polite'] svg")?.getAttribute("class") ?? "",
+      container
+        .querySelector("span[aria-live='polite'] svg")
+        ?.getAttribute("class") ?? "",
     ).toContain("lucide-refresh-cw");
   });
 
@@ -220,7 +224,9 @@ describe("DashboardFilterBar", () => {
     );
 
     const filterButtons = getAllByRole("button");
-    const filterButtonNames = filterButtons.map((button) => button.textContent?.trim());
+    const filterButtonNames = filterButtons.map((button) =>
+      button.textContent?.trim(),
+    );
 
     expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
     expect(filterButtonNames).toEqual(
