@@ -15,7 +15,7 @@ import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
-} from "@/lib/utils/ssrf";
+} from "@/lib/utils/dns";
 import { isStrongPassword } from "@/lib/utils/validation";
 
 beforeEach(() => {
@@ -92,29 +92,29 @@ describe("isStrongPassword – MAX_PASSWORD_LENGTH", () => {
 
 describe("isBlockedHost", () => {
   test("blocks localhost", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("localhost")).toBe(true);
   });
 
   test("blocks 127.0.0.1", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("127.0.0.1")).toBe(true);
   });
 
   test("blocks 10.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("10.0.0.1")).toBe(true);
     expect(isBlockedHost("10.255.255.255")).toBe(true);
   });
 
   test("blocks 192.168.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("192.168.0.1")).toBe(true);
     expect(isBlockedHost("192.168.255.255")).toBe(true);
   });
 
   test("blocks 172.16-31.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("172.16.0.1")).toBe(true);
     expect(isBlockedHost("172.31.255.255")).toBe(true);
     // 172.15 and 172.32 are NOT private
@@ -123,67 +123,67 @@ describe("isBlockedHost", () => {
   });
 
   test("blocks 169.254.x link-local", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("169.254.169.254")).toBe(true); // AWS metadata
   });
 
   test("blocks 0.0.0.0", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("0.0.0.0")).toBe(true);
   });
 
   test("blocks ::1 IPv6 loopback", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("::1")).toBe(true);
   });
 
   test("blocks .local mDNS addresses", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("myhost.local")).toBe(true);
   });
 
   test("allows a public IP", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("8.8.8.8")).toBe(false);
     expect(isBlockedHost("1.1.1.1")).toBe(false);
   });
 
   test("allows a public hostname", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("example.com")).toBe(false);
   });
 });
 
 describe("isBlockedResolvedAddress", () => {
   test("blocks IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:127.0.0.1")).toBe(true);
   });
 
   test("blocks IPv4-mapped IPv6 link-local (::ffff:169.254.169.254)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:169.254.169.254")).toBe(true);
   });
 
   test("blocks IPv4-mapped IPv6 private range (::ffff:10.0.0.1)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:10.0.0.1")).toBe(true);
   });
 
   test("allows IPv4-mapped public IP (::ffff:8.8.8.8)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
   });
 
   test("ignores malformed IPv4-mapped IPv6 values instead of treating them as mapped IPv4", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:127.0.0.999")).toBe(false);
     expect(isBlockedResolvedAddress("::ffff:1:2:3")).toBe(false);
     expect(isBlockedResolvedAddress("::ffff:1:2:3:4:5:6")).toBe(false);
   });
 
   test("handles invalid IPv6 compression safely", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("2001::db8::1")).toBe(false);
     expect(isBlockedResolvedAddress("1:2")).toBe(false);
     expect(isBlockedResolvedAddress("2001:db8:1:2:3:4:5:")).toBe(false);
@@ -878,13 +878,13 @@ describe("Extract route – x-request-id header sanitization (security regressio
 
 describe("utils/ssrf – isBlockedHost with IPv6-mapped private addresses", () => {
   test("processes ::ffff:127.0.0.1 (IPv4-in-IPv6) without throwing", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     // Exercises the IPv4-embedded-in-IPv6 hextet parsing path (line 48 of ssrf.ts)
     expect(typeof isBlockedHost("::ffff:127.0.0.1")).toBe("boolean");
   });
 
   test("processes ::ffff:192.168.1.1 (IPv4-in-IPv6) without throwing", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(typeof isBlockedHost("::ffff:192.168.1.1")).toBe("boolean");
   });
 });
