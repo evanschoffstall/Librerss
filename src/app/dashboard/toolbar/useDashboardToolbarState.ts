@@ -266,7 +266,7 @@ function useDashboardToolbarSessionActions({
         return;
       }
 
-       setIsResetting(true);
+      setIsResetting(true);
       try {
         const resetTargetUrl = window.location.href;
         await clearClientOriginState({

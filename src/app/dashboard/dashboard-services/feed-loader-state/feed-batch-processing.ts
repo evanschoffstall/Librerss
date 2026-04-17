@@ -98,10 +98,23 @@ export function formatLastRefreshLabel(timestamp: Date | null): string {
 
 // ── Feed batch error classification ──────────────────────────────────────────
 
+/**
+ * Recognizes expected request-cancellation variants from browser aborts and
+ * TanStack Query internals so overlapping pagination requests do not surface
+ * as user-visible failures.
+ */
 export function isCanceledBatchRequest(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const errorName =
+    "name" in error && typeof error.name === "string" ? error.name : null;
+
   return (
-    error instanceof Error &&
-    (error.name === "AbortError" || error.name === "CanceledError")
+    errorName === "AbortError" ||
+    errorName === "CanceledError" ||
+    errorName === "CancelledError"
   );
 }
 

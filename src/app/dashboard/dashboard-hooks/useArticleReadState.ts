@@ -10,7 +10,7 @@ import type { Article } from "@/lib/core";
 import {
   runOptimisticArticleStatusMutation,
   useArticleMutationTracker,
-} from "@/app/dashboard/dashboard-hooks/article-status-mutation";
+} from "@/app/dashboard/dashboard-hooks/article-actions";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 
 interface SetReadStateOptions {
@@ -40,7 +40,9 @@ export function useArticleReadState({
         articles,
         errorLogLabel: "Set read state error",
         mutationTracker,
-        onError: () => { showReadStateError(options); },
+        onError: () => {
+          showReadStateError(options);
+        },
         restoreUpdate: (currentFeed, articleMap, failedArticleKeys) =>
           restoreArticleReadState(currentFeed, articleMap, failedArticleKeys),
         setFeed,
@@ -105,7 +107,8 @@ function restoreArticleReadState(
   return currentFeed.map((feedArticle) => {
     const articleKey = getArticleKey(feedArticle);
     const originalArticle = articleMap.get(articleKey);
-    const shouldRestore = !failedArticleKeys || failedArticleKeys.has(articleKey);
+    const shouldRestore =
+      !failedArticleKeys || failedArticleKeys.has(articleKey);
     return shouldRestore && originalArticle
       ? { ...feedArticle, isRead: originalArticle.isRead }
       : feedArticle;
