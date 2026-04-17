@@ -1,6 +1,6 @@
 import type { ComponentProps } from "react";
 
-import { MOBILE_TOOLBAR_MIRROR_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
@@ -32,8 +32,8 @@ export function DashboardMobileSidebarSheet({
   onOpenChange,
   sidebarContentProps,
 }: DashboardMobileSidebarSheetProps) {
-  const [mobileToolbarMirror] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  const [mobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
@@ -44,7 +44,7 @@ export function DashboardMobileSidebarSheet({
           flex h-full w-[min(22rem,88vw)] flex-col gap-0 overflow-hidden p-0
           lg:hidden
         "
-        side={mobileToolbarMirror ? "right" : "left"}
+        side={mobileGroupedLayout ? "right" : "left"}
       >
         <SheetHeader className="space-y-0 px-4 pt-5 pb-2 text-left">
           <SheetTitle
