@@ -18,6 +18,16 @@ import {
 import { ArticleService } from "@/lib/api";
 import { READING_LIST_STREAM } from "@/lib/core";
 
+interface DashboardMarkAllReadCommandOptions {
+  markAllRead?: (stream: string) => Promise<unknown>;
+  onMarkAllReadLocally?: () => void;
+  onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>;
+  selectedCategory: string;
+  selectedCategoryNode: CategoryTreeNode | undefined;
+  selectedFeedUrl: string | undefined;
+  usePlaceholderData: boolean;
+}
+
 interface DashboardRefreshEventDetail {
   forceResolveUpstream?: boolean;
 }
@@ -33,6 +43,81 @@ interface UseDashboardEventsOptions {
   selectedCategoryNode: CategoryTreeNode | undefined;
   selectedFeedUrl: string | undefined;
   usePlaceholderData?: boolean;
+}
+
+/** Runs the mark-all-read command and emits the matching toolbar lifecycle events. */
+export async function runDashboardMarkAllReadCommand(
+  target: Pick<Window, "dispatchEvent">,
+  options: DashboardMarkAllReadCommandOptions,
+) {
+  const markAllRead =
+    options.markAllRead ??
+    ((stream: string) => {
+      return ArticleService.markAllRead(stream);
+    });
+  target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START));
+  if (options.usePlaceholderData) {
+    options.onMarkAllReadLocally?.();
+    target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
+    return;
+  }
+
+  const streams = collectMarkAllReadStreams(
+    options.selectedCategory,
+    options.selectedFeedUrl,
+    options.selectedCategoryNode,
+  );
+  if (streams.length === 0) {
+    toast.info("No readable feed selected.");
+    target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
+    return;
+  }
+
+  try {
+    await Promise.all(
+      Array.from(new Set(streams)).map((stream) => markAllRead(stream)),
+    );
+    await options.onRefresh();
+  } catch (error) {
+    console.error("Mark all read error:", error);
+    toast.error("Unable to mark all as read right now.");
+  } finally {
+    target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
+  }
+}
+
+/** Runs the refresh command and emits the matching toolbar lifecycle events. */
+export async function runDashboardRefreshCommand(
+  target: Pick<Window, "dispatchEvent">,
+  onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>,
+  detail: DashboardRefreshEventDetail | null | undefined,
+) {
+  target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+  try {
+    await onRefresh({
+      forceResolveUpstream:
+        detail !== null && detail?.forceResolveUpstream === true,
+    });
+  } finally {
+    target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+  }
+}
+
+/** Runs the viewport-read command and emits the matching toolbar lifecycle events. */
+export async function runDashboardViewportReadCommand(
+  target: Pick<Window, "dispatchEvent">,
+  onMarkViewportRead: () => Promise<void>,
+) {
+  target.dispatchEvent(
+    new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
+  );
+  try {
+    await onMarkViewportRead();
+  } finally {
+    target.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
+    );
+  }
 }
 
 /**
@@ -164,47 +249,14 @@ function useDashboardMarkAllReadEvent(options: {
   } = options;
   useEffect(() => {
     const handleMarkAllRead = () => {
-      void (async () => {
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_START),
-        );
-        if (usePlaceholderDataRef.current) {
-          onMarkAllReadLocallyRef.current?.();
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-          return;
-        }
-
-        const streams = collectMarkAllReadStreams(
-          selectedCategoryRef.current,
-          selectedFeedUrlRef.current,
-          selectedCategoryNodeRef.current,
-        );
-        if (streams.length === 0) {
-          toast.info("No readable feed selected.");
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-          return;
-        }
-
-        try {
-          await Promise.all(
-            Array.from(new Set(streams)).map((stream) =>
-              ArticleService.markAllRead(stream),
-            ),
-          );
-          await onRefreshRef.current();
-        } catch (error) {
-          console.error("Mark all read error:", error);
-          toast.error("Unable to mark all as read right now.");
-        } finally {
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END),
-          );
-        }
-      })();
+      void runDashboardMarkAllReadCommand(window, {
+        onMarkAllReadLocally: onMarkAllReadLocallyRef.current,
+        onRefresh: onRefreshRef.current,
+        selectedCategory: selectedCategoryRef.current,
+        selectedCategoryNode: selectedCategoryNodeRef.current,
+        selectedFeedUrl: selectedFeedUrlRef.current,
+        usePlaceholderData: usePlaceholderDataRef.current,
+      });
     };
 
     window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ, handleMarkAllRead);
@@ -269,31 +321,15 @@ function useDashboardRefreshEvents(options: {
         const detail = (
           event as CustomEvent<DashboardRefreshEventDetail | null>
         ).detail;
-        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
-        try {
-          await onRefreshRef.current({
-            forceResolveUpstream:
-              detail !== null && detail.forceResolveUpstream === true,
-          });
-        } finally {
-          window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
-        }
+        await runDashboardRefreshCommand(window, onRefreshRef.current, detail);
       })();
     };
 
     const handleMarkViewportRead = () => {
-      void (async () => {
-        window.dispatchEvent(
-          new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
-        );
-        try {
-          await onMarkViewportReadRef.current();
-        } finally {
-          window.dispatchEvent(
-            new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
-          );
-        }
-      })();
+      void runDashboardViewportReadCommand(
+        window,
+        onMarkViewportReadRef.current,
+      );
     };
 
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);

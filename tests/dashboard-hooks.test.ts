@@ -28,7 +28,10 @@ import {
 } from "@/app/dashboard/dashboard-hooks/useArticleHydration";
 import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
 import { useCategoryOrderState } from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
-import { useDashboardEvents } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
+import {
+  runDashboardViewportReadCommand,
+  useDashboardEvents,
+} from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
 import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
 import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
 import { ArticleService, FeedService } from "@/lib/api";
@@ -535,65 +538,24 @@ describe("useDashboardEvents", () => {
   });
 
   test("marks fully visible unread articles through the viewport command", async () => {
-    const onMarkViewportRead = mock(async () => {});
-
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead,
-        onOpenFeedsSidebar: () => {},
-        onOpenSettings: () => {},
-        onRefresh: async () => {},
-        onSearchChange: () => {},
-        selectedCategory: "system-all-feeds",
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-      }),
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
-      );
+    const dispatchedEvents: string[] = [];
+    const onMarkViewportRead = mock(async () => {
+      dispatchedEvents.push("handler");
     });
+    const eventTarget = {
+      dispatchEvent(event: Event) {
+        dispatchedEvents.push(event.type);
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    await waitFor(() => {
-      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
-    });
+    await runDashboardViewportReadCommand(eventTarget, onMarkViewportRead);
 
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.info).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
-  });
-
-  test("keeps the viewport command silent when there are no visible unread articles", async () => {
-    const onMarkViewportRead = mock(async () => {});
-
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead,
-        onOpenFeedsSidebar: () => {},
-        onOpenSettings: () => {},
-        onRefresh: async () => {},
-        onSearchChange: () => {},
-        selectedCategory: "system-all-feeds",
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-      }),
-    );
-
-    act(() => {
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
-      );
-    });
-
-    await waitFor(() => {
-      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
-    });
-
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.info).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
+    expect(dispatchedEvents).toEqual([
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+      "handler",
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+    ]);
   });
 });
 
