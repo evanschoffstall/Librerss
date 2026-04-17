@@ -242,6 +242,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: false,
         requestedUrlCount: 0,
         requestSource: "dashboard",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -455,6 +456,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: false,
         requestedUrlCount: 2,
         requestSource: "unspecified",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -538,6 +540,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -631,6 +634,7 @@ describe("api/feeds/batch route", () => {
         forceResolveUpstream: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -738,8 +742,59 @@ describe("api/feeds/batch route", () => {
       knownLastFetchedAtByUrl: new Map(),
       requestSource: "unspecified",
       resolveProxyTransport: expect.any(Function),
+      searchTerm: undefined,
       skipRefresh: false,
     });
+  });
+
+  test("trims and forwards searchTerm to the batch fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        searchTerm: "  mars rover  ",
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(200);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
+      articleFilter: "all",
+      forceRefresh: false,
+      knownLastFetchedAtByUrl: new Map(),
+      requestSource: "unspecified",
+      resolveProxyTransport: expect.any(Function),
+      searchTerm: "mars rover",
+      skipRefresh: false,
+    });
+  });
+
+  test("rejects non-string searchTerm values", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        searchTerm: 123,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "searchTerm must be a string when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
   test("uses the error responder when the batch fetch throws", async () => {

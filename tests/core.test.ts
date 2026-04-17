@@ -1165,6 +1165,36 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).not.toContain("starred_candidates");
   });
 
+  test("queryTopArticlesPerFeed adds escaped title/content search predicates when searchTerm is present", async () => {
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(
+      db as unknown as any,
+      7,
+      [10, 11],
+      "all",
+      20,
+      "50%_match\\value",
+    );
+
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const sqlQuery = execute.mock.calls.at(0)?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("article.title ILIKE");
+    expect(serializedQuery).toContain("article.content ILIKE");
+    expect(serializedQuery).toContain("ESCAPE '\\\\'");
+    expect(serializedQuery).toContain("%50\\\\%\\\\_match\\\\\\\\value%");
+  });
+
   test("executeParallelRefreshes surfaces persisted errors when refresh is skipped", async () => {
     const { executeParallelRefreshes } = await importFeedBatchHelpers();
 
@@ -1688,13 +1718,20 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
         [`https://feed-${i}.example.com/`],
         "all",
         undefined,
+        undefined,
         makeResult(i),
       );
     }
 
     // Verify first entry exists
     expect(
-      getCachedBatch(userId, ["https://feed-0.example.com/"], "all", undefined),
+      getCachedBatch(
+        userId,
+        ["https://feed-0.example.com/"],
+        "all",
+        undefined,
+        undefined,
+      ),
     ).not.toBeNull();
 
     // Adding one more should evict the oldest
@@ -1702,6 +1739,7 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
       userId,
       ["https://feed-overflow.example.com/"],
       "all",
+      undefined,
       undefined,
       makeResult(MAX_ENTRIES),
     );
@@ -1712,6 +1750,7 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
         userId,
         ["https://feed-overflow.example.com/"],
         "all",
+        undefined,
         undefined,
       ),
     ).not.toBeNull();
@@ -1962,13 +2001,36 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
       // Use a high userId to avoid colliding with other tests
       const userId = 999998;
       const urls = ["https://stale-cache-test.example.com/feed"];
-      setCachedBatch(userId, urls, "all", undefined, mockResult);
+      setCachedBatch(userId, urls, "all", undefined, undefined, mockResult);
       // With TTL=0, the entry should immediately be stale → evicted → null
-      const cached = getCachedBatch(userId, urls, "all", undefined);
+      const cached = getCachedBatch(userId, urls, "all", undefined, undefined);
       expect(cached).toBeNull();
     } finally {
       if (savedTtl !== undefined) process.env.FEED_CACHE_TTL_MINUTES = savedTtl;
       else delete process.env.FEED_CACHE_TTL_MINUTES;
     }
+  });
+});
+
+describe("lib/core/feed-cache – searchTerm cache keys", () => {
+  test("separates cached batches by searchTerm", async () => {
+    const { getCachedBatch, invalidateUserCache, setCachedBatch } =
+      await import("@/lib/core/server");
+
+    const userId = 991234;
+    const urls = ["https://search-cache.example.com/feed"];
+    const searchResult = {
+      articles: new Map(),
+      errors: new Map(),
+      lastFetchedByUrl: new Map(),
+    };
+
+    invalidateUserCache(userId);
+    setCachedBatch(userId, urls, "all", 20, "mars", searchResult);
+
+    expect(getCachedBatch(userId, urls, "all", 20, "mars")).not.toBeNull();
+    expect(getCachedBatch(userId, urls, "all", 20, "venus")).toBeNull();
+
+    invalidateUserCache(userId);
   });
 });
