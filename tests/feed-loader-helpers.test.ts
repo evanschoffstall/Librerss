@@ -118,6 +118,12 @@ describe("isCanceledBatchRequest", () => {
     expect(isCanceledBatchRequest(err)).toBe(true);
   });
 
+  test("returns true for CancelledError", () => {
+    const err = new Error("cancelled");
+    err.name = "CancelledError";
+    expect(isCanceledBatchRequest(err)).toBe(true);
+  });
+
   test("returns false for other errors", () => {
     expect(isCanceledBatchRequest(new Error("network"))).toBe(false);
   });
