@@ -2,8 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/constants";
 
 describe("mobile inverted scroll preference", () => {
@@ -16,10 +15,9 @@ describe("mobile inverted scroll preference", () => {
   test("mobile display preference keys are distinct", () => {
     const keys = new Set([
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-      MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-      MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     ]);
 
-    expect(keys.size).toBe(3);
+    expect(keys.size).toBe(2);
   });
 });

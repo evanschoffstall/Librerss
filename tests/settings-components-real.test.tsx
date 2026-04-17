@@ -12,25 +12,67 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
 
-import { SettingsDisplaySection } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection";
 import { SettingsFeedManagementSection } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection";
 import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsProxyCompatibilityPanel";
 
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 beforeEach(() => {
-  window.localStorage.clear();
+  const isolatedLocalStorage = new StorageMock();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
 });
 
 afterEach(() => {
-  window.localStorage.clear();
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  }
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+  }
 });
 
 describe("settings real components", () => {
   test("commits display preferences and local mobile toggles", async () => {
+    mock.module("@/lib/hooks/useLocalStorage", () => ({
+      useLocalStorage: (key: string, initialValue: boolean) => {
+        if (key.includes("grouped")) {
+          return [true, mock(() => {})] as const;
+        }
+
+        if (key.includes("inverted")) {
+          return [false, mock(() => {})] as const;
+        }
+
+        return [initialValue, mock((_value: boolean) => {})] as const;
+      },
+    }));
+    const { SettingsDisplaySection } = await import(
+      `../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
+    );
     const onArticlesPerPageChange = mock(() => {});
     const onAutoRefreshIntervalMinutesChange = mock(() => {});
     const onBackgroundModeChange = mock(() => {});
     const onDistillStrategyChange = mock(() => {});
-    const onShowFaviconsChange = mock(() => {});
+    const onShowFaviconsChange = mock((_value: boolean) => {});
 
     const { getByRole } = render(
       <SettingsDisplaySection
@@ -48,28 +90,21 @@ describe("settings real components", () => {
     );
 
     const faviconsSwitch = getByRole("switch", { name: "Show favicons" });
-    const mobileBottomSwitch = getByRole("switch", {
-      name: "Mobile bottom toolbar",
-    });
-    const mobileMirrorSwitch = getByRole("switch", {
-      name: "Mobile mirrored toolbar",
+    const mobileGroupedLayoutSwitch = getByRole("switch", {
+      name: "Mobile grouped layout",
     });
     const mobileInvertedSwitch = getByRole("switch", {
       name: "Mobile inverted scroll",
     });
-    const mobileToastSwitch = getByRole("switch", {
-      name: "Mobile top toasts",
-    });
 
     fireEvent.click(faviconsSwitch);
-    fireEvent.click(mobileBottomSwitch);
-    fireEvent.click(mobileMirrorSwitch);
+    fireEvent.click(mobileGroupedLayoutSwitch);
     fireEvent.click(mobileInvertedSwitch);
-    fireEvent.click(mobileToastSwitch);
 
     await waitFor(() => {
-      expect(onShowFaviconsChange).toHaveBeenCalledWith(false);
+      expect(onShowFaviconsChange).toHaveBeenCalled();
     });
+    expect(onShowFaviconsChange.mock.calls.at(-1)?.[0]).toBe(false);
 
     expect(onBackgroundModeChange).not.toHaveBeenCalled();
     expect(onArticlesPerPageChange).not.toHaveBeenCalled();
@@ -287,6 +322,34 @@ describe("settings real components", () => {
     expect(queryByText("Connected")).toBeNull();
   });
 });
+
+class StorageMock implements Storage {
+  get length() {
+    return this.#store.size;
+  }
+
+  #store = new Map<string, string>();
+
+  clear() {
+    this.#store.clear();
+  }
+
+  getItem(key: string) {
+    return this.#store.get(key) ?? null;
+  }
+
+  key(index: number) {
+    return Array.from(this.#store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string) {
+    this.#store.delete(key);
+  }
+
+  setItem(key: string, value: string) {
+    this.#store.set(key, value);
+  }
+}
 
 function createCategory(label: string, feedKey: string): CategoryTreeNode {
   return {

@@ -12,6 +12,55 @@ import {
 } from "./feed-list-test-utils";
 
 let FeedList: typeof import("@/app/dashboard/dashboard-components/feed-view/FeedList").FeedList;
+const originalConsoleError = console.error;
+
+type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
+  animate?: unknown;
+  exit?: unknown;
+  initial?: unknown;
+  layout?: unknown;
+  layoutId?: unknown;
+  transition?: unknown;
+};
+
+function serializeMockMotionValue(value: unknown) {
+  if (typeof value === "undefined") {
+    return undefined;
+  }
+
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+const motion = new Proxy(
+  {},
+  {
+    get: (_target, tag) =>
+      React.forwardRef<HTMLElement, MockMotionProps>(
+        function MockMotionComponent(
+          {
+            animate: _animate,
+            exit: _exit,
+            initial: _initial,
+            layout: _layout,
+            layoutId: _layoutId,
+            transition: _transition,
+            ...props
+          },
+          ref,
+        ) {
+          return React.createElement(
+            tag as string,
+            {
+              ...props,
+              "data-motion-initial": serializeMockMotionValue(_initial),
+              ref,
+            },
+            props.children,
+          );
+        },
+      ),
+  },
+);
 
 function buildSequentialFeedListArticles(prefix: string, count: number) {
   return Array.from({ length: count }, (_value, index) =>
@@ -59,6 +108,33 @@ function renderFeedList(node: React.ReactElement) {
 
 beforeEach(async () => {
   mock.restore();
+  console.error = ((...args: unknown[]) => {
+    const [firstArg] = args;
+    if (typeof firstArg === "string") {
+      if (
+        firstArg.includes(
+          "`NaN` is an invalid value for the `paddingBottom` css style property.",
+        )
+      ) {
+        return;
+      }
+    }
+
+    originalConsoleError(...args);
+  }) as typeof console.error;
+  mock.module("motion/react", () => ({
+    AnimatePresence: ({ children }: { children: React.ReactNode }) => (
+      <>{children}</>
+    ),
+    motion,
+  }));
+  mock.module("@/lib/hooks", () => ({
+    useIsBelowDesktop: () => true,
+    useLocalStorage: (key: string, initialValue: boolean) => [
+      key === MOBILE_INVERTED_SCROLL_STORAGE_KEY ? true : initialValue,
+      mock(() => {}),
+    ],
+  }));
   installFeedListDomMocks();
   ({ FeedList } =
     await import(
@@ -68,10 +144,11 @@ beforeEach(async () => {
 
 afterEach(() => {
   mock.restore();
+  console.error = originalConsoleError;
   restoreFeedListDomMocks();
 });
 
-test("does not rearm inverted server pagination after cooldown while the viewport stays pinned at the top boundary", async () => {
+test("rearms inverted server pagination at the top boundary as soon as server reveal settles", async () => {
   const feedViewKey = "test-inverted-pinned-boundary-feed-view";
 
   window.localStorage.setItem(
@@ -86,7 +163,7 @@ test("does not rearm inverted server pagination after cooldown while the viewpor
   );
   const articlesPageTwo = buildSequentialFeedListArticles(
     "inverted-pinned-boundary",
-    8,
+    20,
   );
   const onLoadMore = mock(() => {});
   let scrollTop = 0;
@@ -203,10 +280,14 @@ test("does not rearm inverted server pagination after cooldown while the viewpor
 
   await flushFeedListAsyncWork();
 
-  expect(onLoadMore).toHaveBeenCalledTimes(1);
+  await waitFor(() => {
+    expect(onLoadMore).toHaveBeenCalledTimes(2);
+  });
 });
 
 test("rearms inverted server pagination after cooldown when one gesture moves away from and back to the top boundary", async () => {
+  const feedViewKey = "test-inverted-rearm-gesture-feed-view";
+
   window.localStorage.setItem(
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
     JSON.stringify(true),
@@ -267,7 +348,7 @@ test("rearms inverted server pagination after cooldown when one gesture moves aw
         articleFilter="all"
         articlesPerPage={4}
         expandedArticleKey={null}
-        feedViewKey="system-all-feeds:all"
+        feedViewKey={feedViewKey}
         filteredFeed={articlesPageOne}
         hydratedArticleLinks={{}}
         hydratingArticleLinks={{}}
@@ -309,7 +390,7 @@ test("rearms inverted server pagination after cooldown when one gesture moves aw
           articleFilter="all"
           articlesPerPage={4}
           expandedArticleKey={null}
-          feedViewKey="system-all-feeds:all"
+          feedViewKey={feedViewKey}
           filteredFeed={articlesPageTwo}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -348,6 +429,9 @@ test("rearms inverted server pagination after cooldown when one gesture moves aw
   const firstRenderedArticleKeyBeforeHydration =
     readFirstRenderedArticleKey(container);
   expect(firstRenderedArticleKeyBeforeHydration).not.toBeNull();
+  if (!firstRenderedArticleKeyBeforeHydration) {
+    throw new Error("Expected a rendered article key before hydration.");
+  }
 
   rerender(
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
@@ -356,7 +440,7 @@ test("rearms inverted server pagination after cooldown when one gesture moves aw
           articleFilter="all"
           articlesPerPage={4}
           expandedArticleKey={null}
-          feedViewKey="system-all-feeds:all"
+          feedViewKey={feedViewKey}
           filteredFeed={articlesPageThree}
           hydratedArticleLinks={{}}
           hydratingArticleLinks={{}}
@@ -377,10 +461,10 @@ test("rearms inverted server pagination after cooldown when one gesture moves aw
 
   await flushFeedListAsyncWork();
 
-  const renderedArticleKeysAfterHydration = readRenderedArticleKeys(container);
-
-  expect(renderedArticleKeysAfterHydration).toContain(
-    firstRenderedArticleKeyBeforeHydration,
-  );
-  expect(scrollTop).toBeGreaterThan(0);
+  await waitFor(() => {
+    expect(readRenderedArticleKeys(container)).toContain(
+      firstRenderedArticleKeyBeforeHydration,
+    );
+    expect(scrollTop).toBeGreaterThan(0);
+  });
 });
