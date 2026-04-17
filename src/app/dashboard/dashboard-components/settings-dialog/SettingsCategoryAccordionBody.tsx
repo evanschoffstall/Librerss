@@ -67,6 +67,44 @@ export function SettingsCategoryAccordionBody(
   );
 }
 
+function CategoryAddFeedActions({
+  canAddFeed,
+  isSavingFeed,
+  onCancelAddFeed,
+  onSubmit,
+}: {
+  canAddFeed: boolean;
+  isSavingFeed: boolean;
+  onCancelAddFeed: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <>
+      <Button
+        className="h-8 px-3 text-xs"
+        onClick={onCancelAddFeed}
+        size="sm"
+        variant="ghost"
+      >
+        Cancel
+      </Button>
+      <Button
+        className="h-8 px-3 text-xs"
+        disabled={!canAddFeed || isSavingFeed}
+        onClick={onSubmit}
+        size="sm"
+      >
+        {isSavingFeed ? (
+          <MotionSpinner className="mr-1" iconClassName="size-3" />
+        ) : (
+          <Plus className="mr-1 size-3" />
+        )}
+        {isSavingFeed ? "Saving…" : "Add Feed"}
+      </Button>
+    </>
+  );
+}
+
 function CategoryAddFeedForm({
   categoryNode,
   isSavingFeed,
@@ -88,7 +126,14 @@ function CategoryAddFeedForm({
   | "onNewFeedUrlChange"
 >) {
   const canAddFeed = newFeedName.trim() && newFeedUrl.trim();
-  const handleAddFeed = () => { onAddFeed(categoryNode.label); };
+  const handleAddFeed = () => {
+    onAddFeed(categoryNode.label);
+  };
+  const handleUrlKeyDown = createCategoryFeedUrlKeyDownHandler({
+    canAddFeed: Boolean(canAddFeed),
+    handleAddFeed,
+    onCancelAddFeed,
+  });
 
   return (
     <div
@@ -112,39 +157,35 @@ function CategoryAddFeedForm({
           onChange={(event) => {
             onNewFeedUrlChange(event.target.value);
           }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && canAddFeed) {
-              handleAddFeed();
-            }
-            if (event.key === "Escape") onCancelAddFeed();
-          }}
+          onKeyDown={handleUrlKeyDown}
           placeholder="https://example.com/feed.xml"
           value={newFeedUrl}
         />
-        <Button
-          className="h-8 px-3 text-xs"
-          onClick={onCancelAddFeed}
-          size="sm"
-          variant="ghost"
-        >
-          Cancel
-        </Button>
-        <Button
-          className="h-8 px-3 text-xs"
-          disabled={!canAddFeed || isSavingFeed}
-          onClick={handleAddFeed}
-          size="sm"
-        >
-          {isSavingFeed ? (
-            <MotionSpinner className="mr-1" iconClassName="size-3" />
-          ) : (
-            <Plus className="mr-1 size-3" />
-          )}
-          {isSavingFeed ? "Saving…" : "Add Feed"}
-        </Button>
+        <CategoryAddFeedActions
+          canAddFeed={Boolean(canAddFeed)}
+          isSavingFeed={isSavingFeed}
+          onCancelAddFeed={onCancelAddFeed}
+          onSubmit={handleAddFeed}
+        />
       </div>
     </div>
   );
+}
+
+function createCategoryFeedUrlKeyDownHandler(options: {
+  canAddFeed: boolean;
+  handleAddFeed: () => void;
+  onCancelAddFeed: () => void;
+}) {
+  return (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter" && options.canAddFeed) {
+      options.handleAddFeed();
+    }
+
+    if (event.key === "Escape") {
+      options.onCancelAddFeed();
+    }
+  };
 }
 
 function EmptyCategoryFeedDropZone({
