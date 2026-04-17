@@ -66,11 +66,17 @@ export async function queryTopArticlesPerFeed(
   feedIds: number[],
   articleFilter: ArticleFilter = "all",
   articleLimit = CONFIG.MAX_ALL_ARTICLES_LIMIT,
+  searchTerm?: string,
 ): Promise<RankedRow[]> {
   const normalizedArticleLimit = Math.min(
     Math.max(1, articleLimit),
     CONFIG.MAX_ALL_ARTICLES_LIMIT,
   );
+  const normalizedSearchTerm = searchTerm?.trim() ?? "";
+  const searchPattern =
+    normalizedSearchTerm.length > 0
+      ? `%${escapeLikePattern(normalizedSearchTerm)}%`
+      : undefined;
   const queryResult = await db.execute<RankedRow>(sql`
     WITH selected_feed_ids AS (
       SELECT *
@@ -102,6 +108,7 @@ export async function queryTopArticlesPerFeed(
     LEFT JOIN "ArticleStatus" status
       ON status.article_id = article.id AND status.user_id = ${userId}
     WHERE ${buildArticleFilterCondition(articleFilter)}
+      AND ${buildArticleSearchCondition(searchPattern)}
     ORDER BY article.publication_date DESC, article.id DESC
     LIMIT ${normalizedArticleLimit}
   `);
@@ -135,6 +142,17 @@ function buildArticleFilterCondition(articleFilter: ArticleFilter) {
   }
 }
 
+function buildArticleSearchCondition(searchPattern: string | undefined) {
+  if (!searchPattern) {
+    return sql`true`;
+  }
+
+  return sql`(
+    article.title ILIKE ${searchPattern} ESCAPE '\\'
+    OR article.content ILIKE ${searchPattern} ESCAPE '\\'
+  )`;
+}
+
 function buildFeedUrlIdMap(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
@@ -147,6 +165,13 @@ function buildFeedUrlIdMap(
       })
       .filter((entry): entry is [number, string] => entry !== null),
   );
+}
+
+function escapeLikePattern(value: string) {
+  return value
+    .replaceAll("\\", "\\\\")
+    .replaceAll("%", "\\%")
+    .replaceAll("_", "\\_");
 }
 
 function readRowText(value: unknown): string {

@@ -85,6 +85,7 @@ export const FeedService = {
       forceResolveUpstream = false,
       knownLastFetchedAtByUrl,
       requestSource,
+      searchTerm,
       signal,
       skipRefresh = false,
     }: {
@@ -94,6 +95,7 @@ export const FeedService = {
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: string;
+      searchTerm?: string;
       signal?: AbortSignal;
       skipRefresh?: boolean;
     } = {},
@@ -119,6 +121,9 @@ export const FeedService = {
               ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }
               : {}),
             requestSource,
+            ...(typeof searchTerm === "string" && searchTerm.trim() !== ""
+              ? { searchTerm: searchTerm.trim() }
+              : {}),
             skipRefresh,
             urls: normalizedUrls,
           },

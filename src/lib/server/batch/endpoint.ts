@@ -4,6 +4,20 @@ import type { ArticleFilter } from "@/lib/core";
 
 import { CONFIG, logger } from "@/lib";
 
+import { buildBatchRequestLogFields } from "./log-fields";
+
+export interface BatchRequestBody {
+  articleFilter?: unknown;
+  articleLimit?: unknown;
+  forceRefresh?: unknown;
+  forceResolveUpstream?: unknown;
+  knownLastFetchedAtByUrl?: unknown;
+  requestSource?: unknown;
+  searchTerm?: unknown;
+  skipRefresh?: unknown;
+  urls?: unknown;
+}
+
 export interface BatchRequestCompletedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -20,6 +34,7 @@ export interface BatchRequestCompletedOptions {
   requestStartedAt: number;
   resolution: string;
   results: { articles: unknown[]; ok: boolean }[];
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   upstreamErrors: Map<string, string>;
   userId: number;
@@ -32,6 +47,7 @@ export interface BatchRequestState {
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
   requestSource: string;
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   urls: string[];
 }
@@ -164,6 +180,7 @@ export function logBatchDiagnostics(options: {
   normalizedUrls: string[];
   requestSource: string | undefined;
   results: { articles: unknown[]; ok: boolean }[];
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   upstreamErrors: Map<string, string>;
   userId: number;
@@ -175,6 +192,7 @@ export function logBatchDiagnostics(options: {
     normalizedUrlCount: options.normalizedUrls.length,
     okCount: options.results.filter((item) => item.ok).length,
     requestSource: options.requestSource,
+    searchTerm: options.searchTerm,
     skipRefresh: options.skipRefresh,
     totalArticles: options.results.reduce(
       (sum, item) => sum + item.articles.length,
@@ -206,6 +224,7 @@ export function logBatchRequestReceived(options: {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   requestSource: string | undefined;
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   urls: string[];
   userId: number;
@@ -214,6 +233,7 @@ export function logBatchRequestReceived(options: {
     ...buildBatchRequestLogFields(options),
     requestedUrlCount: options.urls.length,
     requestSource: options.requestSource,
+    searchTerm: options.searchTerm,
     skipRefresh: options.skipRefresh,
     userId: options.userId,
   });
@@ -226,6 +246,7 @@ export function logBatchRequestReceivedWhenEnabled(options: {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   requestSource: string;
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   urls: string[];
   userId: number;
@@ -240,6 +261,7 @@ export function logBatchRequestReceivedWhenEnabled(options: {
     forceRefresh: options.forceRefresh,
     forceResolveUpstream: options.forceResolveUpstream,
     requestSource: options.requestSource,
+    searchTerm: options.searchTerm,
     skipRefresh: options.skipRefresh,
     urls: options.urls,
     userId: options.userId,
@@ -316,16 +338,56 @@ export function resolveNormalizedBatchUrls(options: {
   };
 }
 
-export function validateBatchRequestState(options: {
+export function validateBatchRequestState(
+  options: BatchRequestStateParsers & {
+    body: BatchRequestBody;
+    normalizeDistinctUrlList: (value: unknown) => string[];
+  },
+): BatchRequestState | Response {
+  const parsedState = parseBatchRequestStateFields(options);
+  if (parsedState instanceof Response) {
+    return parsedState;
+  }
+
+  return buildValidatedBatchRequestState({
+    articleFilter: parsedState.articleFilter,
+    articleLimit: parsedState.articleLimit,
+    body: options.body,
+    forceResolveUpstream: parsedState.forceResolveUpstream,
+    knownLastFetchedAtByUrl: parsedState.knownLastFetchedAtByUrl,
+    normalizeDistinctUrlList: options.normalizeDistinctUrlList,
+    searchTerm: parsedState.searchTerm,
+  });
+}
+
+function buildValidatedBatchRequestState(options: {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
   body: BatchRequestBody;
+  forceResolveUpstream: boolean;
+  knownLastFetchedAtByUrl: Map<string, Date>;
   normalizeDistinctUrlList: (value: unknown) => string[];
-  parseArticleFilter: (value: unknown) => ArticleFilter | Response;
-  parseArticleLimit: (value: unknown) => number | Response | undefined;
-  parseForceResolveUpstream: (value: unknown) => boolean | Response;
-  parseKnownLastFetchedAtByUrl: (
-    value: unknown,
-  ) => Map<string, Date> | Response;
-}): BatchRequestState | Response {
+  searchTerm: string | undefined;
+}) {
+  return {
+    articleFilter: options.articleFilter,
+    articleLimit: options.articleLimit,
+    forceRefresh: options.body.forceRefresh === true,
+    forceResolveUpstream: options.forceResolveUpstream,
+    knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
+    requestSource:
+      typeof options.body.requestSource === "string"
+        ? options.body.requestSource
+        : "unspecified",
+    searchTerm: options.searchTerm,
+    skipRefresh: options.body.skipRefresh === true,
+    urls: options.normalizeDistinctUrlList(options.body.urls),
+  };
+}
+
+function parseBatchRequestStateFields(
+  options: BatchRequestStateParsers & { body: BatchRequestBody },
+) {
   const knownLastFetchedAtByUrl = options.parseKnownLastFetchedAtByUrl(
     options.body.knownLastFetchedAtByUrl,
   );
@@ -349,49 +411,17 @@ export function validateBatchRequestState(options: {
   if (articleLimit instanceof Response) {
     return articleLimit;
   }
-  return buildValidatedBatchRequestState({
+
+  const searchTerm = options.parseSearchTerm(options.body.searchTerm);
+  if (searchTerm instanceof Response) {
+    return searchTerm;
+  }
+
+  return {
     articleFilter,
     articleLimit,
-    body: options.body,
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
-    normalizeDistinctUrlList: options.normalizeDistinctUrlList,
-  });
-}
-
-function buildBatchRequestLogFields(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-}) {
-  return {
-    articleFilter: options.articleFilter,
-    articleLimit: options.articleLimit,
-    forceRefresh: options.forceRefresh || options.forceResolveUpstream,
-    ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
-  };
-}
-
-function buildValidatedBatchRequestState(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  body: BatchRequestBody;
-  forceResolveUpstream: boolean;
-  knownLastFetchedAtByUrl: Map<string, Date>;
-  normalizeDistinctUrlList: (value: unknown) => string[];
-}) {
-  return {
-    articleFilter: options.articleFilter,
-    articleLimit: options.articleLimit,
-    forceRefresh: options.body.forceRefresh === true,
-    forceResolveUpstream: options.forceResolveUpstream,
-    knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
-    requestSource:
-      typeof options.body.requestSource === "string"
-        ? options.body.requestSource
-        : "unspecified",
-    skipRefresh: options.body.skipRefresh === true,
-    urls: options.normalizeDistinctUrlList(options.body.urls),
+    searchTerm,
   };
 }

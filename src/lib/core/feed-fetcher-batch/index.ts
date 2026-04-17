@@ -15,6 +15,7 @@ export type {
   CachedBatchPayload,
   ChangedBatchArticleQuery,
   FeedFetchProxyOptions,
+  FeedUpstreamTransport,
 } from "./results";
 export {
   buildCachedArticleMap,

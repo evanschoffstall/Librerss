@@ -49,6 +49,7 @@ export interface FeedFetcherBatchRuntimeDependencies {
     urls: string[],
     articleFilter: BatchFetchRequest["articleFilter"],
     articleLimit?: number,
+    searchTerm?: string,
   ) => CachedBatchPayload | null;
   invalidateUserCache: (userId: number) => void;
   mapRowsToArticleMap: (
@@ -62,6 +63,7 @@ export interface FeedFetcherBatchRuntimeDependencies {
     feedIds: number[],
     articleFilter: BatchFetchRequest["articleFilter"],
     articleLimit: number,
+    searchTerm?: string,
   ) => Promise<RankedRow[]>;
   resolveAuthorizedFeedRecords: (
     db: ReturnType<DbMod["getDb"]>,
@@ -76,6 +78,7 @@ export interface FeedFetcherBatchRuntimeDependencies {
     urls: string[],
     articleFilter: BatchFetchRequest["articleFilter"],
     articleLimit: number | undefined,
+    searchTerm: string | undefined,
     result: CachedBatchPayload,
   ) => void;
   shouldForceRefreshFeed: (lastFetched: Date) => boolean;
@@ -188,6 +191,7 @@ export async function resolveBatchForceRefresh(
     forceResolveUpstream: request.forceResolveUpstream,
     requestedUrlCount: request.feedUrls.length,
     requestSource: request.requestSource,
+    searchTerm: request.searchTerm,
     skipRefresh: request.skipRefresh,
     userId: request.userId,
   });
@@ -229,6 +233,7 @@ export function resolveCachedBatchResult(
     request.feedUrls,
     request.articleFilter,
     request.articleLimit,
+    request.searchTerm,
   );
   if (!cached || request.forceResolveUpstream) {
     return { cached, result: null };
@@ -281,6 +286,7 @@ export async function runBatchRefreshExecution(
       request.forceResolveUpstream,
     ),
     requestSource: request.requestSource,
+    searchTerm: request.searchTerm,
     userId: request.userId,
   });
 
@@ -322,6 +328,7 @@ function logBatchFetchCompletion(
     })),
     feedCount: articleMap.size,
     requestSource: request.requestSource,
+    searchTerm: request.searchTerm,
     totalArticles,
     upstreamErrorCount: errors.size,
     userId: request.userId,
@@ -346,6 +353,7 @@ function logBatchRefreshOutcome(
       failedUrls: [...refreshExecution.errors.keys()],
       refreshedFeedCount: refreshExecution.refreshedCount,
       requestSource: request.requestSource,
+      searchTerm: request.searchTerm,
       userId: request.userId,
     });
     return;
@@ -356,6 +364,7 @@ function logBatchRefreshOutcome(
     articleFilter: request.articleFilter,
     articleLimit: request.articleLimit,
     requestSource: request.requestSource,
+    searchTerm: request.searchTerm,
     userId: request.userId,
   });
 }
@@ -381,6 +390,7 @@ function persistBatchCache(
       query.batchFeeds.allowedUrls,
       query.request.articleFilter,
       query.request.articleLimit,
+      query.request.searchTerm,
       {
         articles: cacheArticleMap,
         errors: query.refreshExecution.errors,
@@ -404,6 +414,7 @@ async function queryChangedBatchArticles(
     changedFeedIds,
     query.request.articleFilter,
     query.request.articleLimit,
+    query.request.searchTerm,
   );
   const articleMap = dependencies.mapRowsToArticleMap(
     rows,

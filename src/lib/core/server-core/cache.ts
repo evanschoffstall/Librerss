@@ -52,10 +52,11 @@ export function getCachedBatch(
   urls: string[],
   articleFilter: ArticleFilter,
   articleLimit?: number,
+  searchTerm?: string,
 ): CachedBatchResult | null {
   const userMap = userCaches.get(userId);
   if (!userMap) return null;
-  const key = buildUrlKey(urls, articleFilter, articleLimit);
+  const key = buildUrlKey(urls, articleFilter, articleLimit, searchTerm);
   const entry = userMap.get(key);
   if (!entry) return null;
   if (!isFresh(entry)) {
@@ -105,6 +106,7 @@ export function setCachedBatch(
   urls: string[],
   articleFilter: ArticleFilter,
   articleLimit: number | undefined,
+  searchTerm: string | undefined,
   result: Omit<CachedBatchResult, "cachedAt">,
 ): void {
   let userMap = userCaches.get(userId);
@@ -113,7 +115,7 @@ export function setCachedBatch(
     userCaches.set(userId, userMap);
   }
 
-  const key = buildUrlKey(urls, articleFilter, articleLimit);
+  const key = buildUrlKey(urls, articleFilter, articleLimit, searchTerm);
 
   // Evict oldest if at capacity (simple LRU-ish: delete first inserted)
   if (userMap.size >= MAX_ENTRIES_PER_USER && !userMap.has(key)) {
@@ -144,8 +146,9 @@ function buildUrlKey(
   urls: string[],
   articleFilter: ArticleFilter,
   articleLimit?: number,
+  searchTerm?: string,
 ): string {
-  return `${articleFilter}\0${normalizeArticleLimit(articleLimit)}\0${[...urls].sort().join("\0")}`;
+  return `${articleFilter}\0${normalizeArticleLimit(articleLimit)}\0${searchTerm?.trim() ?? ""}\0${[...urls].sort().join("\0")}`;
 }
 
 function isFresh(entry: CacheEntry): boolean {

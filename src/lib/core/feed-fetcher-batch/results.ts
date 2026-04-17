@@ -29,6 +29,7 @@ export interface BatchFetchOptions {
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: string;
   resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
+  searchTerm?: string;
   skipRefresh?: boolean;
 }
 
@@ -41,6 +42,7 @@ export interface BatchFetchRequest {
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource: string;
   resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
+  searchTerm?: string;
   skipRefresh: boolean;
   userId: number;
 }
@@ -284,6 +286,7 @@ export function createBatchFetchRequest(
     knownLastFetchedAtByUrl,
     requestSource = "unspecified",
     resolveProxyTransport,
+    searchTerm,
     skipRefresh = false,
   }: BatchFetchOptions,
 ): BatchFetchRequest {
@@ -296,6 +299,7 @@ export function createBatchFetchRequest(
     knownLastFetchedAtByUrl,
     requestSource,
     resolveProxyTransport,
+    searchTerm: searchTerm?.trim() ?? undefined,
     skipRefresh,
     userId,
   };
