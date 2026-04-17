@@ -7,7 +7,7 @@ import {
   type DnsLookupRuntimeDeps,
   isBlockedResolvedAddress,
   resolveBlockedAddressWithCache,
-} from "@/lib/utils";
+} from "@/lib/utils/dns";
 
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 

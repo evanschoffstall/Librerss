@@ -55,10 +55,8 @@ export {
 } from "@/app/dashboard/dashboard-services/selection";
 export {
   clearCompatibilityResultsCache,
-  COMPATIBILITY_RESULTS_CACHE_KEY,
   formatElapsed,
   hasConfiguredProxyStatus,
-  isCompatibilityResultsCache,
   normalizeCompatibilityResults,
   previewText,
   readCompatibilityResultsCache,

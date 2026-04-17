@@ -1,10 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
 import { CONFIG, ServerServiceError } from "@/lib";
-import {
-  isAllowedFeedUrl,
-  withNormalizedArticleContent,
-} from "@/lib/core";
+import { isAllowedFeedUrl, withNormalizedArticleContent } from "@/lib/core";
 /**
  * Server-side article operations shared across API surfaces.
  *

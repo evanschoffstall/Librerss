@@ -3,8 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
 import {
-  MOBILE_TOAST_TOP_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/constants";
 import { getToastPlacement } from "@/components/AppThemeProvider";
 
@@ -41,25 +40,19 @@ function MockThemeProvider({ children }: { children: React.ReactNode }) {
 }
 
 async function renderAppThemeProvider(options?: {
-  isMobileToastTop?: boolean;
-  isMobileToolbarBottom?: boolean;
+  isMobileGroupedLayout?: boolean;
   isMobileViewport?: boolean;
 }) {
   const {
-    isMobileToastTop = true,
-    isMobileToolbarBottom = true,
+    isMobileGroupedLayout = true,
     isMobileViewport = true,
   } = options ?? {};
 
   toasterProps.length = 0;
   window.localStorage.clear();
   window.localStorage.setItem(
-    MOBILE_TOAST_TOP_STORAGE_KEY,
-    JSON.stringify(isMobileToastTop),
-  );
-  window.localStorage.setItem(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-    JSON.stringify(isMobileToolbarBottom),
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+    JSON.stringify(isMobileGroupedLayout),
   );
   setMobileViewport(isMobileViewport);
 
@@ -234,31 +227,10 @@ describe("AppThemeProvider", () => {
         },
         position: "top-right",
       },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: true,
+      isMobileGroupedLayout: true,
       isMobileViewport: true,
       label:
-        "pins top toasts to the true top edge when the mobile toolbar lives at the bottom",
-    },
-    {
-      expected: {
-        mobileOffset: {
-          left: 16,
-          right: 16,
-          top: 63,
-        },
-        offset: {
-          left: 16,
-          right: 16,
-          top: 63,
-        },
-        position: "top-right",
-      },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: false,
-      isMobileViewport: true,
-      label:
-        "keeps a toolbar clearance when the mobile toolbar is pinned to the top",
+        "pins mobile toasts to the true top edge when grouped layout is enabled",
     },
     {
       expected: {
@@ -274,11 +246,10 @@ describe("AppThemeProvider", () => {
         },
         position: "bottom-right",
       },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: true,
+      isMobileGroupedLayout: true,
       isMobileViewport: false,
       label:
-        "keeps desktop toasts anchored at the bottom even when the mobile top-toast preference is enabled",
+        "keeps desktop toasts anchored at the bottom even when grouped mobile layout is enabled",
     },
     {
       expected: {
@@ -294,24 +265,21 @@ describe("AppThemeProvider", () => {
         },
         position: "bottom-right",
       },
-      isMobileToastTop: false,
-      isMobileToolbarBottom: false,
+      isMobileGroupedLayout: false,
       isMobileViewport: true,
       label:
-        "keeps mobile toasts at the bottom when the top-toast preference is disabled",
+        "keeps mobile toasts at the bottom when grouped layout is disabled",
     },
   ])(
     "$label",
     ({
       expected,
-      isMobileToastTop,
-      isMobileToolbarBottom,
+      isMobileGroupedLayout,
       isMobileViewport,
     }) => {
       expect(
         getToastPlacement({
-          isMobileToastTop,
-          isMobileToolbarBottom,
+          isMobileGroupedLayout,
           isMobileViewport,
         }),
       ).toMatchObject(expected);

@@ -1,10 +1,6 @@
 import { and, eq, lt } from "drizzle-orm";
 
-import {
-  FEED_STREAM_PREFIX,
-  parseUserLabel,
-  STARRED_STATE,
-} from "@/lib/core";
+import { FEED_STREAM_PREFIX, parseUserLabel, STARRED_STATE } from "@/lib/core";
 
 import { canUseArticleStatusesTable, upsertArticleStatuses } from "./status";
 

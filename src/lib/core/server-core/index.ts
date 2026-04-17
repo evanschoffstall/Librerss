@@ -19,10 +19,7 @@ export {
   setFeedFetcherDependenciesForTesting,
 } from "./fetcher";
 export { markStreamAsRead } from "./mark-stream-read";
-export {
-  getUserOwnedArticleById,
-  listUserOwnedArticles,
-} from "./records";
+export { getUserOwnedArticleById, listUserOwnedArticles } from "./records";
 export {
   canUseArticleStatusesTable,
   resetArticleStatusTableStateForTests,

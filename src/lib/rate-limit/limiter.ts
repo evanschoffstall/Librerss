@@ -158,10 +158,13 @@ export class RateLimiter {
       for (const [key] of toRemove) {
         this.store.delete(key);
       }
-      logRateLimitWarning("Rate limiter evicted entries to enforce size bound", {
-        evicted: toRemove.length,
-        expiredRemoved: removed,
-      });
+      logRateLimitWarning(
+        "Rate limiter evicted entries to enforce size bound",
+        {
+          evicted: toRemove.length,
+          expiredRemoved: removed,
+        },
+      );
     }
   }
 

@@ -83,12 +83,9 @@ export function useFeedViewportState({
     () => shouldLockNormalInitialScrollRef.current && !isInvertedScroll,
     [isInvertedScroll],
   );
-  const clearInitialNormalScrollLock = useCallback(
-    () => {
-      shouldLockNormalInitialScrollRef.current = false;
-    },
-    [],
-  );
+  const clearInitialNormalScrollLock = useCallback(() => {
+    shouldLockNormalInitialScrollRef.current = false;
+  }, []);
 
   return {
     clearInitialNormalScrollLock,
@@ -122,16 +119,21 @@ function useFeedViewportHostRef(options: {
   >;
   viewportResolutionRequestRef: React.RefObject<number>;
 }) {
-  return useCallback((node: HTMLDivElement | null) => {
-    options.viewportResolutionRequestRef.current += 1;
-    if (!options.isMountedRef.current) {
-      return;
-    }
+  return useCallback(
+    (node: HTMLDivElement | null) => {
+      options.viewportResolutionRequestRef.current += 1;
+      if (!options.isMountedRef.current) {
+        return;
+      }
 
-    const resolvedViewport = resolveFeedScrollViewport(node);
-    options.setScrollViewport(resolvedViewport);
-    options.setViewportResolutionState(resolvedViewport ? "ready" : "missing");
-  }, [options]);
+      const resolvedViewport = resolveFeedScrollViewport(node);
+      options.setScrollViewport(resolvedViewport);
+      options.setViewportResolutionState(
+        resolvedViewport ? "ready" : "missing",
+      );
+    },
+    [options],
+  );
 }
 
 function useFeedViewportMountState(

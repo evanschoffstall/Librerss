@@ -1034,6 +1034,11 @@ const eslint = defineStep({
   label: "eslint",
   summary: lintSummary,
 });
+const prettier = defineStep({
+  args: ["prettier", "-w", "src/"],
+  failMsg: "prettier failed",
+  label: "prettier",
+});
 
 const lizard = defineStep({
   failMsg: "complexity limits exceeded",
@@ -1169,6 +1174,7 @@ export default defineCheckSuiteConfig([
   typeCoverage,
   tsc,
   eslint,
+  prettier,
   lizard,
   jscpd,
   junit,

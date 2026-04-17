@@ -57,8 +57,9 @@ export function useFeedListSkeletonCount({
       if (listElement) {
         resizeObserver.observe(listElement);
 
-        const firstSkeletonRow =
-          listElement.querySelector<HTMLElement>(FEED_LIST_SKELETON_SELECTOR);
+        const firstSkeletonRow = listElement.querySelector<HTMLElement>(
+          FEED_LIST_SKELETON_SELECTOR,
+        );
         if (firstSkeletonRow) {
           resizeObserver.observe(firstSkeletonRow);
         }
@@ -90,7 +91,9 @@ function resolveFeedListSkeletonElements(
 
 function resolveFeedListSkeletonRowGap(listElement: HTMLDivElement) {
   const listStyles = getComputedStyle(listElement);
-  const rawRowGap = Number.parseFloat(listStyles.rowGap || listStyles.gap || "0");
+  const rawRowGap = Number.parseFloat(
+    listStyles.rowGap || listStyles.gap || "0",
+  );
 
   return Number.isFinite(rawRowGap) && rawRowGap > 0 ? rawRowGap : 0;
 }
@@ -99,23 +102,27 @@ function updateFeedListSkeletonCount(
   listRef: React.RefObject<HTMLDivElement | null>,
   setSkeletonCount: React.Dispatch<React.SetStateAction<number>>,
 ) {
-  const { listElement, viewportElement } = resolveFeedListSkeletonElements(listRef);
+  const { listElement, viewportElement } =
+    resolveFeedListSkeletonElements(listRef);
 
   if (!listElement || !viewportElement) {
     return false;
   }
 
-  const firstSkeletonRow =
-    listElement.querySelector<HTMLElement>(FEED_LIST_SKELETON_SELECTOR);
+  const firstSkeletonRow = listElement.querySelector<HTMLElement>(
+    FEED_LIST_SKELETON_SELECTOR,
+  );
   if (!firstSkeletonRow) {
     return false;
   }
 
   const viewportHeight = Math.floor(
-    viewportElement.clientHeight || viewportElement.getBoundingClientRect().height,
+    viewportElement.clientHeight ||
+      viewportElement.getBoundingClientRect().height,
   );
   const skeletonRowHeight = Math.ceil(
-    firstSkeletonRow.getBoundingClientRect().height || firstSkeletonRow.offsetHeight,
+    firstSkeletonRow.getBoundingClientRect().height ||
+      firstSkeletonRow.offsetHeight,
   );
   if (viewportHeight <= 0 || skeletonRowHeight <= 0) {
     return false;

@@ -76,7 +76,9 @@ export function preferRicherArticleRecord<T extends ArticleRecordLike>(
     return candidate.content.length > current.content.length;
   }
 
-  return getArticleRecordTimestamp(candidate) > getArticleRecordTimestamp(current);
+  return (
+    getArticleRecordTimestamp(candidate) > getArticleRecordTimestamp(current)
+  );
 }
 
 /**

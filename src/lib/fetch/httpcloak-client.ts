@@ -80,9 +80,7 @@ function assertSuccessfulHttpCloakResponse({
   decodedBody: string;
   proxyAddress: null | string;
   proxyMode: "direct" | "proxy";
-  response: Awaited<
-    ReturnType<typeof requestWithHttpCloakValidatedRedirects>
-  >;
+  response: Awaited<ReturnType<typeof requestWithHttpCloakValidatedRedirects>>;
 }) {
   if (response.statusCode < 200 || response.statusCode >= 300) {
     throw new HttpCloakUpstreamError({
@@ -97,7 +95,9 @@ function assertSuccessfulHttpCloakResponse({
     });
   }
 
-  if (Buffer.byteLength(decodedBody, "utf8") > CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES) {
+  if (
+    Buffer.byteLength(decodedBody, "utf8") > CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
+  ) {
     throw new Error("Upstream response too large");
   }
 }

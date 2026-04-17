@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { logger } from "@/lib";
-import {
-  PLACEHOLDER_FEED_SOURCES,
-  RUNTIME_FLAGS,
-} from "@/lib/core";
+import { PLACEHOLDER_FEED_SOURCES, RUNTIME_FLAGS } from "@/lib/core";
 import { getPlaceholderArticlesForSource } from "@/lib/core/placeholder";
 import {
   fetchAndCacheFeedArticles,
