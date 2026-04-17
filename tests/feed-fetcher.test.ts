@@ -334,6 +334,7 @@ describe("Feed Fetcher - Batch Operations", () => {
       ["https://example.com/feed"],
       "all",
       24,
+      undefined,
     );
   });
 
@@ -423,6 +424,7 @@ describe("Feed Fetcher - Batch Operations", () => {
       [1],
       "all",
       24,
+      undefined,
     );
   });
 
@@ -482,6 +484,7 @@ describe("Feed Fetcher - Batch Operations", () => {
       [2],
       "all",
       500,
+      undefined,
     );
   });
 
@@ -528,6 +531,58 @@ describe("Feed Fetcher - Batch Operations", () => {
       [1],
       "all",
       12,
+      undefined,
+    );
+  });
+
+  test("fetchAndCacheFeedArticlesBatch keys cache and ranked queries by searchTerm", async () => {
+    const getCachedBatch = mock(() => null);
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      getCachedBatch,
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed-a", []]]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed-a"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a"],
+      {
+        searchTerm: "mars",
+        skipRefresh: true,
+      },
+    );
+
+    expect(getCachedBatch).toHaveBeenCalledWith(
+      1,
+      ["https://example.com/feed-a"],
+      "all",
+      500,
+      "mars",
+    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
+      mockDb,
+      1,
+      [1],
+      "all",
+      500,
+      "mars",
     );
   });
 
