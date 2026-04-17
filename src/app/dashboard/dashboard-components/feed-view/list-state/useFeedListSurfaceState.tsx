@@ -31,6 +31,7 @@ interface UseFeedListSurfaceStateResult {
   hasMoreArticles: boolean;
   hasSearchTerm: boolean;
   invertedPaginationAnchorRef: InvertedPaginationAnchorRefContract;
+  isCachedPageRevealing: boolean;
   isInvertedScroll: boolean;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
   maybeAutoFillViewport: (committedListHeight?: number) => void;
@@ -110,6 +111,8 @@ function buildFeedListSurfaceStateOptions(
     hasSearchTerm: compositionState.presentationState.hasSearchTerm,
     invertedPaginationAnchorRef:
       compositionState.paginationState.invertedPaginationAnchorRef,
+    isCachedPageRevealing:
+      compositionState.paginationState.isCachedPageRevealing,
     isInvertedScroll,
     loadMoreSentinelRef: compositionState.paginationState.loadMoreSentinelRef,
     maybeAutoFillViewport:

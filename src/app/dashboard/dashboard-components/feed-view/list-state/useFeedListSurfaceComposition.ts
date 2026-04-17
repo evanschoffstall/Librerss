@@ -38,6 +38,7 @@ export function buildFeedListSurfaceStateResult(options: {
   invertedPaginationAnchorRef: {
     current: InvertedPaginationAnchorState | null;
   };
+  isCachedPageRevealing: boolean;
   isInvertedScroll: boolean;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
   maybeAutoFillViewport: (committedListHeight?: number) => void;
@@ -58,6 +59,7 @@ export function buildFeedListSurfaceStateResult(options: {
     hasMoreArticles: options.visibleArticleCount < options.filteredFeedLength,
     hasSearchTerm: options.hasSearchTerm,
     invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
+    isCachedPageRevealing: options.isCachedPageRevealing,
     isInvertedScroll: options.isInvertedScroll,
     loadMoreSentinelRef: options.loadMoreSentinelRef,
     maybeAutoFillViewport: options.maybeAutoFillViewport,

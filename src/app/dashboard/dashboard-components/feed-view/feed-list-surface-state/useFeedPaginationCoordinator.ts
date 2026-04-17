@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 
+import { useResetPaginationState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationResetState";
 import { useFeedPaginationLocalState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationLocalState";
 import {
   useFeedPaginationRuntimeActions,
@@ -15,7 +16,6 @@ import {
   useFeedPaginationRevealCountEffect,
   useMountedFlagCleanupEffect,
   useRearmPaginationBoundaryFromUserIntent,
-  useResetPaginationState,
   useVisibleArticleCountRefSync,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
 import { useInvertedPaginationAnchor } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedPaginationAnchor";
@@ -110,7 +110,7 @@ export function useFeedPaginationControllers(
 export function useFeedPaginationEffects(
   options: FeedPaginationEffectsOptions,
 ) {
-  const { localState, resetPaginationState, serverLoadState } =
+  const { anchorState, localState, resetPaginationState, serverLoadState } =
     options.controllers;
 
   useCollapsingArticlesRefSync({
@@ -138,7 +138,12 @@ export function useFeedPaginationEffects(
     resetPaginationState,
     searchTerm: options.searchTerm,
   });
-  useFeedPaginationRevealEffects(options, localState, serverLoadState);
+  useFeedPaginationRevealEffects(
+    options,
+    anchorState,
+    localState,
+    serverLoadState,
+  );
 }
 
 export function useFeedPaginationRuntime(
@@ -164,6 +169,7 @@ export function useFeedPaginationRuntime(
   return {
     invertedPaginationAnchorRef:
       options.controllers.anchorState.invertedPaginationAnchorRef,
+    isCachedPageRevealing: options.controllers.localState.isCachedPageRevealing,
     loadMoreSentinelRef: options.controllers.localState.loadMoreSentinelRef,
     maybeAutoFillViewport: runtimeActions.maybeAutoFillViewport,
     shouldUseVirtualizedFeed: runtimeViewport.shouldUseVirtualizedFeed,
@@ -219,6 +225,7 @@ function useFeedPaginationResetControllers(
 ) {
   return useResetPaginationState({
     articlesPerPage: options.articlesPerPage,
+    cancelCachedPageReveal: localState.cancelCachedPageReveal,
     clearServerLoadCooldown: serverLoadState.clearServerLoadCooldown,
     commitVisibleArticleCount: localState.commitVisibleArticleCount,
     filteredFeedLengthRef: localState.filteredFeedLengthRef,
@@ -248,6 +255,7 @@ function useFeedPaginationResetControllers(
 
 function useFeedPaginationRevealEffects(
   options: FeedPaginationEffectsOptions,
+  anchorState: FeedPaginationControllers["anchorState"],
   localState: FeedPaginationControllers["localState"],
   serverLoadState: FeedPaginationControllers["serverLoadState"],
 ) {
@@ -262,6 +270,9 @@ function useFeedPaginationRevealEffects(
     isLoadingMore: options.isLoadingMore,
     isStandardViewportRefillActiveRef:
       serverLoadState.isStandardViewportRefillActiveRef,
+    lastInvertedAwayBoundarySnapshotRef:
+      anchorState.lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
     previousFilteredFeedLengthRef: localState.previousFilteredFeedLengthRef,
     startServerLoadRearmCooldown: serverLoadState.startServerLoadRearmCooldown,
     visibleArticleCountRef: localState.visibleArticleCountRef,
@@ -274,6 +285,9 @@ function useFeedPaginationRevealEffects(
     isLoadingMore: options.isLoadingMore,
     isStandardViewportRefillActiveRef:
       serverLoadState.isStandardViewportRefillActiveRef,
+    lastInvertedAwayBoundarySnapshotRef:
+      anchorState.lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
     previousIsLoadingMoreRef: localState.previousIsLoadingMoreRef,
     startServerLoadRearmCooldown: serverLoadState.startServerLoadRearmCooldown,
   });

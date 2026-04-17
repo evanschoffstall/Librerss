@@ -46,6 +46,7 @@ export function useFeedPaginationRuntimeActions({
     articlesPerPage: options.articlesPerPage,
     commitVisibleArticleCount: localState.commitVisibleArticleCount,
     filteredFeedLengthRef: localState.filteredFeedLengthRef,
+    scheduleCachedPageReveal: localState.scheduleCachedPageReveal,
     visibleArticleCountRef: localState.visibleArticleCountRef,
   });
   const hasReachedStandardLoadBoundary = useHasReachedStandardLoadBoundary({
