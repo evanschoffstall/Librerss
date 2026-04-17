@@ -1,8 +1,6 @@
 "use client";
 
-import {
-  Search,
-} from "lucide-react";
+import { Search } from "lucide-react";
 
 import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
 import { DashboardToolbarDesktopActions } from "@/app/dashboard/dashboard-components/DashboardToolbarDesktopActions";
@@ -11,10 +9,7 @@ import {
   DashboardToolbarMobileMenuButton,
 } from "@/app/dashboard/dashboard-components/DashboardToolbarMobileActions";
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
-import {
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/lib/hooks";
@@ -112,7 +107,6 @@ function DashboardToolbarContent({
     </DashboardToolbarShell>
   );
 }
-
 
 function DashboardToolbarSearch({
   handleSearchChange,
@@ -229,12 +223,8 @@ function useDashboardToolbarPresentationState(
     startInShellLoading,
     controlledIsShellLoading,
   );
-  const [mobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-    true,
-  );
-  const [mobileToolbarMirror] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  const [mobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
   return {
@@ -243,7 +233,7 @@ function useDashboardToolbarPresentationState(
       toolbarState.isRefreshing ||
       toolbarState.isMarkingAllRead ||
       toolbarState.isMarkingViewportRead,
-    mobileToolbarBottom,
-    mobileToolbarMirror,
+    mobileToolbarBottom: mobileGroupedLayout,
+    mobileToolbarMirror: mobileGroupedLayout,
   };
 }

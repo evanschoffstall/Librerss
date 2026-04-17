@@ -9,9 +9,7 @@ import {
 import {
   type BackgroundMode,
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-  MOBILE_TOAST_TOP_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,15 +53,12 @@ export function SettingsDisplaySection({
   const {
     autoRefreshDraft,
     commitAutoRefreshDraft,
+    isMobileInvertedScrollAvailable,
+    mobileGroupedLayout,
     mobileInvertedScroll,
-    mobileToastTop,
-    mobileToolbarBottom,
-    mobileToolbarMirror,
     setAutoRefreshDraft,
+    setMobileGroupedLayout,
     setMobileInvertedScroll,
-    setMobileToastTop,
-    setMobileToolbarBottom,
-    setMobileToolbarMirror,
   } = useDisplaySectionState(
     autoRefreshIntervalMinutes,
     onAutoRefreshIntervalMinutesChange,
@@ -96,14 +91,11 @@ export function SettingsDisplaySection({
           />
         </div>
         <DisplayMobileToggleGroup
+          isMobileInvertedScrollAvailable={isMobileInvertedScrollAvailable}
+          mobileGroupedLayout={mobileGroupedLayout}
           mobileInvertedScroll={mobileInvertedScroll}
-          mobileToastTop={mobileToastTop}
-          mobileToolbarBottom={mobileToolbarBottom}
-          mobileToolbarMirror={mobileToolbarMirror}
+          setMobileGroupedLayout={setMobileGroupedLayout}
           setMobileInvertedScroll={setMobileInvertedScroll}
-          setMobileToastTop={setMobileToastTop}
-          setMobileToolbarBottom={setMobileToolbarBottom}
-          setMobileToolbarMirror={setMobileToolbarMirror}
         />
         <DisplaySelectGroup
           articlesPerPage={articlesPerPage}
@@ -168,51 +160,34 @@ function AutoRefreshControl({
 }
 
 function DisplayMobileToggleGroup({
+  isMobileInvertedScrollAvailable,
+  mobileGroupedLayout,
   mobileInvertedScroll,
-  mobileToastTop,
-  mobileToolbarBottom,
-  mobileToolbarMirror,
+  setMobileGroupedLayout,
   setMobileInvertedScroll,
-  setMobileToastTop,
-  setMobileToolbarBottom,
-  setMobileToolbarMirror,
 }: {
+  isMobileInvertedScrollAvailable: boolean;
+  mobileGroupedLayout: boolean;
   mobileInvertedScroll: boolean;
-  mobileToastTop: boolean;
-  mobileToolbarBottom: boolean;
-  mobileToolbarMirror: boolean;
+  setMobileGroupedLayout: (value: boolean) => void;
   setMobileInvertedScroll: (value: boolean) => void;
-  setMobileToastTop: (value: boolean) => void;
-  setMobileToolbarBottom: (value: boolean) => void;
-  setMobileToolbarMirror: (value: boolean) => void;
 }) {
   return (
     <>
       <div className="flex items-center justify-between">
         <div>
-          <Label htmlFor="mobile-toolbar-bottom">Mobile bottom toolbar</Label>
+          <Label htmlFor="mobile-ui-grouped-layout">
+            Mobile grouped layout
+          </Label>
           <p className="mt-1 text-xs text-muted-foreground">
-            Move the toolbar and filter bar to the bottom on mobile.
+            Applies mobile top toasts, mirrored toolbar alignment, and bottom
+            toolbar positioning together.
           </p>
         </div>
         <Switch
-          checked={mobileToolbarBottom}
-          id="mobile-toolbar-bottom"
-          onCheckedChange={setMobileToolbarBottom}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <Label htmlFor="mobile-toolbar-mirror">Mobile mirrored toolbar</Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Reverse the toolbar element order on mobile so actions are on the
-            leading edge.
-          </p>
-        </div>
-        <Switch
-          checked={mobileToolbarMirror}
-          id="mobile-toolbar-mirror"
-          onCheckedChange={setMobileToolbarMirror}
+          checked={mobileGroupedLayout}
+          id="mobile-ui-grouped-layout"
+          onCheckedChange={setMobileGroupedLayout}
         />
       </div>
       <div className="flex items-center justify-between">
@@ -220,27 +195,15 @@ function DisplayMobileToggleGroup({
           <Label htmlFor="mobile-inverted-scroll">Mobile inverted scroll</Label>
           <p className="mt-1 text-xs text-muted-foreground">
             Flip the feed so newest articles anchor at the bottom and older
-            content loads as you scroll up.
+            content loads as you scroll up. This option is available in
+            development only.
           </p>
         </div>
         <Switch
           checked={mobileInvertedScroll}
+          disabled={!isMobileInvertedScrollAvailable}
           id="mobile-inverted-scroll"
           onCheckedChange={setMobileInvertedScroll}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <Label htmlFor="mobile-toast-top">Mobile top toasts</Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Show notification toasts at the top of the screen on mobile instead
-            of the bottom.
-          </p>
-        </div>
-        <Switch
-          checked={mobileToastTop}
-          id="mobile-toast-top"
-          onCheckedChange={setMobileToastTop}
         />
       </div>
     </>
@@ -324,29 +287,36 @@ function useDisplaySectionState(
   autoRefreshIntervalMinutes: number,
   onAutoRefreshIntervalMinutesChange: (value: number) => void,
 ) {
-  const [mobileInvertedScroll, setMobileInvertedScroll] = useLocalStorage(
-    MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  const isMobileInvertedScrollAvailable =
+    process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+  const [mobileGroupedLayout, setMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
-  const [mobileToastTop, setMobileToastTop] = useLocalStorage(
-    MOBILE_TOAST_TOP_STORAGE_KEY,
-    true,
-  );
-  const [mobileToolbarBottom, setMobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-    true,
-  );
-  const [mobileToolbarMirror, setMobileToolbarMirror] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-    true,
-  );
+  const [mobileInvertedScrollPreference, setMobileInvertedScrollPreference] =
+    useLocalStorage(MOBILE_INVERTED_SCROLL_STORAGE_KEY, false);
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
     String(autoRefreshIntervalMinutes),
   );
+  const mobileInvertedScroll = isMobileInvertedScrollAvailable
+    ? mobileInvertedScrollPreference
+    : false;
 
   useEffect(() => {
     setAutoRefreshDraft(String(autoRefreshIntervalMinutes));
   }, [autoRefreshIntervalMinutes]);
+
+  useEffect(() => {
+    if (isMobileInvertedScrollAvailable || !mobileInvertedScrollPreference) {
+      return;
+    }
+
+    setMobileInvertedScrollPreference(false);
+  }, [
+    isMobileInvertedScrollAvailable,
+    mobileInvertedScrollPreference,
+    setMobileInvertedScrollPreference,
+  ]);
 
   return {
     autoRefreshDraft,
@@ -359,14 +329,18 @@ function useDisplaySectionState(
       onAutoRefreshIntervalMinutesChange(normalizedValue);
       setAutoRefreshDraft(String(normalizedValue));
     },
+    isMobileInvertedScrollAvailable,
+    mobileGroupedLayout,
     mobileInvertedScroll,
-    mobileToastTop,
-    mobileToolbarBottom,
-    mobileToolbarMirror,
     setAutoRefreshDraft,
-    setMobileInvertedScroll,
-    setMobileToastTop,
-    setMobileToolbarBottom,
-    setMobileToolbarMirror,
+    setMobileGroupedLayout,
+    setMobileInvertedScroll: (value: boolean) => {
+      if (!isMobileInvertedScrollAvailable) {
+        setMobileInvertedScrollPreference(false);
+        return;
+      }
+
+      setMobileInvertedScrollPreference(value);
+    },
   };
 }

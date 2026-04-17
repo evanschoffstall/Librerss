@@ -15,6 +15,13 @@ interface DashboardToolbarActionIconProps {
   isPending: boolean;
 }
 
+/** Shared uncondensed toolbar action layout used by desktop and mobile buttons. */
+export const toolbarActionButtonLayoutClassName =
+  "inline-flex shrink-0 items-center justify-center";
+
+/** Shared toolbar action skeleton footprint for non-theme icon actions. */
+export const toolbarActionSkeletonClassName = "size-4 rounded-sm";
+
 /** Renders a canonical icon button for dashboard toolbar actions. */
 export function DashboardToolbarActionButton({
   ariaLabel,
@@ -28,6 +35,7 @@ export function DashboardToolbarActionButton({
       aria-busy={isPending}
       aria-label={ariaLabel}
       className={`
+        ${toolbarActionButtonLayoutClassName}
         cursor-pointer text-muted-foreground transition-colors duration-200
         ease-out
         hover:text-foreground
@@ -53,7 +61,7 @@ export function DashboardToolbarActionIcon({
     return (
       <Skeleton
         aria-hidden="true"
-        className="size-4 rounded-sm"
+        className={toolbarActionSkeletonClassName}
         data-dashboard-toolbar-action-skeleton="true"
       />
     );

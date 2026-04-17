@@ -1,5 +1,6 @@
 "use client";
 
+import { toolbarActionSkeletonClassName } from "@/app/dashboard/dashboard-components/DashboardToolbarActionButton";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardToolbarSkeletonProps {
@@ -95,20 +96,21 @@ function ToolbarMobileActions() {
   return (
     <div
       className="
-        flex items-center gap-0.5
+        flex items-center gap-4
         md:hidden
       "
+      data-dashboard-toolbar-skeleton-mobile-actions="true"
     >
       <Skeleton
-        className="size-8 shrink-0 rounded-full"
+        className={toolbarActionSkeletonClassName}
         data-dashboard-toolbar-skeleton-action="true"
       />
       <Skeleton
-        className="size-8 shrink-0 rounded-full"
+        className={toolbarActionSkeletonClassName}
         data-dashboard-toolbar-skeleton-action="true"
       />
       <Skeleton
-        className="size-8 shrink-0 rounded-full"
+        className={toolbarActionSkeletonClassName}
         data-dashboard-toolbar-skeleton-action="true"
       />
     </div>
@@ -119,10 +121,11 @@ function ToolbarMobileEdgeAction() {
   return (
     <Skeleton
       className="
-        size-9 shrink-0 rounded-full
+        size-4 rounded-sm
         lg:hidden
       "
       data-dashboard-toolbar-skeleton-action="true"
+      data-dashboard-toolbar-skeleton-mobile-edge="true"
     />
   );
 }

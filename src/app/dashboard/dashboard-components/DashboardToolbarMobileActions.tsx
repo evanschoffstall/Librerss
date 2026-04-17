@@ -21,6 +21,7 @@ import {
 } from "@/app/dashboard/dashboard-components/DashboardToolbarActionButton";
 import {
   toolbarButtonClassName,
+  toolbarIconButtonLayoutClassName,
 } from "@/app/dashboard/dashboard-components/DashboardToolbarIconButton";
 import { type useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import {
@@ -74,6 +75,7 @@ type DashboardToolbarMobileMenuContentProps = Pick<
   mobileToolbarMirror: boolean;
 };
 
+/** Renders the mobile toolbar actions using the desktop uncondensed icon treatment. */
 export function DashboardToolbarMobileActions({
   handleMarkAllRead,
   handleMarkViewportRead,
@@ -98,7 +100,7 @@ export function DashboardToolbarMobileActions({
     <DropdownMenu>
       <div
         className="
-          flex items-center gap-0.5
+          flex items-center gap-4
           md:hidden
         "
       >
@@ -141,13 +143,16 @@ export function DashboardToolbarMobileActions({
 
 export function DashboardToolbarMobileMenuButton({
   handleOpenFeedsSidebar,
-}: Pick<ReturnType<typeof useDashboardToolbarState>, "handleOpenFeedsSidebar">) {
+}: Pick<
+  ReturnType<typeof useDashboardToolbarState>,
+  "handleOpenFeedsSidebar"
+>) {
   return (
     <button
       aria-label="Open feeds"
       className={`
         ${toolbarButtonClassName}
-        inline-flex size-9 shrink-0 items-center justify-center rounded-full
+        ${toolbarIconButtonLayoutClassName}
         lg:hidden
       `}
       onClick={handleOpenFeedsSidebar}
@@ -170,7 +175,7 @@ const DashboardToolbarMobileActionsTrigger = React.forwardRef<
       aria-label="Open actions menu"
       className={`
         ${toolbarButtonClassName}
-        inline-flex size-8 shrink-0 items-center justify-center rounded-full
+        ${toolbarIconButtonLayoutClassName}
         ${className ?? ""}
       `}
       ref={ref}
@@ -249,6 +254,7 @@ function DashboardToolbarMobileMenuContent({
   );
 }
 
+/** Uses the shared desktop-sized quick-action footprint on mobile. */
 function DashboardToolbarMobileQuickAction({
   ariaLabel,
   icon,
@@ -263,10 +269,7 @@ function DashboardToolbarMobileQuickAction({
   return (
     <DashboardToolbarActionButton
       ariaLabel={ariaLabel}
-      className="
-        inline-flex size-8 shrink-0 items-center justify-center rounded-full
-        md:hidden
-      "
+      className="md:hidden"
       icon={icon}
       isPending={isPending}
       onClick={onClick}

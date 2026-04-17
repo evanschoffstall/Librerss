@@ -7,14 +7,9 @@ import { type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  MOBILE_TOAST_TOP_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-} from "@/lib";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/lib";
 import { useIsMobile, useLocalStorage } from "@/lib/hooks";
 
-const dashboardToolbarAwareTopToastOffset = { left: 16, right: 16, top: 63 };
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
 const trueTopToastOffset = { left: 16, right: 16, top: 16 };
 
@@ -43,27 +38,20 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Resolves the global toast anchor and offset from the current mobile toast
- * and toolbar settings so top toasts only reserve space when a toolbar is
- * actually pinned to the top edge.
+ * Resolves the global toast anchor and offset from the grouped mobile UI
+ * setting. When grouped layout is enabled, mobile toasts pin to the top edge.
  */
 export function getToastPlacement({
-  isMobileToastTop,
-  isMobileToolbarBottom,
+  isMobileGroupedLayout,
   isMobileViewport,
 }: {
-  isMobileToastTop: boolean;
-  isMobileToolbarBottom: boolean;
+  isMobileGroupedLayout: boolean;
   isMobileViewport: boolean;
 }) {
-  if (isMobileToastTop && isMobileViewport) {
-    const topOffset = isMobileToolbarBottom
-      ? trueTopToastOffset
-      : dashboardToolbarAwareTopToastOffset;
-
+  if (isMobileGroupedLayout && isMobileViewport) {
     return {
-      mobileOffset: topOffset,
-      offset: topOffset,
+      mobileOffset: trueTopToastOffset,
+      offset: trueTopToastOffset,
       position: "top-right" as const,
     };
   }
@@ -83,8 +71,8 @@ function NextDevToolsThemeBridge() {
   const { resolvedTheme } = useTheme();
   const pathname = usePathname();
   const isMobileViewport = useIsMobile();
-  const [isMobileToolbarMirrored] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  const [isMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
@@ -95,7 +83,7 @@ function NextDevToolsThemeBridge() {
 
     const activeTheme = resolvedTheme === "light" ? "light" : "dark";
     const shouldUseTopRightDevToolsBadge =
-      pathname === "/dashboard" && isMobileViewport && isMobileToolbarMirrored;
+      pathname === "/dashboard" && isMobileViewport && isMobileGroupedLayout;
 
     const syncPortalTheme = () => {
       for (const portal of document.querySelectorAll<HTMLElement>(
@@ -144,7 +132,7 @@ function NextDevToolsThemeBridge() {
     return () => {
       observer.disconnect();
     };
-  }, [isMobileToolbarMirrored, isMobileViewport, pathname, resolvedTheme]);
+  }, [isMobileGroupedLayout, isMobileViewport, pathname, resolvedTheme]);
 
   return null;
 }
@@ -155,22 +143,17 @@ function NextDevToolsThemeBridge() {
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const isMobileViewport = useIsMobile();
-  const [isMobileToastTop] = useLocalStorage(
-    MOBILE_TOAST_TOP_STORAGE_KEY,
-    true,
-  );
-  const [isMobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  const [isMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
   const { mobileOffset, offset, position } = useMemo(() => {
     return getToastPlacement({
-      isMobileToastTop,
-      isMobileToolbarBottom,
+      isMobileGroupedLayout,
       isMobileViewport,
     });
-  }, [isMobileToastTop, isMobileToolbarBottom, isMobileViewport]);
+  }, [isMobileGroupedLayout, isMobileViewport]);
 
   useEffect(() => {
     const handleToastClickToDismiss = (event: MouseEvent) => {

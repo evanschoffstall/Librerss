@@ -13,7 +13,7 @@ import {
   type DashboardControllerProps,
   useDashboardController,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller";
-import { MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { DashboardSettingsModal } from "@/app/dashboard/dashboard-view/settings-modal";
 import { useLocalStorage } from "@/lib/hooks";
 
@@ -27,8 +27,8 @@ export const DashboardView = ({
   onDistillStrategyChange,
   usePlaceholderData,
 }: DashboardViewProps) => {
-  const [mobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  const [mobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
   const { feedList, filterBar, settings, sidebar } = useDashboardController({
@@ -49,7 +49,7 @@ export const DashboardView = ({
       <DashboardShellView
         feedList={feedList}
         filterBar={filterBar}
-        mobileToolbarBottom={mobileToolbarBottom}
+        mobileToolbarBottom={mobileGroupedLayout}
         sidebar={sidebar}
       />
       <DashboardSettingsModal settings={settings} />

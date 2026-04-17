@@ -25,6 +25,23 @@ function createPreviewSearchTerm(title: string) {
   return candidate;
 }
 
+async function measureVisibleToolbarButton(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+  label: string,
+) {
+  const button = page.locator(`button[aria-label="${label}"]:visible`).first();
+  await expect(button).toBeVisible({ timeout: 15_000 });
+  const box = await button.boundingBox();
+
+  if (!box) {
+    throw new Error(
+      `Expected ${label} to resolve to a visible toolbar button.`,
+    );
+  }
+
+  return { height: box.height, width: box.width };
+}
+
 async function openPreviewFeeds(
   page: Parameters<typeof gotoPreviewDashboard>[0],
 ) {
@@ -66,12 +83,47 @@ test.describe("dashboard preview mode", () => {
 
     await actionsTrigger.click();
 
-    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible(
-      { timeout: 15_000 },
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("keeps mobile toolbar button footprints aligned with the desktop uncondensed buttons", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 900, width: 1280 });
+    await gotoPreviewDashboard(page);
+
+    const desktopActionFootprint = await measureVisibleToolbarButton(
+      page,
+      "Refresh selected feed",
     );
-    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible(
-      { timeout: 15_000 },
+    const desktopIconFootprint = await measureVisibleToolbarButton(
+      page,
+      "Open dashboard settings",
     );
+
+    await page.setViewportSize({ height: 820, width: 390 });
+    await gotoPreviewDashboard(page);
+
+    expect(
+      await measureVisibleToolbarButton(page, "Refresh selected feed"),
+    ).toEqual(desktopActionFootprint);
+    expect(
+      await measureVisibleToolbarButton(
+        page,
+        "Mark fully visible articles as read",
+      ),
+    ).toEqual(desktopActionFootprint);
+    expect(await measureVisibleToolbarButton(page, "Open feeds")).toEqual(
+      desktopIconFootprint,
+    );
+    expect(
+      await measureVisibleToolbarButton(page, "Open actions menu"),
+    ).toEqual(desktopIconFootprint);
   });
 
   test("enters preview from the login view and signs out back to landing", async ({

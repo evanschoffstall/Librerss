@@ -1,18 +1,20 @@
 import { waitForPreviewDashboardHydration } from "./helpers";
 import { expect, test } from "./test";
 
-const MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY = "librerss:mobileToolbarBottom";
+const MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY = "librerss:mobileUiGroupedLayout";
 
 test.describe("dashboard toolbar tablet placement", () => {
   test("keeps the bottom toolbar from adding a tablet top gap", async ({
     page,
   }) => {
-    await page.addInitScript(({ mobileToolbarBottomStorageKey }) => {
+    await page.addInitScript(({ mobileUiGroupedLayoutStorageKey }) => {
       window.localStorage.setItem(
-        mobileToolbarBottomStorageKey,
+        mobileUiGroupedLayoutStorageKey,
         JSON.stringify(true),
       );
-    }, { mobileToolbarBottomStorageKey: MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY });
+    }, {
+      mobileUiGroupedLayoutStorageKey: MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+    });
 
     await page.setViewportSize({ height: 900, width: 900 });
     await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });

@@ -11,6 +11,7 @@ export {
   MOBILE_TOAST_TOP_STORAGE_KEY,
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
   SETTINGS_PANEL_TAB_STORAGE_KEY,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 export type { BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";

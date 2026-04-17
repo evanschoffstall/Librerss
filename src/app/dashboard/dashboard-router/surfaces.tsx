@@ -22,8 +22,7 @@ import {
 } from "@/app/dashboard/dashboard-components/login";
 import {
   type BackgroundMode,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { DashboardView } from "@/app/dashboard/dashboard-view";
 import { DashboardQueryProvider } from "@/app/dashboard/providers";
@@ -119,12 +118,8 @@ export function DashboardLoginSurface({
 }
 
 export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
-  const [mobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-    true,
-  );
-  const [mobileToolbarMirror] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  const [mobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
@@ -149,8 +144,8 @@ export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
         />
         <DashboardToolbarSkeleton
           isDevelopmentMode={process.env.NODE_ENV === "development"}
-          mobileToolbarBottom={mobileToolbarBottom}
-          mobileToolbarMirror={mobileToolbarMirror}
+          mobileToolbarBottom={mobileGroupedLayout}
+          mobileToolbarMirror={mobileGroupedLayout}
         />
         <DashboardScaffold
           feed={

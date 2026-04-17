@@ -9,7 +9,7 @@ import {
 import { expect, test } from "./test";
 
 const INJECTED_TRAY_ROW_COUNT = 24;
-const MOBILE_TOOLBAR_MIRROR_STORAGE_KEY = "librerss:mobileToolbarMirror";
+const MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY = "librerss:mobileUiGroupedLayout";
 const SIDEBAR_SCROLL_WHEEL_DELTA_Y = 720;
 
 /** Appends enough rows into the live tray content to force a real Radix viewport scroll range. */
@@ -66,14 +66,14 @@ function mobileFeedsTrayViewport(page: Page): Locator {
 }
 
 /** Seeds the mirrored-toolbar preference before the dashboard reads it. */
-async function setMobileToolbarMirrorPreference(page: Page, enabled: boolean) {
+async function setMobileGroupedLayoutPreference(page: Page, enabled: boolean) {
   await page.addInitScript(
     ({ isEnabled, storageKey }: { isEnabled: boolean; storageKey: string }) => {
       window.localStorage.setItem(storageKey, JSON.stringify(isEnabled));
     },
     {
       isEnabled: enabled,
-      storageKey: MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+      storageKey: MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     },
   );
 }
@@ -102,7 +102,7 @@ test.describe("dashboard mobile feeds tray", () => {
   test("opens from the right edge when the mirrored mobile toolbar preference is enabled", async ({
     page,
   }) => {
-    await setMobileToolbarMirrorPreference(page, true);
+    await setMobileGroupedLayoutPreference(page, true);
     await gotoPreviewDashboard(page);
     await openDashboardFeedsSidebar(page);
 

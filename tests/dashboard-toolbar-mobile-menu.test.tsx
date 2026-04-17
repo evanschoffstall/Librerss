@@ -3,8 +3,7 @@ import { beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
 import {
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/constants";
 
 async function loadDashboardToolbar() {
@@ -17,11 +16,7 @@ describe("DashboardToolbar mobile actions menu", () => {
   beforeEach(() => {
     mock.restore();
     window.localStorage.setItem(
-      MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-      JSON.stringify(true),
-    );
-    window.localStorage.setItem(
-      MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
       JSON.stringify(true),
     );
     mockDashboardToolbarState();
