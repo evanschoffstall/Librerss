@@ -28,6 +28,7 @@ type UseDashboardControllerRuntimeOptions = Omit<
   "articleLimit" | "initialArticleLimit" | "onTimeout"
 > & {
   appliedBatchArticleFilterRef: React.RefObject<DashboardArticleFilter>;
+  appliedBatchSearchTermRef: React.RefObject<string>;
   articleFilter: DashboardArticleFilter;
   articleWindowLimit: DashboardHandlersOptions["articleLimit"];
   autoRefreshIntervalMinutes: number;
@@ -67,6 +68,7 @@ export function useDashboardControllerRuntime(
   );
 
   useDashboardArticleFilterRefresh(options);
+  useDashboardSearchRefresh(options);
 
   const isAutoRefreshing = useDashboardAutoRefresh({
     autoRefreshFeedList,
@@ -223,4 +225,53 @@ function useDashboardAutoRefresh(options: {
   });
 
   return isAutoRefreshing;
+}
+
+function useDashboardSearchRefresh(
+  options: Pick<
+    UseDashboardControllerRuntimeOptions,
+    | "appliedBatchSearchTermRef"
+    | "articleWindowLimit"
+    | "fetchAllFeeds"
+    | "fetchCategoryFeeds"
+    | "fetchFeed"
+    | "hasInitializedDashboardRef"
+    | "searchTerm"
+    | "selectedCategory"
+    | "selectedCategoryNode"
+    | "selectedFeedUrl"
+    | "usePlaceholderData"
+  >,
+) {
+  useEffect(() => {
+    const normalizedSearchTerm = options.searchTerm.trim();
+    if (!options.hasInitializedDashboardRef.current) {
+      options.appliedBatchSearchTermRef.current = normalizedSearchTerm;
+      return;
+    }
+
+    if (options.appliedBatchSearchTermRef.current === normalizedSearchTerm) {
+      return;
+    }
+
+    options.appliedBatchSearchTermRef.current = normalizedSearchTerm;
+
+    if (options.usePlaceholderData) {
+      return;
+    }
+
+    void refreshCurrentSelection({
+      articleLimit: options.articleWindowLimit,
+      fetchAllFeeds: options.fetchAllFeeds,
+      fetchCategoryFeeds: options.fetchCategoryFeeds,
+      fetchFeed: options.fetchFeed,
+      keepExistingFeed: false,
+      requestSource: "search-change",
+      searchTerm: normalizedSearchTerm,
+      selectedCategory: options.selectedCategory,
+      selectedCategoryNode: options.selectedCategoryNode,
+      selectedFeedUrl: options.selectedFeedUrl,
+      skipRefresh: true,
+    });
+  }, [options]);
 }

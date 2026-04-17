@@ -33,6 +33,7 @@ type UseDashboardHandlersOptions = FeedSelectionFetchers & {
   prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
   /** Silently warms an individual feed selection before the user commits it. */
   prefetchFeed: FeedSelectionFetchers["fetchFeed"];
+  searchTerm?: FeedFetchOptions["searchTerm"];
   /** Currently selected category or feed node key. */
   selectedCategory: string;
   /** Resolved category tree node for the current selection when available. */
@@ -64,6 +65,7 @@ export function useDashboardHandlers({
   prefetchAllFeeds,
   prefetchCategoryFeeds,
   prefetchFeed,
+  searchTerm,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
@@ -77,6 +79,7 @@ export function useDashboardHandlers({
       fetchCategoryFeeds,
       fetchFeed,
       onBeforeRefresh,
+      searchTerm,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
@@ -94,6 +97,7 @@ export function useDashboardHandlers({
     prefetchAllFeeds,
     prefetchCategoryFeeds,
     prefetchFeed,
+    searchTerm,
     selectedCategory,
     setIsMobileSidebarOpen,
     setSelectedCategory,
@@ -116,12 +120,128 @@ export function useDashboardHandlers({
   };
 }
 
+function useDashboardCategorySelectionHandlers({
+  articleLimit,
+  fetchAllFeeds,
+  fetchCategoryFeeds,
+  prefetchAllFeeds,
+  prefetchCategoryFeeds,
+  searchTerm,
+  selectedCategory,
+  setIsMobileSidebarOpen,
+  setSelectedCategory,
+}: Pick<
+  UseDashboardHandlersOptions,
+  | "articleLimit"
+  | "fetchAllFeeds"
+  | "fetchCategoryFeeds"
+  | "prefetchAllFeeds"
+  | "prefetchCategoryFeeds"
+  | "searchTerm"
+  | "selectedCategory"
+  | "setIsMobileSidebarOpen"
+  | "setSelectedCategory"
+>) {
+  return {
+    handleCategoryClick: useCallback(
+      (categoryNode: CategoryTreeNode) => {
+        selectDashboardCategory(categoryNode, {
+          articleLimit,
+          fetchAllFeeds,
+          fetchCategoryFeeds,
+          searchTerm,
+          setIsMobileSidebarOpen,
+          setSelectedCategory,
+        });
+      },
+      [
+        articleLimit,
+        fetchAllFeeds,
+        fetchCategoryFeeds,
+        searchTerm,
+        setIsMobileSidebarOpen,
+        setSelectedCategory,
+      ],
+    ),
+    handleCategoryPrefetch: useCallback(
+      (categoryNode: CategoryTreeNode) => {
+        prefetchDashboardCategory(categoryNode, {
+          articleLimit,
+          prefetchAllFeeds,
+          prefetchCategoryFeeds,
+          searchTerm,
+          selectedCategory,
+        });
+      },
+      [
+        articleLimit,
+        prefetchAllFeeds,
+        prefetchCategoryFeeds,
+        searchTerm,
+        selectedCategory,
+      ],
+    ),
+  };
+}
+
+function useDashboardFeedSelectionHandlers({
+  articleLimit,
+  fetchFeed,
+  prefetchFeed,
+  searchTerm,
+  selectedCategory,
+  setIsMobileSidebarOpen,
+  setSelectedCategory,
+}: Pick<
+  UseDashboardHandlersOptions,
+  | "articleLimit"
+  | "fetchFeed"
+  | "prefetchFeed"
+  | "searchTerm"
+  | "selectedCategory"
+  | "setIsMobileSidebarOpen"
+  | "setSelectedCategory"
+>) {
+  return {
+    handleFeedClick: useCallback(
+      (feedNode: CategoryTreeNode) => {
+        selectDashboardFeed(feedNode, {
+          articleLimit,
+          fetchFeed,
+          searchTerm,
+          setIsMobileSidebarOpen,
+          setSelectedCategory,
+        });
+      },
+      [
+        articleLimit,
+        fetchFeed,
+        searchTerm,
+        setIsMobileSidebarOpen,
+        setSelectedCategory,
+      ],
+    ),
+    handleFeedPrefetch: useCallback(
+      (feedNode: CategoryTreeNode) => {
+        prefetchDashboardFeed(feedNode, {
+          articleLimit,
+          prefetchFeed,
+          searchTerm,
+          selectedCategory,
+        });
+      },
+      [articleLimit, prefetchFeed, searchTerm, selectedCategory],
+    ),
+  };
+}
+
 function useDashboardRefreshHandlers({
   articleLimit,
   fetchAllFeeds,
   fetchCategoryFeeds,
   fetchFeed,
   onBeforeRefresh,
+  searchTerm,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
@@ -132,6 +252,7 @@ function useDashboardRefreshHandlers({
   | "fetchCategoryFeeds"
   | "fetchFeed"
   | "onBeforeRefresh"
+  | "searchTerm"
   | "selectedCategory"
   | "selectedCategoryNode"
   | "selectedFeedUrl"
@@ -143,6 +264,7 @@ function useDashboardRefreshHandlers({
       fetchCategoryFeeds,
       fetchFeed,
       onBeforeRefresh,
+      searchTerm,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
@@ -153,6 +275,7 @@ function useDashboardRefreshHandlers({
       fetchCategoryFeeds,
       fetchFeed,
       onBeforeRefresh,
+      searchTerm,
       selectedCategory,
       selectedCategoryNode,
       selectedFeedUrl,
@@ -185,6 +308,7 @@ function useDashboardSelectionHandlers({
   prefetchAllFeeds,
   prefetchCategoryFeeds,
   prefetchFeed,
+  searchTerm,
   selectedCategory,
   setIsMobileSidebarOpen,
   setSelectedCategory,
@@ -197,60 +321,31 @@ function useDashboardSelectionHandlers({
   | "prefetchAllFeeds"
   | "prefetchCategoryFeeds"
   | "prefetchFeed"
+  | "searchTerm"
   | "selectedCategory"
   | "setIsMobileSidebarOpen"
   | "setSelectedCategory"
 >) {
-  return {
-    handleCategoryClick: useCallback(
-      (categoryNode: CategoryTreeNode) => {
-        selectDashboardCategory(categoryNode, {
-          articleLimit,
-          fetchAllFeeds,
-          fetchCategoryFeeds,
-          setIsMobileSidebarOpen,
-          setSelectedCategory,
-        });
-      },
-      [
-        articleLimit,
-        fetchAllFeeds,
-        fetchCategoryFeeds,
-        setIsMobileSidebarOpen,
-        setSelectedCategory,
-      ],
-    ),
-    handleCategoryPrefetch: useCallback(
-      (categoryNode: CategoryTreeNode) => {
-        prefetchDashboardCategory(categoryNode, {
-          articleLimit,
-          prefetchAllFeeds,
-          prefetchCategoryFeeds,
-          selectedCategory,
-        });
-      },
-      [articleLimit, prefetchAllFeeds, prefetchCategoryFeeds, selectedCategory],
-    ),
-    handleFeedClick: useCallback(
-      (feedNode: CategoryTreeNode) => {
-        selectDashboardFeed(feedNode, {
-          articleLimit,
-          fetchFeed,
-          setIsMobileSidebarOpen,
-          setSelectedCategory,
-        });
-      },
-      [articleLimit, fetchFeed, setIsMobileSidebarOpen, setSelectedCategory],
-    ),
-    handleFeedPrefetch: useCallback(
-      (feedNode: CategoryTreeNode) => {
-        prefetchDashboardFeed(feedNode, {
-          articleLimit,
-          prefetchFeed,
-          selectedCategory,
-        });
-      },
-      [articleLimit, prefetchFeed, selectedCategory],
-    ),
-  };
+  const categoryHandlers = useDashboardCategorySelectionHandlers({
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    searchTerm,
+    selectedCategory,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  });
+  const feedHandlers = useDashboardFeedSelectionHandlers({
+    articleLimit,
+    fetchFeed,
+    prefetchFeed,
+    searchTerm,
+    selectedCategory,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  });
+
+  return { ...categoryHandlers, ...feedHandlers };
 }

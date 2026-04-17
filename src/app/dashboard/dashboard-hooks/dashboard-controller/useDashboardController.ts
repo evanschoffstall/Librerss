@@ -160,6 +160,7 @@ function useDashboardControllerState({
     collapsedArticles: controllerResources.articleActions.collapsingArticles,
     dashboardState,
     loadingState,
+    usePlaceholderData,
   });
   const articleWindowState = useDashboardArticleWindowState({
     dashboardState,

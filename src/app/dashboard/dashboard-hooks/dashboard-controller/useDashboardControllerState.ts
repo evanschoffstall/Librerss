@@ -44,6 +44,9 @@ export function useDashboardRuntimeState({
   viewModelState,
 }: DashboardRuntimeStateOptions) {
   const appliedBatchArticleFilterRef = useRef(dashboardState.articleFilter);
+  const appliedBatchSearchTermRef = useRef(
+    loadingState.deferredSearchTerm.trim(),
+  );
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter: dashboardState.articleFilter,
     capturePreExpandSnapshot: articleActions.capturePreExpandSnapshot,
@@ -60,6 +63,7 @@ export function useDashboardRuntimeState({
   });
   const runtime = useDashboardControllerRuntime({
     appliedBatchArticleFilterRef,
+    appliedBatchSearchTermRef,
     ...buildDashboardRuntimeDataState({
       articleActions,
       articleWindowState,
@@ -104,7 +108,7 @@ function buildDashboardRuntimeDataState({
     isShellLoading: loadingState.isShellLoading,
     loading: dashboardState.loading,
     loadingEpoch: feedLoader.loadingEpoch,
-    searchTerm: dashboardState.searchTerm,
+    searchTerm: loadingState.deferredSearchTerm,
     selectedCategory: dashboardState.selectedCategory,
     selectedCategoryNode,
     selectedFeed: viewModelState.dashboardViewModel.selectedFeed,

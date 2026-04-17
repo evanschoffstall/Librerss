@@ -188,11 +188,13 @@ export function useDashboardViewModelState({
   collapsedArticles,
   dashboardState,
   loadingState,
+  usePlaceholderData,
 }: {
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
   dashboardState: ReturnType<typeof useDashboardState>;
   loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
+  usePlaceholderData: boolean;
 }) {
   const dashboardViewModel = useMemo(
     () =>
@@ -206,6 +208,7 @@ export function useDashboardViewModelState({
         orderedCategoryLabels: categoryTree.orderedCategoryLabels,
         searchTerm: loadingState.deferredSearchTerm,
         selectedCategory: dashboardState.selectedCategory,
+        useLocalSearch: usePlaceholderData,
       }),
     [
       categoryTree.customCategoryLabels,
@@ -217,6 +220,7 @@ export function useDashboardViewModelState({
       dashboardState.selectedCategory,
       loadingState.deferredArticleFilter,
       loadingState.deferredSearchTerm,
+      usePlaceholderData,
     ],
   );
 

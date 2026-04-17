@@ -441,6 +441,123 @@ describe("useFeedLoader", () => {
       queryClient.clear();
     }
   });
+
+  test("absorbs cancelled query rejections while replacing overlapping feed requests", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const firstFeedUrl = "https://example.com/first.xml";
+    const secondFeedUrl = "https://example.com/second.xml";
+    const firstArticle: Article = {
+      content: "First feed article body",
+      feedId: 11,
+      feedName: "First Feed",
+      feedUrl: firstFeedUrl,
+      id: 601,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T13:00:00.000Z"),
+      link: "https://example.com/articles/first",
+      publicationDate: new Date("2026-03-14T12:59:00.000Z"),
+      title: "First feed article",
+    };
+    const secondArticle: Article = {
+      ...firstArticle,
+      feedId: 12,
+      feedName: "Second Feed",
+      feedUrl: secondFeedUrl,
+      id: 602,
+      link: "https://example.com/articles/second",
+      publicationDate: new Date("2026-03-14T13:01:00.000Z"),
+      title: "Second feed article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const cancelQueriesMock = mock(async () => {
+      const cancellationError = new Error("query cancelled");
+      cancellationError.name = "CancelledError";
+      throw cancellationError;
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    queryClient.cancelQueries = cancelQueriesMock as typeof queryClient.cancelQueries;
+
+    FeedService.getFeedsBatch = mock(async (urls: string[]) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      if (urls[0] === secondFeedUrl) {
+        return [
+          {
+            articles: [secondArticle],
+            lastFetchedAt: new Date("2026-03-14T13:02:00.000Z"),
+            ok: true,
+            url: secondFeedUrl,
+          },
+        ];
+      }
+
+      return [
+        {
+          articles: [firstArticle],
+          lastFetchedAt: new Date("2026-03-14T13:01:30.000Z"),
+          ok: true,
+          url: firstFeedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        const firstRequest = result.current.fetchFeed(firstFeedUrl, {
+          requestSource: "manual-refresh",
+        });
+        const secondRequest = result.current.fetchFeed(secondFeedUrl, {
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+        });
+
+        await Promise.allSettled([firstRequest, secondRequest]);
+      });
+
+      await waitFor(() => {
+        expect(feedState[0]?.title).toBe(secondArticle.title);
+      });
+
+      expect(cancelQueriesMock).toHaveBeenCalledTimes(1);
+    } finally {
+      queryClient.clear();
+    }
+  });
 });
 
 describe("useDashboardEvents", () => {

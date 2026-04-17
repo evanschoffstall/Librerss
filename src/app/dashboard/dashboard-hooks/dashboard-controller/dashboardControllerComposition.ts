@@ -133,6 +133,7 @@ function createDashboardHandlerOptions(options: {
   prefetchAllFeeds: DashboardHandlersOptions["prefetchAllFeeds"];
   prefetchCategoryFeeds: DashboardHandlersOptions["prefetchCategoryFeeds"];
   prefetchFeed: DashboardHandlersOptions["prefetchFeed"];
+  searchTerm: DashboardHandlersOptions["searchTerm"];
   selectedCategory: DashboardHandlersOptions["selectedCategory"];
   selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
   selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
@@ -145,6 +146,7 @@ function createDashboardHandlerOptions(options: {
     prefetchAllFeeds: options.prefetchAllFeeds,
     prefetchCategoryFeeds: options.prefetchCategoryFeeds,
     prefetchFeed: options.prefetchFeed,
+    searchTerm: options.searchTerm,
     setIsMobileSidebarOpen: options.setIsMobileSidebarOpen,
   } satisfies DashboardHandlersOptions;
 }
@@ -153,6 +155,7 @@ function createDashboardSharedFetchOptions(options: {
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
   fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
   fetchFeed: DashboardHandlersOptions["fetchFeed"];
+  searchTerm: DashboardHandlersOptions["searchTerm"];
   selectedCategory: DashboardHandlersOptions["selectedCategory"];
   selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
   selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
@@ -162,6 +165,7 @@ function createDashboardSharedFetchOptions(options: {
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,
     fetchFeed: options.fetchFeed,
+    searchTerm: options.searchTerm,
     selectedCategory: options.selectedCategory,
     selectedCategoryNode: options.selectedCategoryNode,
     selectedFeedUrl: options.selectedFeedUrl,

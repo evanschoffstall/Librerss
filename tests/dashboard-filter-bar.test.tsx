@@ -153,6 +153,50 @@ describe("DashboardFilterBar", () => {
     });
   });
 
+  test("prefers the larger live viewport height when article expansion outgrows the virtualized total", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div data-feed-total-list-height="720" data-inverted-scroll="true">
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 240;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 1080;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      const thumb = container.querySelector<HTMLElement>(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
+
+      expect(thumb).toBeTruthy();
+      expect(thumb?.getAttribute("style") ?? "").toContain("height: 53px");
+    });
+  });
+
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
       <DashboardFilterBar
