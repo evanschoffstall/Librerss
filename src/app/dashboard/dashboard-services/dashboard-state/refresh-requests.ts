@@ -12,6 +12,7 @@ import {
 interface DashboardRefreshContext extends FeedSelectionFetchers {
   articleLimit?: number;
   onBeforeRefresh?: () => void;
+  searchTerm?: FeedFetchOptions["searchTerm"];
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
   selectedFeedUrl?: string;
@@ -28,6 +29,7 @@ export async function autoRefreshDashboardSelection({
   fetchCategoryFeeds,
   fetchFeed,
   onBeforeRefresh,
+  searchTerm,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
@@ -41,6 +43,7 @@ export async function autoRefreshDashboardSelection({
     forceRefresh: false,
     keepExistingFeed: true,
     requestSource: "auto-refresh",
+    searchTerm,
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
@@ -54,6 +57,7 @@ export function prefetchDashboardCategory(
     articleLimit?: FeedFetchOptions["articleLimit"];
     prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
     prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
+    searchTerm?: FeedFetchOptions["searchTerm"];
     selectedCategory: string;
   },
 ) {
@@ -61,6 +65,7 @@ export function prefetchDashboardCategory(
     articleLimit,
     prefetchAllFeeds,
     prefetchCategoryFeeds,
+    searchTerm,
     selectedCategory,
   } = options;
   if (selectedCategory === categoryNode.key) {
@@ -71,6 +76,7 @@ export function prefetchDashboardCategory(
     void prefetchAllFeeds(undefined, {
       ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-category-prefetch",
+      searchTerm,
     });
     return;
   }
@@ -78,6 +84,7 @@ export function prefetchDashboardCategory(
   void prefetchCategoryFeeds(categoryNode, {
     ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-category-prefetch",
+    searchTerm,
   });
 }
 
@@ -87,10 +94,11 @@ export function prefetchDashboardFeed(
   options: {
     articleLimit?: FeedFetchOptions["articleLimit"];
     prefetchFeed: FeedSelectionFetchers["fetchFeed"];
+    searchTerm?: FeedFetchOptions["searchTerm"];
     selectedCategory: string;
   },
 ) {
-  const { articleLimit, prefetchFeed, selectedCategory } = options;
+  const { articleLimit, prefetchFeed, searchTerm, selectedCategory } = options;
   if (
     selectedCategory === feedNode.key ||
     !feedNode.data?.url ||
@@ -102,6 +110,7 @@ export function prefetchDashboardFeed(
   void prefetchFeed(feedNode.data.url, {
     ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-feed-prefetch",
+    searchTerm,
   });
 }
 
@@ -113,6 +122,7 @@ export async function refreshDashboardSelection({
   fetchFeed,
   forceResolveUpstream,
   onBeforeRefresh,
+  searchTerm,
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
@@ -127,6 +137,7 @@ export async function refreshDashboardSelection({
     forceResolveUpstream,
     keepExistingFeed: true,
     requestSource: "manual-refresh",
+    searchTerm,
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
@@ -140,6 +151,7 @@ export function selectDashboardCategory(
     articleLimit?: FeedFetchOptions["articleLimit"];
     fetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
     fetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
+    searchTerm?: FeedFetchOptions["searchTerm"];
     setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
     setSelectedCategory: Dispatch<SetStateAction<string>>;
   },
@@ -148,6 +160,7 @@ export function selectDashboardCategory(
     articleLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
+    searchTerm,
     setIsMobileSidebarOpen,
     setSelectedCategory,
   } = options;
@@ -159,6 +172,7 @@ export function selectDashboardCategory(
     void fetchAllFeeds(undefined, {
       ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-category-select",
+      searchTerm,
     });
     return;
   }
@@ -166,6 +180,7 @@ export function selectDashboardCategory(
   void fetchCategoryFeeds(categoryNode, {
     ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-category-select",
+    searchTerm,
   });
 }
 
@@ -175,6 +190,7 @@ export function selectDashboardFeed(
   options: {
     articleLimit?: FeedFetchOptions["articleLimit"];
     fetchFeed: FeedSelectionFetchers["fetchFeed"];
+    searchTerm?: FeedFetchOptions["searchTerm"];
     setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
     setSelectedCategory: Dispatch<SetStateAction<string>>;
   },
@@ -182,6 +198,7 @@ export function selectDashboardFeed(
   const {
     articleLimit,
     fetchFeed,
+    searchTerm,
     setIsMobileSidebarOpen,
     setSelectedCategory,
   } = options;
@@ -193,6 +210,7 @@ export function selectDashboardFeed(
     void fetchFeed(feedNode.data.url, {
       ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-feed-select",
+      searchTerm,
     });
   }
 }

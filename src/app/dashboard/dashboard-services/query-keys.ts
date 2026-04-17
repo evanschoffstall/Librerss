@@ -16,7 +16,11 @@ export function getFeedBatchQueryKey(
   requestSignature: string,
   options?: Pick<
     FeedFetchOptions,
-    "articleFilter" | "articleLimit" | "knownLastFetchedAtByUrl" | "skipRefresh"
+    | "articleFilter"
+    | "articleLimit"
+    | "knownLastFetchedAtByUrl"
+    | "searchTerm"
+    | "skipRefresh"
   >,
 ) {
   return [
@@ -24,6 +28,7 @@ export function getFeedBatchQueryKey(
     requestSignature,
     options?.articleFilter ?? "all",
     options?.articleLimit ?? "all-articles",
+    options?.searchTerm?.trim() ?? "",
     options?.skipRefresh === true ? "skip-refresh" : "refresh",
     serializeKnownLastFetchedAt(options?.knownLastFetchedAtByUrl),
   ] as const;

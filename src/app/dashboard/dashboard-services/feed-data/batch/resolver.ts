@@ -17,6 +17,7 @@ interface FeedBatchResolverDependencies {
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
       requestSource?: FeedFetchOptions["requestSource"];
+      searchTerm?: string;
       signal?: AbortSignal;
       skipRefresh?: boolean;
     },
@@ -61,6 +62,7 @@ export async function resolveFeedBatchResults(
       forceRefresh: options?.forceRefresh === true,
       knownLastFetchedAtByUrl: options?.knownLastFetchedAtByUrl,
       requestSource: options?.requestSource,
+      searchTerm: options?.searchTerm,
       signal,
       skipRefresh: options?.skipRefresh ?? false,
     },
@@ -72,6 +74,7 @@ function resolveLimitedPlaceholderCandidates(
   getPlaceholderArticles: (url: string) => Article[],
   options?: FeedFetchOptions,
 ): PlaceholderArticleCandidate[] {
+  const normalizedSearchTerm = options?.searchTerm?.trim().toLowerCase() ?? "";
   const filteredCandidates = normalizedSources
     .flatMap((source) =>
       getPlaceholderArticles(source.url).map((article) => ({
@@ -81,6 +84,19 @@ function resolveLimitedPlaceholderCandidates(
       })),
     )
     .filter((candidate) => {
+      if (normalizedSearchTerm.length > 0) {
+        const matchesSearch =
+          candidate.article.title
+            .toLowerCase()
+            .includes(normalizedSearchTerm) ||
+          candidate.article.content
+            .toLowerCase()
+            .includes(normalizedSearchTerm);
+        if (!matchesSearch) {
+          return false;
+        }
+      }
+
       if (!options?.articleFilter) {
         return true;
       }
@@ -147,4 +163,3 @@ function resolvePlaceholderBatchResults(
     url: source.url,
   }));
 }
-

@@ -14,6 +14,7 @@ export interface FeedFetchOptions {
   keepExistingFeed?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
   requestSource?: FeedRequestSource;
+  searchTerm?: string;
   skipRefresh?: boolean;
 }
 
@@ -39,6 +40,7 @@ type FeedRequestSource =
   | "feed-scroll-load-more"
   | "manual-refresh"
   | "opml-imported"
+  | "search-change"
   | "sidebar-category-prefetch"
   | "sidebar-category-select"
   | "sidebar-feed-prefetch"
@@ -59,6 +61,7 @@ type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
   requestSource?: FeedRequestSource;
+  searchTerm?: string;
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
   selectedFeedUrl?: string;
@@ -145,6 +148,7 @@ export async function refreshCurrentSelection(
     forceRefresh,
     keepExistingFeed,
     requestSource,
+    searchTerm: options.searchTerm,
     skipRefresh,
   };
 

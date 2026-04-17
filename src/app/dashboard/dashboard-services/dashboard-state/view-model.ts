@@ -23,6 +23,7 @@ interface DashboardViewModelInput {
   orderedCategoryLabels: string[];
   searchTerm: string;
   selectedCategory: string;
+  useLocalSearch: boolean;
 }
 
 export function buildDashboardViewModel({
@@ -35,6 +36,7 @@ export function buildDashboardViewModel({
   orderedCategoryLabels,
   searchTerm,
   selectedCategory,
+  useLocalSearch,
 }: DashboardViewModelInput) {
   const feedByState = filterArticlesByState(
     feed,
@@ -43,7 +45,9 @@ export function buildDashboardViewModel({
     collapsingArticleKeys,
   );
 
-  const filteredFeed = filterArticlesBySearchTerm(feedByState, searchTerm);
+  const filteredFeed = useLocalSearch
+    ? filterArticlesBySearchTerm(feedByState, searchTerm)
+    : feedByState;
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 
