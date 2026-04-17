@@ -36,6 +36,7 @@ export interface FeedBatchRequestHelpers {
   buildRequestSignature: (
     normalizedSources: FeedBatchSource[],
     articleLimit?: FeedFetchOptions["articleLimit"],
+    searchTerm?: FeedFetchOptions["searchTerm"],
   ) => string;
   getKnownLastFetchedAtByUrl: (
     normalizedSources: FeedBatchSource[],
@@ -106,6 +107,7 @@ export async function loadFeedBatchResultsOrReturnNull(
       articleFilter: context.articleFilter,
       articleLimit: context.options?.articleLimit,
       knownLastFetchedAtByUrl: context.knownLastFetchedAtByUrl,
+      searchTerm: context.options?.searchTerm,
     },
     context.isBackground,
   );
@@ -190,25 +192,18 @@ export function prepareFeedBatchRequestContext({
   }
 
   const normalizedSources = normalizeFeedBatchSources(sources);
-  const requestSignature = requestHelpers.buildRequestSignature(
-    normalizedSources,
-    options?.articleLimit,
-  );
-  const knownLastFetchedAtByUrl = requestHelpers.getKnownLastFetchedAtByUrl(
-    normalizedSources,
-    keepExistingFeed,
-  );
-  const queryKey = getFeedBatchQueryKey(requestSignature, {
+  const queryState = buildFeedBatchRequestQueryState({
     articleFilter,
-    articleLimit: options?.articleLimit,
-    knownLastFetchedAtByUrl,
-    skipRefresh: options?.skipRefresh,
+    keepExistingFeed,
+    normalizedSources,
+    options,
+    requestHelpers,
   });
   const requestInfo = requestState.beginFeedRequest({
     forceRefresh,
     isBackground,
-    queryKey,
-    requestSignature,
+    queryKey: queryState.queryKey,
+    requestSignature: queryState.requestSignature,
   });
 
   return {
@@ -216,13 +211,44 @@ export function prepareFeedBatchRequestContext({
     batchQueryStaleTime: resolveFeedBatchStaleTime(options),
     isBackground,
     keepExistingFeed,
-    knownLastFetchedAtByUrl,
+    knownLastFetchedAtByUrl: queryState.knownLastFetchedAtByUrl,
     normalizedSources,
     options,
-    queryKey,
+    queryKey: queryState.queryKey,
     requestId: requestInfo.requestId,
-    requestSignature,
+    requestSignature: queryState.requestSignature,
     skippedDuplicate: requestInfo.skippedDuplicate,
     usePlaceholderData,
+  };
+}
+
+function buildFeedBatchRequestQueryState(options: {
+  articleFilter: ArticleFilter;
+  keepExistingFeed: boolean;
+  normalizedSources: FeedBatchSource[];
+  options?: FeedFetchOptions;
+  requestHelpers: FeedBatchRequestHelpers;
+}) {
+  const requestSignature = options.requestHelpers.buildRequestSignature(
+    options.normalizedSources,
+    options.options?.articleLimit,
+    options.options?.searchTerm,
+  );
+  const knownLastFetchedAtByUrl =
+    options.requestHelpers.getKnownLastFetchedAtByUrl(
+      options.normalizedSources,
+      options.keepExistingFeed,
+    );
+
+  return {
+    knownLastFetchedAtByUrl,
+    queryKey: getFeedBatchQueryKey(requestSignature, {
+      articleFilter: options.articleFilter,
+      articleLimit: options.options?.articleLimit,
+      knownLastFetchedAtByUrl,
+      searchTerm: options.options?.searchTerm,
+      skipRefresh: options.options?.skipRefresh,
+    }),
+    requestSignature,
   };
 }

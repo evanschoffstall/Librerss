@@ -4,6 +4,8 @@ import { type QueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
+import type { FeedBatchRequestHelpers } from "@/app/dashboard/dashboard-hooks/feed-loader/feedBatchRequestContext";
+
 import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 import {
   type FeedBatchSource,
@@ -35,14 +37,8 @@ interface FeedBatchQueryState {
 
 interface UseFeedBatchQueryOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
-  buildRequestSignature: (
-    normalizedSources: FeedBatchSource[],
-    articleLimit?: FeedFetchOptions["articleLimit"],
-  ) => string;
-  getKnownLastFetchedAtByUrl: (
-    normalizedSources: FeedBatchSource[],
-    keepExistingFeed: boolean,
-  ) => Map<string, Date> | undefined;
+  buildRequestSignature: FeedBatchRequestHelpers["buildRequestSignature"];
+  getKnownLastFetchedAtByUrl: FeedBatchRequestHelpers["getKnownLastFetchedAtByUrl"];
   queryClient: QueryClient;
   usePlaceholderData: boolean;
 }
@@ -94,43 +90,15 @@ export function useFeedBatchQuery({
     },
     [buildFeedBatchQueryOptions, queryClient],
   );
-  const prefetchFeedBatch = useCallback(
-    async (sources: FeedBatchSource[], options?: FeedFetchOptions) => {
-      const normalizedSources = normalizeFeedBatchSources(sources);
-      if (normalizedSources.length === 0 || usePlaceholderData) {
-        return;
-      }
+  const prefetchFeedBatch = useFeedBatchPrefetch({
+    articleFilter,
+    buildFeedBatchQueryOptions,
+    buildRequestSignature,
+    getKnownLastFetchedAtByUrl,
+    queryClient,
+    usePlaceholderData,
+  });
 
-      const prefetchRequest = buildPrefetchBatchRequest({
-        articleFilter,
-        buildRequestSignature,
-        getKnownLastFetchedAtByUrl,
-        normalizedSources,
-        options,
-      });
-
-      await queryClient.prefetchQuery(
-        buildFeedBatchQueryOptions(
-          normalizedSources,
-          prefetchRequest.queryKey,
-          {
-            ...options,
-            articleFilter,
-            articleLimit: options?.articleLimit,
-            knownLastFetchedAtByUrl: prefetchRequest.knownLastFetchedAtByUrl,
-          },
-        ),
-      );
-    },
-    [
-      articleFilter,
-      buildRequestSignature,
-      buildFeedBatchQueryOptions,
-      getKnownLastFetchedAtByUrl,
-      queryClient,
-      usePlaceholderData,
-    ],
-  );
   return { loadBatchResults, prefetchFeedBatch };
 }
 
@@ -154,6 +122,7 @@ function buildPrefetchBatchRequest({
   const requestSignature = buildRequestSignature(
     normalizedSources,
     options?.articleLimit,
+    options?.searchTerm,
   );
 
   return {
@@ -162,9 +131,69 @@ function buildPrefetchBatchRequest({
       articleFilter,
       articleLimit: options?.articleLimit,
       knownLastFetchedAtByUrl,
+      searchTerm: options?.searchTerm,
       skipRefresh: options?.skipRefresh,
     }),
   };
+}
+
+function useFeedBatchPrefetch(options: {
+  articleFilter: FeedFetchOptions["articleFilter"];
+  buildFeedBatchQueryOptions: ReturnType<
+    typeof useFeedBatchQueryOptionsBuilder
+  >;
+  buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
+  getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
+  queryClient: QueryClient;
+  usePlaceholderData: boolean;
+}) {
+  const {
+    articleFilter,
+    buildFeedBatchQueryOptions,
+    buildRequestSignature,
+    getKnownLastFetchedAtByUrl,
+    queryClient,
+    usePlaceholderData,
+  } = options;
+
+  return useCallback(
+    async (sources: FeedBatchSource[], requestOptions?: FeedFetchOptions) => {
+      const normalizedSources = normalizeFeedBatchSources(sources);
+      if (normalizedSources.length === 0 || usePlaceholderData) {
+        return;
+      }
+
+      const prefetchRequest = buildPrefetchBatchRequest({
+        articleFilter,
+        buildRequestSignature,
+        getKnownLastFetchedAtByUrl,
+        normalizedSources,
+        options: requestOptions,
+      });
+
+      await queryClient.prefetchQuery(
+        buildFeedBatchQueryOptions(
+          normalizedSources,
+          prefetchRequest.queryKey,
+          {
+            ...requestOptions,
+            articleFilter,
+            articleLimit: requestOptions?.articleLimit,
+            knownLastFetchedAtByUrl: prefetchRequest.knownLastFetchedAtByUrl,
+            searchTerm: requestOptions?.searchTerm,
+          },
+        ),
+      );
+    },
+    [
+      articleFilter,
+      buildFeedBatchQueryOptions,
+      buildRequestSignature,
+      getKnownLastFetchedAtByUrl,
+      queryClient,
+      usePlaceholderData,
+    ],
+  );
 }
 
 function useFeedBatchQueryOptionsBuilder({

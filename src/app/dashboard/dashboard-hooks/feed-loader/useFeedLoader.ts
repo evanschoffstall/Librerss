@@ -94,8 +94,9 @@ function useFeedBatchRequestHelpers(
     (
       normalizedSources: FeedBatchSource[],
       articleLimit?: FeedFetchOptions["articleLimit"],
+      searchTerm?: FeedFetchOptions["searchTerm"],
     ) => {
-      return `${articleFilter}:${articleLimit ?? "all-articles"}::${buildBatchRequestSignature(normalizedSources)}`;
+      return `${articleFilter}:${articleLimit ?? "all-articles"}:${searchTerm?.trim() ?? ""}::${buildBatchRequestSignature(normalizedSources)}`;
     },
     [articleFilter],
   );
