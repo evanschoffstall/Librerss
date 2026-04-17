@@ -5,19 +5,18 @@ import {
   jsonErrorWithReason,
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
-import {
-  type ArticleFilter,
-  isArticleFilter,
-} from "@/lib/core";
+import { type ArticleFilter, isArticleFilter } from "@/lib/core";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 import { getDb } from "@/lib/db";
 import { resolveUserProxy } from "@/lib/outbound-proxy";
 import {
+  type BatchRequestBody,
   type BatchRequestCompletedOptions,
   type BatchRequestState,
   type BatchUrlDescriptor,
+  buildBatchFetchRequestOptions,
+  buildBatchFetchResults,
   buildBatchIntent,
-  buildBatchResultItem,
   buildInvalidBatchResultResponse,
   createBatchSuccessResponse,
   ensureBatchUrlCount,
@@ -41,9 +40,6 @@ export interface BatchRouteDeps {
 }
 
 interface BatchFetchExecutionResult {
-  batchMap: Awaited<
-    ReturnType<typeof fetchAndCacheFeedArticlesBatch>
-  >["articles"];
   cachedCount: number;
   cooldownLimitedCount: number;
   lastFetchedByUrl: Awaited<
@@ -53,21 +49,10 @@ interface BatchFetchExecutionResult {
   resolution: Awaited<
     ReturnType<typeof fetchAndCacheFeedArticlesBatch>
   >["resolution"];
-  results: ReturnType<typeof buildBatchResultItem>[];
+  results: { articles: unknown[]; ok: boolean }[];
   upstreamErrors: Awaited<
     ReturnType<typeof fetchAndCacheFeedArticlesBatch>
   >["errors"];
-}
-
-interface BatchRequestBody {
-  articleFilter?: unknown;
-  articleLimit?: unknown;
-  forceRefresh?: unknown;
-  forceResolveUpstream?: unknown;
-  knownLastFetchedAtByUrl?: unknown;
-  requestSource?: unknown;
-  skipRefresh?: unknown;
-  urls?: unknown;
 }
 
 interface ResolvedBatchRequestState extends BatchRequestState {
@@ -83,11 +68,14 @@ interface ResolvedBatchRequestUrls {
   requestUrls: BatchUrlDescriptor[];
 }
 
+const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
+  serverApi;
+
 export async function POST(
   request: NextRequest,
   depsOrContext: BatchRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = serverApi.resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
+  const deps = resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
   const requestStartedAt = Date.now();
   try {
     const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
@@ -104,7 +92,7 @@ export async function POST(
     });
   } catch (error) {
     if (
-      error instanceof serverApi.ServerServiceError &&
+      error instanceof ServerServiceErrorCtor &&
       error.reason === "proxy-password-unreadable"
     ) {
       return jsonErrorWithReason(error.message, error.status, error.reason);
@@ -117,39 +105,43 @@ export async function POST(
   }
 }
 
-function buildBatchFetchRequestOptions(
-  options: Parameters<typeof executeBatchFetch>[0],
-  routeDeps: ReturnType<typeof resolveBatchRouteDependencies>,
-) {
+function buildBatchSuccessResponseOptions(options: {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  batchFetchResult: BatchFetchExecutionResult;
+  diagnosticsEnabled: boolean;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  intent: string;
+  invalidUrlCount: number;
+  normalizedUrls: string[];
+  requestSource: string;
+  requestStartedAt: number;
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+  userId: number;
+}): BatchRequestCompletedOptions {
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
-    ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
+    cachedCount: options.batchFetchResult.cachedCount,
+    cooldownLimitedCount: options.batchFetchResult.cooldownLimitedCount,
+    diagnosticsEnabled: options.diagnosticsEnabled,
     forceRefresh: options.forceRefresh,
-    knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
+    forceResolveUpstream: options.forceResolveUpstream,
+    intent: options.intent,
+    invalidUrlCount: options.invalidUrlCount,
+    normalizedUrls: options.normalizedUrls,
+    refreshedCount: options.batchFetchResult.refreshedCount,
     requestSource: options.requestSource,
-    resolveProxyTransport: () =>
-      resolveBatchProxyTransport({
-        resolveUserProxyForRoute: routeDeps.resolveUserProxyForRoute,
-        userId: options.userId,
-      }),
+    requestStartedAt: options.requestStartedAt,
+    resolution: options.batchFetchResult.resolution,
+    results: options.batchFetchResult.results,
+    searchTerm: options.searchTerm,
     skipRefresh: options.skipRefresh,
+    upstreamErrors: options.batchFetchResult.upstreamErrors,
+    userId: options.userId,
   };
-}
-
-function buildBatchFetchResults(options: {
-  requestUrls: BatchUrlDescriptor[];
-  response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;
-}) {
-  return options.requestUrls.map((item) =>
-    buildBatchResultItem({
-      batchMap: options.response.articles,
-      item,
-      lastFetchedByUrl: options.response.lastFetchedByUrl,
-      unchangedUrls: options.response.unchangedUrls,
-      upstreamErrors: options.response.errors,
-    }),
-  );
 }
 
 async function executeBatchFetch(options: {
@@ -162,6 +154,7 @@ async function executeBatchFetch(options: {
   normalizedUrls: string[];
   requestSource: string;
   requestUrls: BatchUrlDescriptor[];
+  searchTerm: string | undefined;
   skipRefresh: boolean;
   userId: number;
 }): Promise<BatchFetchExecutionResult> {
@@ -170,11 +163,24 @@ async function executeBatchFetch(options: {
     routeDeps.db,
     options.userId,
     options.normalizedUrls,
-    buildBatchFetchRequestOptions(options, routeDeps),
+    buildBatchFetchRequestOptions({
+      articleFilter: options.articleFilter,
+      articleLimit: options.articleLimit,
+      forceRefresh: options.forceRefresh,
+      forceResolveUpstream: options.forceResolveUpstream,
+      knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
+      requestSource: options.requestSource,
+      resolveProxyTransport: () =>
+        resolveBatchProxyTransport({
+          resolveUserProxyForRoute: routeDeps.resolveUserProxyForRoute,
+          userId: options.userId,
+        }),
+      searchTerm: options.searchTerm,
+      skipRefresh: options.skipRefresh,
+    }),
   );
 
   return {
-    batchMap: batchResponse.articles,
     cachedCount: batchResponse.cachedCount,
     cooldownLimitedCount: batchResponse.cooldownLimitedCount,
     lastFetchedByUrl: batchResponse.lastFetchedByUrl,
@@ -201,6 +207,7 @@ async function handleResolvedBatchPostRequest(options: {
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
     requestSource,
+    searchTerm,
     skipRefresh,
     user,
   } = options.requestState;
@@ -224,30 +231,29 @@ async function handleResolvedBatchPostRequest(options: {
     normalizedUrls,
     requestSource,
     requestUrls,
+    searchTerm,
     skipRefresh,
     userId: user.userId,
   });
 
-  return createBatchSuccessResponse({
-    articleFilter,
-    articleLimit,
-    cachedCount: batchFetchResult.cachedCount,
-    cooldownLimitedCount: batchFetchResult.cooldownLimitedCount,
-    diagnosticsEnabled: options.diagnosticsEnabled,
-    forceRefresh,
-    forceResolveUpstream,
-    intent,
-    invalidUrlCount,
-    normalizedUrls,
-    refreshedCount: batchFetchResult.refreshedCount,
-    requestSource,
-    requestStartedAt: options.requestStartedAt,
-    resolution: batchFetchResult.resolution,
-    results: batchFetchResult.results,
-    skipRefresh,
-    upstreamErrors: batchFetchResult.upstreamErrors,
-    userId: user.userId,
-  } satisfies BatchRequestCompletedOptions);
+  return createBatchSuccessResponse(
+    buildBatchSuccessResponseOptions({
+      articleFilter,
+      articleLimit,
+      batchFetchResult,
+      diagnosticsEnabled: options.diagnosticsEnabled,
+      forceRefresh,
+      forceResolveUpstream,
+      intent,
+      invalidUrlCount,
+      normalizedUrls,
+      requestSource,
+      requestStartedAt: options.requestStartedAt,
+      searchTerm,
+      skipRefresh,
+      userId: user.userId,
+    }),
+  );
 }
 
 function parseArticleFilter(value: unknown): ArticleFilter | Response {
@@ -341,6 +347,37 @@ function parseKnownLastFetchedAtByUrl(
   );
 }
 
+function parseSearchTerm(value: unknown): Response | string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return NextResponse.json(
+      {
+        error: "searchTerm must be a string when provided",
+      },
+      { status: 400 },
+    );
+  }
+
+  const normalizedValue = value.trim();
+  if (normalizedValue.length === 0) {
+    return undefined;
+  }
+
+  if (normalizedValue.length > CONFIG.MAX_ARTICLE_TITLE_LENGTH) {
+    return NextResponse.json(
+      {
+        error: `searchTerm must be at most ${CONFIG.MAX_ARTICLE_TITLE_LENGTH} characters`,
+      },
+      { status: 400 },
+    );
+  }
+
+  return normalizedValue;
+}
+
 function resolveBatchExecutionPreflight(options: {
   diagnosticsEnabled: boolean;
   requestState: ResolvedBatchRequestState;
@@ -351,6 +388,7 @@ function resolveBatchExecutionPreflight(options: {
     forceRefresh,
     forceResolveUpstream,
     requestSource,
+    searchTerm,
     skipRefresh,
     urls,
     user,
@@ -363,6 +401,7 @@ function resolveBatchExecutionPreflight(options: {
     forceRefresh,
     forceResolveUpstream,
     requestSource,
+    searchTerm,
     skipRefresh,
     urls,
     userId: user.userId,
@@ -459,6 +498,7 @@ async function resolveBatchRequestStateForPost(options: {
     parseArticleLimit,
     parseForceResolveUpstream,
     parseKnownLastFetchedAtByUrl,
+    parseSearchTerm,
   });
 
   return requestState instanceof Response
