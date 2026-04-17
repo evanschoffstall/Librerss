@@ -1,3 +1,4 @@
+import { normalizeHostname } from "./policy";
 import {
   cacheLookupResult,
   type DnsCacheEntry,
@@ -6,9 +7,7 @@ import {
   lookupWithTimeout,
   readCachedDnsResult,
   resolveDnsDepsWithRuntimeDefaults,
-} from "./dns-resolution";
-import { toErrorMessage } from "./errors";
-import { handleDnsLookupFailure, normalizeHostname } from "./ssrf";
+} from "./resolution";
 
 export interface DnsLookupContext {
   cachedResult: boolean | undefined;
@@ -72,13 +71,12 @@ export async function resolveBlockedAddressWithCache(options: {
       maxEntries,
     );
   } catch (error) {
-    return handleDnsLookupFailure({
+    return cacheDnsLookupFailure({
       cache,
       error,
       hostname: normalizedHostname,
       maxEntries,
       nowFn: resolvedDeps.nowFn,
-      toErrorMessageFn: toErrorMessage,
       warnFn: resolvedDeps.warnFn,
     });
   }
@@ -110,4 +108,34 @@ export function resolveDnsLookupContext(
     normalizedHostname,
     resolvedDeps,
   };
+}
+
+function cacheDnsLookupFailure(options: {
+  cache: Map<string, DnsCacheEntry>;
+  error: unknown;
+  hostname: string;
+  maxEntries: number;
+  nowFn: () => number;
+  warnFn: DnsResolveDeps["warnFn"];
+}): boolean {
+  options.warnFn("DNS lookup failed for feed validation", {
+    error: getDnsLookupErrorMessage(options.error),
+    hostname: options.hostname,
+  });
+
+  return cacheLookupResult(
+    options.cache,
+    options.hostname,
+    true,
+    options.nowFn() + 60_000,
+    options.maxEntries,
+  );
+}
+
+function getDnsLookupErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return typeof error === "string" ? error : String(error);
 }

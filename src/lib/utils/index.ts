@@ -7,13 +7,6 @@ export {
   sortArticleRecordsByPublicationDateDesc,
 } from "./article-records";
 export {
-  type DnsLookupContext,
-  type DnsLookupRuntimeDeps,
-  type DnsResolverDefaults,
-  resolveBlockedAddressWithCache,
-  resolveDnsLookupContext,
-} from "./blocked-address-resolver";
-export {
   DEFAULT_CATEGORY_LABEL,
   findCategoryByLabel,
   includesCategoryLabel,
@@ -35,17 +28,6 @@ export {
   parseDateOrFallback,
   parseDateOrNull,
 } from "./dates";
-export {
-  cacheLookupResult,
-  type DnsCacheEntry,
-  type DnsLookupFn,
-  type DnsLookupRecord,
-  type DnsResolveDeps,
-  lookupWithTimeout,
-  readCachedDnsResult,
-  resolveDnsDeps,
-  resolveDnsDepsWithRuntimeDefaults,
-} from "./dns-resolution";
 export { toError, toErrorMessage } from "./errors";
 export {
   decodeHttpResponseBody,
@@ -54,12 +36,6 @@ export {
 } from "./http-response";
 export { generateOpml, parseOpmlFeedImport } from "./opml";
 export type { OpmlFeedImportEntry } from "./opml";
-export {
-  handleDnsLookupFailure,
-  isBlockedHost,
-  isBlockedResolvedAddress,
-  normalizeHostname,
-} from "./ssrf";
 export {
   ensureProxyUrlHasExplicitPort,
   getUrlCredentials,
@@ -80,3 +56,8 @@ export {
   isStrongPassword,
   isValidEmail,
 } from "./validation";
+export {
+  isBlockedHost,
+  isBlockedResolvedAddress,
+  normalizeHostname,
+} from "@/lib/utils/dns";
