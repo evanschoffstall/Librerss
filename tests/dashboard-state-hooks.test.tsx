@@ -15,14 +15,15 @@ import {
   useLockDocumentScroll,
   useRevealSidebarOnMount,
 } from "@/app/dashboard/dashboard-hooks/useDashboardEffects";
-import { useDashboardEvents } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
+import {
+  runDashboardMarkAllReadCommand,
+  runDashboardRefreshCommand,
+} from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
 import { useDashboardHandlers } from "@/app/dashboard/dashboard-hooks/useDashboardHandlers";
-import { ArticleService } from "@/lib/api";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
 import { createIsolatedStorage } from "./test-storage";
 
-const originalMarkAllRead = ArticleService.markAllRead;
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
 const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
@@ -84,14 +85,10 @@ beforeEach(() => {
   window.cancelAnimationFrame = mock(
     () => {},
   ) as typeof window.cancelAnimationFrame;
-  ArticleService.markAllRead = mock(
-    async () => {},
-  ) as typeof ArticleService.markAllRead;
 });
 
 afterEach(() => {
   mock.restore();
-  ArticleService.markAllRead = originalMarkAllRead;
   if (originalFeedCacheTtlMinutes === undefined) {
     delete process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
   } else {
@@ -324,6 +321,7 @@ describe("useDashboardHandlers", () => {
         prefetchAllFeeds,
         prefetchCategoryFeeds,
         prefetchFeed,
+        searchTerm: "mars",
         selectedCategory: ALL_FEEDS_NODE_KEY,
         selectedCategoryNode: categoryNode,
         selectedFeedUrl: undefined,
@@ -341,12 +339,14 @@ describe("useDashboardHandlers", () => {
       forceRefresh: true,
       keepExistingFeed: true,
       requestSource: "manual-refresh",
+      searchTerm: "mars",
       skipRefresh: undefined,
     });
     expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
       forceRefresh: false,
       keepExistingFeed: true,
       requestSource: "auto-refresh",
+      searchTerm: "mars",
       skipRefresh: undefined,
     });
     expect(onBeforeRefresh).toHaveBeenCalledTimes(2);
@@ -368,17 +368,21 @@ describe("useDashboardHandlers", () => {
     expect(setIsMobileSidebarOpen).toHaveBeenCalledWith(false);
     expect(fetchCategoryFeeds).toHaveBeenCalledWith(categoryNode, {
       requestSource: "sidebar-category-select",
+      searchTerm: "mars",
     });
     expect(prefetchCategoryFeeds).toHaveBeenCalledWith(categoryNode, {
       requestSource: "sidebar-category-prefetch",
+      searchTerm: "mars",
     });
     expect(fetchFeed).toHaveBeenCalledWith("https://example.com/feed-1.xml", {
       requestSource: "sidebar-feed-select",
+      searchTerm: "mars",
     });
     expect(prefetchFeed).toHaveBeenCalledWith(
       "https://example.com/feed-1.xml",
       {
         requestSource: "sidebar-feed-prefetch",
+        searchTerm: "mars",
       },
     );
   });
@@ -386,145 +390,97 @@ describe("useDashboardHandlers", () => {
 
 describe("useDashboardEvents", () => {
   test("dispatches placeholder-mode events without calling the API mark-all-read endpoint", async () => {
+    const markAllRead = mock(async (_stream: string) => {});
     const onMarkAllReadLocally = mock(() => {});
-    const onMarkViewportRead = mock(async () => {});
-    const onOpenFeedsSidebar = mock(() => {});
-    const onOpenSettings = mock(() => {});
     const onRefresh = mock(async () => {});
-    const onSearchChange = mock(() => {});
-
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkAllReadLocally,
-        onMarkViewportRead,
-        onOpenFeedsSidebar,
-        onOpenSettings,
-        onRefresh,
-        onSearchChange,
-        selectedCategory: ALL_FEEDS_NODE_KEY,
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-        usePlaceholderData: true,
-      }),
-    );
 
     const starts: string[] = [];
     const ends: string[] = [];
-    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_START, () => {
-      starts.push("all");
-    });
-    window.addEventListener(DASHBOARD_EVENTS.MARK_ALL_READ_END, () => {
-      ends.push("all");
-    });
+    const eventTarget = {
+      dispatchEvent(event: Event) {
+        if (event.type === DASHBOARD_EVENTS.MARK_ALL_READ_START) {
+          starts.push("all");
+        }
+        if (event.type === DASHBOARD_EVENTS.MARK_ALL_READ_END) {
+          ends.push("all");
+        }
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ));
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ),
-      );
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH));
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, {
-          detail: { term: "mars" },
-        }),
-      );
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.OPEN_SETTINGS));
-      window.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR),
-      );
+    await runDashboardMarkAllReadCommand(eventTarget, {
+      markAllRead,
+      onMarkAllReadLocally,
+      onRefresh,
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+      selectedCategoryNode: undefined,
+      selectedFeedUrl: undefined,
+      usePlaceholderData: true,
     });
-
-    await waitFor(() => {
-      expect(onMarkAllReadLocally).toHaveBeenCalled();
-      expect(onMarkViewportRead).toHaveBeenCalled();
-      expect(onRefresh).toHaveBeenCalled();
-      expect(onSearchChange).toHaveBeenCalledWith("mars");
-    });
-
-    expect(onOpenSettings).toHaveBeenCalled();
-    expect(onOpenFeedsSidebar).toHaveBeenCalled();
-    expect(ArticleService.markAllRead).not.toHaveBeenCalled();
+    expect(onMarkAllReadLocally).toHaveBeenCalledTimes(1);
+    expect(onRefresh).not.toHaveBeenCalled();
+    expect(markAllRead).not.toHaveBeenCalled();
     expect(starts).toEqual(["all"]);
     expect(ends).toEqual(["all"]);
   });
 
   test("marks all read for the selected feed stream and refreshes afterward", async () => {
+    const markAllRead = mock(async (_stream: string) => {});
     const onRefresh = mock(async () => {});
+    const eventTarget = {
+      dispatchEvent() {
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead: mock(async () => {}),
-        onOpenFeedsSidebar: mock(() => {}),
-        onOpenSettings: mock(() => {}),
-        onRefresh,
-        onSearchChange: mock(() => {}),
-        selectedCategory: "feed-1",
-        selectedCategoryNode: createCategoryNode("News", "cat-news", [
-          createFeedNode("Feed A", "feed-a", true),
-        ]),
-        selectedFeedUrl: "https://example.com/feed.xml",
-        usePlaceholderData: false,
-      }),
-    );
-
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ));
+    await runDashboardMarkAllReadCommand(eventTarget, {
+      markAllRead,
+      onRefresh,
+      selectedCategory: "feed-1",
+      selectedCategoryNode: createCategoryNode("News", "cat-news", [
+        createFeedNode("Feed A", "feed-a", true),
+      ]),
+      selectedFeedUrl: "https://example.com/feed.xml",
+      usePlaceholderData: false,
     });
 
     await waitFor(() => {
-      expect(ArticleService.markAllRead).toHaveBeenCalledWith(
-        "feed/https://example.com/feed.xml",
-      );
+      expect(markAllRead).toHaveBeenCalledWith("feed/https://example.com/feed.xml");
       expect(onRefresh).toHaveBeenCalled();
     });
   });
 
   test("marks all feeds read for the synthetic all-feeds selection", async () => {
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead: mock(async () => {}),
-        onOpenFeedsSidebar: mock(() => {}),
-        onOpenSettings: mock(() => {}),
-        onRefresh: mock(async () => {}),
-        onSearchChange: mock(() => {}),
-        selectedCategory: ALL_FEEDS_NODE_KEY,
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-        usePlaceholderData: false,
-      }),
-    );
+    const markAllRead = mock(async (_stream: string) => {});
+    const eventTarget = {
+      dispatchEvent() {
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ));
+    await runDashboardMarkAllReadCommand(eventTarget, {
+      markAllRead,
+      onRefresh: mock(async () => {}),
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+      selectedCategoryNode: undefined,
+      selectedFeedUrl: undefined,
+      usePlaceholderData: false,
     });
 
     await waitFor(() => {
-      expect(ArticleService.markAllRead).toHaveBeenCalledWith(
-        READING_LIST_STREAM,
-      );
+      expect(markAllRead).toHaveBeenCalledWith(READING_LIST_STREAM);
     });
   });
 
   test("treats refresh events without detail as a normal refresh", async () => {
     const onRefresh = mock(async () => {});
+    const eventTarget = {
+      dispatchEvent() {
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead: mock(async () => {}),
-        onOpenFeedsSidebar: mock(() => {}),
-        onOpenSettings: mock(() => {}),
-        onRefresh,
-        onSearchChange: mock(() => {}),
-        selectedCategory: ALL_FEEDS_NODE_KEY,
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-        usePlaceholderData: false,
-      }),
-    );
-
-    await act(async () => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH));
-    });
+    await runDashboardRefreshCommand(eventTarget, onRefresh, undefined);
 
     await waitFor(() => {
       expect(onRefresh).toHaveBeenCalledWith({ forceResolveUpstream: false });

@@ -356,6 +356,7 @@ describe("dashboard pure service coverage", () => {
       orderedCategoryLabels: ["Custom", "Tech", "Disabled"],
       searchTerm: "needle",
       selectedCategory: "feed-2",
+      useLocalSearch: true,
     });
 
     expect(viewModel.filteredFeed.map((article) => article.link)).toEqual([
@@ -370,6 +371,37 @@ describe("dashboard pure service coverage", () => {
     ).toEqual(["All Feeds", "Tech"]);
     expect(viewModel.selectedFeed).toBe("Feed 2");
     expect(viewModel.selectedFeedUrl).toBeUndefined();
+  });
+
+  test("buildDashboardViewModel preserves server-backed live search results without local re-filtering", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({
+        content: "truncated preview without match",
+        id: 20,
+        link: "https://example.com/server-match",
+        title: "Server matched article",
+      }),
+    ];
+
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "needle",
+      selectedCategory: "feed-1",
+      useLocalSearch: false,
+    });
+
+    expect(viewModel.filteredFeed).toEqual(articles);
   });
 
   test("build batch outcomes and resolve batch results through both placeholder and fetch paths", async () => {

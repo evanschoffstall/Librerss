@@ -173,6 +173,7 @@ describe("dashboard structure services", () => {
       orderedCategoryLabels: ["Science", "Design", "News"],
       searchTerm: "alpha",
       selectedCategory: "feed-2",
+      useLocalSearch: true,
     });
 
     expect(viewModel.filteredFeed).toEqual([unreadArticle]);
