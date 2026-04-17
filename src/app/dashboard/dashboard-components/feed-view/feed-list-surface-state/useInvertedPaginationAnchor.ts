@@ -224,6 +224,7 @@ function createSyncInvertedPaginationAnchor({
     rearmInvertedLoadBoundary(
       hasRequestedServerLoadRef,
       isInvertedLoadBoundaryArmedRef,
+      anchorState.initialScrollTop,
       nextScrollTop,
     );
 
@@ -246,10 +247,12 @@ function createSyncInvertedPaginationAnchor({
 function rearmInvertedLoadBoundary(
   hasRequestedServerLoadRef: React.RefObject<boolean>,
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>,
+  anchorInitialScrollTop: number,
   nextScrollTop: number,
 ) {
   if (
     !hasRequestedServerLoadRef.current &&
+    anchorInitialScrollTop > FEED_INVERTED_LOAD_MORE_THRESHOLD_PX &&
     nextScrollTop > FEED_INVERTED_LOAD_MORE_THRESHOLD_PX
   ) {
     isInvertedLoadBoundaryArmedRef.current = true;

@@ -94,7 +94,8 @@ export const DashboardFeedScrollArea = React.forwardRef<
     const virtualizedListHeight = readFeedTotalListHeight(viewportElement);
     const effectiveScrollHeight = Math.max(
       clientHeight,
-      virtualizedListHeight ?? scrollHeight,
+      scrollHeight,
+      virtualizedListHeight ?? 0,
     );
     const maxScrollTop = effectiveScrollHeight - clientHeight;
 

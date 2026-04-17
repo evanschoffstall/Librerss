@@ -13,6 +13,7 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
+const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
 const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 144;
 const STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX = 24;
 const INVERTED_PAGINATION_RETRY_LIMIT = 8;
@@ -60,6 +61,13 @@ async function readStableRenderedCount(page: Page) {
   return previousCount ?? 0;
 }
 
+/** Enables mobile inverted scroll before the preview dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+}
+
 test.describe("dashboard mobile inverted pagination sequence", () => {
   test("keeps exact article counts and anchor position across four inverted paginations", async ({
     page,
@@ -69,6 +77,7 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
       width: 375,
     });
 
+    await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();

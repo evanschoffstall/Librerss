@@ -1,48 +1,20 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
 import {
   finalizePaginationBoundaryRearm,
   type PaginationBoundaryUserIntentOptions,
-  resetPaginationRuntimeState,
   shouldAbortPaginationBoundaryRearm,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 import { resolvePaginationBoundaryState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 
-type ResetPaginationRuntimeStateArgs = Omit<
-  ResetPaginationStateOptions,
-  | "articlesPerPage"
-  | "commitVisibleArticleCount"
-  | "filteredFeedLengthRef"
-  | "onResetInvertedScrollOwnership"
->;
-
-interface ResetPaginationStateOptions {
-  articlesPerPage: number;
-  clearServerLoadCooldown: () => void;
-  commitVisibleArticleCount: (nextVisibleCount: number) => void;
-  filteredFeedLengthRef: { current: number };
-  hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
+interface PendingServerRevealOptions {
   hasPendingServerRevealRef: { current: boolean };
-  hasRequestedServerLoadRef: { current: boolean };
   hasResolvedStandardViewportRevealRef: { current: boolean };
-  hasUserScrolledRef: { current: boolean };
-  isInvertedLoadBoundaryArmedRef: { current: boolean };
-  isStandardLoadBoundaryArmedRef: { current: boolean };
+  isInvertedScroll: boolean;
   isStandardViewportRefillActiveRef: { current: boolean };
-  lastAutoFillListHeightRef: { current: null | number };
   lastInvertedAwayBoundarySnapshotRef: { current: unknown };
   lastInvertedScrollTopRef: { current: null | number };
-  lastStandardScrollTopRef: { current: null | number };
-  onResetInvertedScrollOwnership: () => void;
-  paginationFrameRef: { current: null | number };
-  pendingInvertedPaginationAnchorSnapshotRef: { current: unknown };
-  previousFilteredFeedLengthRef: { current: number };
+  startServerLoadRearmCooldown: () => void;
 }
 
 export function useCollapsingArticlesRefSync(options: {
@@ -54,21 +26,20 @@ export function useCollapsingArticlesRefSync(options: {
   }, [options.hasCollapsingArticles, options.hasCollapsingArticlesRef]);
 }
 
-export function useFeedPaginationLoadingMoreRevealEffect(options: {
-  hasPendingServerRevealRef: { current: boolean };
-  hasResolvedStandardViewportRevealRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isLoadingMore: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  previousIsLoadingMoreRef: { current: boolean };
-  startServerLoadRearmCooldown: () => void;
-}) {
+export function useFeedPaginationLoadingMoreRevealEffect(
+  options: PendingServerRevealOptions & {
+    isLoadingMore: boolean;
+    previousIsLoadingMoreRef: { current: boolean };
+  },
+) {
   const {
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
     isLoadingMore,
     isStandardViewportRefillActiveRef,
+    lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef,
     previousIsLoadingMoreRef,
     startServerLoadRearmCooldown,
   } = options;
@@ -84,17 +55,22 @@ export function useFeedPaginationLoadingMoreRevealEffect(options: {
       return;
     }
 
-    hasPendingServerRevealRef.current = false;
-    startServerLoadRearmCooldown();
-
-    if (!isInvertedScroll && isStandardViewportRefillActiveRef.current) {
-      hasResolvedStandardViewportRevealRef.current = true;
-    }
+    completePendingServerReveal({
+      hasPendingServerRevealRef,
+      hasResolvedStandardViewportRevealRef,
+      isInvertedScroll,
+      isStandardViewportRefillActiveRef,
+      lastInvertedAwayBoundarySnapshotRef,
+      lastInvertedScrollTopRef,
+      startServerLoadRearmCooldown,
+    });
   }, [
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
     isLoadingMore,
+    lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef,
     isStandardViewportRefillActiveRef,
     previousIsLoadingMoreRef,
     startServerLoadRearmCooldown,
@@ -178,19 +154,16 @@ export function useFeedPaginationRefreshResetEffect(options: {
   ]);
 }
 
-export function useFeedPaginationRevealCountEffect(options: {
-  commitVisibleArticleCount: (nextVisibleCount: number) => void;
-  filteredFeedLength: number;
-  hasPendingServerRevealRef: { current: boolean };
-  hasRequestedServerLoadRef: { current: boolean };
-  hasResolvedStandardViewportRevealRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isLoadingMore: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  previousFilteredFeedLengthRef: { current: number };
-  startServerLoadRearmCooldown: () => void;
-  visibleArticleCountRef: { current: number };
-}) {
+export function useFeedPaginationRevealCountEffect(
+  options: PendingServerRevealOptions & {
+    commitVisibleArticleCount: (nextVisibleCount: number) => void;
+    filteredFeedLength: number;
+    hasRequestedServerLoadRef: { current: boolean };
+    isLoadingMore: boolean;
+    previousFilteredFeedLengthRef: { current: number };
+    visibleArticleCountRef: { current: number };
+  },
+) {
   const {
     commitVisibleArticleCount,
     filteredFeedLength,
@@ -200,6 +173,8 @@ export function useFeedPaginationRevealCountEffect(options: {
     isInvertedScroll,
     isLoadingMore,
     isStandardViewportRefillActiveRef,
+    lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef,
     previousFilteredFeedLengthRef,
     startServerLoadRearmCooldown,
     visibleArticleCountRef,
@@ -225,12 +200,15 @@ export function useFeedPaginationRevealCountEffect(options: {
       return;
     }
 
-    hasPendingServerRevealRef.current = false;
-    startServerLoadRearmCooldown();
-
-    if (!isInvertedScroll && isStandardViewportRefillActiveRef.current) {
-      hasResolvedStandardViewportRevealRef.current = true;
-    }
+    completePendingServerReveal({
+      hasPendingServerRevealRef,
+      hasResolvedStandardViewportRevealRef,
+      isInvertedScroll,
+      isStandardViewportRefillActiveRef,
+      lastInvertedAwayBoundarySnapshotRef,
+      lastInvertedScrollTopRef,
+      startServerLoadRearmCooldown,
+    });
 
     if (currentVisibleCount < filteredFeedLength) {
       commitVisibleArticleCount(filteredFeedLength);
@@ -243,6 +221,8 @@ export function useFeedPaginationRevealCountEffect(options: {
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
     isLoadingMore,
+    lastInvertedAwayBoundarySnapshotRef,
+    lastInvertedScrollTopRef,
     isStandardViewportRefillActiveRef,
     previousFilteredFeedLengthRef,
     startServerLoadRearmCooldown,
@@ -356,25 +336,6 @@ export function useRearmPaginationBoundaryFromUserIntent(
   ]);
 }
 
-export function useResetPaginationState(options: ResetPaginationStateOptions) {
-  const runtimeStateArgs = useResetPaginationRuntimeStateArgs(options);
-  return useCallback(() => {
-    resetPaginationStateAndCommit({
-      articlesPerPage: options.articlesPerPage,
-      commitVisibleArticleCount: options.commitVisibleArticleCount,
-      filteredFeedLength: options.filteredFeedLengthRef.current,
-      onResetInvertedScrollOwnership: options.onResetInvertedScrollOwnership,
-      runtimeStateArgs,
-    });
-  }, [
-    options.articlesPerPage,
-    options.commitVisibleArticleCount,
-    options.filteredFeedLengthRef,
-    options.onResetInvertedScrollOwnership,
-    runtimeStateArgs,
-  ]);
-}
-
 export function useResolvedStandardViewportRevealEffect(options: {
   filteredFeedLength: number;
   hasResolvedStandardViewportRevealRef: { current: boolean };
@@ -411,65 +372,18 @@ export function useVisibleArticleCountRefSync(options: {
   }, [options.visibleArticleCount, options.visibleArticleCountRef]);
 }
 
-function resetPaginationStateAndCommit(options: {
-  articlesPerPage: number;
-  commitVisibleArticleCount: (nextVisibleCount: number) => void;
-  filteredFeedLength: number;
-  onResetInvertedScrollOwnership: () => void;
-  runtimeStateArgs: ResetPaginationRuntimeStateArgs;
-}) {
-  resetPaginationRuntimeState({
-    ...options.runtimeStateArgs,
-    filteredFeedLength: options.filteredFeedLength,
-  });
-  options.commitVisibleArticleCount(options.articlesPerPage);
-  options.onResetInvertedScrollOwnership();
-}
+function completePendingServerReveal(options: PendingServerRevealOptions) {
+  options.hasPendingServerRevealRef.current = false;
+  if (options.isInvertedScroll) {
+    options.lastInvertedAwayBoundarySnapshotRef.current = null;
+    options.lastInvertedScrollTopRef.current = null;
+  }
+  options.startServerLoadRearmCooldown();
 
-function useResetPaginationRuntimeStateArgs(
-  options: ResetPaginationStateOptions,
-) {
-  return useMemo(
-    () => ({
-      clearServerLoadCooldown: options.clearServerLoadCooldown,
-      hasPendingBoundaryRearmAfterCooldownRef:
-        options.hasPendingBoundaryRearmAfterCooldownRef,
-      hasPendingServerRevealRef: options.hasPendingServerRevealRef,
-      hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
-      hasResolvedStandardViewportRevealRef:
-        options.hasResolvedStandardViewportRevealRef,
-      hasUserScrolledRef: options.hasUserScrolledRef,
-      isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
-      isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
-      isStandardViewportRefillActiveRef:
-        options.isStandardViewportRefillActiveRef,
-      lastAutoFillListHeightRef: options.lastAutoFillListHeightRef,
-      lastInvertedAwayBoundarySnapshotRef:
-        options.lastInvertedAwayBoundarySnapshotRef,
-      lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
-      lastStandardScrollTopRef: options.lastStandardScrollTopRef,
-      paginationFrameRef: options.paginationFrameRef,
-      pendingInvertedPaginationAnchorSnapshotRef:
-        options.pendingInvertedPaginationAnchorSnapshotRef,
-      previousFilteredFeedLengthRef: options.previousFilteredFeedLengthRef,
-    }),
-    [
-      options.clearServerLoadCooldown,
-      options.hasPendingBoundaryRearmAfterCooldownRef,
-      options.hasPendingServerRevealRef,
-      options.hasRequestedServerLoadRef,
-      options.hasResolvedStandardViewportRevealRef,
-      options.hasUserScrolledRef,
-      options.isInvertedLoadBoundaryArmedRef,
-      options.isStandardLoadBoundaryArmedRef,
-      options.isStandardViewportRefillActiveRef,
-      options.lastAutoFillListHeightRef,
-      options.lastInvertedAwayBoundarySnapshotRef,
-      options.lastInvertedScrollTopRef,
-      options.lastStandardScrollTopRef,
-      options.paginationFrameRef,
-      options.pendingInvertedPaginationAnchorSnapshotRef,
-      options.previousFilteredFeedLengthRef,
-    ],
-  );
+  if (
+    !options.isInvertedScroll &&
+    options.isStandardViewportRefillActiveRef.current
+  ) {
+    options.hasResolvedStandardViewportRevealRef.current = true;
+  }
 }

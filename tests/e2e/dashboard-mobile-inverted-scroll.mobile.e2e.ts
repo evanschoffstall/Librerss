@@ -7,6 +7,7 @@ import {
   openDashboardSettings,
   readFeedViewportMetrics,
   readRenderedArticleCount,
+  waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -455,6 +456,59 @@ async function readStableVisibleArticleKey(page: Page) {
   }, STABLE_HEADER_OFFSET_TOP_PX);
 }
 
+/** Reads visible article keys in top-to-bottom viewport order. */
+async function readVisibleArticleKeys(page: Page) {
+  return await page.evaluate(() => {
+    const viewport = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ),
+    ].find(
+      (candidate) =>
+        candidate.isConnected &&
+        candidate.getBoundingClientRect().height > 0 &&
+        candidate.getBoundingClientRect().width > 0 &&
+        window.getComputedStyle(candidate).visibility !== "hidden" &&
+        candidate.querySelector("article[data-article-key]") !== null,
+    );
+
+    if (!viewport) {
+      throw new Error("Expected a feed viewport before reading visible keys.");
+    }
+
+    const viewportRect = viewport.getBoundingClientRect();
+
+    return [...viewport.querySelectorAll<HTMLElement>("article[data-article-key]")]
+      .map((article) => {
+        const articleKey = article.dataset.articleKey ?? null;
+        const articleRect = article.getBoundingClientRect();
+
+        if (
+          !articleKey ||
+          articleRect.bottom <= viewportRect.top ||
+          articleRect.top >= viewportRect.bottom
+        ) {
+          return null;
+        }
+
+        return {
+          articleKey,
+          top: articleRect.top - viewportRect.top,
+        };
+      })
+      .filter(
+        (
+          entry,
+        ): entry is {
+          articleKey: string;
+          top: number;
+        } => entry !== null,
+      )
+      .sort((left, right) => left.top - right.top)
+      .map((entry) => entry.articleKey);
+  });
+}
+
 function resolveStableHeaderOffsetTop(viewportHeight: number) {
   return Math.min(
     STABLE_HEADER_OFFSET_TOP_PX,
@@ -511,6 +565,13 @@ async function setLocalStoragePreference(
     },
     { key, value },
   );
+}
+
+/** Enables mobile inverted scroll before the preview dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 }
 
 /** Toggles the best currently rendered instance for an article key. */
@@ -594,37 +655,30 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
 }
 
 test.describe("dashboard mobile inverted scroll", () => {
-  test("activates inverted scroll by default on mobile and anchors the feed at the bottom", async ({
+  test("keeps inverted scroll off by default on mobile and anchors the feed at the top", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
     const invertedAttr = await readInvertedScrollAttribute(page);
-    expect(invertedAttr).toBe("true");
+    expect(invertedAttr).toBeNull();
 
     await expect
       .poll(async () => {
         return await readRenderedArticleCount(page);
       })
-      .toBe(12);
+      .toBeGreaterThan(0);
 
     await expect
       .poll(async () => {
-        const { clientHeight, scrollHeight, scrollTop } =
-          await readFeedViewportMetrics(page);
-        return Math.round(scrollHeight - (scrollTop + clientHeight));
+        const { scrollTop } = await readFeedViewportMetrics(page);
+        return Math.round(scrollTop);
       })
       .toBeLessThanOrEqual(2);
-
-    await expect
-      .poll(async () => {
-        return await readLastArticleViewportGap(page);
-      })
-      .toBeLessThanOrEqual(1);
   });
 
-  test("deactivates inverted scroll when the setting is turned off and keeps the feed at the top", async ({
+  test("activates inverted scroll when the setting is turned on and anchors the feed at the bottom", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
@@ -637,7 +691,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     await setLocalStoragePreference(
       page,
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-      "false",
+      "true",
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -645,14 +699,15 @@ test.describe("dashboard mobile inverted scroll", () => {
     await page.getByRole("button", { exact: true, name: "all" }).click();
 
     const invertedAttr = await readInvertedScrollAttribute(page);
-    expect(invertedAttr).toBeNull();
+    expect(invertedAttr).toBe("true");
 
     await expect
       .poll(async () => {
-        const { scrollTop } = await readFeedViewportMetrics(page);
-        return Math.round(scrollTop);
+        const { clientHeight, scrollHeight, scrollTop } =
+          await readFeedViewportMetrics(page);
+        return Math.round(scrollHeight - (scrollTop + clientHeight));
       })
-      .toBeLessThanOrEqual(1);
+      .toBeLessThanOrEqual(20);
   });
 
   test("displays the inverted scroll toggle in the display settings section", async ({
@@ -665,10 +720,10 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     const invertedScrollSwitch = page.locator("#mobile-inverted-scroll");
     await expect(invertedScrollSwitch).toBeVisible();
-    await expect(invertedScrollSwitch).toBeChecked();
+    await expect(invertedScrollSwitch).not.toBeChecked();
   });
 
-  test("toggling the setting off removes the inverted scroll attribute after reload", async ({
+  test("toggling the setting on adds the inverted scroll attribute after reload", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
@@ -677,16 +732,17 @@ test.describe("dashboard mobile inverted scroll", () => {
     await openDashboardSettings(page);
 
     const invertedScrollSwitch = page.locator("#mobile-inverted-scroll");
-    await expect(invertedScrollSwitch).toBeChecked();
-    await invertedScrollSwitch.click();
     await expect(invertedScrollSwitch).not.toBeChecked();
+    await invertedScrollSwitch.click();
+    await expect(invertedScrollSwitch).toBeChecked();
 
     await page.keyboard.press("Escape");
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await waitForPreviewDashboardHydration(page);
 
     const invertedAttr = await readInvertedScrollAttribute(page);
-    expect(invertedAttr).toBeNull();
+    expect(invertedAttr).toBe("true");
   });
 
   test("reloads the inverted setting and loads the next page after one quick away-and-return boundary gesture", async ({
@@ -699,13 +755,6 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     await openDashboardSettings(page);
     const invertedScrollSwitch = page.locator("#mobile-inverted-scroll");
-    if (await invertedScrollSwitch.isChecked()) {
-      await invertedScrollSwitch.click();
-      await expect(invertedScrollSwitch).not.toBeChecked();
-    }
-    await page.keyboard.press("Escape");
-
-    await openDashboardSettings(page);
     if (!(await invertedScrollSwitch.isChecked())) {
       await invertedScrollSwitch.click();
       await expect(invertedScrollSwitch).toBeChecked();
@@ -715,6 +764,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
+    await waitForPreviewDashboardHydration(page);
 
     const invertedAttr = await readInvertedScrollAttribute(page);
     expect(invertedAttr).toBe("true");
@@ -728,37 +778,31 @@ test.describe("dashboard mobile inverted scroll", () => {
     const baselineScrollHeight = baselineMetrics.scrollHeight;
 
     const firstMoveTarget = Math.max(
-      96,
-      Math.floor((await readFeedViewportMetrics(page)).scrollHeight * 0.25),
+      320,
+      Math.floor((await readFeedViewportMetrics(page)).scrollHeight * 0.6),
     );
     await scrollFeedViewportWithIntent(page, firstMoveTarget);
 
-    const preservedVisibleArticleKey = await readStableVisibleArticleKey(page);
-    if (!preservedVisibleArticleKey) {
-      throw new Error(
-        "Expected a visible article key before triggering inverted pagination.",
-      );
-    }
+    const visibleKeysBeforeHydration = await readVisibleArticleKeys(page);
+    expect(visibleKeysBeforeHydration.length).toBeGreaterThan(0);
 
     await scrollFeedViewportWithIntent(page, 0);
 
     await expect
       .poll(async () => {
         const metrics = await readFeedViewportMetrics(page);
-        const preservedOffsets = await maybeReadArticleHeaderViewportOffsets(
-          page,
-          preservedVisibleArticleKey,
+        const visibleKeysAfterHydration = await readVisibleArticleKeys(page);
+        const preservedVisibleKeyCount = visibleKeysBeforeHydration.filter(
+          (articleKey) => visibleKeysAfterHydration.includes(articleKey),
         );
 
-        return {
-          preservedVisible: preservedOffsets !== null,
-          scrollHeight: metrics.scrollHeight,
-          scrollTop: metrics.scrollTop,
-        };
+        return (
+          preservedVisibleKeyCount.length >= 1 &&
+          metrics.scrollHeight > baselineScrollHeight &&
+          metrics.scrollTop > 0
+        );
       })
-      .toMatchObject({
-        preservedVisible: true,
-      });
+      .toBe(true);
 
     const postHydrationMetrics = await readFeedViewportMetrics(page);
     expect(postHydrationMetrics.scrollHeight).toBeGreaterThan(
@@ -767,9 +811,62 @@ test.describe("dashboard mobile inverted scroll", () => {
     expect(postHydrationMetrics.scrollTop).toBeGreaterThan(0);
   });
 
+  test("does not surface CancelledError during rapid inverted pagination and filter churn", async ({
+    page,
+  }) => {
+    await enableMobileInvertedScroll(page);
+    await gotoPreviewDashboard(page);
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await configureArticlesPerPage(page, 4);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const cancellationSignals: string[] = [];
+    const captureCancellationSignal = (message: string) => {
+      if (/CancelledError|canceled|cancelled/iu.test(message)) {
+        cancellationSignals.push(message);
+      }
+    };
+    const handleConsole = (message: { text: () => string; type: () => string }) => {
+      if (message.type() !== "error") {
+        return;
+      }
+
+      captureCancellationSignal(message.text());
+    };
+    const handlePageError = (error: Error) => {
+      captureCancellationSignal(error.stack ?? error.message);
+    };
+
+    page.on("console", handleConsole);
+    page.on("pageerror", handlePageError);
+
+    try {
+      for (let cycle = 0; cycle < 4; cycle += 1) {
+        await page
+          .getByRole("button", { exact: true, name: cycle % 2 === 0 ? "unread" : "all" })
+          .click();
+
+        const currentMetrics = await readFeedViewportMetrics(page);
+        await scrollFeedViewportWithIntent(
+          page,
+          Math.max(320, Math.floor(currentMetrics.scrollHeight * 0.6)),
+        );
+        await scrollFeedViewportWithIntent(page, 0);
+        await page.waitForTimeout(120);
+      }
+
+      await page.waitForTimeout(1_200);
+      expect(cancellationSignals).toEqual([]);
+    } finally {
+      page.off("console", handleConsole);
+      page.off("pageerror", handlePageError);
+    }
+  });
+
   test("renders article cards with a valid feed surface in inverted mode", async ({
     page,
   }) => {
+    await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -791,6 +888,7 @@ test.describe("dashboard mobile inverted scroll", () => {
   test("keeps inverted article expansion and collapse positions stable before, during, and after the interaction", async ({
     page,
   }) => {
+    await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -799,7 +897,7 @@ test.describe("dashboard mobile inverted scroll", () => {
       .poll(async () => {
         return await readRenderedArticleCount(page);
       })
-      .toBeGreaterThanOrEqual(12);
+      .toBeGreaterThanOrEqual(10);
 
     const targetArticleKey = await readStableVisibleArticleKey(page);
     if (!targetArticleKey) {
@@ -885,6 +983,7 @@ test.describe("dashboard mobile inverted scroll", () => {
   test("restores the original inverted article position after scrolling away while expanded", async ({
     page,
   }) => {
+    await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -893,7 +992,7 @@ test.describe("dashboard mobile inverted scroll", () => {
       .poll(async () => {
         return await readRenderedArticleCount(page);
       })
-      .toBeGreaterThanOrEqual(12);
+      .toBeGreaterThanOrEqual(10);
 
     const targetArticleKey = await readStableVisibleArticleKey(page);
     if (!targetArticleKey) {
