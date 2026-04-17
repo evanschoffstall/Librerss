@@ -6,7 +6,7 @@ import type { Article } from "@/lib/core";
 import {
   type ArticleMutationTracker,
   runOptimisticArticleStatusMutation,
-} from "@/app/dashboard/dashboard-hooks/article-status-mutation";
+} from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutation";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 
 interface UseArticleStarredStateOptions {

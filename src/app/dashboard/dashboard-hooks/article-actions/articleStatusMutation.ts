@@ -28,7 +28,9 @@ export interface OptimisticArticleStatusMutationResult {
   failedArticleKeys: Set<string>;
 }
 
-type ArticleStatusPatch = Parameters<typeof ArticleService.updateArticleStatus>[1];
+type ArticleStatusPatch = Parameters<
+  typeof ArticleService.updateArticleStatus
+>[1];
 
 interface OptimisticArticleStatusMutationOptions {
   applyOptimisticUpdate: (
@@ -52,9 +54,7 @@ interface OptimisticArticleStatusMutationOptions {
   usePlaceholderData: boolean;
 }
 
-/**
- * Shared optimistic mutation pipeline for dashboard article read/star state.
- */
+/** Shared optimistic mutation pipeline for dashboard article read/star state. */
 export async function runOptimisticArticleStatusMutation({
   applyOptimisticUpdate,
   articles,
@@ -116,22 +116,31 @@ export function useArticleMutationTracker(): ArticleMutationTracker {
     Record<string, number>
   >({});
 
-  const markUpdatingArticleKeys = useCallback((articleKeys: Iterable<string>) => {
-    setUpdatingArticleCounts((current) =>
-      applyUpdatingArticleDelta(current, articleKeys, 1),
-    );
-  }, []);
+  const markUpdatingArticleKeys = useCallback(
+    (articleKeys: Iterable<string>) => {
+      setUpdatingArticleCounts((current) =>
+        applyUpdatingArticleDelta(current, articleKeys, 1),
+      );
+    },
+    [],
+  );
 
-  const clearUpdatingArticleKeys = useCallback((articleKeys: Iterable<string>) => {
-    setUpdatingArticleCounts((current) =>
-      applyUpdatingArticleDelta(current, articleKeys, -1),
-    );
-  }, []);
+  const clearUpdatingArticleKeys = useCallback(
+    (articleKeys: Iterable<string>) => {
+      setUpdatingArticleCounts((current) =>
+        applyUpdatingArticleDelta(current, articleKeys, -1),
+      );
+    },
+    [],
+  );
 
   const updatingArticleState = useMemo(
     () =>
       Object.fromEntries(
-        Object.keys(updatingArticleCounts).map((articleKey) => [articleKey, true]),
+        Object.keys(updatingArticleCounts).map((articleKey) => [
+          articleKey,
+          true,
+        ]),
       ),
     [updatingArticleCounts],
   );
@@ -188,7 +197,10 @@ async function persistArticleStatusMutations(
 
   const results = await Promise.allSettled(
     articleEntries.map(([, article]) =>
-      ArticleService.updateArticleStatus(article.id, statusPatchForArticle(article)),
+      ArticleService.updateArticleStatus(
+        article.id,
+        statusPatchForArticle(article),
+      ),
     ),
   );
 
