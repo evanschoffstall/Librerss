@@ -55,6 +55,14 @@ export function FeedVirtualListRuntime({
   const invertedOffset = isInvertedFeedScrollMode(scrollMode)
     ? Math.max(0, containerHeight - totalSize)
     : 0;
+  const boundaryEntry = entries.find((entry) => entry.kind === "boundary");
+  const hasRenderedBoundary = virtualizer
+    .getVirtualItems()
+    .some((virtualItem) => entries[virtualItem.index]?.kind === "boundary");
+  const boundaryOffsetTop =
+    boundaryEntry === undefined
+      ? null
+      : resolveBoundaryOffsetTop(entries, totalSize, invertedOffset);
 
   useLayoutEffect(() => {
     if (lastReportedTotalSizeRef.current === totalSize) {
@@ -88,6 +96,17 @@ export function FeedVirtualListRuntime({
           virtualizer,
         });
       })}
+      {boundaryEntry !== undefined &&
+      !hasRenderedBoundary &&
+      boundaryOffsetTop !== null ? (
+        <FeedVirtualListBoundaryRow
+          index={entries.findIndex((entry) => entry.kind === "boundary")}
+          itemKey={boundaryEntry.key}
+          key={boundaryEntry.key}
+          loadMoreSentinelRef={loadMoreSentinelRef}
+          offsetTop={boundaryOffsetTop}
+        />
+      ) : null}
     </div>
   );
 }
@@ -131,6 +150,20 @@ function renderVirtualEntry(options: {
   ) : null;
 }
 
+function resolveBoundaryOffsetTop(
+  entries: FeedVirtualListRuntimeProps["entries"],
+  totalSize: number,
+  invertedOffset: number,
+) {
+  const boundaryIndex = entries.findIndex((entry) => entry.kind === "boundary");
+
+  if (boundaryIndex < 0) {
+    return null;
+  }
+
+  return boundaryIndex === 0 ? invertedOffset : totalSize - 1 + invertedOffset;
+}
+
 function resolveVirtualizerRect(scrollViewport: HTMLElement) {
   const rect = scrollViewport.getBoundingClientRect();
   return {
@@ -167,9 +200,12 @@ function useFeedVirtualizer(options: {
   return useVirtualizer({
     count: options.entries.length,
     estimateSize: (index) =>
-      options.entries[index]?.kind === "boundary" ? 1 : options.estimatedItemHeight,
+      options.entries[index]?.kind === "boundary"
+        ? 1
+        : options.estimatedItemHeight,
     getItemKey: (index) =>
-      options.entries[index]?.key ?? `${options.feedViewKey}:virtual-item:${index}`,
+      options.entries[index]?.key ??
+      `${options.feedViewKey}:virtual-item:${index}`,
     getScrollElement: () => options.scrollViewport,
     initialRect: resolveVirtualizerRect(options.scrollViewport),
     overscan,

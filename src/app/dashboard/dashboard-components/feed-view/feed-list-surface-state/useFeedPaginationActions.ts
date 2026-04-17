@@ -83,35 +83,48 @@ export function useExpandVisibleWindow(options: {
   articlesPerPage: number;
   commitVisibleArticleCount: (nextVisibleCount: number) => void;
   filteredFeedLengthRef: { current: number };
+  scheduleCachedPageReveal: (nextCount: number) => void;
   visibleArticleCountRef: { current: number };
 }) {
   const {
     articlesPerPage,
     commitVisibleArticleCount,
     filteredFeedLengthRef,
+    scheduleCachedPageReveal,
     visibleArticleCountRef,
   } = options;
-  return useCallback(() => {
-    const currentCount = visibleArticleCountRef.current;
-    const currentFilteredFeedLength = filteredFeedLengthRef.current;
-    const nextVisibleCount = resolveNextVisibleCount({
+  return useCallback(
+    (immediate = false) => {
+      const currentCount = visibleArticleCountRef.current;
+      const currentFilteredFeedLength = filteredFeedLengthRef.current;
+      const nextVisibleCount = resolveNextVisibleCount({
+        articlesPerPage,
+        currentVisibleCount: currentCount,
+        filteredFeedLength: currentFilteredFeedLength,
+      });
+
+      if (nextVisibleCount === currentCount) {
+        return false;
+      }
+
+      if (immediate) {
+        // Auto-fill uses immediate commit: no skeleton delay for viewport refills.
+        commitVisibleArticleCount(nextVisibleCount);
+      } else {
+        // Scroll-triggered expansion: show skeletons before revealing real articles
+        // so every pagination transition (cached or server) looks identical.
+        scheduleCachedPageReveal(nextVisibleCount);
+      }
+      return nextVisibleCount > currentCount;
+    },
+    [
       articlesPerPage,
-      currentVisibleCount: currentCount,
-      filteredFeedLength: currentFilteredFeedLength,
-    });
-
-    if (nextVisibleCount === currentCount) {
-      return false;
-    }
-
-    commitVisibleArticleCount(nextVisibleCount);
-    return nextVisibleCount > currentCount;
-  }, [
-    articlesPerPage,
-    commitVisibleArticleCount,
-    filteredFeedLengthRef,
-    visibleArticleCountRef,
-  ]);
+      commitVisibleArticleCount,
+      filteredFeedLengthRef,
+      scheduleCachedPageReveal,
+      visibleArticleCountRef,
+    ],
+  );
 }
 
 export function useHasReachedStandardLoadBoundary(options: {

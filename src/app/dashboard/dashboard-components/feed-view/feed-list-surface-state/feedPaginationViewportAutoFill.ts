@@ -5,7 +5,8 @@ const STANDARD_VIEWPORT_REFILL_SHRINK_THRESHOLD_PX = 1;
 export interface MaybeAutoFillViewportOptions {
   articleFilter: string;
   canLoadMoreFromServer: boolean;
-  expandVisibleWindow: () => boolean;
+  /** `immediate=true` skips the skeleton reveal delay used by scroll pagination. */
+  expandVisibleWindow: (immediate?: boolean) => boolean;
   filteredFeedLengthRef: { current: number };
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
@@ -114,7 +115,7 @@ function completeViewportAutoFill(options: {
 
 function finishViewportAutoFill(options: {
   currentFilteredFeedLength: number;
-  expandVisibleWindow: () => boolean;
+  expandVisibleWindow: (immediate?: boolean) => boolean;
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
   isInvertedScroll: boolean;
@@ -125,7 +126,8 @@ function finishViewportAutoFill(options: {
   if (
     options.visibleArticleCountRef.current < options.currentFilteredFeedLength
   ) {
-    options.expandVisibleWindow();
+    // Auto-fill uses immediate=true: viewport refills don't need skeleton delay.
+    options.expandVisibleWindow(true);
     return;
   }
 

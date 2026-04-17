@@ -65,6 +65,8 @@ const CONTENT_ENTER_TRANSITION = {
   duration: 0.35,
   ease: [0.16, 1, 0.3, 1] as const,
 };
+const isInvertedScrollFeatureEnabledInRuntime =
+  process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
 function syncViewportScrollTop(viewport: HTMLElement, top: number) {
   if (typeof viewport.scrollTo === "function") {
@@ -113,13 +115,13 @@ export const FeedList = memo(function FeedList({
   const isBelowDesktop = useIsBelowDesktop();
   const [mobileInvertedScroll] = useLocalStorage(
     MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-    true,
+    false,
   );
   const canLoadMoreFromServer =
     canLoadMoreFromServerProp ?? typeof onLoadMore === "function";
   const feedScrollMode = resolveFeedScrollMode(
     isBelowDesktop,
-    mobileInvertedScroll,
+    isInvertedScrollFeatureEnabledInRuntime && mobileInvertedScroll,
   );
   const isActiveInvertedScroll = isInvertedFeedScrollMode(feedScrollMode);
   const { resolvedTheme } = useTheme();
@@ -141,6 +143,7 @@ export const FeedList = memo(function FeedList({
     hasMoreArticles,
     hasSearchTerm,
     invertedPaginationAnchorRef,
+    isCachedPageRevealing,
     isInvertedScroll,
     loadMoreSentinelRef,
     maybeAutoFillViewport,
@@ -506,7 +509,7 @@ export const FeedList = memo(function FeedList({
                    * it fires at the correct virtual position.
                    */}
                   {isInvertedScroll &&
-                  isLoadingMore &&
+                  (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">
                       <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
@@ -614,7 +617,7 @@ export const FeedList = memo(function FeedList({
                     showLoadMoreBoundary={shouldShowLoadMoreBoundary}
                   />
                   {!isInvertedScroll &&
-                  isLoadingMore &&
+                  (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">
                       <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
@@ -632,7 +635,7 @@ export const FeedList = memo(function FeedList({
                   ) : null}
                   {isInvertedScroll &&
                   !hasMoreArticles &&
-                  isLoadingMore &&
+                  (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">
                       <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />
@@ -641,7 +644,7 @@ export const FeedList = memo(function FeedList({
                   {feedData.map(renderFeedRow)}
                   {!isInvertedScroll &&
                   !hasMoreArticles &&
-                  isLoadingMore &&
+                  (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">
                       <FeedLoadMoreSkeletonRows count={loadMoreSkeletonCount} />

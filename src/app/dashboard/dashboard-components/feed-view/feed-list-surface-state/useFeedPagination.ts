@@ -52,10 +52,18 @@ export function useFeedPagination(options: UseFeedPaginationOptions) {
     scrollViewport: options.scrollViewport,
   });
   useFeedPaginationEffects(
-    buildFeedPaginationEffectsOptions(options, canLoadMoreFromServer, controllers),
+    buildFeedPaginationEffectsOptions(
+      options,
+      canLoadMoreFromServer,
+      controllers,
+    ),
   );
   return useFeedPaginationRuntime(
-    buildFeedPaginationRuntimeOptions(options, canLoadMoreFromServer, controllers),
+    buildFeedPaginationRuntimeOptions(
+      options,
+      canLoadMoreFromServer,
+      controllers,
+    ),
   );
 }
 
