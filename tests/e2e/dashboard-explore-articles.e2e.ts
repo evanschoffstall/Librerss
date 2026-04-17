@@ -9,6 +9,7 @@ import {
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
   toggleArticle,
+  waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -17,6 +18,23 @@ function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   return article.locator(
     "xpath=ancestor::*[@data-radix-scroll-area-viewport][1]",
   );
+}
+
+/** Toggles the currently visible article surface without recentering it first. */
+async function toggleVisibleArticleSurface(article: ReturnType<typeof articleCard>) {
+  const previousExpandedState = await article.getAttribute("aria-expanded");
+
+  await article.evaluate((node) => {
+    if (!(node instanceof HTMLElement)) {
+      throw new Error("Expected the article surface to resolve to an element.");
+    }
+
+    node.click();
+  });
+
+  await expect
+    .poll(async () => await article.getAttribute("aria-expanded"))
+    .not.toBe(previousExpandedState);
 }
 
 test.describe("dashboard explore article interactions", () => {
@@ -94,6 +112,74 @@ test.describe("dashboard explore article interactions", () => {
       "article header after collapse",
     );
     expect(initialScrollTop).toBeGreaterThanOrEqual(0);
+  });
+
+  test("restores the pre-expand viewport offset after collapsing from the bottom of a hydrated article", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
+    const initialScrollTop = Math.max(
+      0,
+      Math.min(900, scrollHeight - clientHeight - 24),
+    );
+
+    if (initialScrollTop > 0) {
+      await setFeedViewportScrollTop(page, initialScrollTop);
+    }
+
+    const renderedArticleCount = await page
+      .locator("article[data-article-key]:visible")
+      .count();
+    const articleIndex = Math.max(0, renderedArticleCount - 2);
+    const articleKey = await readArticleKey(articleCard(page, articleIndex));
+    const article = articleCardByKey(page, articleKey);
+
+    await toggleVisibleArticleSurface(article);
+    await expectArticleExpanded(article, true);
+    await expect
+      .poll(async () => {
+        return await article
+          .locator('[data-article-hydration-state="loading"]')
+          .count();
+      })
+      .toBe(0);
+
+    const deepScrollTop = await article.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected the article surface to resolve to an element.");
+      }
+
+      const viewport = node.closest("[data-radix-scroll-area-viewport]");
+
+      if (!(viewport instanceof HTMLElement)) {
+        throw new Error("Expected the expanded article to stay inside a feed viewport.");
+      }
+
+      const articleRect = node.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const articleBottomOffset = articleRect.bottom - viewportRect.top;
+      const nextScrollTop =
+        viewport.scrollTop +
+        Math.max(0, articleBottomOffset - viewport.clientHeight + 16);
+
+      viewport.scrollTop = nextScrollTop;
+      viewport.dispatchEvent(new Event("scroll"));
+
+      return viewport.scrollTop;
+    });
+
+    expect(deepScrollTop).toBeGreaterThan(initialScrollTop);
+
+    await toggleVisibleArticleSurface(article);
+    await expectArticleExpanded(article, false);
+
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBeCloseTo(initialScrollTop, 1);
   });
 
   test("keeps a single expanded article when switching between explore cards", async ({

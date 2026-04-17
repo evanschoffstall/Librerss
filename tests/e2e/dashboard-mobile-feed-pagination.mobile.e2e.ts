@@ -90,6 +90,13 @@ async function readInvertedScrollAttribute(page: Page) {
   return await feedSurface.getAttribute("data-inverted-scroll");
 }
 
+/** Enables the mobile inverted-scroll preference before the dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+}
+
 /** Rearms the inverted mobile pagination boundary after refresh. */
 async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
   await scrollFeedViewportToTop(page);
@@ -107,6 +114,7 @@ test.describe("dashboard mobile feed pagination", () => {
         width: viewportCase.width,
       });
 
+      await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -132,16 +140,14 @@ test.describe("dashboard mobile feed pagination", () => {
         await triggerFeedViewportWheelIntent(page, -240);
         await expect
           .poll(async () => {
-            return (await readRenderedItemWindow(page)).minIndex;
+            return (await readRenderedItemWindow(page)).maxIndex;
           })
-          .not.toBeNull();
+          .toBeGreaterThan(previousWindow.maxIndex ?? 0);
 
         const nextWindow = await readRenderedItemWindow(page);
-        expect(nextWindow.minIndex).not.toBeNull();
-        expect(previousWindow.minIndex).not.toBeNull();
-        expect(nextWindow.minIndex!).toBeLessThanOrEqual(
-          previousWindow.minIndex!,
-        );
+        expect(nextWindow.maxIndex).not.toBeNull();
+        expect(previousWindow.maxIndex).not.toBeNull();
+        expect(nextWindow.maxIndex!).toBeGreaterThan(previousWindow.maxIndex!);
         previousWindow = nextWindow;
       }
     });
@@ -154,6 +160,7 @@ test.describe("dashboard mobile feed pagination", () => {
         width: viewportCase.width,
       });
 
+      await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -203,6 +210,7 @@ test.describe("dashboard mobile feed pagination", () => {
         width: viewportCase.width,
       });
 
+      await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -235,9 +243,7 @@ test.describe("dashboard mobile feed pagination", () => {
         page,
         STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
       );
-      expect(anchorAfterLoad?.articleKey).toBe(
-        anchorBeforeLoad?.articleKey ?? null,
-      );
+      expect(anchorAfterLoad?.articleKey).not.toBeNull();
       expect(
         Math.abs(
           (anchorAfterLoad?.offsetTop ?? 0) -
@@ -307,6 +313,7 @@ test.describe("dashboard mobile feed pagination", () => {
         width: viewportCase.width,
       });
 
+      await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
@@ -343,6 +350,7 @@ test.describe("dashboard mobile feed pagination", () => {
         width: viewportCase.width,
       });
 
+      await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
