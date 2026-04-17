@@ -4,6 +4,7 @@ import { type QueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
 import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
+import { isCanceledBatchRequest } from "@/app/dashboard/dashboard-services/feed-loader-state";
 
 interface BeginFeedRequestOptions {
   forceRefresh: boolean;
@@ -73,14 +74,24 @@ function cancelActiveFeedBatchQuery(
   activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>,
   queryClient: QueryClient,
 ) {
-  if (!activeRequestQueryKeyRef.current) {
+  const activeRequestQueryKey = activeRequestQueryKeyRef.current;
+
+  if (!activeRequestQueryKey) {
     return;
   }
 
-  void queryClient.cancelQueries({
-    exact: true,
-    queryKey: activeRequestQueryKeyRef.current,
-  });
+  void queryClient
+    .cancelQueries({
+      exact: true,
+      queryKey: activeRequestQueryKey,
+    })
+    .catch((error: unknown) => {
+      if (isCanceledBatchRequest(error)) {
+        return;
+      }
+
+      console.error("Failed to cancel active feed batch query", error);
+    });
 }
 
 function resetActiveFeedRequest(
