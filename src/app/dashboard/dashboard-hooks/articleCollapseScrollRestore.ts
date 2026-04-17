@@ -51,40 +51,16 @@ export function createCollapseScrollRestoreRuntime({
       release,
     );
   };
-  const scheduleViewportSync = () =>
-    { scheduleCollapseViewportSync(state, syncViewportScroll); };
-
-  function syncViewportScroll() {
-    const currentViewport = resolveCollapseRestoreViewport(
-      articleKey,
-      state.activeViewport,
-    );
-
-    if (!currentViewport) {
-      release();
-      return;
-    }
-
-    adoptViewport(currentViewport);
-
-    if (!state.activeViewport.isConnected) {
-      release();
-      return;
-    }
-
-    if (
-      Math.abs(state.activeViewport.scrollTop - state.viewportScrollTop) > 1
-    ) {
-      state.activeViewport.scrollTop = state.viewportScrollTop;
-    }
-
-    if (performance.now() >= state.releaseAt) {
-      release();
-      return;
-    }
-
-    scheduleViewportSync();
-  }
+  const scheduleViewportSync = () => {
+    scheduleCollapseViewportSync(state, syncViewportScroll);
+  };
+  const syncViewportScroll = createCollapseViewportSync({
+    adoptViewport,
+    articleKey,
+    release,
+    scheduleViewportSync,
+    state,
+  });
 
   initializeCollapseScrollRestore(state, reconnectLayoutObservers, release);
 
@@ -142,6 +118,49 @@ function createCollapseScrollRestoreState(
       ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
       ARTICLE_SCROLL_RESTORE_BUFFER_MS,
     viewportScrollTop,
+  };
+}
+
+function createCollapseViewportSync(options: {
+  adoptViewport: (nextViewport: HTMLElement) => void;
+  articleKey: string;
+  release: () => void;
+  scheduleViewportSync: () => void;
+  state: ReturnType<typeof createCollapseScrollRestoreState>;
+}) {
+  return function syncViewportScroll() {
+    const currentViewport = resolveCollapseRestoreViewport(
+      options.articleKey,
+      options.state.activeViewport,
+    );
+
+    if (!currentViewport) {
+      options.release();
+      return;
+    }
+
+    options.adoptViewport(currentViewport);
+
+    if (!options.state.activeViewport.isConnected) {
+      options.release();
+      return;
+    }
+
+    if (
+      Math.abs(
+        options.state.activeViewport.scrollTop -
+          options.state.viewportScrollTop,
+      ) > 1
+    ) {
+      options.state.activeViewport.scrollTop = options.state.viewportScrollTop;
+    }
+
+    if (performance.now() >= options.state.releaseAt) {
+      options.release();
+      return;
+    }
+
+    options.scheduleViewportSync();
   };
 }
 

@@ -1,4 +1,10 @@
-import { type Dispatch, type SetStateAction, useCallback } from "react";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import type { Article } from "@/lib/core";
 
@@ -48,12 +54,16 @@ export function useExpandedArticleCollapse({
   startRemovalAnimation,
   updatingArticleState,
 }: UseExpandedArticleCollapseOptions) {
+  const queueCollapseScrollRestore = usePendingCollapseScrollRestore({
+    expandedArticleKey,
+    restoreCollapseScrollPosition,
+  });
   const collapseExpandedArticle = useCollapseExpandedArticle({
     articleFilter,
     cancelHydration,
     clearExpandedArticleHydrationTracking,
     clearRemovalAnimation,
-    restoreCollapseScrollPosition,
+    queueCollapseScrollRestore,
     setExpandedArticleKey,
     startRemovalAnimation,
   });
@@ -88,7 +98,7 @@ function useCollapseExpandedArticle({
   cancelHydration,
   clearExpandedArticleHydrationTracking,
   clearRemovalAnimation,
-  restoreCollapseScrollPosition,
+  queueCollapseScrollRestore,
   setExpandedArticleKey,
   startRemovalAnimation,
 }: Pick<
@@ -97,10 +107,11 @@ function useCollapseExpandedArticle({
   | "cancelHydration"
   | "clearExpandedArticleHydrationTracking"
   | "clearRemovalAnimation"
-  | "restoreCollapseScrollPosition"
   | "setExpandedArticleKey"
   | "startRemovalAnimation"
->) {
+> & {
+  queueCollapseScrollRestore: (articleKey: string) => void;
+}) {
   return useCallback(
     (
       article: Article,
@@ -116,7 +127,7 @@ function useCollapseExpandedArticle({
         clearRemovalAnimation(articleKey);
       }
 
-      restoreCollapseScrollPosition(articleKey);
+      queueCollapseScrollRestore(articleKey);
       setExpandedArticleKey((current) =>
         current === articleKey ? null : current,
       );
@@ -131,7 +142,7 @@ function useCollapseExpandedArticle({
       cancelHydration,
       clearExpandedArticleHydrationTracking,
       clearRemovalAnimation,
-      restoreCollapseScrollPosition,
+      queueCollapseScrollRestore,
       setExpandedArticleKey,
       startRemovalAnimation,
     ],
@@ -239,4 +250,36 @@ function useMarkExpandedArticleReadIfNeeded({
     },
     [setArticleReadState, updatingArticleState],
   );
+}
+
+/**
+ * Defers collapse scroll restoration until the collapsed DOM state is committed.
+ *
+ * Restoring during the click handler can be overwritten while the expanded row
+ * is still mounted, especially after hydration grows the article and the user
+ * collapses from deep inside the content body.
+ */
+function usePendingCollapseScrollRestore({
+  expandedArticleKey,
+  restoreCollapseScrollPosition,
+}: Pick<
+  UseExpandedArticleCollapseOptions,
+  "expandedArticleKey" | "restoreCollapseScrollPosition"
+>) {
+  const pendingCollapseRestoreKeyRef = useRef<null | string>(null);
+
+  useLayoutEffect(() => {
+    const pendingCollapseRestoreKey = pendingCollapseRestoreKeyRef.current;
+
+    if (!pendingCollapseRestoreKey || expandedArticleKey !== null) {
+      return;
+    }
+
+    pendingCollapseRestoreKeyRef.current = null;
+    restoreCollapseScrollPosition(pendingCollapseRestoreKey);
+  }, [expandedArticleKey, restoreCollapseScrollPosition]);
+
+  return useCallback((articleKey: string) => {
+    pendingCollapseRestoreKeyRef.current = articleKey;
+  }, []);
 }
