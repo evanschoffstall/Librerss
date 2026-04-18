@@ -558,6 +558,92 @@ describe("useFeedLoader", () => {
       queryClient.clear();
     }
   });
+
+  test("restores previous articles when a batch fetch fails with a transient error (e.g. 504)", async () => {
+    // Verify that a fetch failure (non-cancellation, non-superseded) does not
+    // leave the user staring at an empty list after clearStaleFeedBeforeRefresh
+    // cleared the feed in anticipation of a successful response.
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    const feedUrl = "https://example.com/feed-504.xml";
+    const existingArticle: Article = {
+      content: "Pre-existing article body",
+      feedId: 20,
+      feedName: "Existing Feed",
+      feedUrl,
+      id: 701,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-04-01T10:00:00.000Z"),
+      link: "https://example.com/articles/existing-504",
+      publicationDate: new Date("2026-04-01T09:59:00.000Z"),
+      title: "Pre-existing article",
+    };
+    let feedState: Article[] = [existingArticle];
+    const feedRef = { current: feedState };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    // Simulate a 504 Gateway Timeout: the API call rejects with a non-cancellation error.
+    const gatewayTimeoutError = Object.assign(new Error("Request failed with status code 504"), {
+      name: "ApiError",
+      status: 504,
+    });
+    FeedService.getFeedsBatch = mock(async () => {
+      throw gatewayTimeoutError;
+    }) as typeof FeedService.getFeedsBatch;
+
+    // Suppress the expected console.error noise from the error handler.
+    console.error = mock(() => {});
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(feedUrl, {
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+        });
+      });
+
+      // After the 504 failure, the feed must be restored to the pre-clear state.
+      // An empty feedState here means the user sees a blank list — that is the bug.
+      await waitFor(() => {
+        expect(feedState.length).toBeGreaterThan(0);
+        expect(feedState[0]?.title).toBe(existingArticle.title);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
 });
 
 describe("useDashboardEvents", () => {
