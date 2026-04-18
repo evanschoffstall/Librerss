@@ -16,6 +16,7 @@ import {
   classifyFeedBatchError,
   type FeedBatchResult,
   isCanceledBatchRequest,
+  isHandledFeedBatchError,
   resolveFeedBatchStaleTime,
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
@@ -80,7 +81,9 @@ export function useFeedBatchQuery({
           return null;
         }
 
-        console.error("Batch feed fetch error:", error);
+        if (!isHandledFeedBatchError(error)) {
+          console.error("Batch feed fetch error:", error);
+        }
         if (!silent) {
           const { description, title } = classifyFeedBatchError(error);
           toast.error(title, { description });
