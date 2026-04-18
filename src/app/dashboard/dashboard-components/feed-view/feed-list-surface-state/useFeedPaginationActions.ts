@@ -313,6 +313,12 @@ function maybeLoadStandardNextPage(options: {
   isStandardLoadBoundaryArmedRef: { current: boolean };
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
 }) {
+  console.log("[skeleton-debug] maybeLoadStandardNextPage", {
+    currentVisibleCount: options.currentVisibleCount,
+    currentFilteredFeedLength: options.currentFilteredFeedLength,
+    hasReachedBoundary: options.hasReachedStandardLoadBoundary(),
+    isArmed: options.isStandardLoadBoundaryArmedRef.current,
+  });
   if (
     !options.hasReachedStandardLoadBoundary() ||
     !options.isStandardLoadBoundaryArmedRef.current
@@ -322,11 +328,13 @@ function maybeLoadStandardNextPage(options: {
 
   if (options.currentVisibleCount >= options.currentFilteredFeedLength) {
     if (options.requestMoreFromServer()) {
+      console.log("[skeleton-debug] server load path taken");
       options.isStandardLoadBoundaryArmedRef.current = false;
     }
     return;
   }
 
+  console.log("[skeleton-debug] local expand path taken");
   if (options.expandVisibleWindow()) {
     options.isStandardLoadBoundaryArmedRef.current = false;
   }

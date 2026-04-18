@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { useResetPaginationState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationResetState";
 import { useFeedPaginationLocalState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationLocalState";
@@ -8,6 +8,7 @@ import {
   useFeedPaginationRuntimeViewportEffects,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationOrchestration";
 import { useFeedPaginationServerLoad } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
+import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import {
   useCollapsingArticlesRefSync,
   useFeedPaginationLoadingMoreRevealEffect,
@@ -165,11 +166,26 @@ export function useFeedPaginationRuntime(
     shouldObserveLoadMoreBoundary:
       runtimeViewport.shouldObserveLoadMoreBoundary,
   });
+  useCachedRevealCompletionEffect({
+    isCachedPageRevealing: options.controllers.localState.isCachedPageRevealing,
+    isInvertedLoadBoundaryArmedRef:
+      options.controllers.localState.isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll: options.isInvertedScroll,
+    isStandardLoadBoundaryArmedRef:
+      options.controllers.localState.isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPage: runtimeActions.maybeLoadNextPage,
+    paginationFrameRef: options.controllers.localState.paginationFrameRef,
+  });
+
+  const isServerLoadSkeletonActive = useServerLoadSkeletonHold(
+    options.isLoadingMore,
+  );
 
   return {
     invertedPaginationAnchorRef:
       options.controllers.anchorState.invertedPaginationAnchorRef,
     isCachedPageRevealing: options.controllers.localState.isCachedPageRevealing,
+    isServerLoadSkeletonActive,
     loadMoreSentinelRef: options.controllers.localState.loadMoreSentinelRef,
     maybeAutoFillViewport: runtimeActions.maybeAutoFillViewport,
     shouldUseVirtualizedFeed: runtimeViewport.shouldUseVirtualizedFeed,
@@ -177,6 +193,59 @@ export function useFeedPaginationRuntime(
       options.controllers.anchorState.syncInvertedPaginationAnchor,
     visibleArticleCount: options.controllers.localState.visibleArticleCount,
   };
+}
+
+/**
+ * Detects the `isCachedPageRevealing` true → false transition (a cached
+ * reveal just completed) and proactively re-arms the load boundary and
+ * schedules a follow-up pagination check. Without this, if the user stops
+ * scrolling at the boundary the IntersectionObserver sentinel will not
+ * re-fire and scroll events will not arrive, permanently deadlocking
+ * pagination.
+ */
+function useCachedRevealCompletionEffect(options: {
+  isCachedPageRevealing: boolean;
+  isInvertedLoadBoundaryArmedRef: { current: boolean };
+  isInvertedScroll: boolean;
+  isStandardLoadBoundaryArmedRef: { current: boolean };
+  maybeLoadNextPage: (_trigger: "scroll" | "sentinel") => void;
+  paginationFrameRef: { current: null | number };
+}) {
+  const previousRevealingRef = useRef(false);
+
+  useLayoutEffect(() => {
+    const wasRevealing = previousRevealingRef.current;
+    previousRevealingRef.current = options.isCachedPageRevealing;
+
+    if (!wasRevealing || options.isCachedPageRevealing) {
+      return;
+    }
+
+    // Reveal just completed — re-arm the load boundary so the sentinel or
+    // the next scroll event can trigger another page if needed.
+    if (options.isInvertedScroll) {
+      options.isInvertedLoadBoundaryArmedRef.current = true;
+    } else {
+      options.isStandardLoadBoundaryArmedRef.current = true;
+    }
+
+    // Schedule a deferred pagination check after the DOM has committed the
+    // revealed articles. This covers the case where the user is still at
+    // the load boundary and no further scroll events will arrive.
+    if (options.paginationFrameRef.current === null) {
+      options.paginationFrameRef.current = window.requestAnimationFrame(() => {
+        options.paginationFrameRef.current = null;
+        options.maybeLoadNextPage("sentinel");
+      });
+    }
+  }, [
+    options.isCachedPageRevealing,
+    options.isInvertedLoadBoundaryArmedRef,
+    options.isInvertedScroll,
+    options.isStandardLoadBoundaryArmedRef,
+    options.maybeLoadNextPage,
+    options.paginationFrameRef,
+  ]);
 }
 
 function useFeedPaginationBoundaryControllers(
@@ -295,4 +364,51 @@ function useFeedPaginationRevealEffects(
     visibleArticleCount: localState.visibleArticleCount,
     visibleArticleCountRef: localState.visibleArticleCountRef,
   });
+}
+
+/**
+ * Extends the `isLoadingMore` signal so load-more skeletons stay visible for
+ * at least {@link SKELETON_MIN_VISIBLE_MS} after the dashboard controller
+ * clears `isLoadingMore`. When server data is prefetched, the controller
+ * can clear the flag within a single effect cycle — far too fast for the user
+ * to perceive the skeleton transition.
+ */
+function useServerLoadSkeletonHold(isLoadingMore: boolean): boolean {
+  const [isHolding, setIsHolding] = useState(false);
+  const holdTimerRef = useRef<null | ReturnType<typeof setTimeout>>(null);
+  const isMountedRef = useRef(true);
+
+  useLayoutEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      if (holdTimerRef.current !== null) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (isLoadingMore) {
+      if (holdTimerRef.current !== null) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      setIsHolding(true);
+      return;
+    }
+
+    if (!isHolding) {
+      return;
+    }
+
+    holdTimerRef.current = setTimeout(() => {
+      holdTimerRef.current = null;
+      if (isMountedRef.current) {
+        setIsHolding(false);
+      }
+    }, SKELETON_MIN_VISIBLE_MS);
+  }, [isHolding, isLoadingMore]);
+
+  return isLoadingMore || isHolding;
 }

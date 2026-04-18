@@ -1,5 +1,7 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
+import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+
 export function useFeedPaginationLocalState(options: {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -62,6 +64,21 @@ export function useFeedPaginationLocalState(options: {
   };
 }
 
+/** Cancels both the rAF and the hold timeout for a pending cached reveal. */
+function cancelPendingCachedReveal(
+  pendingCachedRevealFrameRef: { current: null | number },
+  pendingCachedRevealTimeoutRef: {
+    current: null | ReturnType<typeof setTimeout>;
+  },
+) {
+  cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef);
+
+  if (pendingCachedRevealTimeoutRef.current !== null) {
+    clearTimeout(pendingCachedRevealTimeoutRef.current);
+    pendingCachedRevealTimeoutRef.current = null;
+  }
+}
+
 function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
   current: null | number;
 }) {
@@ -73,11 +90,6 @@ function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
   pendingCachedRevealFrameRef.current = null;
 }
 
-/**
- * Manages the skeleton-reveal state for cached pagination transitions.
- * Skeleton rows show for at least one full paint cycle before new articles
- * replace them, even when the next page is already in the React Query cache.
- */
 function useCachedPageRevealState(
   isMountedRef: { current: boolean },
   visibleArticleCountRef: { current: number },
@@ -86,30 +98,28 @@ function useCachedPageRevealState(
   const [isCachedPageRevealing, setIsCachedPageRevealing] = useState(false);
   const pendingCachedRevealCountRef = useRef<null | number>(null);
   const pendingCachedRevealFrameRef = useRef<null | number>(null);
+  const pendingCachedRevealTimeoutRef = useRef<null | ReturnType<
+    typeof setTimeout
+  >>(null);
 
-  /**
-   * Cancels any in-flight cached-page reveal. Called by resetPaginationState
-   * so a pending skeleton phase never commits a stale article count after a
-   * filter change, refresh, or selection change.
-   */
   const cancelCachedPageReveal = useCallback(() => {
     pendingCachedRevealCountRef.current = null;
-    cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef);
+    cancelPendingCachedReveal(
+      pendingCachedRevealFrameRef,
+      pendingCachedRevealTimeoutRef,
+    );
     if (isMountedRef.current) {
       setIsCachedPageRevealing(false);
     }
   }, [isMountedRef]);
 
-  /**
-   * Shows skeleton rows for the next page, then commits the new visible count
-   * after the skeleton has had at least one paint cycle.  The rAF is queued
-   * immediately so that rapid successive calls correctly supersede each other
-   * without needing isCachedPageRevealing to toggle to re-trigger an effect.
-   * React's batched-update pipeline commits the skeleton before the rAF fires.
-   */
   const scheduleCachedPageReveal = useCallback(
     (nextCount: number) => {
-      cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef);
+      console.log("[skeleton-debug] scheduleCachedPageReveal called", { nextCount });
+      cancelPendingCachedReveal(
+        pendingCachedRevealFrameRef,
+        pendingCachedRevealTimeoutRef,
+      );
       pendingCachedRevealCountRef.current = nextCount;
 
       if (!isMountedRef.current) {
@@ -119,33 +129,36 @@ function useCachedPageRevealState(
       setIsCachedPageRevealing(true);
 
       pendingCachedRevealFrameRef.current = window.requestAnimationFrame(() => {
-        pendingCachedRevealFrameRef.current = window.requestAnimationFrame(
-          () => {
-            pendingCachedRevealFrameRef.current = null;
-            if (
-              !isMountedRef.current ||
-              pendingCachedRevealCountRef.current !== nextCount
-            ) {
-              return;
-            }
-            pendingCachedRevealCountRef.current = null;
-            visibleArticleCountRef.current = nextCount;
-            setVisibleArticleCount(nextCount);
-            setIsCachedPageRevealing(false);
-          },
-        );
+        pendingCachedRevealFrameRef.current = null;
+
+        pendingCachedRevealTimeoutRef.current = setTimeout(() => {
+          pendingCachedRevealTimeoutRef.current = null;
+
+          if (
+            !isMountedRef.current ||
+            pendingCachedRevealCountRef.current !== nextCount
+          ) {
+            return;
+          }
+
+          pendingCachedRevealCountRef.current = null;
+          visibleArticleCountRef.current = nextCount;
+          setVisibleArticleCount(nextCount);
+          setIsCachedPageRevealing(false);
+        }, SKELETON_MIN_VISIBLE_MS);
       });
     },
     [isMountedRef, visibleArticleCountRef, setVisibleArticleCount],
   );
 
-  // Safety-net: if isCachedPageRevealing was externally cleared (via
-  // cancelCachedPageReveal or reset) also cancel any still-pending rAF.
   useLayoutEffect(() => {
     if (isCachedPageRevealing) {
       return undefined;
     }
-    cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef);
+    cancelPendingCachedReveal(
+      pendingCachedRevealFrameRef,
+      pendingCachedRevealTimeoutRef,
+    );
     return undefined;
   }, [isCachedPageRevealing]);
 

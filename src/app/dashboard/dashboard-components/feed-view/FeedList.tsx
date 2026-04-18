@@ -178,10 +178,10 @@ export const FeedList = memo(function FeedList({
 
   const visibleFeed = filteredFeed.slice(0, visibleArticleCount);
   const shouldShowLoadMoreBoundary = hasMoreArticles || canLoadMoreFromServer;
-  const loadMoreSkeletonCount = Math.max(
-    0,
-    loadingMoreArticleCount ?? articlesPerPage,
-  );
+  const loadMoreSkeletonCount =
+    isLoadingMore || isCachedPageRevealing
+      ? Math.max(loadingMoreArticleCount ?? articlesPerPage, articlesPerPage)
+      : 0;
 
   const feedData = useMemo(
     () => resolveFeedScrollModeArticles(visibleFeed, feedScrollMode),
@@ -191,6 +191,17 @@ export const FeedList = memo(function FeedList({
     shouldUseVirtualizedFeed &&
     expandedArticleKey === null &&
     !(isInvertedScroll && isCollapseScrollRestoreActive);
+
+  // DEBUG: Track skeleton conditions across renders
+  if (isLoadingMore || isCachedPageRevealing || loadMoreSkeletonCount > 0) {
+    console.log("[skeleton-debug-v2] FeedList render", JSON.stringify({
+      isLoadingMore,
+      isCachedPageRevealing,
+      loadMoreSkeletonCount,
+      shouldUseVirtualizedFeedSurface,
+      scrollViewportAvailable: scrollViewport !== null,
+    }));
+  }
 
   scrollViewportRef.current = scrollViewport;
 
@@ -634,7 +645,6 @@ export const FeedList = memo(function FeedList({
                     />
                   ) : null}
                   {isInvertedScroll &&
-                  !hasMoreArticles &&
                   (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">
@@ -643,7 +653,6 @@ export const FeedList = memo(function FeedList({
                   ) : null}
                   {feedData.map(renderFeedRow)}
                   {!isInvertedScroll &&
-                  !hasMoreArticles &&
                   (isLoadingMore || isCachedPageRevealing) &&
                   loadMoreSkeletonCount > 0 ? (
                     <div data-feed-load-more-skeletons="true">

@@ -24,3 +24,11 @@ export const FEED_MIN_SCROLLABLE_OVERFLOW_PX = 1;
 
 /** Standard auto-fill can stop once a small real overflow exists. */
 export const FEED_MIN_AUTOFILL_OVERFLOW_PX = 96;
+
+/**
+ * Minimum duration (ms) that skeleton rows remain visible during a cached
+ * page reveal. The skeletons must be perceptible — not just technically
+ * painted. The rAF guarantees at least one paint cycle; the timeout holds
+ * the skeleton state long enough for the user to register the transition.
+ */
+export const SKELETON_MIN_VISIBLE_MS = 150;
