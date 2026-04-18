@@ -189,11 +189,18 @@ function useHandleExpandedArticleToggle({
 
       clearRemovalAnimation(nextArticleKey);
       cancelCollapseScrollRestore();
+      // Guard the restore effect BEFORE the state update so it sees the ref
+      // already set on the render that follows setExpandedArticleKey. Without
+      // this ordering the restore effect fires with autoHydratedExpandedKeyRef
+      // still null and starts hydration #1, and the explicit call below then
+      // starts hydration #2 once markArticleReadIfNeeded resolves — producing
+      // the skeleton → text → skeleton → text flash for extraction-disabled
+      // articles whose stored-content fetch returns null.
+      markExpandedArticleHydrationHandled(nextArticleKey);
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : nextArticleKey,
       );
       await markArticleReadIfNeeded(article);
-      markExpandedArticleHydrationHandled(nextArticleKey);
       await hydrateArticleContent(article);
     },
     [
