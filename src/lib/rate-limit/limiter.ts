@@ -50,13 +50,28 @@ export class RateLimiter {
     }
   }
 
+  /**
+   * Checks whether the incoming request is within the rate limit.
+   *
+   * @param skipClientId - When `true`, the `key` is used verbatim as the
+   *   bucket identifier with no client-IP suffix appended.  Set this for
+   *   user-scoped keys that already embed a user identifier (e.g.
+   *   `"feed-batch:user:42"`) so that the same user is never split across
+   *   multiple buckets because of IP variance or an unresolvable client IP.
+   *   Leave it `false` (the default) for request-scoped (IP-based) limits.
+   */
   check(
     request: Request,
     key: string,
     config: RateLimitConfig,
+    skipClientId = false,
   ): NextResponse | null {
-    const clientId = this.getClientIdentifier(request);
-    const rateLimitKey = `${key}:${clientId}`;
+    // For user-scoped keys the caller has already embedded the user identity;
+    // appending a client IP would split one user's quota across multiple
+    // buckets (or merge all unknown-IP users into a shared bucket for
+    // request-scoped limits).  Skip the suffix when the caller opts out.
+    const clientId = skipClientId ? null : this.getClientIdentifier(request);
+    const rateLimitKey = clientId !== null ? `${key}:${clientId}` : key;
     const now = Date.now();
 
     const entry = this.store.get(rateLimitKey);
@@ -84,7 +99,7 @@ export class RateLimiter {
     if (entry.count > config.maxAttempts) {
       const resetInSeconds = Math.ceil((entry.resetAt - now) / 1000);
       logRateLimitWarning("Rate limit exceeded", {
-        clientId,
+        clientId: clientId ?? key,
         count: entry.count,
         key,
         maxAttempts: config.maxAttempts,

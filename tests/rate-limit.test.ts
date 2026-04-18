@@ -252,6 +252,66 @@ describe("RateLimiter", () => {
 
     limiter.destroy();
   });
+
+  test("skipClientId uses key verbatim – requests with different IPs share one bucket", () => {
+    const limiter = new RateLimiter();
+    const config = { maxAttempts: 1, windowMs: 60000 };
+
+    // Two requests from entirely different IPs should share the SAME bucket
+    // when skipClientId=true (user-scoped key that already encodes identity).
+    const req1 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "1.1.1.1, 10.0.0.1" },
+    });
+    const req2 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "2.2.2.2, 10.0.0.1" },
+    });
+
+    // First request: allowed
+    expect(limiter.check(req1, "user-scoped:user:77", config, true)).toBeNull();
+    // Second request from a DIFFERENT IP but same verbatim key: blocked
+    const blocked = limiter.check(req2, "user-scoped:user:77", config, true);
+    expect(blocked).not.toBeNull();
+    if (blocked) expect(blocked.status).toBe(429);
+
+    limiter.destroy();
+  });
+
+  test("skipClientId=false (default) splits different IPs into separate buckets", () => {
+    const limiter = new RateLimiter();
+    const config = { maxAttempts: 1, windowMs: 60000 };
+
+    const req1 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "3.3.3.3, 10.0.0.1" },
+    });
+    const req2 = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "4.4.4.4, 10.0.0.1" },
+    });
+
+    limiter.check(req1, "ip-scoped", config);
+    limiter.check(req1, "ip-scoped", config); // exhausted for 3.3.3.3
+
+    // req1 is now blocked
+    expect(limiter.check(req1, "ip-scoped", config)).not.toBeNull();
+    // req2 (different IP) is still allowed
+    expect(limiter.check(req2, "ip-scoped", config)).toBeNull();
+
+    limiter.destroy();
+  });
+
+  test("skipClientId=true different users have independent buckets", () => {
+    const limiter = new RateLimiter();
+    const config = { maxAttempts: 1, windowMs: 60000 };
+    const req = new Request("https://example.com");
+
+    limiter.check(req, "feed-batch:user:1", config, true);
+    const blocked = limiter.check(req, "feed-batch:user:1", config, true);
+    expect(blocked).not.toBeNull();
+
+    // User 2 has its own independent bucket
+    expect(limiter.check(req, "feed-batch:user:2", config, true)).toBeNull();
+
+    limiter.destroy();
+  });
 });
 
 // ── server/rate-limit – RateLimiter.destroy ──────────────────────────────────

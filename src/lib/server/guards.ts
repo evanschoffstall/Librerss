@@ -70,10 +70,15 @@ export async function requireMutableAuthenticatedUser(
 
   const rl = options?.rateLimit;
   if (rl && (rl.scope ?? "request") === "user") {
+    // The key already contains the userId, so there is no need to append a
+    // client-IP suffix.  Skipping the suffix ensures:
+    //   1. One contiguous quota window per user regardless of IP changes.
+    //   2. No accidental per-IP bucket splits when the IP is unresolvable.
     const rateLimitError = rateLimiter.check(
       request,
       `${rl.key}:user:${user.userId}`,
       { maxAttempts: rl.maxAttempts, windowMs: rl.windowMs },
+      true, // skipClientId — userId is the identity
     );
     if (rateLimitError) return rateLimitError;
   }
