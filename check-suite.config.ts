@@ -309,9 +309,20 @@ function buildCoverageReportPostProcess(
     resolveTokenString,
   }: InlineTypeScriptPostProcessContext): StepPostProcessResult => {
     const coverageState = buildCommonCoverageState(
-        data,
-        resolveTokenString,
-        options.defaultThreshold,
+      data,
+      resolveTokenString,
+      options.defaultThreshold,
+    );
+    const extraChecks: NonNullable<StepPostProcessResult["extraChecks"]> = [],
+      messages: NonNullable<StepPostProcessResult["messages"]> = [],
+      sections: NonNullable<StepPostProcessResult["sections"]> = [];
+    const coverageTotals = resolveCoverageTotals(
+        options,
+        coverageState,
+        displayOutput,
+        messages,
+        existsSync,
+        readFileSync,
       ),
       executionReport = options.readExecutionReport(
         coverageState.reportPath,
@@ -322,9 +333,6 @@ function buildCoverageReportPostProcess(
       reportExists =
         Boolean(coverageState.reportPath) &&
         existsSync(coverageState.reportPath);
-    const extraChecks: NonNullable<StepPostProcessResult["extraChecks"]> = [],
-      messages: NonNullable<StepPostProcessResult["messages"]> = [],
-      sections: NonNullable<StepPostProcessResult["sections"]> = [];
     let status: "fail" | "pass" = command.exitCode === 0 ? "pass" : "fail";
     if (!reportExists)
       status = resolveMissingReportStatus(
@@ -343,41 +351,39 @@ function buildCoverageReportPostProcess(
       )
     )
       status = "fail";
-    if (status === "pass")
-      status = appendCoverageCheckResult(
+    if (
+      appendCoverageCheckResult(
         {
           coverageLabel: coverageState.coverageLabel,
           coveragePath: coverageState.coveragePath,
           coverageThreshold: coverageState.coverageThreshold,
-          totals: resolveCoverageTotals(
-            options,
-            coverageState,
-            displayOutput,
-            messages,
-            existsSync,
-            readFileSync,
-          ),
+          totals: coverageTotals,
         },
         messages,
         extraChecks,
       )
-        ? "fail"
-        : "pass";
+    )
+      status = "fail";
     return {
       extraChecks,
       messages,
       output: helpers.compactDomAssertionNoise(displayOutput),
       sections,
       status,
-      summary: buildExecutionSummary(executionReport, command.exitCode),
+      summary: buildExecutionSummary(
+        executionReport,
+        command.exitCode,
+        coverageTotals,
+      ),
     };
   };
 }
 function buildExecutionSummary(
   executionReport: Pick<ExecutionReport, "failed" | "passed" | "skipped">,
   exitCode: number,
+  coverageTotals: CoverageTotals | null,
 ): string {
-  return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
+  return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${formatExecutionSummaryCoverage(coverageTotals)}${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
 }
 function collectCaseResults(
   report: string,
@@ -508,6 +514,12 @@ function formatCaseResult(match: RegExpMatchArray, body: string): string {
     ),
     test = readXmlAttributes(match[1]);
   return `${test.file ?? "unknown-file"}${test.line ? `:${test.line}` : ""} - ${test.classname ? `${test.classname} > ` : ""}${test.name ?? "(unnamed test)"}${failure.message ? ` [${failure.message}]` : ""}`;
+}
+function formatExecutionSummaryCoverage(
+  coverageTotals: CoverageTotals | null,
+): string {
+  if (!coverageTotals) return " · coverage missing";
+  return ` · coverage ${coverageTotals.pct.toFixed(2)}% (${coverageTotals.covered}/${coverageTotals.found})`;
 }
 function formatUnusedSelectorOutput(unusedSelectors: string[]): string {
   return `${unusedSelectors.map((selector) => `  unused: ${selector}`).join("\n")}\nfound ${unusedSelectors.length} unused CSS selector(s)\n`;
