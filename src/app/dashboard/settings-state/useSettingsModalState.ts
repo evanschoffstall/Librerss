@@ -14,6 +14,21 @@ interface UseSettingsModalStateOptions extends SettingsFeedStateOptions {
   onRenameCategory: (fromLabel: string, toLabel: string) => Promise<boolean>;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.onAddCategory
+ * @param root0.onAddFeed
+ * @param root0.onDropCategory
+ * @param root0.onDropFeed
+ * @param root0.onImportOpml
+ * @param root0.onRemoveFeed
+ * @param root0.onRenameCategory
+ * @param root0.onRenameFeed
+ * @param root0.onSetFeedEnabled
+ * @param root0.onUpdateFeedSettings
+ * @param root0.selectedCategory
+ */
 export function useSettingsModalState({
   categories,
   onAddCategory,

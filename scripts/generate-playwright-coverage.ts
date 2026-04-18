@@ -4,6 +4,9 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 if (typeof globalThis.gc !== "function") {
+  /**
+   *
+   */
   globalThis.gc = async () => undefined;
 }
 
@@ -47,7 +50,11 @@ interface V8CoverageEntry {
   url: string;
 }
 
-/** Rejects bundle-only output so the coverage check cannot silently regress back to generated assets. */
+/**
+ * Rejects bundle-only output so the coverage check cannot silently regress back to generated assets.
+ * @param reportDirectoryPath
+ * @param projectSourceFilePathSet
+ */
 async function assertSourceMappedCoverage(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -71,6 +78,10 @@ async function assertSourceMappedCoverage(
   );
 }
 
+/**
+ * @param summaryEntry
+ * @param metricKey
+ */
 function getSummaryMetric(
   summaryEntry: CoverageSummaryEntry,
   metricKey: CoverageMetricKey,
@@ -78,11 +89,18 @@ function getSummaryMetric(
   return summaryEntry[metricKey] ?? null;
 }
 
-/** Narrows unknown JSON objects so the script can reject invalid payloads early. */
+/**
+ * Narrows unknown JSON objects so the script can reject invalid payloads early.
+ * @param value
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * @param sourcePath
+ * @param projectSourceFilePathSet
+ */
 function isTrackedProjectSourceFile(
   sourcePath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -90,12 +108,18 @@ function isTrackedProjectSourceFile(
   return projectSourceFilePathSet.has(normalizeCoveragePath(sourcePath));
 }
 
-/** Checks the minimal V8 entry shape Monocart expects from Playwright raw coverage dumps. */
+/**
+ * Checks the minimal V8 entry shape Monocart expects from Playwright raw coverage dumps.
+ * @param value
+ */
 function isV8CoverageEntry(value: unknown): value is V8CoverageEntry {
   return isRecord(value) && typeof value.url === "string";
 }
 
-/** Recursively lists files beneath a directory without relying on shell utilities. */
+/**
+ * Recursively lists files beneath a directory without relying on shell utilities.
+ * @param directoryPath
+ */
 async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   const directoryEntries = await readdir(directoryPath, {
     withFileTypes: true,
@@ -157,8 +181,16 @@ async function main(): Promise<void> {
       ["json-summary", { file: "summary.json" }],
       ["lcovonly", { file: "lcov.info" }],
     ],
+    /**
+     * @param sourcePath
+     */
     sourceFilter: (sourcePath: string) =>
       isTrackedProjectSourceFile(sourcePath, projectSourceFilePathSet),
+    /**
+     * @param sourcePath
+     * @param info
+     * @param info.distFile
+     */
     sourcePath: (sourcePath: string, info: { distFile?: string }) =>
       normalizeCoveragePath(sourcePath, info.distFile),
   });
@@ -190,6 +222,10 @@ async function main(): Promise<void> {
   );
 }
 
+/**
+ * @param summaryEntries
+ * @param metricKey
+ */
 function mergeCoverageMetric(
   summaryEntries: CoverageSummaryEntry[],
   metricKey: CoverageMetricKey,
@@ -215,6 +251,10 @@ function mergeCoverageMetric(
   };
 }
 
+/**
+ * @param sourcePath
+ * @param distFilePath
+ */
 function normalizeCoveragePath(
   sourcePath: string,
   distFilePath?: string,
@@ -244,11 +284,18 @@ function normalizeCoveragePath(
   return normalizedSourcePath;
 }
 
+/**
+ * @param distFilePath
+ */
 function normalizeDistFilePath(distFilePath?: string): string {
   return distFilePath?.replaceAll("\\", "/") ?? "";
 }
 
-/** Validates the parsed raw coverage payload before it reaches Monocart. */
+/**
+ * Validates the parsed raw coverage payload before it reaches Monocart.
+ * @param rawCoverageJson
+ * @param rawCoverageFilePath
+ */
 function parseRawCoverageData(
   rawCoverageJson: string,
   rawCoverageFilePath: string,
@@ -274,6 +321,10 @@ function parseRawCoverageData(
   );
 }
 
+/**
+ * @param reportDirectoryPath
+ * @param projectSourceFilePathSet
+ */
 async function rewriteCoverageArtifacts(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -284,6 +335,10 @@ async function rewriteCoverageArtifacts(
   ]);
 }
 
+/**
+ * @param reportDirectoryPath
+ * @param projectSourceFilePathSet
+ */
 async function rewriteLcovFile(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -313,6 +368,10 @@ async function rewriteLcovFile(
   await writeFile(lcovFilePath, filteredBlocks.join(""));
 }
 
+/**
+ * @param reportDirectoryPath
+ * @param projectSourceFilePathSet
+ */
 async function rewriteSummaryFile(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,

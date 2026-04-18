@@ -16,10 +16,17 @@ type DataSource =
   | { data: Record<string, unknown>; type: "object" }
   | { data: URLSearchParams; type: "params" };
 
+/**
+ * @param value
+ */
 export function normalizeEmailInput(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+/**
+ * @param formData
+ * @param options
+ */
 export function parseEmailPasswordFromFormData(
   formData: FormData,
   options?: EmailPasswordFieldOptions,
@@ -31,6 +38,10 @@ export function parseEmailPasswordFromFormData(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * @param payload
+ * @param options
+ */
 export function parseEmailPasswordFromRecord(
   payload: Record<string, unknown>,
   options?: EmailPasswordFieldOptions,
@@ -42,6 +53,10 @@ export function parseEmailPasswordFromRecord(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * @param searchParams
+ * @param options
+ */
 export function parseEmailPasswordFromSearchParams(
   searchParams: URLSearchParams,
   options?: EmailPasswordFieldOptions,
@@ -53,6 +68,10 @@ export function parseEmailPasswordFromSearchParams(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * @param email
+ * @param password
+ */
 function finalizeCredentials(
   email: string,
   password: string,
@@ -68,6 +87,10 @@ function finalizeCredentials(
   };
 }
 
+/**
+ * @param source
+ * @param keys
+ */
 function firstValue(source: DataSource, keys: readonly string[]): string {
   for (const key of keys) {
     let value: unknown;
@@ -86,6 +109,10 @@ function firstValue(source: DataSource, keys: readonly string[]): string {
   return "";
 }
 
+/**
+ * @param formData
+ * @param keys
+ */
 function firstValueFromFormData(
   formData: FormData,
   keys: readonly string[],
@@ -93,6 +120,10 @@ function firstValueFromFormData(
   return firstValue({ data: formData, type: "form" }, keys);
 }
 
+/**
+ * @param payload
+ * @param keys
+ */
 function firstValueFromObject(
   payload: Record<string, unknown>,
   keys: readonly string[],
@@ -100,6 +131,10 @@ function firstValueFromObject(
   return firstValue({ data: payload, type: "object" }, keys);
 }
 
+/**
+ * @param searchParams
+ * @param keys
+ */
 function firstValueFromSearchParams(
   searchParams: URLSearchParams,
   keys: readonly string[],
@@ -107,6 +142,9 @@ function firstValueFromSearchParams(
   return firstValue({ data: searchParams, type: "params" }, keys);
 }
 
+/**
+ * @param options
+ */
 function resolveKeys(options?: EmailPasswordFieldOptions): {
   emailKeys: readonly string[];
   passwordKeys: readonly string[];

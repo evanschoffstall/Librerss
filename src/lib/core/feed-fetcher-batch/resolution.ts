@@ -87,6 +87,12 @@ export interface FeedFetcherBatchRuntimeDependencies {
 
 type DbMod = typeof import("@/lib/db");
 
+/**
+ * @param dependencies
+ * @param db
+ * @param request
+ * @param shouldForceRefresh
+ */
 export async function resolveBatchFeedResolution(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   db: ReturnType<DbMod["getDb"]>,
@@ -123,6 +129,14 @@ export async function resolveBatchFeedResolution(
   };
 }
 
+/**
+ * @param dependencies
+ * @param db
+ * @param request
+ * @param batchFeeds
+ * @param refreshExecution
+ * @param cached
+ */
 export async function resolveBatchFeedResult(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   db: ReturnType<DbMod["getDb"]>,
@@ -176,6 +190,11 @@ export async function resolveBatchFeedResult(
   });
 }
 
+/**
+ * @param dependencies
+ * @param db
+ * @param request
+ */
 export async function resolveBatchForceRefresh(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   db: ReturnType<DbMod["getDb"]>,
@@ -223,6 +242,11 @@ export async function resolveBatchForceRefresh(
   return false;
 }
 
+/**
+ * @param dependencies
+ * @param request
+ * @param shouldForceRefresh
+ */
 export function resolveCachedBatchResult(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   request: BatchFetchRequest,
@@ -253,6 +277,9 @@ export function resolveCachedBatchResult(
     result: buildCachedBatchResponse({
       allWithinCooldown,
       cached,
+      /**
+       * @param details
+       */
       onCacheHit: (details) => {
         dependencies.diagInfo(
           "Batch feed fetch served from memory cache",
@@ -264,6 +291,13 @@ export function resolveCachedBatchResult(
   };
 }
 
+/**
+ * @param dependencies
+ * @param db
+ * @param request
+ * @param batchFeeds
+ * @param shouldForceRefresh
+ */
 export async function runBatchRefreshExecution(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   db: ReturnType<DbMod["getDb"]>,
@@ -309,6 +343,13 @@ export async function runBatchRefreshExecution(
   return refreshExecution;
 }
 
+/**
+ * @param dependencies
+ * @param request
+ * @param articleMap
+ * @param totalArticles
+ * @param errors
+ */
 function logBatchFetchCompletion(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   request: BatchFetchRequest,
@@ -335,6 +376,12 @@ function logBatchFetchCompletion(
   });
 }
 
+/**
+ * @param dependencies
+ * @param request
+ * @param allowedUrlCount
+ * @param refreshExecution
+ */
 function logBatchRefreshOutcome(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   request: BatchFetchRequest,
@@ -369,6 +416,11 @@ function logBatchRefreshOutcome(
   });
 }
 
+/**
+ * @param dependencies
+ * @param query
+ * @param articleMap
+ */
 function persistBatchCache(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   query: ChangedBatchArticleQuery,
@@ -400,6 +452,11 @@ function persistBatchCache(
   }
 }
 
+/**
+ * @param dependencies
+ * @param db
+ * @param query
+ */
 async function queryChangedBatchArticles(
   dependencies: FeedFetcherBatchRuntimeDependencies,
   db: ReturnType<DbMod["getDb"]>,
@@ -438,6 +495,16 @@ async function queryChangedBatchArticles(
   });
 }
 
+/**
+ * @param options
+ * @param options.allowedUrls
+ * @param options.dependencies
+ * @param options.feedByUrl
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.resolveProxyTransport
+ * @param options.skipRefresh
+ */
 async function resolveRefreshProxyTransport(options: {
   allowedUrls: string[];
   dependencies: FeedFetcherBatchRuntimeDependencies;

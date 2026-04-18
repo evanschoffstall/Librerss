@@ -16,10 +16,17 @@ const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
 let _lookupFn: DnsLookupFn | null = null;
 
+/**
+ *
+ */
 export function clearDnsCacheForTests(): void {
   DNS_CACHE.clear();
 }
 
+/**
+ * @param hostname
+ * @param deps
+ */
 export async function resolvesToBlockedAddress(
   hostname: string,
   deps?: DnsLookupRuntimeDeps,
@@ -39,6 +46,9 @@ export async function resolvesToBlockedAddress(
   });
 }
 
+/**
+ *
+ */
 async function getLookupFn(): Promise<DnsLookupFn> {
   if (!_lookupFn) {
     const mod = await import("node:dns/promises");

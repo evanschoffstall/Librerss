@@ -6,7 +6,11 @@ export {
   resolveDashboardShellLoadingState,
 } from "@/app/dashboard/toolbar/useDashboardShellLoadingState";
 
-/** Dispatches a dashboard-scoped custom event with an optional detail payload. */
+/**
+ * Dispatches a dashboard-scoped custom event with an optional detail payload.
+ * @param eventName
+ * @param detail
+ */
 export function dispatchDashboardWindowEvent(
   eventName: string,
   detail?: Record<string, unknown>,

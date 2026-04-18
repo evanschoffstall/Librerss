@@ -93,7 +93,10 @@ const SETTINGS_TAB_VALUES = new Set<SettingsTabValue>(
   SETTINGS_TABS.map((tab) => tab.value),
 );
 
-/** Tabbed settings panel replacing the old monolithic scrolling modal. */
+/**
+ * Tabbed settings panel replacing the old monolithic scrolling modal.
+ * @param props
+ */
 export function SettingsPanel(props: SettingsPanelProps) {
   const isMobile = useIsMobile();
   const isPreviewMode = props.isPreviewMode ?? false;
@@ -115,6 +118,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
   return <SettingsPanelDesktopShell {...shellProps} />;
 }
 
+/**
+ * @param props
+ */
 function buildSettingsPanelRuntimeOptions(props: SettingsPanelProps) {
   return {
     ...props,
@@ -122,12 +128,19 @@ function buildSettingsPanelRuntimeOptions(props: SettingsPanelProps) {
   };
 }
 
-/** Returns true for tabs that should be hidden entirely in preview/demo mode. */
+/**
+ * Returns true for tabs that should be hidden entirely in preview/demo mode.
+ * @param value
+ */
 function isPreviewOnlyTab(value: SettingsTabValue): boolean {
   return value === "account";
 }
 
-/** Validates persisted tab state and strips preview-incompatible tabs. */
+/**
+ * Validates persisted tab state and strips preview-incompatible tabs.
+ * @param value
+ * @param isPreviewMode
+ */
 function normalizeSettingsTabValue(
   value: string,
   isPreviewMode: boolean,
@@ -139,6 +152,9 @@ function normalizeSettingsTabValue(
   return tabValue;
 }
 
+/**
+ * @param options
+ */
 function SettingsPanelDesktopShell(options: SettingsPanelShellOptions) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -183,6 +199,9 @@ function SettingsPanelDesktopShell(options: SettingsPanelShellOptions) {
   );
 }
 
+/**
+ * @param options
+ */
 function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -247,6 +266,23 @@ function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
  *
  * Using TabsContent ensures only the active tab's DOM is reachable, giving
  * focused keyboard navigation and eliminating the old monolithic scroll.
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.autoRefreshIntervalMinutes
+ * @param root0.backgroundMode
+ * @param root0.categories
+ * @param root0.distillStrategy
+ * @param root0.isPreviewMode
+ * @param root0.onAccountDeleted
+ * @param root0.onArticlesPerPageChange
+ * @param root0.onAutoRefreshIntervalMinutesChange
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.onRemoveCategory
+ * @param root0.onShowFaviconsChange
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.showFavicons
+ * @param root0.state
  */
 function SettingsTabContent({
   articlesPerPage,
@@ -317,6 +353,11 @@ function SettingsTabContent({
   );
 }
 
+/**
+ * @param options
+ * @param options.isPreviewMode
+ * @param options.mobile
+ */
 function SettingsTabTriggers(options: {
   isPreviewMode: boolean;
   mobile?: boolean;
@@ -345,6 +386,9 @@ function SettingsTabTriggers(options: {
   });
 }
 
+/**
+ * @param options
+ */
 function useSettingsPanelRuntime(
   options: Omit<SettingsPanelProps, "isPreviewMode"> & {
     isPreviewMode: boolean;
@@ -379,11 +423,17 @@ function useSettingsPanelRuntime(
     }
   }, [activeTab, persistedTab, setPersistedTab]);
 
+  /**
+   * @param open
+   */
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       options.onClose();
     }
   };
+  /**
+   * @param nextValue
+   */
   const handleTabChange = (nextValue: string) => {
     setPersistedTab(
       normalizeSettingsTabValue(nextValue, options.isPreviewMode),

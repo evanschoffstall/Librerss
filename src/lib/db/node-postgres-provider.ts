@@ -16,7 +16,10 @@ interface NodePostgresDatabaseOptions {
   maxConnections: number;
 }
 
-/** Builds the existing node-postgres-backed Drizzle instance. */
+/**
+ * Builds the existing node-postgres-backed Drizzle instance.
+ * @param options
+ */
 export function createNodePostgresDatabase(
   options: NodePostgresDatabaseOptions,
 ): DatabaseProviderResult {
@@ -33,12 +36,19 @@ export function createNodePostgresDatabase(
   };
 }
 
-/** Creates a direct SQL executor that reuses a single client per script run. */
+/**
+ * Creates a direct SQL executor that reuses a single client per script run.
+ * @param connectionString
+ */
 export function createNodePostgresQueryExecutor(
   connectionString: string,
 ): SqlQueryExecutor {
   const client = new Client({ connectionString });
   let isConnected = false;
+  /**
+   * @param queryText
+   * @param params
+   */
   const query = async <TRow extends QueryResultRow = QueryResultRow>(
     queryText: string,
     params: readonly unknown[] = [],
@@ -57,6 +67,9 @@ export function createNodePostgresQueryExecutor(
   };
 
   return {
+    /**
+     *
+     */
     async close() {
       if (!isConnected) {
         return;
@@ -69,6 +82,9 @@ export function createNodePostgresQueryExecutor(
   };
 }
 
+/**
+ * @param rows
+ */
 function toQueryRows(rows: unknown[]): QueryResultRow[] {
   return rows.flatMap((row) =>
     typeof row === "object" && row !== null ? [row as QueryResultRow] : [],

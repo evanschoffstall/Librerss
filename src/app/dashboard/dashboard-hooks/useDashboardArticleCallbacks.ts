@@ -22,6 +22,15 @@ interface UseDashboardArticleCallbacksOptions {
  *
  * Keeping these wrappers in a focused hook trims controller noise while
  * preserving a single place that defines the feed view key contract.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.capturePreExpandSnapshot
+ * @param root0.handleArticleToggle
+ * @param root0.handleExpandedSwipeRead
+ * @param root0.handleSwipeRead
+ * @param root0.handleToggleReadState
+ * @param root0.handleToggleStarredState
+ * @param root0.selectedCategory
  */
 export function useDashboardArticleCallbacks({
   articleFilter,

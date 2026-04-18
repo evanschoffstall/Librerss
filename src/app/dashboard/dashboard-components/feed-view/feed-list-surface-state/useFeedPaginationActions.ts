@@ -12,6 +12,22 @@ import {
 
 const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articlesPerPage
+ * @param options.canLoadMoreFromServer
+ * @param options.filteredFeedLength
+ * @param options.hasPendingServerRevealRef
+ * @param options.hasPendingServerRevealRef.current
+ * @param options.hasRequestedServerLoadRef
+ * @param options.hasRequestedServerLoadRef.current
+ * @param options.isInvertedScroll
+ * @param options.primeInvertedPaginationAnchor
+ * @param options.requestMoreFromServer
+ * @param options.visibleArticleCountRef
+ * @param options.visibleArticleCountRef.current
+ */
 export function useBackfillDepletedRevealedPageEffect(options: {
   articleFilter: string;
   articlesPerPage: number;
@@ -79,6 +95,16 @@ export function useBackfillDepletedRevealedPageEffect(options: {
   }, [filteredFeedLength, maybeBackfillDepletedRevealedPage]);
 }
 
+/**
+ * @param options
+ * @param options.articlesPerPage
+ * @param options.commitVisibleArticleCount
+ * @param options.filteredFeedLengthRef
+ * @param options.filteredFeedLengthRef.current
+ * @param options.scheduleCachedPageReveal
+ * @param options.visibleArticleCountRef
+ * @param options.visibleArticleCountRef.current
+ */
 export function useExpandVisibleWindow(options: {
   articlesPerPage: number;
   commitVisibleArticleCount: (nextVisibleCount: number) => void;
@@ -127,6 +153,11 @@ export function useExpandVisibleWindow(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.isInvertedScroll
+ * @param options.scrollViewport
+ */
 export function useHasReachedStandardLoadBoundary(options: {
   isInvertedScroll: boolean;
   scrollViewport: HTMLElement | null;
@@ -143,6 +174,9 @@ export function useHasReachedStandardLoadBoundary(options: {
   }, [options.isInvertedScroll, options.scrollViewport]);
 }
 
+/**
+ * @param options
+ */
 export function useMaybeAutoFillViewport(
   options: MaybeAutoFillViewportOptions,
 ) {
@@ -201,6 +235,27 @@ export function useMaybeAutoFillViewport(
   );
 }
 
+/**
+ * @param options
+ * @param options.expandVisibleWindow
+ * @param options.filteredFeedLengthRef
+ * @param options.filteredFeedLengthRef.current
+ * @param options.hasCollapsingArticlesRef
+ * @param options.hasCollapsingArticlesRef.current
+ * @param options.hasReachedStandardLoadBoundary
+ * @param options.hasUserScrolledRef
+ * @param options.hasUserScrolledRef.current
+ * @param options.isInvertedLoadBoundaryArmedRef
+ * @param options.isInvertedLoadBoundaryArmedRef.current
+ * @param options.isInvertedScroll
+ * @param options.isStandardLoadBoundaryArmedRef
+ * @param options.isStandardLoadBoundaryArmedRef.current
+ * @param options.primeInvertedPaginationAnchor
+ * @param options.requestMoreFromServer
+ * @param options.scrollViewport
+ * @param options.visibleArticleCountRef
+ * @param options.visibleArticleCountRef.current
+ */
 export function useMaybeLoadNextPage(options: {
   expandVisibleWindow: () => boolean;
   filteredFeedLengthRef: { current: number };
@@ -268,6 +323,17 @@ export function useMaybeLoadNextPage(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.currentFilteredFeedLength
+ * @param options.currentVisibleCount
+ * @param options.expandVisibleWindow
+ * @param options.isInvertedLoadBoundaryArmedRef
+ * @param options.isInvertedLoadBoundaryArmedRef.current
+ * @param options.primeInvertedPaginationAnchor
+ * @param options.requestMoreFromServer
+ * @param options.scrollViewport
+ */
 function maybeLoadInvertedNextPage(options: {
   currentFilteredFeedLength: number;
   currentVisibleCount: number;
@@ -305,6 +371,16 @@ function maybeLoadInvertedNextPage(options: {
   });
 }
 
+/**
+ * @param options
+ * @param options.currentFilteredFeedLength
+ * @param options.currentVisibleCount
+ * @param options.expandVisibleWindow
+ * @param options.hasReachedStandardLoadBoundary
+ * @param options.isStandardLoadBoundaryArmedRef
+ * @param options.isStandardLoadBoundaryArmedRef.current
+ * @param options.requestMoreFromServer
+ */
 function maybeLoadStandardNextPage(options: {
   currentFilteredFeedLength: number;
   currentVisibleCount: number;
@@ -313,12 +389,6 @@ function maybeLoadStandardNextPage(options: {
   isStandardLoadBoundaryArmedRef: { current: boolean };
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
 }) {
-  console.log("[skeleton-debug] maybeLoadStandardNextPage", {
-    currentVisibleCount: options.currentVisibleCount,
-    currentFilteredFeedLength: options.currentFilteredFeedLength,
-    hasReachedBoundary: options.hasReachedStandardLoadBoundary(),
-    isArmed: options.isStandardLoadBoundaryArmedRef.current,
-  });
   if (
     !options.hasReachedStandardLoadBoundary() ||
     !options.isStandardLoadBoundaryArmedRef.current
@@ -328,18 +398,19 @@ function maybeLoadStandardNextPage(options: {
 
   if (options.currentVisibleCount >= options.currentFilteredFeedLength) {
     if (options.requestMoreFromServer()) {
-      console.log("[skeleton-debug] server load path taken");
       options.isStandardLoadBoundaryArmedRef.current = false;
     }
     return;
   }
 
-  console.log("[skeleton-debug] local expand path taken");
   if (options.expandVisibleWindow()) {
     options.isStandardLoadBoundaryArmedRef.current = false;
   }
 }
 
+/**
+ * @param articlesPerPage
+ */
 function resolveUnreadRefillThreshold(articlesPerPage: number) {
   return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);
 }

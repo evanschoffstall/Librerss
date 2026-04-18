@@ -22,7 +22,17 @@ interface UseDashboardCategoryTreeOptions extends FeedSourceActionState {
  * This hook owns the ordered category labels, custom-category state, and all
  * feed-source/category mutations that reshape the sidebar tree.
  *
- * @param options Category tree state, fetchers, and persistence setters.
+ * @param options - Category tree state, fetchers, and persistence setters.
+ * @param options.categories
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.fetchFeed
+ * @param options.loadFeedSources
+ * @param options.selectedCategory
+ * @param options.setCategories
+ * @param options.setFeed
+ * @param options.setSelectedCategory
+ * @param options.usePlaceholderData
  * @returns Category tree state and mutations consumed by dashboard settings and sidebar flows.
  */
 export function useDashboardCategoryTree({

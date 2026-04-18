@@ -22,7 +22,14 @@ export interface WritableRef<T> {
   current: T;
 }
 
-/** Binds passive listeners that persist viewport position after explicit user scrolling. */
+/**
+ * Binds passive listeners that persist viewport position after explicit user scrolling.
+ * @param viewport
+ * @param sessionKey
+ * @param refs
+ * @param stopRestore
+ * @param buildSavedScroll
+ */
 export function bindViewportRestoreListeners(
   viewport: HTMLElement,
   sessionKey: string,
@@ -33,12 +40,21 @@ export function bindViewportRestoreListeners(
     scrollOffset: number,
   ) => null | SavedScroll,
 ): () => void {
+  /**
+   *
+   */
   const handleTouchStart = () => {
     stopRestore();
   };
+  /**
+   *
+   */
   const handleWheel = () => {
     stopRestore();
   };
+  /**
+   *
+   */
   const handleScroll = () => {
     if (refs.applyingRef.current) {
       return;
@@ -66,7 +82,10 @@ export function bindViewportRestoreListeners(
   };
 }
 
-/** Clears the persisted viewport restore snapshot for the current session key. */
+/**
+ * Clears the persisted viewport restore snapshot for the current session key.
+ * @param sessionKey
+ */
 export function clearSavedScroll(sessionKey: string) {
   const storage = getSessionStorage();
   if (!storage) return;
@@ -86,7 +105,10 @@ export function getSessionStorage() {
   }
 }
 
-/** Runtime validator for persisted viewport restore snapshots. */
+/**
+ * Runtime validator for persisted viewport restore snapshots.
+ * @param value
+ */
 export function isSavedScroll(value: unknown): value is SavedScroll {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Partial<SavedScroll>;
@@ -97,7 +119,11 @@ export function isSavedScroll(value: unknown): value is SavedScroll {
   );
 }
 
-/** Observes viewport child size and structure changes that can re-open restore opportunities. */
+/**
+ * Observes viewport child size and structure changes that can re-open restore opportunities.
+ * @param viewport
+ * @param restore
+ */
 export function observeViewportRestoreTargets(
   viewport: HTMLElement,
   restore: () => void,
@@ -108,6 +134,9 @@ export function observeViewportRestoreTargets(
       : new ResizeObserver(() => {
           restore();
         });
+  /**
+   *
+   */
   const observeChild = () => {
     resizeObserver?.disconnect();
     const child = viewport.firstElementChild;
@@ -132,7 +161,10 @@ export function observeViewportRestoreTargets(
   };
 }
 
-/** Reads the saved viewport restore snapshot for the current session key. */
+/**
+ * Reads the saved viewport restore snapshot for the current session key.
+ * @param sessionKey
+ */
 export function readSavedScroll(sessionKey: string): null | SavedScroll {
   const storage = getSessionStorage();
   if (!storage) return null;
@@ -147,7 +179,11 @@ export function readSavedScroll(sessionKey: string): null | SavedScroll {
   }
 }
 
-/** Writes or clears the saved viewport restore snapshot for the current session key. */
+/**
+ * Writes or clears the saved viewport restore snapshot for the current session key.
+ * @param sessionKey
+ * @param saved
+ */
 export function writeSavedScroll(
   sessionKey: string,
   saved: null | SavedScroll,

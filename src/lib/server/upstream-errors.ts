@@ -37,6 +37,17 @@ type FeedRouteWarn = (
  *
  * The route owns authentication and dependency wiring; this helper owns the
  * upstream failure matrix so the route file stays below complexity thresholds.
+ * @param root0
+ * @param root0.error
+ * @param root0.feedAttemptContext
+ * @param root0.isSourceNotFound
+ * @param root0.isUpstreamError
+ * @param root0.jsonError
+ * @param root0.request
+ * @param root0.requestedFeedUrl
+ * @param root0.toErrorMessage
+ * @param root0.upstreamFeedErrorMessage
+ * @param root0.warn
  */
 export function respondToFeedReadError({
   error,

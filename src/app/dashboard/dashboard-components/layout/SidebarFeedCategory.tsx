@@ -8,6 +8,9 @@ type SidebarFeedCategoryProps = Omit<
   "fallbackIconClassName"
 >;
 
+/**
+ * @param props
+ */
 export function SidebarFeedCategory(props: SidebarFeedCategoryProps) {
   return <FeedCategoryButton {...props} fallbackIconClassName="size-2" />;
 }

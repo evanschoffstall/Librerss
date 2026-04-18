@@ -30,6 +30,28 @@ type FeedSurfaceControllerOptions = Omit<
   "invertedScrollAnchorIndex"
 >;
 
+/**
+ * @param options
+ * @param options.feedSurfaceMode
+ * @param options.filteredFeedLength
+ * @param options.handleViewportHostRef
+ * @param options.hasSearchTerm
+ * @param options.invertedPaginationAnchorRef
+ * @param options.invertedPaginationAnchorRef.current
+ * @param options.isCachedPageRevealing
+ * @param options.isInvertedScroll
+ * @param options.loadMoreSentinelRef
+ * @param options.maybeAutoFillViewport
+ * @param options.scrollViewport
+ * @param options.shouldAutoAnchor
+ * @param options.shouldLockInitialNormalScroll
+ * @param options.shouldShowViewportResolutionSkeleton
+ * @param options.shouldUseVirtualizedFeed
+ * @param options.syncInvertedExpansionScrollLock
+ * @param options.syncInvertedPaginationAnchor
+ * @param options.trimmedSearchTerm
+ * @param options.visibleArticleCount
+ */
 export function buildFeedListSurfaceStateResult(options: {
   feedSurfaceMode: FeedSurfaceMode;
   filteredFeedLength: number;
@@ -76,6 +98,14 @@ export function buildFeedListSurfaceStateResult(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.filteredFeedLength
+ * @param options.isInitialLoading
+ * @param options.searchTerm
+ * @param options.shouldUseVirtualizedFeed
+ * @param options.viewportResolutionState
+ */
 export function getFeedSurfacePresentation(options: {
   filteredFeedLength: number;
   isInitialLoading: boolean;
@@ -86,6 +116,13 @@ export function getFeedSurfacePresentation(options: {
   return buildFeedSurfacePresentationState(options);
 }
 
+/**
+ * @param options
+ * @param options.expandedArticleKey
+ * @param options.hasClaimedInvertedScrollOwnershipRef
+ * @param options.isInvertedScroll
+ * @param options.shouldAnchorUnderfilledInvertedViewport
+ */
 export function useFeedSurfaceAutoAnchor(options: {
   expandedArticleKey: null | string;
   hasClaimedInvertedScrollOwnershipRef: React.RefObject<boolean>;
@@ -107,6 +144,9 @@ export function useFeedSurfaceAutoAnchor(options: {
   }, [options]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedSurfaceComposition(
   options: FeedSurfaceControllerOptions,
 ) {
@@ -129,20 +169,36 @@ export function useFeedSurfaceComposition(
   });
 }
 
+/**
+ * @param options
+ */
 export function useFeedSurfaceExpansionLock(
   options: Parameters<typeof useInvertedExpansionScrollLock>[0],
 ) {
   return useInvertedExpansionScrollLock(options);
 }
 
+/**
+ * @param scrollViewport
+ */
 export function useFeedSurfaceOwnership(scrollViewport: HTMLElement | null) {
   return useInvertedScrollOwnership(scrollViewport);
 }
 
+/**
+ * @param options
+ */
 export function useFeedSurfacePagination(options: UseFeedPaginationOptions) {
   return useFeedPagination(options);
 }
 
+/**
+ * @param options
+ * @param options.feedViewKey
+ * @param options.isCollapseScrollRestoreActive
+ * @param options.isInvertedScroll
+ * @param options.refreshEpoch
+ */
 export function useFeedSurfaceViewportState(options: {
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;
@@ -152,6 +208,15 @@ export function useFeedSurfaceViewportState(options: {
   return useFeedViewportState(options);
 }
 
+/**
+ * @param options
+ * @param options.expansionLockState
+ * @param options.ownershipState
+ * @param options.paginationState
+ * @param options.presentationState
+ * @param options.shouldAutoAnchor
+ * @param options.viewportState
+ */
 function buildFeedSurfaceCompositionResult(options: {
   expansionLockState: ReturnType<typeof useFeedSurfaceExpansionLock>;
   ownershipState: ReturnType<typeof useFeedSurfaceOwnership>;
@@ -170,6 +235,12 @@ function buildFeedSurfaceCompositionResult(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.expansionLockState
+ * @param options.onLoadMore
+ * @param options.ownershipState
+ */
 function buildFeedSurfacePaginationCallbacks(options: {
   expansionLockState: ReturnType<typeof useFeedSurfaceExpansionLock>;
   onLoadMore?: () => void;
@@ -188,6 +259,25 @@ function buildFeedSurfacePaginationCallbacks(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articlesPerPage
+ * @param options.canLoadMoreFromServer
+ * @param options.collapsingArticles
+ * @param options.expansionLockState
+ * @param options.feedViewKey
+ * @param options.filteredFeedLength
+ * @param options.isInitialLoading
+ * @param options.isInvertedScroll
+ * @param options.isLoadingMore
+ * @param options.isRefreshing
+ * @param options.onLoadMore
+ * @param options.ownershipState
+ * @param options.refreshEpoch
+ * @param options.searchTerm
+ * @param options.viewportState
+ */
 function buildFeedSurfacePaginationOptions(options: {
   articleFilter: string;
   articlesPerPage: number;
@@ -233,6 +323,17 @@ function buildFeedSurfacePaginationOptions(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.collapsingArticles
+ * @param options.expandedArticleKey
+ * @param options.feedViewKey
+ * @param options.getPreExpandViewportSnapshot
+ * @param options.isCollapseScrollRestoreActive
+ * @param options.isInvertedScroll
+ * @param options.refreshEpoch
+ */
 function useFeedSurfaceBaseStates(options: {
   articleFilter: string;
   collapsingArticles: Readonly<CollapsingArticles>;
@@ -265,6 +366,9 @@ function useFeedSurfaceBaseStates(options: {
   return { expansionLockState, ownershipState, viewportState };
 }
 
+/**
+ * @param options
+ */
 function useFeedSurfaceControllerStates(options: FeedSurfaceControllerOptions) {
   const { expansionLockState, ownershipState, viewportState } =
     useFeedSurfaceBaseStates(options);
@@ -292,6 +396,17 @@ function useFeedSurfaceControllerStates(options: FeedSurfaceControllerOptions) {
   return { expansionLockState, ownershipState, paginationState, viewportState };
 }
 
+/**
+ * @param options
+ * @param options.expandedArticleKey
+ * @param options.filteredFeedLength
+ * @param options.isInitialLoading
+ * @param options.isInvertedScroll
+ * @param options.ownershipState
+ * @param options.paginationState
+ * @param options.searchTerm
+ * @param options.viewportState
+ */
 function useFeedSurfaceDerivedState(options: {
   expandedArticleKey: null | string;
   filteredFeedLength: number;

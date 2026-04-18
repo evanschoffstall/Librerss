@@ -33,6 +33,8 @@ interface ProxyProbeTarget {
 /**
  * Detect whether a proxy speaks SOCKS by sending a SOCKS5 greeting.
  * Returns "socks5" if the server replies with 0x05, otherwise "http".
+ * @param host
+ * @param port
  */
 export async function detectProxyProtocol(
   host: string,
@@ -60,6 +62,10 @@ export async function detectProxyProtocol(
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
     let response = Buffer.alloc(0);
+    /**
+     * @param proto
+     * @param reason
+     */
     const finish = (proto: "http" | "socks5", reason: string) => {
       socket.removeAllListeners();
       socket.destroy();
@@ -110,6 +116,9 @@ export async function detectProxyProtocol(
  * Normalize a proxy URL string. Bare host:port is prefixed with http://.
  * If the scheme is http/https (or was bare), probes the port to detect SOCKS.
  * Explicit socks schemes are accepted as-is.
+ * @param raw
+ * @param probeFn
+ * @param dnsCheckFn
  */
 export async function normalizeProxyUrl(
   raw: string,
@@ -141,6 +150,8 @@ export async function normalizeProxyUrl(
 /** TCP connect probe — resolves true if port is open, false on timeout/error.
  *  For SOCKS5 URLs with embedded credentials, performs a full auth handshake
  *  to verify the credentials are accepted before reporting reachable.
+ * @param proxyUrl
+ * @param dnsCheckFn
  *  Includes both static and DNS-rebinding SSRF guards. */
 export async function probeProxy(
   proxyUrl: string,
@@ -162,6 +173,13 @@ export async function probeProxy(
   return probeTcpProxy(probeTarget);
 }
 
+/**
+ * @param root0
+ * @param root0.dnsCheckFn
+ * @param root0.host
+ * @param root0.raw
+ * @param root0.scope
+ */
 async function ensureProxyHostAllowed({
   dnsCheckFn,
   host,
@@ -197,6 +215,12 @@ async function ensureProxyHostAllowed({
   return true;
 }
 
+/**
+ * @param raw
+ * @param inputValue
+ * @param probeFn
+ * @param dnsCheckFn
+ */
 async function normalizeDetectedProxyUrl(
   raw: string,
   inputValue: string,
@@ -232,6 +256,12 @@ async function normalizeDetectedProxyUrl(
   return stripUrlCredentials(normalized);
 }
 
+/**
+ * @param inputValue
+ * @param raw
+ * @param parsed
+ * @param dnsCheckFn
+ */
 async function normalizeExplicitSocksProxyUrl(
   inputValue: string,
   raw: string,
@@ -256,6 +286,9 @@ async function normalizeExplicitSocksProxyUrl(
   return stripUrlCredentials(ensureProxyUrlHasExplicitPort(inputValue));
 }
 
+/**
+ * @param proxyUrl
+ */
 function parseCredentialedSocksUrl(proxyUrl: string): null | {
   password?: string;
   username: string;
@@ -277,6 +310,9 @@ function parseCredentialedSocksUrl(proxyUrl: string): null | {
   }
 }
 
+/**
+ * @param proxyUrl
+ */
 function parseHostPort(
   proxyUrl: string,
 ): null | { host: string; port: number } {
@@ -302,6 +338,10 @@ function parseHostPort(
   }
 }
 
+/**
+ * @param input
+ * @param raw
+ */
 function parseProxyUrl(input: string, raw: string): null | URL {
   let parsed: URL;
 
@@ -325,6 +365,9 @@ function parseProxyUrl(input: string, raw: string): null | URL {
   return parsed;
 }
 
+/**
+ * @param raw
+ */
 function prepareProxyInput(
   raw: string,
 ): null | { needsScheme: boolean; value: string } {
@@ -348,6 +391,10 @@ function prepareProxyInput(
   };
 }
 
+/**
+ * @param proxyUrl
+ * @param probeTarget
+ */
 async function probeCredentialedSocksProxy(
   proxyUrl: string,
   probeTarget: ProxyProbeTarget,
@@ -379,6 +426,9 @@ async function probeCredentialedSocksProxy(
   return ok;
 }
 
+/**
+ * @param probeTarget
+ */
 function probeTcpProxy(probeTarget: ProxyProbeTarget): Promise<boolean> {
   logger.info(`Proxy probe started. (proxyUrl=${probeTarget.safeProxyUrl})`);
   return new Promise<boolean>((resolve) => {
@@ -409,6 +459,10 @@ function probeTcpProxy(probeTarget: ProxyProbeTarget): Promise<boolean> {
   });
 }
 
+/**
+ * @param proxyUrl
+ * @param dnsCheckFn
+ */
 async function resolveProxyProbeTarget(
   proxyUrl: string,
   dnsCheckFn?: (host: string) => Promise<boolean>,
@@ -449,6 +503,10 @@ async function resolveProxyProbeTarget(
  * issuing a CONNECT to any destination. Returns true if the server accepts
  * auth (or no-auth). This validates credentials without touching any external
  * host.
+ * @param host
+ * @param port
+ * @param username
+ * @param password
  */
 async function socks5AuthProbe(
   host: string,
@@ -467,6 +525,9 @@ async function socks5AuthProbe(
     const socket = new net.Socket();
     socket.setTimeout(PROBE_TIMEOUT_MS);
     let stage: "auth" | "greeting" = "greeting";
+    /**
+     * @param ok
+     */
     const finish = (ok: boolean) => {
       socket.removeAllListeners();
       socket.destroy();

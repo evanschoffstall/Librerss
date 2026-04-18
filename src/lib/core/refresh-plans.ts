@@ -29,7 +29,14 @@ interface ExecuteParallelRefreshesOptions {
   skipRefresh: boolean;
 }
 
-/** Builds the per-feed refresh plan for a batch request. */
+/**
+ * Builds the per-feed refresh plan for a batch request.
+ * @param feedByUrl
+ * @param allowedUrls
+ * @param skipRefresh
+ * @param forceRefresh
+ * @param forceResolveUpstream
+ */
 export function buildRefreshPlan(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
@@ -76,6 +83,16 @@ export function buildRefreshPlan(
   });
 }
 
+/**
+ * @param root0
+ * @param root0.allowedUrls
+ * @param root0.db
+ * @param root0.feedByUrl
+ * @param root0.forceRefresh
+ * @param root0.forceResolveUpstream
+ * @param root0.proxyTransport
+ * @param root0.skipRefresh
+ */
 export async function executeParallelRefreshes({
   allowedUrls,
   db,
@@ -139,6 +156,12 @@ export async function executeParallelRefreshes({
   };
 }
 
+/**
+ * @param feedByUrl
+ * @param allowedUrls
+ * @param forceRefresh
+ * @param forceResolveUpstream
+ */
 function countCooldownLimitedFeeds(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
@@ -159,6 +182,11 @@ function countCooldownLimitedFeeds(
   }).length;
 }
 
+/**
+ * @param staleFeeds
+ * @param results
+ * @param upstreamErrors
+ */
 function recordRefreshSettlements(
   staleFeeds: FeedRecord[],
   results: PromiseSettledResult<UpstreamRefreshResult>[],
@@ -189,6 +217,11 @@ function recordRefreshSettlements(
   }
 }
 
+/**
+ * @param db
+ * @param staleFeeds
+ * @param proxyTransport
+ */
 async function refreshCandidateFeeds(
   db: ReturnType<DbMod["getDb"]>,
   staleFeeds: FeedRecord[],
@@ -205,6 +238,12 @@ async function refreshCandidateFeeds(
   );
 }
 
+/**
+ * @param feedByUrl
+ * @param allowedUrls
+ * @param forceRefresh
+ * @param forceResolveUpstream
+ */
 function resolveRefreshCandidates(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
@@ -220,6 +259,10 @@ function resolveRefreshCandidates(
     );
 }
 
+/**
+ * @param tasks
+ * @param concurrency
+ */
 async function settledWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
   concurrency: number,
@@ -228,6 +271,9 @@ async function settledWithConcurrency<T>(
   results.length = tasks.length;
   let nextIndex = 0;
 
+  /**
+   *
+   */
   async function worker() {
     while (nextIndex < tasks.length) {
       const taskIndex = nextIndex++;
@@ -248,6 +294,11 @@ async function settledWithConcurrency<T>(
   return results;
 }
 
+/**
+ * @param feed
+ * @param forceRefresh
+ * @param forceResolveUpstream
+ */
 function shouldBatchRefreshFeed(
   feed: FeedRecord,
   forceRefresh: boolean,

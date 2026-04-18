@@ -37,7 +37,10 @@ interface UseArticleCollapseStateOptions {
   feed: Article[];
 }
 
-/** Returns the mounted lifetime for a staged unread-removal mode. */
+/**
+ * Returns the mounted lifetime for a staged unread-removal mode.
+ * @param mode
+ */
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,
 ) {
@@ -51,6 +54,8 @@ export function getArticleRemovalAnimationDuration(
  *
  * This isolates DOM snapshotting, exit-row bookkeeping, and viewport scroll
  * restoration from the higher-level article mutation workflow.
+ * @param root0
+ * @param root0.feed
  */
 export function useArticleCollapseState({
   feed,
@@ -85,6 +90,10 @@ export function useArticleCollapseState({
   };
 }
 
+/**
+ * @param articleKey
+ * @param storedSnapshot
+ */
 function resolveCollapseScrollSnapshot(
   articleKey: string,
   storedSnapshot: ArticleViewportSnapshot | null,
@@ -105,6 +114,14 @@ function resolveCollapseScrollSnapshot(
   return snapshot;
 }
 
+/**
+ * @param root0
+ * @param root0.articleKey
+ * @param root0.clearPreExpandSnapshot
+ * @param root0.collapseScrollRestoreCleanupRef
+ * @param root0.setIsCollapseScrollRestoreActive
+ * @param root0.snapshot
+ */
 function startCollapseScrollRestore({
   articleKey,
   clearPreExpandSnapshot,
@@ -135,6 +152,9 @@ function startCollapseScrollRestore({
   };
 }
 
+/**
+ *
+ */
 function useArticleCollapseLifecycleState() {
   const collapseRemovalTimeoutsRef = useRef(
     new Map<string, RemovalAnimationTimeoutId>(),
@@ -169,6 +189,13 @@ function useArticleCollapseLifecycleState() {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleViewportSnapshotRef
+ * @param root0.clearPreExpandSnapshot
+ * @param root0.collapseScrollRestoreCleanupRef
+ * @param root0.setIsCollapseScrollRestoreActive
+ */
 function useArticleCollapseScrollRestoreState({
   articleViewportSnapshotRef,
   clearPreExpandSnapshot,
@@ -227,6 +254,11 @@ function useArticleCollapseScrollRestoreState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.collapseRemovalTimeoutsRef
+ * @param root0.feed
+ */
 function useArticleRemovalAnimationState({
   collapseRemovalTimeoutsRef,
   feed,
@@ -294,6 +326,9 @@ function useArticleRemovalAnimationState({
   };
 }
 
+/**
+ * @param articleViewportSnapshotRef
+ */
 function useArticleViewportSnapshotState(
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>,
 ) {

@@ -14,6 +14,11 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+/**
+ * @param request
+ * @param context
+ * @param deps
+ */
 export async function GET(
   request: NextRequest,
   context: RouteContext,

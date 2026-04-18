@@ -157,11 +157,12 @@ const PURIFY_OPTIONS = {
  * - Allows a broad set of tags and attributes for subsequent processing
  * - Removes all script/event handler attributes
  * - Blocks javascript:, data:, and vbscript: protocols
- * - Normalizes markup for consistent downstream parsing
+ * - Normalizes markup for consistent downstream parsing.
  *
  * This is NOT the final sanitization step — downstream modules apply
  * additional content-specific filtering (image size limits, promotional
  * block removal, etc.). This step only provides baseline XSS protection.
+ * @param rawHtml
  */
 export function purifyRawHtml(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== "string") {

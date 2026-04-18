@@ -15,6 +15,8 @@ export type { ProxyRouteDeps } from "@/lib/outbound-proxy";
 /**
  * Returns the saved proxy configuration for the authenticated user and probes
  * the current endpoint with any stored credentials applied.
+ * @param request
+ * @param depsOrContext
  */
 export async function GET(
   request: NextRequest,
@@ -25,6 +27,8 @@ export async function GET(
 
 /**
  * Validates and stores proxy settings for the authenticated user.
+ * @param request
+ * @param depsOrContext
  */
 export async function PUT(
   request: NextRequest,
@@ -35,6 +39,9 @@ export async function PUT(
   return handleProxySettingsPut(request, body, depsOrContext);
 }
 
+/**
+ * @param request
+ */
 async function parseProxySettingsBody(
   request: NextRequest,
 ): Promise<ProxySettingsRequestBody | Response> {

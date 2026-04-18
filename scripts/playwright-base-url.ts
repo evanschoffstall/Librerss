@@ -7,7 +7,11 @@ interface PlaywrightBaseUrlEnv {
   PLAYWRIGHT_PORT?: string;
 }
 
-/** Builds the canonical Playwright base URL from the resolved host and port. */
+/**
+ * Builds the canonical Playwright base URL from the resolved host and port.
+ * @param host
+ * @param port
+ */
 export function buildPlaywrightBaseUrl(host: string, port: number) {
   const normalizedHost = host.trim();
 
@@ -27,6 +31,7 @@ export function buildPlaywrightBaseUrl(host: string, port: number) {
 /**
  * Resolves the Playwright endpoint from the wrapper-provided base URL first,
  * then falls back to wrapper host and port env vars, then repo defaults.
+ * @param env
  */
 export function resolvePlaywrightBaseUrl(
   env: PlaywrightBaseUrlEnv = process.env as PlaywrightBaseUrlEnv,

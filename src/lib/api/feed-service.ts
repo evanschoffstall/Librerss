@@ -15,6 +15,9 @@ interface CategoryOrderResponse {
   orderedLabels?: unknown;
 }
 
+/**
+ * @param knownLastFetchedAtByUrl
+ */
 function serializeKnownLastFetchedAtByUrl(
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,
 ): Record<string, string> | undefined {
@@ -38,6 +41,9 @@ function serializeKnownLastFetchedAtByUrl(
 const feedServiceBaseUrl = "/api";
 
 export const FeedService = {
+  /**
+   * @param source
+   */
   async createFeedSource(
     source: Pick<FeedSource, "name" | "url"> & { category?: string },
   ): Promise<FeedSource> {
@@ -48,6 +54,9 @@ export const FeedService = {
     return response.data;
   },
 
+  /**
+   * @param id
+   */
   async deleteFeedSource(id: number): Promise<FeedSource> {
     const response = await getApiClient().delete<FeedSource>(
       `${feedServiceBaseUrl}/feeds?id=${id}`,
@@ -55,6 +64,9 @@ export const FeedService = {
     return response.data;
   },
 
+  /**
+   *
+   */
   async getCategoryOrder(): Promise<string[]> {
     const response = await getApiClient().get<CategoryOrderResponse>(
       `${feedServiceBaseUrl}/feeds/category-order`,
@@ -67,6 +79,9 @@ export const FeedService = {
       : [];
   },
 
+  /**
+   * @param url
+   */
   async getFeed(url: string): Promise<Article[]> {
     const response = await withRequestDeadline(
       getApiClient().get<Article[]>(
@@ -76,6 +91,19 @@ export const FeedService = {
     return ensureArrayResponse<Article>(response.data);
   },
 
+  /**
+   * @param urls
+   * @param root0
+   * @param root0.articleFilter
+   * @param root0.articleLimit
+   * @param root0.forceRefresh
+   * @param root0.forceResolveUpstream
+   * @param root0.knownLastFetchedAtByUrl
+   * @param root0.requestSource
+   * @param root0.searchTerm
+   * @param root0.signal
+   * @param root0.skipRefresh
+   */
   async getFeedsBatch(
     urls: string[],
     {
@@ -142,6 +170,9 @@ export const FeedService = {
     }
   },
 
+  /**
+   *
+   */
   async getFeedSources(): Promise<FeedSource[]> {
     const response = await withRequestDeadline(
       getApiClient().get<FeedSource[]>(`${feedServiceBaseUrl}/feeds`),
@@ -149,6 +180,11 @@ export const FeedService = {
     return ensureArrayResponse<FeedSource>(response.data);
   },
 
+  /**
+   * @param id
+   * @param name
+   * @param url
+   */
   async renameFeedSource(
     id: number,
     name: string,
@@ -165,12 +201,19 @@ export const FeedService = {
     return response.data;
   },
 
+  /**
+   * @param orderedLabels
+   */
   async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
     await getApiClient().put(`${feedServiceBaseUrl}/feeds/category-order`, {
       orderedLabels,
     });
   },
 
+  /**
+   * @param id
+   * @param enabled
+   */
   async setFeedSourceEnabled(
     id: number,
     enabled: boolean,
@@ -185,6 +228,12 @@ export const FeedService = {
     return response.data;
   },
 
+  /**
+   * @param id
+   * @param settings
+   * @param settings.extractionDisabled
+   * @param settings.proxyEnabled
+   */
   async updateFeedSettings(
     id: number,
     settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },

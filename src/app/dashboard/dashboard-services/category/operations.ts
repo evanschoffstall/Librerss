@@ -57,6 +57,13 @@ interface RenameCategoryAndRefreshOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.label
+ * @param root0.setCustomCategoryLabels
+ */
 export function addCategoryLabel({
   categories,
   customCategoryLabels,
@@ -85,6 +92,11 @@ export function addCategoryLabel({
   return true;
 }
 
+/**
+ * @param current
+ * @param label
+ * @param targetIndex
+ */
 export function moveCategoryByDropInOrder(
   current: string[],
   label: string,
@@ -103,6 +115,21 @@ export function moveCategoryByDropInOrder(
   return next;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.label
+ * @param root0.loadFeedSources
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setPendingCategoryRemovalLabel
+ * @param root0.setSelectedCategory
+ */
 export async function removeCategoryAndRefresh({
   categories,
   customCategoryLabels,
@@ -158,6 +185,18 @@ export async function removeCategoryAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.currentLabel
+ * @param root0.customCategoryLabels
+ * @param root0.loadFeedSources
+ * @param root0.nextLabel
+ * @param root0.selectedCategory
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setSelectedCategory
+ */
 export async function renameCategoryAndRefresh({
   categories,
   currentLabel,
@@ -204,6 +243,14 @@ export async function renameCategoryAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.label
+ * @param root0.setCategories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setPendingCategoryRemovalLabel
+ */
 function applyImmediateCategoryRemoval({
   label,
   setCategories,
@@ -220,6 +267,10 @@ function applyImmediateCategoryRemoval({
   );
 }
 
+/**
+ * @param feedNodes
+ * @param targetCategory
+ */
 async function assignFeedsToCategory(
   feedNodes: CategoryTreeNode[],
   targetCategory: string,
@@ -238,6 +289,21 @@ async function assignFeedsToCategory(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.feedsInCategory
+ * @param root0.label
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setPendingCategoryRemovalLabel
+ * @param root0.setSelectedCategory
+ * @param root0.targetCategory
+ */
 async function commitCategoryRemoval({
   categories,
   ensureCategoryLabelExists,
@@ -281,6 +347,17 @@ async function commitCategoryRemoval({
   setPendingCategoryRemovalLabel(null);
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.loadFeedSources
+ * @param root0.normalizedCurrent
+ * @param root0.normalizedNext
+ * @param root0.renameContext
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setSelectedCategory
+ */
 async function commitCategoryRename({
   categories,
   loadFeedSources,
@@ -330,6 +407,12 @@ async function commitCategoryRename({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categoriesWereReloaded
+ * @param root0.loadFeedSources
+ * @param root0.refreshedCategories
+ */
 async function ensureCategoriesLoadedForSelectionRestore({
   categoriesWereReloaded,
   loadFeedSources,
@@ -346,6 +429,12 @@ async function ensureCategoriesLoadedForSelectionRestore({
   return loadFeedSources();
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.normalizedCurrent
+ * @param root0.selectedCategory
+ */
 function getCategoryRenameContext({
   categories,
   normalizedCurrent,
@@ -366,6 +455,17 @@ function getCategoryRenameContext({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.label
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.setCategories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setPendingCategoryRemovalLabel
+ */
 function resolveCategoryRemovalState({
   categories,
   customCategoryLabels,
@@ -420,6 +520,13 @@ function resolveCategoryRemovalState({
   return { completed: false, feedsInCategory, targetCategory };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.refreshedCategories
+ * @param root0.selectedCategory
+ * @param root0.setSelectedCategory
+ */
 function restoreCategorySelectionAfterRefresh({
   categories,
   refreshedCategories,
@@ -443,6 +550,13 @@ function restoreCategorySelectionAfterRefresh({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.currentLabel
+ * @param root0.customCategoryLabels
+ * @param root0.nextLabel
+ */
 function validateCategoryRename({
   categories,
   currentLabel,

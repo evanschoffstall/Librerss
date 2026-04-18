@@ -17,6 +17,10 @@ interface UseSettingsCategoryStateOptions {
  *
  * The modal's category controls only need local draft values plus persistence
  * handlers, so this hook isolates that workflow from feed editing concerns.
+ * @param root0
+ * @param root0.categories
+ * @param root0.onAddCategory
+ * @param root0.onRenameCategory
  */
 export function useSettingsCategoryState({
   categories,
@@ -42,11 +46,17 @@ export function useSettingsCategoryState({
     }
   }, [categories, editingCategory]);
 
+  /**
+   *
+   */
   const clearCategoryEdit = () => {
     setEditingCategory(null);
     setEditingCategoryName("");
   };
 
+  /**
+   *
+   */
   const handleAddCategory = () => {
     const didAdd = onAddCategory(newCategoryName.trim());
     if (!didAdd) {
@@ -56,6 +66,9 @@ export function useSettingsCategoryState({
     setNewCategoryName("");
   };
 
+  /**
+   * @param currentLabel
+   */
   const handleSaveCategoryRename = async (currentLabel: string) => {
     setSavingCategoryLabel(currentLabel);
     try {
@@ -80,6 +93,9 @@ export function useSettingsCategoryState({
     handleSaveCategoryRename,
     newCategoryName,
     onCancelCategoryEdit: clearCategoryEdit,
+    /**
+     * @param label
+     */
     onStartCategoryEdit: (label: string) => {
       setEditingCategory(label);
       setEditingCategoryName(label);

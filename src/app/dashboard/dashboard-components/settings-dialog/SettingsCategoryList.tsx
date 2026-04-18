@@ -50,6 +50,9 @@ interface SettingsCategoryListProps {
   sharedFeedRowProps: SharedFeedRowProps;
 }
 
+/**
+ * @param props
+ */
 export function SettingsCategoryList(props: SettingsCategoryListProps) {
   if (props.categories.length === 0) {
     return (
@@ -68,6 +71,16 @@ export function SettingsCategoryList(props: SettingsCategoryListProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.buttonClassName
+ * @param root0.buttonLabel
+ * @param root0.buttonVariant
+ * @param root0.inputPlaceholder
+ * @param root0.newCategoryName
+ * @param root0.onAddCategory
+ * @param root0.onNewCategoryNameChange
+ */
 function AddCategoryControls({
   buttonClassName,
   buttonLabel,
@@ -108,6 +121,30 @@ function AddCategoryControls({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.addingFeedInCategory
+ * @param root0.categories
+ * @param root0.drag
+ * @param root0.editingCategory
+ * @param root0.editingCategoryName
+ * @param root0.isSavingFeed
+ * @param root0.newFeedName
+ * @param root0.newFeedUrl
+ * @param root0.onAddFeed
+ * @param root0.onCancelAddFeed
+ * @param root0.onCancelCategoryEdit
+ * @param root0.onEditingCategoryNameChange
+ * @param root0.onNewFeedNameChange
+ * @param root0.onNewFeedUrlChange
+ * @param root0.onRemoveCategory
+ * @param root0.onSaveCategoryRename
+ * @param root0.onStartCategoryEdit
+ * @param root0.onToggleAddFeed
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.savingCategoryLabel
+ * @param root0.sharedFeedRowProps
+ */
 function CategoryAccordionItems({
   addingFeedInCategory,
   categories,
@@ -169,6 +206,9 @@ function CategoryAccordionItems({
   ));
 }
 
+/**
+ * @param props
+ */
 function CategoryAccordionList(props: SettingsCategoryListProps) {
   return (
     <Accordion
@@ -216,6 +256,11 @@ function CategoryAccordionList(props: SettingsCategoryListProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.drag
+ */
 function CategoryDropZone({
   categories,
   drag,
@@ -246,6 +291,12 @@ function CategoryDropZone({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.newCategoryName
+ * @param root0.onAddCategory
+ * @param root0.onNewCategoryNameChange
+ */
 function CategoryFooterAddControls({
   newCategoryName,
   onAddCategory,
@@ -269,6 +320,12 @@ function CategoryFooterAddControls({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.newCategoryName
+ * @param root0.onAddCategory
+ * @param root0.onNewCategoryNameChange
+ */
 function EmptyCategoryState({
   newCategoryName,
   onAddCategory,

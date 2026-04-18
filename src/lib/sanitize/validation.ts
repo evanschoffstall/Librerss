@@ -9,6 +9,9 @@ import {
   stripLeadMediaBoilerplateHeadings,
 } from "./lead-media";
 
+/**
+ * @param li
+ */
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
   if (SOCIAL_SHARE_LINK_RE.test(lower)) return true;
@@ -21,6 +24,9 @@ function isSocialShareListItem(li: string): boolean {
   );
 }
 
+/**
+ * @param content
+ */
 function stripShareEngagementToolbars(content: string): string {
   return content.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
@@ -88,11 +94,17 @@ const FILE_DOWNLOAD_EXTENSIONS = new Set([
 /** Anchored, non-backtracking: extension + whitespace + parenthesised size. */
 const FILE_SIZE_SUFFIX_RE = /^([a-z0-9]{2,5})\s*\(\d[\d.]*\s*[KMGT]?B\)$/i;
 
+/**
+ * @param text
+ */
 function isFileTypeSizeText(text: string): boolean {
   const m = FILE_SIZE_SUFFIX_RE.exec(text);
   return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1].toLowerCase());
 }
 
+/**
+ * @param text
+ */
 function isShortHeadingLabel(text: string): boolean {
   const normalized = text.trim();
   if (!normalized || normalized.length > 72) return false;
@@ -100,6 +112,9 @@ function isShortHeadingLabel(text: string): boolean {
   return normalized.split(/\s+/).filter(Boolean).length <= 6;
 }
 
+/**
+ * @param value
+ */
 function normalizeHeadingText(value: string): string {
   return value
     .replace(/<[^>]*>/g, " ")
@@ -108,6 +123,9 @@ function normalizeHeadingText(value: string): string {
     .trim();
 }
 
+/**
+ * @param content
+ */
 function stripFileDownloadBoilerplate(content: string): string {
   return content.replace(
     /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
@@ -125,7 +143,7 @@ const PROMO_CTA_RE =
  * or returned to the client.  Two things are removed in sequence:
  *
  * 1. Comment-engagement boilerplate — login prompts, "before commenting"
- *    notices, etc. that manipulators sometimes pull in from the comment section.
+ *    notices, etc. That manipulators sometimes pull in from the comment section.
  * 2. Leading inline bio/profile fragments — linked author bios that appear
  *    before the first paragraph block but are not article content.
  * 3. Nav/footer boilerplate guard — if the whole remaining content still looks
@@ -134,6 +152,8 @@ const PROMO_CTA_RE =
  *
  * `_articleUrl` is reserved for future per-origin cleaning rules but is
  * intentionally unused today to keep the logic domain-agnostic.
+ * @param sanitizedContent
+ * @param _articleUrl
  */
 export function cleanSanitizedHtml(
   sanitizedContent: string,
@@ -189,6 +209,7 @@ export function cleanSanitizedHtml(
  *
  * Used by the direct-sanitize fallback to avoid promoting ad fragments or
  * empty boilerplate into the article slot.
+ * @param content
  */
 export function hasReadableArticleBody(content: string): boolean {
   // Prefer structured markup as the primary signal — fast and reliable.
@@ -211,6 +232,7 @@ export function hasReadableArticleBody(content: string): boolean {
  * "advertise", "subscribe", etc.) AND a high link + list-item density.  All
  * three conditions must hold to avoid false positives on article content that
  * legitimately mentions those words.
+ * @param content
  */
 export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
@@ -241,6 +263,9 @@ export function isLikelyNavFooterBoilerplate(content: string): boolean {
   return markerHits >= 2 && linkCount >= 6 && listItemCount >= 4;
 }
 
+/**
+ * @param content
+ */
 export function stripCommentEngagementBoilerplate(content: string): string {
   return content
     .replace(/<p\b[^>]*>([^<]{0,300})<\/p>/gi, (match, text: string) => {
@@ -254,6 +279,9 @@ export function stripCommentEngagementBoilerplate(content: string): string {
     .trim();
 }
 
+/**
+ * @param inner
+ */
 function isPromoCta(inner: string): boolean {
   const text = inner
     .replace(/<[^>]*>/g, " ")
@@ -265,6 +293,7 @@ function isPromoCta(inner: string): boolean {
 /**
  * Strip promotional CTA paragraphs and links (e.g. "Add as preferred source on
  * Google", "Follow X on WhatsApp", "You need javascript enabled").
+ * @param content
  */
 function stripPromotionalCtaBlocks(content: string): string {
   return content

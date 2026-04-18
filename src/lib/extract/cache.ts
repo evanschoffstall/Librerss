@@ -10,10 +10,16 @@ import {
 
 const articleExtractCache = new Map<string, CachedExtractResponse>();
 
+/**
+ *
+ */
 export function clearArticleExtractCacheForTests(): void {
   articleExtractCache.clear();
 }
 
+/**
+ * @param url
+ */
 export function getCachedExtractPayload(
   url: string,
 ): ExtractResponsePayload | null {
@@ -33,6 +39,9 @@ export function getCachedExtractPayload(
   return cached.payload;
 }
 
+/**
+ *
+ */
 export function isExtractCacheEnabled(): boolean {
   if (!envBooleanOptional("ARTICLE_EXTRACT_CACHE_ENABLED", true)) return false;
   if (isDevelopment()) {
@@ -41,6 +50,10 @@ export function isExtractCacheEnabled(): boolean {
   return true;
 }
 
+/**
+ * @param url
+ * @param payload
+ */
 export function setCachedExtractPayload(
   url: string,
   payload: ExtractResponsePayload,

@@ -25,6 +25,9 @@ import {
 import { clientFeedCacheTtlMinutes } from "@/lib/config";
 import { useLocalStorage } from "@/lib/hooks";
 
+/**
+ *
+ */
 export function useDashboardState() {
   const persistentState = useDashboardPersistentState();
   const transientState = useDashboardTransientState();
@@ -35,6 +38,9 @@ export function useDashboardState() {
   };
 }
 
+/**
+ * @param defaultAutoRefreshIntervalMinutes
+ */
 function useDashboardAutoRefreshState(
   defaultAutoRefreshIntervalMinutes: number,
 ) {
@@ -80,6 +86,9 @@ function useDashboardAutoRefreshState(
   };
 }
 
+/**
+ *
+ */
 function useDashboardPersistedPreferences() {
   const [selectedCategory, setSelectedCategory] = useLocalStorage(
     DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
@@ -121,6 +130,9 @@ function useDashboardPersistedPreferences() {
   };
 }
 
+/**
+ *
+ */
 function useDashboardPersistentState() {
   const defaultAutoRefreshIntervalMinutes =
     resolveDefaultAutoRefreshIntervalMinutes(clientFeedCacheTtlMinutes());
@@ -135,6 +147,9 @@ function useDashboardPersistentState() {
   };
 }
 
+/**
+ *
+ */
 function useDashboardTransientState() {
   const [feed, setFeed] = useState<Article[]>([]);
   const feedRef = useRef<Article[]>([]);

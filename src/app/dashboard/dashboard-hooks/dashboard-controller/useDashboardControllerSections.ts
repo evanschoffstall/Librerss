@@ -19,6 +19,9 @@ export { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-ho
 export { useDashboardControllerOutput } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerOutput";
 export { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
 
+/**
+ *
+ */
 export function useDashboardAnimatingArticleState() {
   const [animatingInArticleKeys, setAnimatingInArticleKeys] = useState(
     () => new Set<string>(),
@@ -48,6 +51,16 @@ export function useDashboardAnimatingArticleState() {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.dashboardState
+ * @param root0.feedLoader
+ * @param root0.loadingState
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ * @param root0.usePlaceholderData
+ * @param root0.viewModelState
+ */
 export function useDashboardArticleWindowState({
   dashboardState,
   feedLoader,
@@ -89,6 +102,14 @@ export function useDashboardArticleWindowState({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.animationState
+ * @param root0.dashboardState
+ * @param root0.distillStrategy
+ * @param root0.refreshState
+ * @param root0.usePlaceholderData
+ */
 export function useDashboardControllerResources({
   animationState,
   dashboardState,
@@ -144,6 +165,16 @@ export function useDashboardControllerResources({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.feedLength
+ * @param root0.isCategoriesLoading
+ * @param root0.loading
+ * @param root0.searchTerm
+ * @param root0.settleMs
+ * @param root0.usePlaceholderData
+ */
 export function useDashboardFeedLoadingState({
   articleFilter: _articleFilter,
   feedLength,
@@ -181,6 +212,12 @@ export function useDashboardFeedLoadingState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categoryTree
+ * @param root0.collapsedArticles
+ * @param root0.dashboardState
+ */
 export function useDashboardViewModelState({
   categoryTree,
   collapsedArticles,
@@ -234,6 +271,13 @@ export function useDashboardViewModelState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.animationState
+ * @param root0.dashboardState
+ * @param root0.refreshState
+ * @param root0.usePlaceholderData
+ */
 function buildDashboardFeedLoaderOptions({
   animationState,
   dashboardState,

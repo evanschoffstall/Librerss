@@ -31,6 +31,12 @@ interface ObserveViewportRestoreOptions {
   stopRestore: () => void;
 }
 
+/**
+ * @param rootNode
+ * @param sessionKey
+ * @param refs
+ * @param restore
+ */
 export function applyViewportRef(
   rootNode: HTMLElement | null,
   sessionKey: string,
@@ -56,6 +62,10 @@ export function applyViewportRef(
   requestAnimationFrame(restore);
 }
 
+/**
+ * @param viewport
+ * @param scrollOffset
+ */
 export function buildSavedScroll(
   viewport: HTMLElement,
   scrollOffset: number,
@@ -94,6 +104,11 @@ export function buildSavedScroll(
   };
 }
 
+/**
+ * @param sessionKey
+ * @param refs
+ * @param restore
+ */
 export function captureViewportState(
   sessionKey: string,
   refs: ViewportRestoreRefs,
@@ -116,6 +131,11 @@ export function captureViewportState(
   requestAnimationFrame(restore);
 }
 
+/**
+ * @param viewport
+ * @param target
+ * @param scrollOffset
+ */
 export function clampScrollTop(
   viewport: HTMLElement,
   target: number,
@@ -126,6 +146,10 @@ export function clampScrollTop(
   return Math.min(max, Math.max(scrollOffset, target));
 }
 
+/**
+ * @param viewport
+ * @param saved
+ */
 export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
   const children = Array.from(viewport.firstElementChild?.children ?? []);
   if (saved.k) {
@@ -138,6 +162,11 @@ export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
   return children.at(saved.ai) ?? null;
 }
 
+/**
+ * @param sessionKey
+ * @param refs
+ * @param restore
+ */
 export function flushViewportState(
   sessionKey: string,
   refs: ViewportRestoreRefs,
@@ -154,6 +183,10 @@ export function flushViewportState(
   requestAnimationFrame(restore);
 }
 
+/**
+ * @param element
+ * @param viewport
+ */
 export function getElementOffset(element: Element, viewport: HTMLElement) {
   return (
     element.getBoundingClientRect().top -
@@ -162,6 +195,9 @@ export function getElementOffset(element: Element, viewport: HTMLElement) {
   );
 }
 
+/**
+ * @param element
+ */
 export function getScrollAnchorKey(element: Element) {
   const ownKey = element.getAttribute("data-scroll-restore-key");
   if (ownKey) return ownKey;
@@ -177,6 +213,11 @@ export function getScrollAnchorKey(element: Element) {
   );
 }
 
+/**
+ * @param sessionKey
+ * @param refs
+ * @param stopRestore
+ */
 export function invalidateViewportState(
   sessionKey: string,
   refs: ViewportRestoreRefs,
@@ -191,6 +232,11 @@ export function invalidateViewportState(
   }
 }
 
+/**
+ * @param sessionKey
+ * @param refs
+ * @param applyScrollTop
+ */
 export function restoreViewportState(
   sessionKey: string,
   refs: ViewportRestoreRefs,
@@ -222,6 +268,13 @@ export function restoreViewportState(
   }
 }
 
+/**
+ * @param root0
+ * @param root0.refs
+ * @param root0.restore
+ * @param root0.sessionKey
+ * @param root0.stopRestore
+ */
 export function useViewportRestoreLifecycle({
   refs,
   restore,
@@ -253,6 +306,9 @@ export function useViewportRestoreLifecycle({
   }, [refs, restore, sessionKey, stopRestore]);
 }
 
+/**
+ * @param scrollOffset
+ */
 export function useViewportRestoreRefs(
   scrollOffset: number,
 ): ViewportRestoreRefs {

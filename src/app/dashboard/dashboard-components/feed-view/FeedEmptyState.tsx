@@ -9,6 +9,13 @@ interface FeedEmptyStateProps {
   trimmedSearchTerm: string;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.hasConfiguredFeeds
+ * @param root0.hasSearchTerm
+ * @param root0.trimmedSearchTerm
+ */
 export function FeedEmptyState({
   articleFilter,
   hasConfiguredFeeds = true,
@@ -88,7 +95,12 @@ export function FeedEmptyState({
   );
 }
 
-/** Resolves the icon, heading, and description for the current empty-state reason. */
+/**
+ * Resolves the icon, heading, and description for the current empty-state reason.
+ * @param hasSearchTerm
+ * @param hasConfiguredFeeds
+ * @param articleFilter
+ */
 function resolveEmptyStateContent(
   hasSearchTerm: boolean,
   hasConfiguredFeeds: boolean,

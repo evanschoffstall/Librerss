@@ -11,6 +11,9 @@ export interface OpmlFeedImportEntry {
   url: string;
 }
 
+/**
+ * @param outline
+ */
 const getOutlineLabel = (outline: Element): string => {
   const text = outline.getAttribute("text")?.trim();
   if (text) {
@@ -21,6 +24,9 @@ const getOutlineLabel = (outline: Element): string => {
   return title ?? "";
 };
 
+/**
+ * @param outline
+ */
 const getFeedName = (outline: Element): string => {
   const label = getOutlineLabel(outline);
   if (label) {
@@ -35,6 +41,7 @@ const getFeedName = (outline: Element): string => {
  * Normalizes an OPML feed URL.  Returns null when the URL is invalid or uses a
  * non-HTTP(S) protocol.  Delegates to tryNormalizeFeedUrl for consistent
  * parsing / stripping behaviour across the codebase.
+ * @param rawUrl
  */
 const normalizeImportUrl = (rawUrl: string): null | string => {
   try {
@@ -50,6 +57,9 @@ const normalizeImportUrl = (rawUrl: string): null | string => {
   return tryNormalizeFeedUrl(rawUrl);
 };
 
+/**
+ * @param opmlXml
+ */
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const parser = new DOMParser();
   const document = parser.parseFromString(opmlXml, "text/xml");
@@ -66,6 +76,10 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
 
   const imported = new Map<string, OpmlFeedImportEntry>();
 
+  /**
+   * @param outline
+   * @param parentCategory
+   */
   const walkOutlineTree = (outline: Element, parentCategory: null | string) => {
     // Stop collecting once the cap is reached — prevents a crafted OPML with
     // thousands of entries from flooding the database via bulk import.
@@ -113,6 +127,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   return [...imported.values()];
 };
 
+/**
+ * @param s
+ */
 const escapeXml = (s: string): string =>
   s
     .replace(/&/g, "&amp;")
@@ -120,6 +137,9 @@ const escapeXml = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+/**
+ * @param categories
+ */
 export const generateOpml = (categories: CategoryTreeNode[]): string => {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',

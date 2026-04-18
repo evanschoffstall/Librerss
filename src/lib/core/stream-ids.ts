@@ -11,6 +11,7 @@ export const STARRED_STATE = "user/-/state/com.google/starred";
  * Extracts the label name from a `user/-/label/<label>` stream ID.
  * Returns `null` if the ID does not start with the user-label prefix or if
  * the label portion is empty.
+ * @param id
  */
 export function parseUserLabel(id: string): null | string {
   if (!id.startsWith(USER_LABEL_PREFIX)) return null;

@@ -28,6 +28,12 @@ interface UseInvertedExpansionLockMachineOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * @param root0
+ * @param root0.expandedArticleKeyRef
+ * @param root0.isInvertedScrollRef
+ * @param root0.scrollViewport
+ */
 export function useInvertedExpansionLockMachine({
   expandedArticleKeyRef,
   isInvertedScrollRef,
@@ -109,6 +115,12 @@ export function useInvertedExpansionLockMachine({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.expandedArticleKeyRef
+ * @param root0.invertedExpansionScrollLockRef
+ * @param root0.isInvertedScrollRef
+ */
 function createReleaseInvertedExpansionScrollLock({
   expandedArticleKeyRef,
   invertedExpansionScrollLockRef,
@@ -129,6 +141,12 @@ function createReleaseInvertedExpansionScrollLock({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.invertedExpansionScrollLockRef
+ * @param root0.scrollViewport
+ * @param root0.syncInvertedExpansionScrollLock
+ */
 function createStartInvertedExpansionScrollLock({
   invertedExpansionScrollLockRef,
   scrollViewport,
@@ -192,6 +210,10 @@ function createStartInvertedExpansionScrollLock({
   };
 }
 
+/**
+ * @param lockState
+ * @param shouldKeepOverflowAnchorDisabled
+ */
 function disposeExpansionLock(
   lockState: InvertedExpansionScrollLockState,
   shouldKeepOverflowAnchorDisabled: boolean,
@@ -209,6 +231,10 @@ function disposeExpansionLock(
   }
 }
 
+/**
+ * @param lockState
+ * @param syncInvertedExpansionScrollLock
+ */
 function rebindExpansionLockViewport(
   lockState: InvertedExpansionScrollLockState,
   syncInvertedExpansionScrollLock: () => void,
@@ -241,6 +267,9 @@ function rebindExpansionLockViewport(
   return resolvedViewport;
 }
 
+/**
+ * @param lockState
+ */
 function resolveLockTargetScrollTop(
   lockState: InvertedExpansionScrollLockState,
 ) {
@@ -262,6 +291,10 @@ function resolveLockTargetScrollTop(
   );
 }
 
+/**
+ * @param invertedExpansionScrollLockRef
+ * @param syncInvertedExpansionScrollLock
+ */
 function scheduleExpansionLockSync(
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>,
   syncInvertedExpansionScrollLock: () => void,
@@ -281,6 +314,9 @@ function scheduleExpansionLockSync(
   });
 }
 
+/**
+ * @param lockState
+ */
 function shouldSchedulePersistentExpansionLock(
   lockState: InvertedExpansionScrollLockState,
 ) {

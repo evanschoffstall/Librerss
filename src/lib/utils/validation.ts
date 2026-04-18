@@ -4,6 +4,7 @@ import { CONFIG } from "@/lib";
  * Type guard: returns true if value is a safe positive integer suitable as a
  * database row id. Shared by server-side article-status logic and client-side
  * feed management helpers.
+ * @param value
  */
 export function isSafePositiveItemId(value: unknown): value is number {
   return (
@@ -16,9 +17,9 @@ export function isSafePositiveItemId(value: unknown): value is number {
 
 /**
  * Validates password strength
- * Requires minimum length and complexity (3 of 4 character types)
- * @param password - Password to validate
- * @returns true if password meets strength requirements
+ * Requires minimum length and complexity (3 of 4 character types).
+ * @param password - Password to validate.
+ * @returns True if password meets strength requirements.
  */
 export function isStrongPassword(password: string): boolean {
   if (!password || typeof password !== "string") {
@@ -51,6 +52,7 @@ export function isStrongPassword(password: string): boolean {
 
 /**
  * Validates email addresses using a simplified RFC 5322 regex.
+ * @param email
  */
 export function isValidEmail(email: string): boolean {
   if (!email || typeof email !== "string") {

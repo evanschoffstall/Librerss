@@ -4,6 +4,9 @@ import { getUserFromRequest } from "@/lib/auth";
 import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import { serverApi } from "@/lib/server";
 
+/**
+ * @param request
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request);

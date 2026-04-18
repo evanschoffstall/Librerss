@@ -60,6 +60,9 @@ export function useDashboardToolbarWindowState(): DashboardToolbarWindowState {
   };
 }
 
+/**
+ * @param listeners
+ */
 function addDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,
 ) {
@@ -103,6 +106,16 @@ function addDashboardToolbarWindowListeners(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.setIsMarkingAllRead
+ * @param root0.setIsMarkingViewportRead
+ * @param root0.setIsPreviewMode
+ * @param root0.setIsRefreshing
+ * @param root0.setIsSearchPending
+ * @param root0.setSearch
+ * @param root0.setTitle
+ */
 function createDashboardToolbarWindowListeners({
   setIsMarkingAllRead,
   setIsMarkingViewportRead,
@@ -121,38 +134,71 @@ function createDashboardToolbarWindowListeners({
   setTitle: React.Dispatch<React.SetStateAction<string>>;
 }) {
   return {
+    /**
+     *
+     */
     enterPreview: () => {
       setIsPreviewMode(true);
     },
+    /**
+     *
+     */
     locationChange: () => {
       setIsPreviewMode(readDashboardPreviewModeFromLocation());
     },
+    /**
+     *
+     */
     markAllReadEnd: () => {
       setIsMarkingAllRead(false);
     },
+    /**
+     *
+     */
     markAllReadStart: () => {
       setIsMarkingAllRead(true);
     },
+    /**
+     *
+     */
     markViewportReadEnd: () => {
       setIsMarkingViewportRead(false);
     },
+    /**
+     *
+     */
     markViewportReadStart: () => {
       setIsMarkingViewportRead(true);
     },
+    /**
+     *
+     */
     refreshEnd: () => {
       setIsRefreshing(false);
     },
+    /**
+     *
+     */
     refreshStart: () => {
       setIsRefreshing(true);
     },
+    /**
+     * @param event
+     */
     searchPending: (event: Event) => {
       const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
       setIsSearchPending(detail.pending === true);
     },
+    /**
+     * @param event
+     */
     searchSync: (event: Event) => {
       const detail = (event as CustomEvent<{ term?: string }>).detail;
       setSearch(typeof detail.term === "string" ? detail.term : "");
     },
+    /**
+     * @param event
+     */
     titleChange: (event: Event) => {
       const detail = (event as CustomEvent<{ title?: string }>).detail;
       const nextTitle =
@@ -162,6 +208,9 @@ function createDashboardToolbarWindowListeners({
   };
 }
 
+/**
+ * @param listeners
+ */
 function removeDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,
 ) {

@@ -20,6 +20,9 @@ import type {
 // de-facto safe upper bound for stored URLs (RFC 2616 §3.2.1 guideline)
 const MAX_FEED_URL_LENGTH = 2048;
 
+/**
+ * @param url
+ */
 export async function assertAllowedFeedUrl(
   url: string,
 ): Promise<null | Response> {
@@ -30,6 +33,9 @@ export async function assertAllowedFeedUrl(
   return jsonError(PUBLIC_FEED_URL_ERROR, 400);
 }
 
+/**
+ * @param request
+ */
 export function getRequestedFeedUrl(request: NextRequest): null | string {
   const requestUrl = new URL(request.url);
   const requestedUrl = requestUrl.searchParams.get("url");
@@ -41,6 +47,9 @@ export function getRequestedFeedUrl(request: NextRequest): null | string {
   return trimmedUrl === "" ? null : trimmedUrl;
 }
 
+/**
+ * @param request
+ */
 export async function parseCreateFeedPayload(
   request: NextRequest,
 ): Promise<CreateFeedPayload | Response> {
@@ -81,6 +90,9 @@ export async function parseCreateFeedPayload(
   return { category, name, url };
 }
 
+/**
+ * @param request
+ */
 export function parseDeleteSourceId(request: NextRequest): number | Response {
   const requestUrl = new URL(request.url);
   const sourceId = parsePositiveInt(requestUrl.searchParams.get("id"));
@@ -92,6 +104,9 @@ export function parseDeleteSourceId(request: NextRequest): number | Response {
   return sourceId;
 }
 
+/**
+ * @param request
+ */
 export async function parseRenameFeedPayload(
   request: NextRequest,
 ): Promise<RenameFeedPayload | Response> {
@@ -103,6 +118,9 @@ export async function parseRenameFeedPayload(
   return parseRenameFeedPayloadFromBody(payloadOrResponse);
 }
 
+/**
+ * @param payload
+ */
 export function parseRenameFeedPayloadFromBody(
   payload: Record<string, unknown>,
 ): RenameFeedPayload | Response {
@@ -139,6 +157,9 @@ export function parseRenameFeedPayloadFromBody(
   return { name, sourceId, url };
 }
 
+/**
+ * @param payload
+ */
 export function parseToggleFeedEnabledPayloadFromBody(
   payload: Record<string, unknown>,
 ): Response | ToggleFeedEnabledPayload {
@@ -154,6 +175,9 @@ export function parseToggleFeedEnabledPayloadFromBody(
   return { enabled: payload.enabled, sourceId };
 }
 
+/**
+ * @param payload
+ */
 export function parseUpdateFeedSettingsPayloadFromBody(
   payload: Record<string, unknown>,
 ): Response | UpdateFeedSettingsPayload {

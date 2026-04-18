@@ -8,6 +8,11 @@ interface UseBackgroundCanvasAnimationOptions {
   onResume?: () => void;
 }
 
+/**
+ * @param root0
+ * @param root0.onFrame
+ * @param root0.onResume
+ */
 export function useBackgroundCanvasAnimation({
   onFrame,
   onResume,
@@ -22,6 +27,9 @@ export function useBackgroundCanvasAnimation({
   onResumeRef.current = onResume;
 
   useEffect(() => {
+    /**
+     *
+     */
     const syncAnimationState = () => {
       const nextEnabled = shouldRunBackgroundAnimation(
         document.visibilityState,
@@ -65,6 +73,11 @@ export function useBackgroundCanvasAnimation({
   });
 }
 
+/**
+ * @param lastFrameAt
+ * @param now
+ * @param targetFrameMs
+ */
 function shouldRenderBackgroundCanvasFrame(
   lastFrameAt: number,
   now: number,
@@ -73,6 +86,10 @@ function shouldRenderBackgroundCanvasFrame(
   return lastFrameAt === 0 || now - lastFrameAt >= targetFrameMs;
 }
 
+/**
+ * @param visibilityState
+ * @param prefersReducedMotion
+ */
 function shouldRunBackgroundAnimation(
   visibilityState: DocumentVisibilityState | undefined,
   prefersReducedMotion: boolean,

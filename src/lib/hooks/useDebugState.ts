@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 
+/**
+ * @param initialValue
+ */
 export const useDebugState = (initialValue = false) => {
   const [debugState, setDebugState] = useState(initialValue);
   const [isClientState, setIsClientState] = useState(false);
@@ -10,6 +13,9 @@ export const useDebugState = (initialValue = false) => {
     setIsClientState(true);
   }, []);
 
+  /**
+   *
+   */
   const toggleDebug = () => {
     setDebugState((prev) => !prev);
   };

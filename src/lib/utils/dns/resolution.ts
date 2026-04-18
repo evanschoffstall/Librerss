@@ -21,6 +21,13 @@ export interface DnsResolveDeps {
   warnFn: (message: string, context?: Record<string, unknown>) => void;
 }
 
+/**
+ * @param cache
+ * @param hostname
+ * @param blocked
+ * @param expiresAt
+ * @param maxEntries
+ */
 export function cacheLookupResult(
   cache: Map<string, DnsCacheEntry>,
   hostname: string,
@@ -32,6 +39,13 @@ export function cacheLookupResult(
   return blocked;
 }
 
+/**
+ * @param hostname
+ * @param timeoutMs
+ * @param lookupFn
+ * @param setTimeoutFn
+ * @param clearTimeoutFn
+ */
 export async function lookupWithTimeout(
   hostname: string,
   timeoutMs: number,
@@ -57,6 +71,11 @@ export async function lookupWithTimeout(
   });
 }
 
+/**
+ * @param cache
+ * @param hostname
+ * @param nowFn
+ */
 export function readCachedDnsResult(
   cache: Map<string, DnsCacheEntry>,
   hostname: string,
@@ -66,6 +85,10 @@ export function readCachedDnsResult(
   return cached && cached.expiresAt > nowFn() ? cached.blocked : undefined;
 }
 
+/**
+ * @param deps
+ * @param defaults
+ */
 export function resolveDnsDeps(
   deps: Partial<DnsResolveDeps> | undefined,
   defaults: DnsResolveDeps,
@@ -89,6 +112,10 @@ export function resolveDnsDeps(
   };
 }
 
+/**
+ * @param deps
+ * @param defaults
+ */
 export function resolveDnsDepsWithRuntimeDefaults(
   deps: Partial<DnsResolveDeps> | undefined,
   defaults: Pick<
@@ -106,6 +133,12 @@ export function resolveDnsDepsWithRuntimeDefaults(
   });
 }
 
+/**
+ * @param cache
+ * @param key
+ * @param value
+ * @param maxEntries
+ */
 function setCacheSafe(
   cache: Map<string, DnsCacheEntry>,
   key: string,

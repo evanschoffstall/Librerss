@@ -26,6 +26,25 @@ interface LoginCardContentProps {
   password: string;
 }
 
+/**
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.confirmPassword
+ * @param root0.email
+ * @param root0.fieldErrors
+ * @param root0.hasAcceptedLegalTerms
+ * @param root0.isSubmitting
+ * @param root0.mode
+ * @param root0.onChangeConfirmPassword
+ * @param root0.onChangeEmail
+ * @param root0.onChangeLegalTerms
+ * @param root0.onChangePassword
+ * @param root0.onEnterPreview
+ * @param root0.onKeyDown
+ * @param root0.onSubmit
+ * @param root0.onToggleMode
+ * @param root0.password
+ */
 export function LoginCardContent({
   allowSignup,
   confirmPassword,
@@ -91,6 +110,10 @@ export function LoginCardContent({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.message
+ */
 function LoginFormError({ message }: { message?: string }) {
   if (!message) {
     return null;
@@ -109,6 +132,16 @@ function LoginFormError({ message }: { message?: string }) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.confirmError
+ * @param root0.confirmPassword
+ * @param root0.hasAcceptedLegalTerms
+ * @param root0.legalError
+ * @param root0.onAcceptedChange
+ * @param root0.onChangeConfirmPassword
+ * @param root0.onKeyDown
+ */
 function SignupFields({
   confirmError,
   confirmPassword,

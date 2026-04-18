@@ -29,12 +29,18 @@ export interface PendingArticle {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * @param items
+ */
 export function dedupePendingArticles(
   items: PendingArticle[],
 ): PendingArticle[] {
   return dedupeArticleRecords(items, preferNewerArticleRecord);
 }
 
+/**
+ * @param items
+ */
 export function getPublicationDateRange(items: PendingArticle[]): {
   newestPublicationDate: null | string;
   oldestPublicationDate: null | string;
@@ -50,6 +56,10 @@ export function getPublicationDateRange(items: PendingArticle[]): {
   };
 }
 
+/**
+ * @param value
+ * @param fallback
+ */
 export function parseFeedItemDate(
   value: string | undefined,
   fallback: Date,
@@ -57,6 +67,11 @@ export function parseFeedItemDate(
   return parseDateOrFallback(value, fallback);
 }
 
+/**
+ * @param item
+ * @param feedId
+ * @param now
+ */
 export function toPendingArticle(
   item: Parser.Item & { contentEncoded?: string },
   feedId: number,

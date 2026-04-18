@@ -49,6 +49,12 @@ interface UseFeedBatchQueryOptions {
  *
  * The feed loader owns batch semantics, while this hook owns query option
  * construction, prefetch reuse, stale times, and normalized toast handling.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.buildRequestSignature
+ * @param root0.getKnownLastFetchedAtByUrl
+ * @param root0.queryClient
+ * @param root0.usePlaceholderData
  */
 export function useFeedBatchQuery({
   articleFilter,
@@ -105,6 +111,14 @@ export function useFeedBatchQuery({
   return { loadBatchResults, prefetchFeedBatch };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.buildRequestSignature
+ * @param root0.getKnownLastFetchedAtByUrl
+ * @param root0.normalizedSources
+ * @param root0.options
+ */
 function buildPrefetchBatchRequest({
   articleFilter,
   buildRequestSignature,
@@ -140,6 +154,15 @@ function buildPrefetchBatchRequest({
   };
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.buildFeedBatchQueryOptions
+ * @param options.buildRequestSignature
+ * @param options.getKnownLastFetchedAtByUrl
+ * @param options.queryClient
+ * @param options.usePlaceholderData
+ */
 function useFeedBatchPrefetch(options: {
   articleFilter: FeedFetchOptions["articleFilter"];
   buildFeedBatchQueryOptions: ReturnType<
@@ -199,6 +222,11 @@ function useFeedBatchPrefetch(options: {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.usePlaceholderData
+ */
 function useFeedBatchQueryOptionsBuilder({
   articleFilter,
   usePlaceholderData,
@@ -209,6 +237,10 @@ function useFeedBatchQueryOptionsBuilder({
       queryKey: FeedBatchQueryKey,
       options?: FeedFetchOptions,
     ) => ({
+      /**
+       * @param root0
+       * @param root0.signal
+       */
       queryFn: ({ signal }: { signal: AbortSignal }) =>
         resolveFeedBatchResults(
           normalizedSources,

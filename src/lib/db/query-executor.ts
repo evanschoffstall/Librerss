@@ -10,6 +10,9 @@ import { createNodePostgresQueryExecutor } from "./node-postgres-provider";
 
 type QueryExecutorFactory = () => SqlQueryExecutor;
 
+/**
+ *
+ */
 const defaultQueryExecutorFactory: QueryExecutorFactory = () => {
   assertDatabaseConfigured();
 
@@ -34,7 +37,10 @@ export function resetSqlQueryExecutorFactoryForTesting(): void {
   queryExecutorFactory = defaultQueryExecutorFactory;
 }
 
-/** Overrides the query-executor seam for an isolated test module instance. */
+/**
+ * Overrides the query-executor seam for an isolated test module instance.
+ * @param factory
+ */
 export function setSqlQueryExecutorFactoryForTesting(
   factory: QueryExecutorFactory,
 ): void {

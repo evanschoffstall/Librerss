@@ -22,64 +22,82 @@ export interface FeedVirtualListProps extends FeedVirtualListSharedProps {
  * owns row measurement, total-height reporting, and the virtualized load-more
  * boundary that pagination observes.
  */
-export const FeedVirtualList = memo(function FeedVirtualList({
-  articles,
-  className,
-  estimatedItemHeight,
-  expandedArticleKey,
-  feedViewKey,
-  isCollapseScrollRestoreActive,
-  loadMoreSentinelRef,
-  minimumTotalListHeight,
-  onTotalListHeightChange,
-  renderArticle,
-  scrollMode,
-  scrollViewport,
-  showLoadMoreBoundary,
-}: FeedVirtualListProps) {
-  const isTestEnvironment =
-    process.env.NODE_ENV === "test" ||
-    (typeof window !== "undefined" && "happyDOM" in window);
-  const entries = useMemo(
-    () =>
-      buildFeedVirtualListEntries(
-        articles,
-        feedViewKey,
-        scrollMode,
-        showLoadMoreBoundary,
-      ),
-    [articles, feedViewKey, scrollMode, showLoadMoreBoundary],
-  );
+export const FeedVirtualList = memo(
+  /**
+   * @param root0
+   * @param root0.articles
+   * @param root0.className
+   * @param root0.estimatedItemHeight
+   * @param root0.expandedArticleKey
+   * @param root0.feedViewKey
+   * @param root0.isCollapseScrollRestoreActive
+   * @param root0.loadMoreSentinelRef
+   * @param root0.minimumTotalListHeight
+   * @param root0.onTotalListHeightChange
+   * @param root0.renderArticle
+   * @param root0.scrollMode
+   * @param root0.scrollViewport
+   * @param root0.showLoadMoreBoundary
+   */
+  function FeedVirtualList({
+    articles,
+    className,
+    estimatedItemHeight,
+    expandedArticleKey,
+    feedViewKey,
+    isCollapseScrollRestoreActive,
+    loadMoreSentinelRef,
+    minimumTotalListHeight,
+    onTotalListHeightChange,
+    renderArticle,
+    scrollMode,
+    scrollViewport,
+    showLoadMoreBoundary,
+  }: FeedVirtualListProps) {
+    const isTestEnvironment =
+      process.env.NODE_ENV === "test" ||
+      (typeof window !== "undefined" && "happyDOM" in window);
+    const entries = useMemo(
+      () =>
+        buildFeedVirtualListEntries(
+          articles,
+          feedViewKey,
+          scrollMode,
+          showLoadMoreBoundary,
+        ),
+      [articles, feedViewKey, scrollMode, showLoadMoreBoundary],
+    );
 
-  if (isTestEnvironment) {
+    if (isTestEnvironment) {
+      return (
+        <FeedVirtualListTestSurface
+          className={className}
+          entries={entries}
+          estimatedItemHeight={estimatedItemHeight}
+          loadMoreSentinelRef={loadMoreSentinelRef}
+          minimumTotalListHeight={minimumTotalListHeight}
+          onTotalListHeightChange={onTotalListHeightChange}
+          renderArticle={renderArticle}
+          scrollViewport={scrollViewport}
+        />
+      );
+    }
+
     return (
-      <FeedVirtualListTestSurface
+      <FeedVirtualListRuntime
         className={className}
         entries={entries}
         estimatedItemHeight={estimatedItemHeight}
+        expandedArticleKey={expandedArticleKey}
+        feedViewKey={feedViewKey}
+        isCollapseScrollRestoreActive={isCollapseScrollRestoreActive}
         loadMoreSentinelRef={loadMoreSentinelRef}
         minimumTotalListHeight={minimumTotalListHeight}
         onTotalListHeightChange={onTotalListHeightChange}
         renderArticle={renderArticle}
+        scrollMode={scrollMode}
         scrollViewport={scrollViewport}
       />
     );
-  }
-
-  return (
-    <FeedVirtualListRuntime
-      className={className}
-      entries={entries}
-      estimatedItemHeight={estimatedItemHeight}
-      expandedArticleKey={expandedArticleKey}
-      feedViewKey={feedViewKey}
-      isCollapseScrollRestoreActive={isCollapseScrollRestoreActive}
-      loadMoreSentinelRef={loadMoreSentinelRef}
-      minimumTotalListHeight={minimumTotalListHeight}
-      onTotalListHeightChange={onTotalListHeightChange}
-      renderArticle={renderArticle}
-      scrollMode={scrollMode}
-      scrollViewport={scrollViewport}
-    />
-  );
-});
+  },
+);

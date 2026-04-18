@@ -12,6 +12,9 @@ import {
   normalizeCategoryLabelKey,
 } from "@/lib/utils";
 
+/**
+ * @param label
+ */
 export const toCategoryKey = (label: string) =>
   `cat-${
     label
@@ -20,9 +23,15 @@ export const toCategoryKey = (label: string) =>
       .replace(/^-+|-+$/g, "") || "default"
   }`;
 
+/**
+ * @param nodes
+ */
 const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
   nodes.flatMap((category) => category.children ?? []);
 
+/**
+ * @param sources
+ */
 export const buildCategoriesFromSources = (
   sources: {
     category?: null | string;
@@ -63,6 +72,9 @@ export const buildCategoriesFromSources = (
   }));
 };
 
+/**
+ * @param usePlaceholderData
+ */
 export const buildDefaultCategories = (
   usePlaceholderData: boolean,
 ): CategoryTreeNode[] => {
@@ -97,6 +109,10 @@ export const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
   label: ALL_FEEDS_LABEL,
 };
 
+/**
+ * @param categories
+ * @param customCategoryLabels
+ */
 export function collectKnownCategoryLabels(
   categories: CategoryTreeNode[],
   customCategoryLabels: string[],
@@ -104,6 +120,10 @@ export function collectKnownCategoryLabels(
   return [...categories.map((node) => node.label), ...customCategoryLabels];
 }
 
+/**
+ * @param categories
+ * @param key
+ */
 export function findFeedNodeByKey(
   categories: CategoryTreeNode[],
   key: string,
@@ -111,6 +131,10 @@ export function findFeedNodeByKey(
   return getAllFeedNodes(categories).find((node) => node.key === key);
 }
 
+/**
+ * @param categories
+ * @param url
+ */
 export function findFeedNodeByUrl(
   categories: CategoryTreeNode[],
   url: string,
@@ -118,12 +142,19 @@ export function findFeedNodeByUrl(
   return getAllFeedNodes(categories).find((node) => node.data?.url === url);
 }
 
+/**
+ * @param categories
+ */
 export function getAllFeedNodes(
   categories: CategoryTreeNode[],
 ): CategoryTreeNode[] {
   return flattenCategoryFeeds(categories);
 }
 
+/**
+ * @param categories
+ * @param selectedKey
+ */
 export function getFeedUrlBySelectedKey(
   categories: CategoryTreeNode[],
   selectedKey: string,
@@ -131,12 +162,19 @@ export function getFeedUrlBySelectedKey(
   return findFeedNodeByKey(categories, selectedKey)?.data?.url;
 }
 
+/**
+ * @param categories
+ */
 export function getFirstFeedNode(
   categories: CategoryTreeNode[],
 ): CategoryTreeNode | undefined {
   return getAllFeedNodes(categories)[0];
 }
 
+/**
+ * @param categories
+ * @param label
+ */
 export function hasCategoryLabelInTree(
   categories: CategoryTreeNode[],
   label: string,
@@ -147,6 +185,12 @@ export function hasCategoryLabelInTree(
   );
 }
 
+/**
+ * @param currentCategories
+ * @param feedKey
+ * @param targetCategoryLabel
+ * @param targetIndex
+ */
 export function relocateFeedInCategories(
   currentCategories: CategoryTreeNode[],
   feedKey: string,
@@ -184,6 +228,9 @@ export function relocateFeedInCategories(
   return nextCategories;
 }
 
+/**
+ * @param labels
+ */
 export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
   const distinctLabels = new Map<string, string>();
 
@@ -198,6 +245,10 @@ export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
   return [...distinctLabels.values()];
 }
 
+/**
+ * @param categories
+ * @param targetCategoryLabel
+ */
 function findOrCreateDestinationCategoryIndex(
   categories: CategoryTreeNode[],
   targetCategoryLabel: string,
@@ -221,6 +272,15 @@ function findOrCreateDestinationCategoryIndex(
   return categories.length - 1;
 }
 
+/**
+ * @param root0
+ * @param root0.destinationCategoryIndex
+ * @param root0.movedSource
+ * @param root0.nextCategories
+ * @param root0.sourceCategoryIndex
+ * @param root0.sourceFeedIndex
+ * @param root0.targetIndex
+ */
 function insertRelocatedFeed({
   destinationCategoryIndex,
   movedSource,

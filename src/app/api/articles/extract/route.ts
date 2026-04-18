@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export { getHostname } from "@/lib/server";
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: serverApi.ExtractPostDeps | serverApi.RouteHandlerContext = {},

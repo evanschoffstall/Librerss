@@ -36,6 +36,11 @@ interface FeedPaginationRuntimeViewportOptions extends FeedPaginationRuntimeSupp
   maybeAutoFillViewport: ReturnType<typeof useMaybeAutoFillViewport>;
 }
 
+/**
+ * @param root0
+ * @param root0.controllers
+ * @param root0.options
+ */
 export function useFeedPaginationRuntimeActions({
   controllers,
   options,
@@ -76,6 +81,13 @@ export function useFeedPaginationRuntimeActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.controllers
+ * @param root0.maybeLoadNextPage
+ * @param root0.options
+ * @param root0.shouldObserveLoadMoreBoundary
+ */
 export function useFeedPaginationRuntimeBindings({
   controllers,
   maybeLoadNextPage,
@@ -96,6 +108,12 @@ export function useFeedPaginationRuntimeBindings({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.controllers
+ * @param root0.maybeAutoFillViewport
+ * @param root0.options
+ */
 export function useFeedPaginationRuntimeViewportEffects({
   controllers,
   maybeAutoFillViewport,
@@ -147,6 +165,12 @@ export function useFeedPaginationRuntimeViewportEffects({
   return { shouldObserveLoadMoreBoundary, shouldUseVirtualizedFeed };
 }
 
+/**
+ * @param options
+ * @param localState
+ * @param serverLoadState
+ * @param expandVisibleWindow
+ */
 function resolveAutoFillViewportOptions(
   options: FeedPaginationRuntimeOptions,
   localState: FeedPaginationControllers["localState"],
@@ -172,6 +196,14 @@ function resolveAutoFillViewportOptions(
   };
 }
 
+/**
+ * @param options
+ * @param localState
+ * @param serverLoadState
+ * @param anchorState
+ * @param expandVisibleWindow
+ * @param hasReachedStandardLoadBoundary
+ */
 function resolveMaybeLoadNextPageOptions(
   options: FeedPaginationRuntimeOptions,
   localState: FeedPaginationControllers["localState"],
@@ -198,6 +230,11 @@ function resolveMaybeLoadNextPageOptions(
   };
 }
 
+/**
+ * @param controllers
+ * @param maybeLoadNextPage
+ * @param options
+ */
 function useFeedPaginationIntentBindingsOnly(
   controllers: FeedPaginationControllers,
   maybeLoadNextPage: ReturnType<typeof useMaybeLoadNextPage>,
@@ -232,6 +269,12 @@ function useFeedPaginationIntentBindingsOnly(
   });
 }
 
+/**
+ * @param controllers
+ * @param maybeLoadNextPage
+ * @param options
+ * @param shouldObserveLoadMoreBoundary
+ */
 function useFeedPaginationObserverAndCleanupBindings(
   controllers: FeedPaginationControllers,
   maybeLoadNextPage: ReturnType<typeof useMaybeLoadNextPage>,
@@ -270,6 +313,11 @@ function useFeedPaginationObserverAndCleanupBindings(
   });
 }
 
+/**
+ * @param controllers
+ * @param maybeLoadNextPage
+ * @param options
+ */
 function useFeedPaginationViewportBindingsOnly(
   controllers: FeedPaginationControllers,
   maybeLoadNextPage: ReturnType<typeof useMaybeLoadNextPage>,

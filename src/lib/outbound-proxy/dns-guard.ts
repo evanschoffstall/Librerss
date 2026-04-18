@@ -11,6 +11,10 @@ import {
 
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
+/**
+ * @param hostname
+ * @param deps
+ */
 export async function resolvesToBlockedAddress(
   hostname: string,
   deps?: DnsLookupRuntimeDeps,

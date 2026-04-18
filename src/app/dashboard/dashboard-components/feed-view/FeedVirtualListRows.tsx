@@ -18,7 +18,17 @@ interface FeedVirtualListBoundaryRowProps {
   offsetTop?: number;
 }
 
-/** Shared article row used by both runtime and non-virtualized test surfaces. */
+/**
+ * Shared article row used by both runtime and non-virtualized test surfaces.
+ * @param root0
+ * @param root0.article
+ * @param root0.estimatedItemHeight
+ * @param root0.index
+ * @param root0.itemKey
+ * @param root0.measureElement
+ * @param root0.offsetTop
+ * @param root0.renderArticle
+ */
 export function FeedVirtualListArticleRow({
   article,
   estimatedItemHeight,
@@ -53,7 +63,15 @@ export function FeedVirtualListArticleRow({
   );
 }
 
-/** Shared virtualized boundary row used by both runtime and test surfaces. */
+/**
+ * Shared virtualized boundary row used by both runtime and test surfaces.
+ * @param root0
+ * @param root0.index
+ * @param root0.itemKey
+ * @param root0.loadMoreSentinelRef
+ * @param root0.measureElement
+ * @param root0.offsetTop
+ */
 export function FeedVirtualListBoundaryRow({
   index: _index,
   itemKey,
@@ -81,6 +99,9 @@ export function FeedVirtualListBoundaryRow({
   );
 }
 
+/**
+ * @param offsetTop
+ */
 function buildAbsoluteRowStyle(offsetTop: null | number | undefined) {
   if (typeof offsetTop !== "number") {
     return undefined;

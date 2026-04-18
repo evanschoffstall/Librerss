@@ -52,6 +52,14 @@ export interface ApiResponse<T> {
 export class ApiError<T = unknown> extends Error {
   readonly isApiError = true;
 
+  /**
+   * @param message
+   * @param code
+   * @param method
+   * @param requestHeaders
+   * @param response
+   * @param url
+   */
   constructor(
     message: string,
     readonly code: null | string,
@@ -65,6 +73,9 @@ export class ApiError<T = unknown> extends Error {
   }
 }
 
+/**
+ * @param error
+ */
 export function isApiError<T = unknown>(error: unknown): error is ApiError<T> {
   return (
     typeof error === "object" &&
@@ -78,6 +89,7 @@ export function isApiError<T = unknown>(error: unknown): error is ApiError<T> {
  * Computes the client-side batch deadline from the server's own batch shape so
  * valid 207 Multi-Status responses are not preempted by an earlier client
  * timeout.
+ * @param urlCount
  */
 export function resolveBatchRequestTimeoutMs(urlCount: number): number {
   const normalizedUrlCount = Math.max(
@@ -101,21 +113,50 @@ export const BATCH_REQUEST_TIMEOUT_MS = resolveBatchRequestTimeoutMs(
 
 let api: ApiClient = createApiClient();
 
+/**
+ * @param fetchFn
+ */
 export function createApiClient(fetchFn: typeof fetch = fetch): ApiClient {
   return {
+    /**
+     * @param url
+     * @param config
+     */
     delete: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "DELETE", url, undefined, config),
+    /**
+     * @param url
+     * @param config
+     */
     get: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "GET", url, undefined, config),
+    /**
+     * @param url
+     * @param data
+     * @param config
+     */
     patch: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PATCH", url, data, config),
+    /**
+     * @param url
+     * @param data
+     * @param config
+     */
     post: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "POST", url, data, config),
+    /**
+     * @param url
+     * @param data
+     * @param config
+     */
     put: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PUT", url, data, config),
   };
 }
 
+/**
+ * @param signal
+ */
 export function createLinkedAbortController(signal?: AbortSignal): {
   controller: AbortController;
   dispose: () => void;
@@ -125,6 +166,9 @@ export function createLinkedAbortController(signal?: AbortSignal): {
   if (!signal) {
     return {
       controller,
+      /**
+       *
+       */
       dispose: () => undefined,
     };
   }
@@ -133,10 +177,16 @@ export function createLinkedAbortController(signal?: AbortSignal): {
     controller.abort(signal.reason);
     return {
       controller,
+      /**
+       *
+       */
       dispose: () => undefined,
     };
   }
 
+  /**
+   *
+   */
   const handleAbort = () => {
     controller.abort(signal.reason);
   };
@@ -144,24 +194,41 @@ export function createLinkedAbortController(signal?: AbortSignal): {
 
   return {
     controller,
+    /**
+     *
+     */
     dispose: () => {
       signal.removeEventListener("abort", handleAbort);
     },
   };
 }
 
+/**
+ *
+ */
 export function getApiClient(): ApiClient {
   return api;
 }
 
+/**
+ *
+ */
 export function resetApiClientForTesting(): void {
   api = createApiClient();
 }
 
+/**
+ * @param client
+ */
 export function setApiClientForTesting(client: ApiClient): void {
   api = client;
 }
 
+/**
+ * @param request
+ * @param timeoutMs
+ * @param onTimeout
+ */
 export async function withRequestDeadline<T>(
   request: Promise<T>,
   timeoutMs = REQUEST_TIMEOUT_MS,
@@ -183,10 +250,17 @@ export async function withRequestDeadline<T>(
   }
 }
 
+/**
+ * @param headers
+ */
 function headersToRecord(headers: Headers): Record<string, string> {
   return Object.fromEntries(headers.entries());
 }
 
+/**
+ * @param response
+ * @param responseType
+ */
 async function parseResponseBody<T>(
   response: Response,
   responseType: ApiClientConfig["responseType"],
@@ -214,6 +288,13 @@ async function parseResponseBody<T>(
   return (await response.text()) as T;
 }
 
+/**
+ * @param fetchFn
+ * @param method
+ * @param url
+ * @param data
+ * @param config
+ */
 async function request<T>(
   fetchFn: typeof fetch,
   method: string,
@@ -272,6 +353,10 @@ async function request<T>(
   return parsedResponse;
 }
 
+/**
+ * @param response
+ * @param responseType
+ */
 async function toApiResponse<T>(
   response: Response,
   responseType: ApiClientConfig["responseType"],

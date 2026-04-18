@@ -22,6 +22,13 @@ import {
   type ProxyStatus,
 } from "./transport";
 
+/**
+ * @param proxyUrl
+ * @param allowInsecureTls
+ * @param proxyUsername
+ * @param hasProxyPassword
+ * @param error
+ */
 export function configuredResponseWithError(
   proxyUrl: string,
   allowInsecureTls: boolean,
@@ -41,6 +48,9 @@ export function configuredResponseWithError(
   });
 }
 
+/**
+ * @param userId
+ */
 export function createStoredPasswordUpdater(userId: number) {
   return async (normalizedStoredPassword: null | string) => {
     await getDb()
@@ -50,6 +60,9 @@ export function createStoredPasswordUpdater(userId: number) {
   };
 }
 
+/**
+ * @param body
+ */
 export function normalizeProxySubmission(
   body: ProxySettingsRequestBody,
 ): NormalizedProxySubmission {
@@ -68,6 +81,10 @@ export function normalizeProxySubmission(
   };
 }
 
+/**
+ * @param userId
+ * @param storedProxyPassword
+ */
 export async function resolveMaterializedProxyPassword(
   userId: number,
   storedProxyPassword: null | string,
@@ -86,6 +103,9 @@ export async function resolveMaterializedProxyPassword(
   }
 }
 
+/**
+ * @param savedProxy
+ */
 export function resolveSavedProxyView(
   savedProxy: null | SavedProxyRecord,
 ): null | SavedProxyView {
@@ -111,6 +131,10 @@ export function resolveSavedProxyView(
   };
 }
 
+/**
+ * @param proxyPassword
+ * @param userId
+ */
 export function resolveStoredProxyPasswordValue(
   proxyPassword: null | string | undefined,
   userId: number,
@@ -132,6 +156,9 @@ export function resolveStoredProxyPasswordValue(
   }
 }
 
+/**
+ * @param error
+ */
 export function unconfiguredResponse(error?: string): Response {
   return NextResponse.json({
     allowInsecureTls: false,
@@ -145,6 +172,10 @@ export function unconfiguredResponse(error?: string): Response {
   });
 }
 
+/**
+ * @param body
+ * @param submission
+ */
 export function validateProxySubmission(
   body: ProxySettingsRequestBody,
   submission: NormalizedProxySubmission,
@@ -160,6 +191,9 @@ export function validateProxySubmission(
   );
 }
 
+/**
+ * @param submission
+ */
 function hasConflictingProxyCredentials(submission: NormalizedProxySubmission) {
   const hasEmbeddedProxyCredentials =
     submission.embeddedCredentials !== null &&
@@ -173,6 +207,10 @@ function hasConflictingProxyCredentials(submission: NormalizedProxySubmission) {
   );
 }
 
+/**
+ * @param savedProxy
+ * @param embeddedPassword
+ */
 function hasSavedProxyPassword(
   savedProxy: null | SavedProxyRecord,
   embeddedPassword: null | string | undefined,
@@ -180,6 +218,9 @@ function hasSavedProxyPassword(
   return savedProxy?.proxyPassword !== null || embeddedPassword !== null;
 }
 
+/**
+ * @param value
+ */
 function normalizeOptionalProxyCredential(
   value: null | string | undefined,
 ): null | string | undefined {
@@ -190,6 +231,9 @@ function normalizeOptionalProxyCredential(
   return value === null || value === "" ? null : undefined;
 }
 
+/**
+ * @param value
+ */
 function normalizeOptionalProxyPassword(
   value: null | string | undefined,
 ): null | string | undefined {
@@ -200,6 +244,9 @@ function normalizeOptionalProxyPassword(
   return value === null || value === "" ? null : undefined;
 }
 
+/**
+ * @param proxyUrl
+ */
 function normalizeProxyUrlValue(proxyUrl: null | string | undefined) {
   const trimmedProxyUrl = typeof proxyUrl === "string" ? proxyUrl.trim() : null;
   return trimmedProxyUrl &&
@@ -209,6 +256,10 @@ function normalizeProxyUrlValue(proxyUrl: null | string | undefined) {
     : null;
 }
 
+/**
+ * @param value
+ * @param fieldName
+ */
 function validateProxyCredentialLength(
   value: null | string | undefined,
   fieldName: "password" | "username",
@@ -223,6 +274,9 @@ function validateProxyCredentialLength(
   return `Proxy ${fieldName} too long`;
 }
 
+/**
+ * @param rawProxyUrl
+ */
 function validateProxyUrlLength(rawProxyUrl: null | string) {
   if (!rawProxyUrl || rawProxyUrl.length <= MAX_PROXY_URL_LENGTH) {
     return null;

@@ -23,7 +23,10 @@ export interface PlaceholderSourceDefinition {
   source: FeedSource;
 }
 
-/** Converts compact seed tuples into the named records used by the placeholder registry. */
+/**
+ * Converts compact seed tuples into the named records used by the placeholder registry.
+ * @param entries
+ */
 export const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],
 ): PlaceholderSeed[] =>

@@ -51,6 +51,24 @@ interface UseFeedListSurfaceStateResult {
  *
  * The heavy DOM-observer and scroll-event logic lives in dedicated helpers so
  * this hook can focus on composing the feed surface contract consumed by FeedList.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.canLoadMoreFromServer
+ * @param root0.collapsingArticles
+ * @param root0.expandedArticleKey
+ * @param root0.feedViewKey
+ * @param root0.filteredFeedLength
+ * @param root0.getPreExpandViewportSnapshot
+ * @param root0.invertedScrollAnchorIndex
+ * @param root0.isCollapseScrollRestoreActive
+ * @param root0.isInitialLoading
+ * @param root0.isInvertedScroll
+ * @param root0.isLoadingMore
+ * @param root0.isRefreshing
+ * @param root0.onLoadMore
+ * @param root0.refreshEpoch
+ * @param root0.searchTerm
  */
 export function useFeedListSurfaceState({
   articleFilter,
@@ -99,6 +117,11 @@ export function useFeedListSurfaceState({
   );
 }
 
+/**
+ * @param compositionState
+ * @param filteredFeedLength
+ * @param isInvertedScroll
+ */
 function buildFeedListSurfaceStateOptions(
   compositionState: ReturnType<typeof useFeedSurfaceComposition>,
   filteredFeedLength: number,

@@ -73,6 +73,12 @@ interface BatchRequestStateParsers {
   parseSearchTerm: (value: unknown) => Response | string | undefined;
 }
 
+/**
+ * @param options
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.skipRefresh
+ */
 export function buildBatchIntent(options: {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -87,6 +93,13 @@ export function buildBatchIntent(options: {
         : "auto";
 }
 
+/**
+ * @param options
+ * @param options.diagnosticsEnabled
+ * @param options.invalidUrlCount
+ * @param options.requestUrls
+ * @param options.userId
+ */
 export function buildInvalidBatchResultResponse(options: {
   diagnosticsEnabled: boolean;
   invalidUrlCount: number;
@@ -111,6 +124,9 @@ export function buildInvalidBatchResultResponse(options: {
   );
 }
 
+/**
+ * @param options
+ */
 export function createBatchSuccessResponse(
   options: BatchRequestCompletedOptions,
 ) {
@@ -119,6 +135,9 @@ export function createBatchSuccessResponse(
   });
 }
 
+/**
+ * @param urls
+ */
 export function ensureBatchUrlCount(urls: string[]) {
   if (urls.length <= CONFIG.FEED_BATCH_MAX_URLS) {
     return null;
@@ -132,6 +151,21 @@ export function ensureBatchUrlCount(urls: string[]) {
   );
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.invalidUrlCount
+ * @param options.normalizedUrls
+ * @param options.requestSource
+ * @param options.results
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ * @param options.upstreamErrors
+ * @param options.userId
+ */
 export function logBatchDiagnostics(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -164,6 +198,9 @@ export function logBatchDiagnostics(options: {
   });
 }
 
+/**
+ * @param options
+ */
 export function logBatchRequestCompleted(
   options: BatchRequestCompletedOptions,
 ) {
@@ -179,6 +216,18 @@ export function logBatchRequestCompleted(
   return hasRequestErrors || hasUpstreamErrors ? 207 : 200;
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.requestSource
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ * @param options.urls
+ * @param options.userId
+ */
 export function logBatchRequestReceived(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -200,6 +249,19 @@ export function logBatchRequestReceived(options: {
   });
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.diagnosticsEnabled
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.requestSource
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ * @param options.urls
+ * @param options.userId
+ */
 export function logBatchRequestReceivedWhenEnabled(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -229,6 +291,16 @@ export function logBatchRequestReceivedWhenEnabled(options: {
   });
 }
 
+/**
+ * @param options
+ * @param options.cachedCount
+ * @param options.cooldownLimitedCount
+ * @param options.intent
+ * @param options.normalizedUrls
+ * @param options.refreshedCount
+ * @param options.requestStartedAt
+ * @param options.resolution
+ */
 export function logBatchStatusSummary(options: {
   cachedCount: number;
   cooldownLimitedCount: number;
@@ -251,6 +323,11 @@ export function logBatchStatusSummary(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.invalidUrlCount
+ * @param options.upstreamErrors
+ */
 export function logBatchWarnings(options: {
   invalidUrlCount: number;
   upstreamErrors: Map<string, string>;
@@ -271,6 +348,11 @@ export function logBatchWarnings(options: {
   }
 }
 
+/**
+ * @param options
+ * @param options.normalizeFeedUrl
+ * @param options.urls
+ */
 export function resolveNormalizedBatchUrls(options: {
   normalizeFeedUrl: (url: string) => string;
   urls: string[];
@@ -299,6 +381,9 @@ export function resolveNormalizedBatchUrls(options: {
   };
 }
 
+/**
+ * @param options
+ */
 export function validateBatchRequestState(
   options: BatchRequestStateParsers & {
     body: BatchRequestBody;
@@ -321,6 +406,16 @@ export function validateBatchRequestState(
   });
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.body
+ * @param options.forceResolveUpstream
+ * @param options.knownLastFetchedAtByUrl
+ * @param options.normalizeDistinctUrlList
+ * @param options.searchTerm
+ */
 function buildValidatedBatchRequestState(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -346,6 +441,9 @@ function buildValidatedBatchRequestState(options: {
   };
 }
 
+/**
+ * @param options
+ */
 function parseBatchRequestStateFields(
   options: BatchRequestStateParsers & { body: BatchRequestBody },
 ) {

@@ -22,7 +22,10 @@ interface NeonDatabaseOptions {
   maxConnections: number;
 }
 
-/** Builds a Neon-backed Drizzle instance with on-demand transaction sessions. */
+/**
+ * Builds a Neon-backed Drizzle instance with on-demand transaction sessions.
+ * @param options
+ */
 export function createNeonDatabase(
   options: NeonDatabaseOptions,
 ): DatabaseProviderResult {
@@ -46,14 +49,22 @@ export function createNeonDatabase(
  *
  * The Neon client is created inside `query()` so an unused executor does not
  * initialize any transport state and every call stays one-shot over HTTP.
+ * @param connectionString
  */
 export function createNeonQueryExecutor(
   connectionString: string,
 ): SqlQueryExecutor {
   return {
+    /**
+     *
+     */
     close() {
       return Promise.resolve();
     },
+    /**
+     * @param queryText
+     * @param params
+     */
     async query<TRow extends QueryResultRow = QueryResultRow>(
       queryText: string,
       params: readonly unknown[] = [],
@@ -77,6 +88,9 @@ function configureNeonQueryTransport(): void {
   neonConfig.poolQueryViaFetch = true;
 }
 
+/**
+ * @param result
+ */
 function toSqlQueryResult<TRow extends QueryResultRow>(
   result: FullQueryResults<false>,
 ): SqlQueryResult<TRow> {

@@ -11,7 +11,7 @@ import { formatLastRefreshLabel } from "@/app/dashboard/dashboard-services/feed-
  * the top-level controller does not need to manage refresh-label bookkeeping
  * inline.
  *
- * @param usePlaceholderData Whether the dashboard is currently running in preview mode.
+ * @param usePlaceholderData - Whether the dashboard is currently running in preview mode.
  * @returns Refresh timestamp state, label, and tick setter used by the refresh interval.
  */
 export function useRefreshStatus(usePlaceholderData: boolean) {

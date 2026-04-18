@@ -11,6 +11,19 @@ interface UseInvertedExpansionScrollLockEventsOptions extends InvertedExpansionS
   ) => void;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.captureInvertedExpansionViewportSnapshot
+ * @param root0.invertedExpansionScrollLockRef
+ * @param root0.isInvertedScrollRef
+ * @param root0.onClaimInvertedScrollOwnership
+ * @param root0.prepareInvertedUnreadRemovalScrollLock
+ * @param root0.scrollViewport
+ * @param root0.startInvertedExpansionScrollLock
+ * @param root0.syncInvertedExpansionScrollLock
+ * @param root0.viewportSnapshotRef
+ */
 export function useInvertedExpansionScrollLockEvents({
   articleFilter,
   captureInvertedExpansionViewportSnapshot,

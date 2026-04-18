@@ -65,6 +65,17 @@ export interface SettingsProxyWritableState {
   shouldAutoScrollToResultsRef: RefObject<boolean>;
 }
 
+/**
+ * @param root0
+ * @param root0.setAllowInsecureTls
+ * @param root0.setError
+ * @param root0.setHasProxyPassword
+ * @param root0.setProxyRoutingCheck
+ * @param root0.setProxyStatus
+ * @param root0.setProxyUrl
+ * @param root0.setProxyUsername
+ * @param root0.snapshot
+ */
 export function applyProxySettingsSnapshot({
   setAllowInsecureTls,
   setError,
@@ -93,6 +104,9 @@ export function applyProxySettingsSnapshot({
   setError(snapshot.error);
 }
 
+/**
+ *
+ */
 export function useSettingsProxyRequestState(): SettingsProxyRequestState {
   const isMountedRef = useRef(true);
   const latestProxyRequestIdRef = useRef(0);
@@ -149,6 +163,10 @@ export function useSettingsProxyRequestState(): SettingsProxyRequestState {
   );
 }
 
+/**
+ * @param isEnabled
+ * @param initialSnapshot
+ */
 export function useSettingsProxyWritableState(
   isEnabled: boolean,
   initialSnapshot: null | ProxySettingsSnapshot,
@@ -162,6 +180,9 @@ export function useSettingsProxyWritableState(
   };
 }
 
+/**
+ *
+ */
 function useSettingsProxyCompatibilityState() {
   const [compatibilityResults, setCompatibilityResults] = useState<
     CompatibilityResult[] | null
@@ -190,6 +211,10 @@ function useSettingsProxyCompatibilityState() {
   };
 }
 
+/**
+ * @param isEnabled
+ * @param initialSnapshot
+ */
 function useSettingsProxyFormState(
   isEnabled: boolean,
   initialSnapshot: null | ProxySettingsSnapshot,

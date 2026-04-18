@@ -22,6 +22,11 @@ interface UseArticleReadStateOptions {
   usePlaceholderData?: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
+ */
 export function useArticleReadState({
   setFeed,
   usePlaceholderData = false,
@@ -35,17 +40,32 @@ export function useArticleReadState({
       options?: SetReadStateOptions,
     ) => {
       const result = await runOptimisticArticleStatusMutation({
+        /**
+         * @param currentFeed
+         * @param articleMap
+         */
         applyOptimisticUpdate: (currentFeed, articleMap) =>
           applyOptimisticReadState(currentFeed, articleMap, nextReadState),
         articles,
         errorLogLabel: "Set read state error",
         mutationTracker,
+        /**
+         *
+         */
         onError: () => {
           showReadStateError(options);
         },
+        /**
+         * @param currentFeed
+         * @param articleMap
+         * @param failedArticleKeys
+         */
         restoreUpdate: (currentFeed, articleMap, failedArticleKeys) =>
           restoreArticleReadState(currentFeed, articleMap, failedArticleKeys),
         setFeed,
+        /**
+         *
+         */
         statusPatchForArticle: () => ({ isRead: nextReadState }),
         usePlaceholderData,
       });
@@ -86,6 +106,11 @@ export function useArticleReadState({
   };
 }
 
+/**
+ * @param currentFeed
+ * @param articleMap
+ * @param nextReadState
+ */
 function applyOptimisticReadState(
   currentFeed: Article[],
   articleMap: Map<string, Article>,
@@ -99,6 +124,11 @@ function applyOptimisticReadState(
   });
 }
 
+/**
+ * @param currentFeed
+ * @param articleMap
+ * @param failedArticleKeys
+ */
 function restoreArticleReadState(
   currentFeed: Article[],
   articleMap: Map<string, Article>,
@@ -115,6 +145,9 @@ function restoreArticleReadState(
   });
 }
 
+/**
+ * @param options
+ */
 function showReadStateError(options?: SetReadStateOptions) {
   if (!options?.suppressErrorToast) {
     toast.error("Unable to update read state right now.");

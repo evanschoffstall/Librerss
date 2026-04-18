@@ -21,6 +21,15 @@ interface UseCategoryCrudActionsOptions extends Omit<
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setSelectedCategory
+ */
 export function useCategoryCrudActions({
   categories,
   loadFeedSources,
@@ -81,6 +90,11 @@ export function useCategoryCrudActions({
   };
 }
 
+/**
+ * @param current
+ * @param label
+ * @param categories
+ */
 function ensureCategoryLabelInList(
   current: string[],
   label: string,
@@ -96,6 +110,10 @@ function ensureCategoryLabelInList(
   return [...current, label];
 }
 
+/**
+ * @param current
+ * @param label
+ */
 function ensureLabelInCollection(current: string[], label: string) {
   if (includesCategoryLabel(current, label)) {
     return current;
@@ -104,6 +122,12 @@ function ensureLabelInCollection(current: string[], label: string) {
   return [...current, label];
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.setCustomCategoryLabels
+ */
 function useAddCategoryAction({
   categories,
   customCategoryLabels,
@@ -125,6 +149,12 @@ function useAddCategoryAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ */
 function useEnsureCategoryLabelExists({
   categories,
   setCustomCategoryLabels,
@@ -147,6 +177,10 @@ function useEnsureCategoryLabelExists({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.setOrderedCategoryLabels
+ */
 function useMoveCategoryByDropAction({
   setOrderedCategoryLabels,
 }: {
@@ -162,6 +196,20 @@ function useMoveCategoryByDropAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.loadFeedSources
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setPendingCategoryRemovalLabel
+ * @param root0.setSelectedCategory
+ */
 function useRemoveCategoryAction({
   categories,
   customCategoryLabels,
@@ -221,6 +269,16 @@ function useRemoveCategoryAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.customCategoryLabels
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setOrderedCategoryLabels
+ * @param root0.setSelectedCategory
+ */
 function useRenameCategoryAction({
   categories,
   customCategoryLabels,

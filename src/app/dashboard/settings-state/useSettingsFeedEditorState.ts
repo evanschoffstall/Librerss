@@ -48,6 +48,16 @@ type UseSettingsFeedEditorStateOptions = Omit<
  *
  * Separating these concerns from OPML import keeps the mutable feed-management
  * path small enough to reason about independently.
+ * @param root0
+ * @param root0.categories
+ * @param root0.onAddFeed
+ * @param root0.onDropCategory
+ * @param root0.onDropFeed
+ * @param root0.onRemoveFeed
+ * @param root0.onRenameFeed
+ * @param root0.onSetFeedEnabled
+ * @param root0.onUpdateFeedSettings
+ * @param root0.selectedCategory
  */
 export function useSettingsFeedEditorState({
   categories,
@@ -85,9 +95,15 @@ export function useSettingsFeedEditorState({
     isSavingFeed: feedEditorState.isSavingFeed,
     newFeedName: feedEditorState.newFeedName,
     newFeedUrl: feedEditorState.newFeedUrl,
+    /**
+     *
+     */
     onCancelAddFeed: () => {
       feedEditorState.setAddingFeedInCategory(null);
     },
+    /**
+     * @param label
+     */
     onToggleAddFeed: (label: string) => {
       feedEditorState.setAddingFeedInCategory(
         feedEditorState.addingFeedInCategory === label ? null : label,
@@ -101,6 +117,13 @@ export function useSettingsFeedEditorState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.actions
+ * @param root0.drag
+ * @param root0.selectedCategory
+ * @param root0.state
+ */
 function buildSharedFeedRowProps({
   actions,
   drag,
@@ -127,17 +150,40 @@ function buildSharedFeedRowProps({
     onFeedDragOver: drag.onFeedDragOver,
     onFeedDragStart: drag.onFeedDragStart,
     onFeedDrop: drag.onFeedDrop,
+    /**
+     * @param key
+     */
     onRemoveFeed: (key: string) => void actions.handleRemoveFeed(key),
+    /**
+     * @param key
+     */
     onSaveFeedRename: (key: string) => void actions.handleSaveFeedRename(key),
+    /**
+     * @param key
+     * @param name
+     * @param url
+     */
     onStartFeedEdit: (key: string, name: string, url: string) => {
       state.setEditingFeedKey(key);
       state.setEditingFeedName(name);
       state.setEditingFeedUrl(url);
     },
+    /**
+     * @param key
+     * @param disabled
+     */
     onToggleExtractionDisabled: (key: string, disabled: boolean) =>
       void actions.handleToggleExtractionDisabled(key, disabled),
+    /**
+     * @param key
+     * @param enabled
+     */
     onToggleFeedEnabled: (key: string, enabled: boolean) =>
       void actions.handleToggleFeedEnabled(key, enabled),
+    /**
+     * @param key
+     * @param enabled
+     */
     onToggleProxyEnabled: (key: string, enabled: boolean) =>
       void actions.handleToggleProxyEnabled(key, enabled),
     savingFeedKey: state.savingFeedKey,
@@ -147,6 +193,11 @@ function buildSharedFeedRowProps({
   };
 }
 
+/**
+ * @param setKey
+ * @param onUpdateFeedSettings
+ * @param settingKey
+ */
 function createFeedSettingsToggleHandler(
   setKey: (key: null | string) => void,
   onUpdateFeedSettings: UseSettingsFeedEditorStateOptions["onUpdateFeedSettings"],
@@ -159,12 +210,19 @@ function createFeedSettingsToggleHandler(
   );
 }
 
+/**
+ * @param state
+ * @param onAddFeed
+ */
 function createHandleAddFeed(
   state: ReturnType<typeof useSettingsFeedEditorLocalState>,
   onAddFeed: UseSettingsFeedEditorStateOptions["onAddFeed"],
 ) {
   return async (categoryLabel: string) => {
     await runWithTransientFeedFlag({
+      /**
+       *
+       */
       run: async () => {
         const didSave = await onAddFeed(
           state.newFeedName.trim(),
@@ -181,6 +239,11 @@ function createHandleAddFeed(
   };
 }
 
+/**
+ * @param state
+ * @param onRenameFeed
+ * @param clearFeedEdit
+ */
 function createHandleSaveFeedRename(
   state: ReturnType<typeof useSettingsFeedEditorLocalState>,
   onRenameFeed: UseSettingsFeedEditorStateOptions["onRenameFeed"],
@@ -189,6 +252,9 @@ function createHandleSaveFeedRename(
   return async (feedKey: string) => {
     await runWithTransientFeedKey({
       key: feedKey,
+      /**
+       *
+       */
       run: async () => {
         const didSave = await onRenameFeed(
           feedKey,
@@ -203,6 +269,10 @@ function createHandleSaveFeedRename(
   };
 }
 
+/**
+ * @param setKey
+ * @param run
+ */
 function createTransientFeedKeyOnlyHandler(
   setKey: (key: null | string) => void,
   run: (feedKey: string) => Promise<unknown>,
@@ -210,12 +280,19 @@ function createTransientFeedKeyOnlyHandler(
   return async (feedKey: string) => {
     await runWithTransientFeedKey({
       key: feedKey,
+      /**
+       *
+       */
       run: () => run(feedKey),
       setKey,
     });
   };
 }
 
+/**
+ * @param setKey
+ * @param run
+ */
 function createTransientFeedKeyValueHandler<TValue>(
   setKey: (key: null | string) => void,
   run: (feedKey: string, value: TValue) => Promise<unknown>,
@@ -223,12 +300,20 @@ function createTransientFeedKeyValueHandler<TValue>(
   return async (feedKey: string, value: TValue) => {
     await runWithTransientFeedKey({
       key: feedKey,
+      /**
+       *
+       */
       run: () => run(feedKey, value),
       setKey,
     });
   };
 }
 
+/**
+ * @param options
+ * @param options.run
+ * @param options.setValue
+ */
 async function runWithTransientFeedFlag<T>(options: {
   run: () => Promise<T>;
   setValue: (value: boolean) => void;
@@ -241,6 +326,12 @@ async function runWithTransientFeedFlag<T>(options: {
   }
 }
 
+/**
+ * @param options
+ * @param options.key
+ * @param options.run
+ * @param options.setKey
+ */
 async function runWithTransientFeedKey<T>(options: {
   key: string;
   run: () => Promise<T>;
@@ -254,6 +345,15 @@ async function runWithTransientFeedKey<T>(options: {
   }
 }
 
+/**
+ * @param root0
+ * @param root0.onAddFeed
+ * @param root0.onRemoveFeed
+ * @param root0.onRenameFeed
+ * @param root0.onSetFeedEnabled
+ * @param root0.onUpdateFeedSettings
+ * @param root0.state
+ */
 function useSettingsFeedEditorActions({
   onAddFeed,
   onRemoveFeed,
@@ -269,6 +369,9 @@ function useSettingsFeedEditorActions({
   onUpdateFeedSettings: UseSettingsFeedEditorStateOptions["onUpdateFeedSettings"];
   state: ReturnType<typeof useSettingsFeedEditorLocalState>;
 }) {
+  /**
+   *
+   */
   const clearFeedEdit = () => {
     state.setEditingFeedKey(null);
     state.setEditingFeedName("");
@@ -304,6 +407,9 @@ function useSettingsFeedEditorActions({
   };
 }
 
+/**
+ *
+ */
 function useSettingsFeedEditorLocalState() {
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
@@ -347,6 +453,10 @@ function useSettingsFeedEditorLocalState() {
   };
 }
 
+/**
+ * @param categories
+ * @param state
+ */
 function useSyncSettingsFeedEditorState(
   categories: CategoryTreeNode[],
   state: ReturnType<typeof useSettingsFeedEditorLocalState>,

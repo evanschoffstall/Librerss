@@ -44,6 +44,11 @@ export interface FeedBatchRequestHelpers {
   ) => Map<string, Date> | undefined;
 }
 
+/**
+ * @param context
+ * @param queryClient
+ * @param setFeed
+ */
 export function clearStaleFeedBeforeRefresh(
   context: FeedBatchRequestContext,
   queryClient: QueryClient,
@@ -71,6 +76,11 @@ export function clearStaleFeedBeforeRefresh(
   }
 }
 
+/**
+ * @param requestState
+ * @param logRefreshDiagnostics
+ * @param requestId
+ */
 export function finishFeedBatchRequest(
   requestState: ReturnType<typeof useFeedBatchRequestState>,
   logRefreshDiagnostics: (
@@ -87,6 +97,11 @@ export function finishFeedBatchRequest(
   logRefreshDiagnostics("refresh:finished", { requestId });
 }
 
+/**
+ * @param context
+ * @param loadBatchResults
+ * @param logRefreshDiagnostics
+ */
 export async function loadFeedBatchResultsOrReturnNull(
   context: FeedBatchRequestContext,
   loadBatchResults: ReturnType<typeof useFeedBatchQuery>["loadBatchResults"],
@@ -128,6 +143,12 @@ export async function loadFeedBatchResultsOrReturnNull(
   return batchResults;
 }
 
+/**
+ * @param logRefreshDiagnostics
+ * @param context
+ * @param sourceCount
+ * @param options
+ */
 export function logFeedBatchStart(
   logRefreshDiagnostics: (
     event: string,
@@ -155,6 +176,11 @@ export function logFeedBatchStart(
   });
 }
 
+/**
+ * @param logRefreshDiagnostics
+ * @param requestId
+ * @param batchResults
+ */
 export function logStaleFeedBatchRequest(
   logRefreshDiagnostics: (
     event: string,
@@ -174,6 +200,16 @@ export function logStaleFeedBatchRequest(
   logRefreshDiagnostics("refresh:stale-request", { requestId });
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.options
+ * @param root0.queryClient
+ * @param root0.requestHelpers
+ * @param root0.requestState
+ * @param root0.sources
+ * @param root0.usePlaceholderData
+ */
 export function prepareFeedBatchRequestContext({
   articleFilter,
   options,
@@ -229,6 +265,14 @@ export function prepareFeedBatchRequestContext({
   };
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.keepExistingFeed
+ * @param options.normalizedSources
+ * @param options.options
+ * @param options.requestHelpers
+ */
 function buildFeedBatchRequestQueryState(options: {
   articleFilter: ArticleFilter;
   keepExistingFeed: boolean;

@@ -19,6 +19,9 @@ export interface SettingsCategoryAccordionBodyProps
   isAddingFeed: boolean;
 }
 
+/**
+ * @param props
+ */
 export function SettingsCategoryAccordionBody(
   props: SettingsCategoryAccordionBodyProps,
 ) {
@@ -67,6 +70,13 @@ export function SettingsCategoryAccordionBody(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.canAddFeed
+ * @param root0.isSavingFeed
+ * @param root0.onCancelAddFeed
+ * @param root0.onSubmit
+ */
 function CategoryAddFeedActions({
   canAddFeed,
   isSavingFeed,
@@ -105,6 +115,17 @@ function CategoryAddFeedActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryNode
+ * @param root0.isSavingFeed
+ * @param root0.newFeedName
+ * @param root0.newFeedUrl
+ * @param root0.onAddFeed
+ * @param root0.onCancelAddFeed
+ * @param root0.onNewFeedNameChange
+ * @param root0.onNewFeedUrlChange
+ */
 function CategoryAddFeedForm({
   categoryNode,
   isSavingFeed,
@@ -126,6 +147,9 @@ function CategoryAddFeedForm({
   | "onNewFeedUrlChange"
 >) {
   const canAddFeed = newFeedName.trim() && newFeedUrl.trim();
+  /**
+   *
+   */
   const handleAddFeed = () => {
     onAddFeed(categoryNode.label);
   };
@@ -172,6 +196,12 @@ function CategoryAddFeedForm({
   );
 }
 
+/**
+ * @param options
+ * @param options.canAddFeed
+ * @param options.handleAddFeed
+ * @param options.onCancelAddFeed
+ */
 function createCategoryFeedUrlKeyDownHandler(options: {
   canAddFeed: boolean;
   handleAddFeed: () => void;
@@ -188,6 +218,14 @@ function createCategoryFeedUrlKeyDownHandler(options: {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categoryLabel
+ * @param root0.draggingFeedKey
+ * @param root0.feedDropTarget
+ * @param root0.onFeedDragOver
+ * @param root0.onFeedDrop
+ */
 function EmptyCategoryFeedDropZone({
   categoryLabel,
   draggingFeedKey,

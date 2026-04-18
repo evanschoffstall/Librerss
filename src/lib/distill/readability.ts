@@ -5,6 +5,11 @@ import type { DistilledArticle, DistillOptions } from "./types";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
 
+/**
+ * @param html
+ * @param url
+ * @param options
+ */
 export function readabilityDistill(
   html: string,
   url: string,

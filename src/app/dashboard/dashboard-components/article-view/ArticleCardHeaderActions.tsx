@@ -49,6 +49,9 @@ export interface ArticleHeaderActionsProps {
   visuallyExpanded: boolean;
 }
 
+/**
+ * @param props
+ */
 export function ArticleHeaderActions(props: ArticleHeaderActionsProps) {
   return (
     <div
@@ -96,6 +99,15 @@ export function ArticleHeaderActions(props: ArticleHeaderActionsProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.articleActionControlProps
+ * @param root0.iconBtnCls
+ * @param root0.iconLinkCls
+ * @param root0.isDevelopment
+ * @param root0.onRawHtmlOpen
+ */
 function ArticleHeaderUtilityActions({
   article,
   articleActionControlProps,
@@ -145,6 +157,14 @@ function ArticleHeaderUtilityActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.articleActionControlProps
+ * @param root0.iconBtnCls
+ * @param root0.isUpdatingState
+ * @param root0.onToggleRead
+ */
 function ArticleReadToggleButton({
   article,
   articleActionControlProps,
@@ -213,6 +233,20 @@ function ArticleReadToggleButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.articleActionControlProps
+ * @param root0.encodedShareTitle
+ * @param root0.encodedShareUrl
+ * @param root0.iconBtnCls
+ * @param root0.isShareMenuOpen
+ * @param root0.onCopyLinkOpen
+ * @param root0.onShare
+ * @param root0.onShareMenuOpenChange
+ * @param root0.shareUrl
+ * @param root0.supportsNativeShare
+ */
 function ArticleShareAction({
   article,
   articleActionControlProps,
@@ -260,6 +294,18 @@ function ArticleShareAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.articleActionControlProps
+ * @param root0.encodedShareTitle
+ * @param root0.encodedShareUrl
+ * @param root0.iconBtnCls
+ * @param root0.isShareMenuOpen
+ * @param root0.onCopyLinkOpen
+ * @param root0.onShareMenuOpenChange
+ * @param root0.shareUrl
+ */
 function ArticleShareMenu({
   article,
   articleActionControlProps,
@@ -334,6 +380,13 @@ function ArticleShareMenu({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.href
+ * @param root0.icon
+ * @param root0.label
+ * @param root0.onShareMenuOpenChange
+ */
 function ArticleShareMenuLink({
   href,
   icon,
@@ -360,6 +413,14 @@ function ArticleShareMenuLink({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.articleActionControlProps
+ * @param root0.iconBtnCls
+ * @param root0.isUpdatingState
+ * @param root0.onToggleStarred
+ */
 function ArticleStarToggleButton({
   article,
   articleActionControlProps,
@@ -411,6 +472,12 @@ function ArticleStarToggleButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articleActionControlProps
+ * @param root0.iconBtnCls
+ * @param root0.onShare
+ */
 function NativeShareButton({
   articleActionControlProps,
   iconBtnCls,
@@ -434,6 +501,10 @@ function NativeShareButton({
   );
 }
 
+/**
+ * @param visuallyExpanded
+ * @param isMobile
+ */
 function resolveArticleHeaderActionsClassName(
   visuallyExpanded: boolean,
   isMobile: boolean,

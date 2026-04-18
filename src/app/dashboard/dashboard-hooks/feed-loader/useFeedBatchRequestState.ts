@@ -47,6 +47,9 @@ interface UseFeedBatchRequestStateOptions {
  *
  * The feed loader uses this hook as the single authority for request IDs,
  * duplicate-request suppression, TanStack cancellation, and shared loading epochs.
+ * @param root0
+ * @param root0.queryClient
+ * @param root0.setLoading
  */
 export function useFeedBatchRequestState({
   queryClient,
@@ -70,6 +73,10 @@ export function useFeedBatchRequestState({
   };
 }
 
+/**
+ * @param activeRequestQueryKeyRef
+ * @param queryClient
+ */
 function cancelActiveFeedBatchQuery(
   activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>,
   queryClient: QueryClient,
@@ -94,6 +101,10 @@ function cancelActiveFeedBatchQuery(
     });
 }
 
+/**
+ * @param requestRefs
+ * @param syncLoading
+ */
 function resetActiveFeedRequest(
   requestRefs: ReturnType<typeof useFeedBatchRequestRefs>,
   syncLoading: (value: boolean) => void,
@@ -103,6 +114,18 @@ function resetActiveFeedRequest(
   syncLoading(false);
 }
 
+/**
+ * @param root0
+ * @param root0.activeRequestQueryKeyRef
+ * @param root0.activeRequestSignatureRef
+ * @param root0.currentRequestIdRef
+ * @param root0.isBackground
+ * @param root0.queryClient
+ * @param root0.queryKey
+ * @param root0.requestSignature
+ * @param root0.setLoadingEpoch
+ * @param root0.syncLoading
+ */
 function startNextFeedRequest({
   activeRequestQueryKeyRef,
   activeRequestSignatureRef,
@@ -139,6 +162,9 @@ function startNextFeedRequest({
   return requestId;
 }
 
+/**
+ * @param setLoading
+ */
 function useFeedBatchLoadingState(
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
 ) {
@@ -157,6 +183,14 @@ function useFeedBatchLoadingState(
   return { loading, loadingEpoch, loadingRef, setLoadingEpoch, syncLoading };
 }
 
+/**
+ * @param options
+ * @param options.loadingRef
+ * @param options.queryClient
+ * @param options.requestRefs
+ * @param options.setLoadingEpoch
+ * @param options.syncLoading
+ */
 function useFeedBatchRequestActions(options: {
   loadingRef: React.RefObject<boolean>;
   queryClient: QueryClient;
@@ -235,6 +269,9 @@ function useFeedBatchRequestActions(options: {
   };
 }
 
+/**
+ *
+ */
 function useFeedBatchRequestRefs() {
   return {
     activeRequestQueryKeyRef: useRef<FeedBatchQueryKey | null>(null),

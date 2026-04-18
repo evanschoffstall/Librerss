@@ -20,6 +20,10 @@ interface AccountExportRouteDeps {
   serverServiceErrorClass?: typeof serverApi.ServerServiceError;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function GET(
   request: NextRequest,
   depsOrContext: AccountExportRouteDeps | serverApi.RouteHandlerContext = {},
@@ -65,6 +69,7 @@ export async function GET(
  *
  * Keeping this resolver local lets the route tests inject a stable export
  * function without depending on the globally mocked server barrel.
+ * @param depsOrContext
  */
 export function resolveAccountExportRouteDeps(
   depsOrContext:

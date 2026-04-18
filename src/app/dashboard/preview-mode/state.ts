@@ -3,21 +3,31 @@ export const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DASHBOARD_PREVIEW_ENABLED_VALUE = "1";
 
-/** Returns whether dashboard preview mode is enabled for a request/session. */
+/**
+ * Returns whether dashboard preview mode is enabled for a request/session.
+ * @param cookieValue
+ */
 export function isDashboardPreviewModeEnabled(
   cookieValue: null | string | undefined,
 ): boolean {
   return cookieValue === DASHBOARD_PREVIEW_ENABLED_VALUE;
 }
 
-/** Resolves preview mode from the explicit explore query only. */
+/**
+ * Resolves preview mode from the explicit explore query only.
+ * @param options
+ * @param options.hasExploreQuery
+ */
 export function resolveDashboardPreviewMode(options: {
   hasExploreQuery: boolean;
 }): boolean {
   return options.hasExploreQuery;
 }
 
-/** Writes or clears the legacy preview cookie for cleanup-only flows. */
+/**
+ * Writes or clears the legacy preview cookie for cleanup-only flows.
+ * @param enabled
+ */
 export function setDashboardPreviewPersistence(enabled: boolean): void {
   if (typeof document === "undefined") {
     return;

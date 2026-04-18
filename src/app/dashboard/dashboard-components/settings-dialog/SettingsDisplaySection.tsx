@@ -38,6 +38,19 @@ export interface SettingsDisplaySectionProps {
   showFavicons: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.autoRefreshIntervalMinutes
+ * @param root0.backgroundMode
+ * @param root0.distillStrategy
+ * @param root0.onArticlesPerPageChange
+ * @param root0.onAutoRefreshIntervalMinutesChange
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.onShowFaviconsChange
+ * @param root0.showFavicons
+ */
 export function SettingsDisplaySection({
   articlesPerPage,
   autoRefreshIntervalMinutes,
@@ -110,6 +123,13 @@ export function SettingsDisplaySection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.autoRefreshDraft
+ * @param root0.autoRefreshIntervalMinutes
+ * @param root0.commitAutoRefreshDraft
+ * @param root0.setAutoRefreshDraft
+ */
 function AutoRefreshControl({
   autoRefreshDraft,
   autoRefreshIntervalMinutes,
@@ -159,6 +179,14 @@ function AutoRefreshControl({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.isMobileInvertedScrollAvailable
+ * @param root0.mobileGroupedLayout
+ * @param root0.mobileInvertedScroll
+ * @param root0.setMobileGroupedLayout
+ * @param root0.setMobileInvertedScroll
+ */
 function DisplayMobileToggleGroup({
   isMobileInvertedScrollAvailable,
   mobileGroupedLayout,
@@ -210,6 +238,15 @@ function DisplayMobileToggleGroup({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.backgroundMode
+ * @param root0.distillStrategy
+ * @param root0.onArticlesPerPageChange
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ */
 function DisplaySelectGroup({
   articlesPerPage,
   backgroundMode,
@@ -283,6 +320,10 @@ function DisplaySelectGroup({
   );
 }
 
+/**
+ * @param autoRefreshIntervalMinutes
+ * @param onAutoRefreshIntervalMinutesChange
+ */
 function useDisplaySectionState(
   autoRefreshIntervalMinutes: number,
   onAutoRefreshIntervalMinutesChange: (value: number) => void,
@@ -320,6 +361,9 @@ function useDisplaySectionState(
 
   return {
     autoRefreshDraft,
+    /**
+     *
+     */
     commitAutoRefreshDraft: () => {
       const parsedValue = Number.parseInt(autoRefreshDraft, 10);
       const normalizedValue = normalizeAutoRefreshIntervalMinutes(
@@ -334,6 +378,9 @@ function useDisplaySectionState(
     mobileInvertedScroll,
     setAutoRefreshDraft,
     setMobileGroupedLayout,
+    /**
+     * @param value
+     */
     setMobileInvertedScroll: (value: boolean) => {
       if (!isMobileInvertedScrollAvailable) {
         setMobileInvertedScrollPreference(false);

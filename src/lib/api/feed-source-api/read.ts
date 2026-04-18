@@ -45,6 +45,9 @@ interface ResolvedFeedReadContext {
  * The feed-source list path uses a per-user in-memory cache so dashboard boot
  * does not re-run the same join-heavy `/api/feeds` query when the sidebar is
  * requested repeatedly during the cache TTL.
+ * @param userId
+ * @param feedUrl
+ * @param deps
  */
 export async function handleFeedRead(
   userId: number,
@@ -54,10 +57,22 @@ export async function handleFeedRead(
   return handleResolvedFeedRead(userId, resolveFeedReadContext(feedUrl, deps));
 }
 
+/**
+ * @param sourceCount
+ */
 function formatFeedSourceCount(sourceCount: number) {
   return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
+/**
+ * @param userId
+ * @param deps
+ * @param deps.getCachedFeedSources
+ * @param deps.listSourcesForUser
+ * @param deps.logInfo
+ * @param deps.setCachedFeedSources
+ * @param deps.toFeedSource
+ */
 async function handleFeedSourceListRead(
   userId: number,
   deps: {
@@ -87,6 +102,10 @@ async function handleFeedSourceListRead(
   return NextResponse.json(sourcesResponse);
 }
 
+/**
+ * @param normalizedFeedUrl
+ * @param getPlaceholderArticles
+ */
 function handlePlaceholderFeedRead(
   normalizedFeedUrl: null | string,
   getPlaceholderArticles: typeof getPlaceholderArticlesForSource,
@@ -98,7 +117,11 @@ function handlePlaceholderFeedRead(
   return NextResponse.json(getPlaceholderArticles(normalizedFeedUrl));
 }
 
-/** Dispatches the read request to placeholder, list, or single-feed modes. */
+/**
+ * Dispatches the read request to placeholder, list, or single-feed modes.
+ * @param userId
+ * @param context
+ */
 function handleResolvedFeedRead(
   userId: number,
   context: ResolvedFeedReadContext,
@@ -124,6 +147,13 @@ function handleResolvedFeedRead(
       });
 }
 
+/**
+ * @param userId
+ * @param normalizedFeedUrl
+ * @param deps
+ * @param deps.fetchFeedArticles
+ * @param deps.getDbForRead
+ */
 async function handleSingleFeedRead(
   userId: number,
   normalizedFeedUrl: string,
@@ -145,6 +175,8 @@ async function handleSingleFeedRead(
  * Normalizes optional dependencies once so the exported entrypoint stays a thin
  * dispatcher rather than carrying the complexity cost of dependency fallback
  * and mode branching.
+ * @param feedUrl
+ * @param deps
  */
 function resolveFeedReadContext(
   feedUrl: null | string,
@@ -189,7 +221,11 @@ function resolveFeedReadContext(
   };
 }
 
-/** Returns the provided dependency override or the canonical implementation. */
+/**
+ * Returns the provided dependency override or the canonical implementation.
+ * @param dependency
+ * @param fallback
+ */
 function resolveFeedReadDependency<T>(
   dependency: T | undefined,
   fallback: T,
@@ -197,7 +233,11 @@ function resolveFeedReadDependency<T>(
   return dependency ?? fallback;
 }
 
-/** Normalizes the optional feed URL once before dispatching mode-specific work. */
+/**
+ * Normalizes the optional feed URL once before dispatching mode-specific work.
+ * @param feedUrl
+ * @param normalizeFeedUrlForRead
+ */
 function resolveRequestedFeedUrl(
   feedUrl: null | string,
   normalizeFeedUrlForRead: typeof tryNormalizeFeedUrl,

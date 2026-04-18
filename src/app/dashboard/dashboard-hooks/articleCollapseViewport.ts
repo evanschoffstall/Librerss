@@ -23,6 +23,9 @@ export interface CollapseRestoreLayoutObserverOptions {
   viewport: HTMLElement;
 }
 
+/**
+ * @param articleKey
+ */
 export function captureArticleViewportSnapshot(articleKey: string) {
   const articleElement = document.querySelector<HTMLElement>(
     `[data-article-key="${escapeArticleKey(articleKey)}"]`,
@@ -52,6 +55,9 @@ export function captureArticleViewportSnapshot(articleKey: string) {
   } satisfies ArticleViewportSnapshot;
 }
 
+/**
+ * @param snapshot
+ */
 export function isRestorableArticleViewportSnapshot(
   snapshot: ArticleViewportSnapshot,
 ) {
@@ -61,18 +67,31 @@ export function isRestorableArticleViewportSnapshot(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articleKey
+ * @param root0.onLayoutChange
+ * @param root0.viewport
+ */
 export function observeCollapseRestoreLayout({
   articleKey,
   onLayoutChange,
   viewport,
 }: CollapseRestoreLayoutObserverOptions) {
   return observeFeedViewportLayout({
+    /**
+     *
+     */
     findAnchor: () => findCollapseRestoreAnchor(articleKey),
     onLayoutChange,
     viewport,
   });
 }
 
+/**
+ * @param currentState
+ * @param articleKey
+ */
 export function removeCollapsingArticle<T>(
   currentState: Partial<Record<string, T>>,
   articleKey: string,
@@ -85,6 +104,10 @@ export function removeCollapsingArticle<T>(
   return rest;
 }
 
+/**
+ * @param articleKey
+ * @param fallbackViewport
+ */
 export function resolveCollapseRestoreViewport(
   articleKey: string,
   fallbackViewport: HTMLElement,
@@ -110,6 +133,9 @@ export function resolveCollapseRestoreViewport(
   });
 }
 
+/**
+ * @param articleKey
+ */
 function findCollapseRestoreAnchor(articleKey: string) {
   return document.querySelector<HTMLElement>(
     `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"], [data-article-key="${escapeArticleKey(articleKey)}"]`,

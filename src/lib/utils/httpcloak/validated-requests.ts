@@ -59,6 +59,7 @@ interface RequestWithHttpCloakOptions {
 /**
  * Retains only the upstream headers that are useful for compatibility and
  * vendor compatibility diagnostics.
+ * @param headers
  */
 export function pickDiagnosticHeaders(
   headers: Record<string, string | string[] | undefined> | undefined,
@@ -98,6 +99,9 @@ export function pickDiagnosticHeaders(
   return out;
 }
 
+/**
+ * @param proxyUrl
+ */
 export function promoteHttpCloakProxyUrl(
   proxyUrl: string | undefined,
 ): string | undefined {
@@ -124,6 +128,10 @@ export function promoteHttpCloakProxyUrl(
   return proxyUrl;
 }
 
+/**
+ * @param options
+ * @param deps
+ */
 export async function requestWithHttpCloakValidatedRedirects(
   options: RequestWithHttpCloakOptions,
   deps?: RequestWithHttpCloakDeps,
@@ -164,6 +172,10 @@ export async function requestWithHttpCloakValidatedRedirects(
   throw new Error("Too many redirects");
 }
 
+/**
+ * @param url
+ * @param proxyUrl
+ */
 export async function resolveHttpCloakConnectTo(
   url: string,
   proxyUrl: string | undefined,
@@ -203,10 +215,20 @@ export async function resolveHttpCloakConnectTo(
   }
 }
 
+/**
+ * @param options
+ */
 function createSession(options: SessionOptions): HttpCloakSessionLike {
   return new Session(options);
 }
 
+/**
+ * @param currentUrl
+ * @param requestHeaders
+ * @param requestFn
+ * @param session
+ * @param timeoutSeconds
+ */
 async function executeHttpCloakRequest(
   currentUrl: string,
   requestHeaders: Record<string, string>,
@@ -227,6 +249,13 @@ async function executeHttpCloakRequest(
   });
 }
 
+/**
+ * @param currentUrl
+ * @param deps
+ * @param transport
+ * @param transport.session
+ * @param transport.timeoutSeconds
+ */
 async function requestHttpCloakHop(
   currentUrl: string,
   deps: RequestWithHttpCloakDeps | undefined,
@@ -255,6 +284,11 @@ async function requestHttpCloakHop(
   };
 }
 
+/**
+ * @param options
+ * @param deps
+ * @param url
+ */
 async function resolveHttpCloakTransport(
   options: RequestWithHttpCloakOptions,
   deps: RequestWithHttpCloakDeps | undefined,
@@ -288,6 +322,10 @@ async function resolveHttpCloakTransport(
   };
 }
 
+/**
+ * @param responseHeaders
+ * @param currentUrl
+ */
 function resolveRedirectTarget(
   responseHeaders: Record<string, string | string[] | undefined>,
   currentUrl: string,
@@ -304,6 +342,12 @@ function resolveRedirectTarget(
   return stripUrlFragmentFromUrl(new URL(location, currentUrl).toString());
 }
 
+/**
+ * @param response
+ * @param responseHeaders
+ * @param redirectHop
+ * @param requestHeaders
+ */
 function toValidatedHttpCloakResponse(
   response: HttpCloakResponseLike,
   responseHeaders: Record<string, string | string[] | undefined>,
@@ -328,6 +372,9 @@ export const SOCKS_PROTOCOLS = new Set([
   "socks:",
 ]);
 
+/**
+ * @param headers
+ */
 function normalizeResponseHeaders(
   headers: Record<string, string | string[] | undefined>,
 ): Record<string, string | string[] | undefined> {
@@ -340,6 +387,9 @@ function normalizeResponseHeaders(
   return normalized;
 }
 
+/**
+ * @param data
+ */
 function toBuffer(data: Buffer | string): Buffer {
   if (Buffer.isBuffer(data)) {
     return data;

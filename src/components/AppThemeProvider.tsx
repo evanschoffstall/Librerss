@@ -16,6 +16,8 @@ const trueTopToastOffset = { left: 16, right: 16, top: 16 };
 /**
  * Provides the app-wide theme context along with shared floating UI such as
  * the theme toggle and the global toast mount.
+ * @param root0
+ * @param root0.children
  */
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   return (
@@ -40,6 +42,9 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 /**
  * Resolves the global toast anchor and offset from the grouped mobile UI
  * setting. When grouped layout is enabled, mobile toasts pin to the top edge.
+ * @param root0
+ * @param root0.isMobileGroupedLayout
+ * @param root0.isMobileViewport
  */
 export function getToastPlacement({
   isMobileGroupedLayout,
@@ -85,6 +90,9 @@ function NextDevToolsThemeBridge() {
     const shouldUseTopRightDevToolsBadge =
       pathname === "/dashboard" && isMobileViewport && isMobileGroupedLayout;
 
+    /**
+     *
+     */
     const syncPortalTheme = () => {
       for (const portal of document.querySelectorAll<HTMLElement>(
         "nextjs-portal",
@@ -156,6 +164,9 @@ function ThemedToaster() {
   }, [isMobileGroupedLayout, isMobileViewport]);
 
   useEffect(() => {
+    /**
+     * @param event
+     */
     const handleToastClickToDismiss = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {

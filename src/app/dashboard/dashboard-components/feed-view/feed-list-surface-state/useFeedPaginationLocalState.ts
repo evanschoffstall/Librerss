@@ -2,6 +2,15 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * @param options
+ * @param options.articlesPerPage
+ * @param options.filteredFeedLength
+ * @param options.hasCollapsingArticles
+ * @param options.isLoadingMore
+ * @param options.isRefreshing
+ * @param options.refreshEpoch
+ */
 export function useFeedPaginationLocalState(options: {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -64,7 +73,13 @@ export function useFeedPaginationLocalState(options: {
   };
 }
 
-/** Cancels both the rAF and the hold timeout for a pending cached reveal. */
+/**
+ * Cancels both the rAF and the hold timeout for a pending cached reveal.
+ * @param pendingCachedRevealFrameRef
+ * @param pendingCachedRevealFrameRef.current
+ * @param pendingCachedRevealTimeoutRef
+ * @param pendingCachedRevealTimeoutRef.current
+ */
 function cancelPendingCachedReveal(
   pendingCachedRevealFrameRef: { current: null | number },
   pendingCachedRevealTimeoutRef: {
@@ -79,6 +94,10 @@ function cancelPendingCachedReveal(
   }
 }
 
+/**
+ * @param pendingCachedRevealFrameRef
+ * @param pendingCachedRevealFrameRef.current
+ */
 function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
   current: null | number;
 }) {
@@ -90,6 +109,13 @@ function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
   pendingCachedRevealFrameRef.current = null;
 }
 
+/**
+ * @param isMountedRef
+ * @param isMountedRef.current
+ * @param visibleArticleCountRef
+ * @param visibleArticleCountRef.current
+ * @param setVisibleArticleCount
+ */
 function useCachedPageRevealState(
   isMountedRef: { current: boolean },
   visibleArticleCountRef: { current: number },
@@ -115,7 +141,6 @@ function useCachedPageRevealState(
 
   const scheduleCachedPageReveal = useCallback(
     (nextCount: number) => {
-      console.log("[skeleton-debug] scheduleCachedPageReveal called", { nextCount });
       cancelPendingCachedReveal(
         pendingCachedRevealFrameRef,
         pendingCachedRevealTimeoutRef,
@@ -169,6 +194,9 @@ function useCachedPageRevealState(
   };
 }
 
+/**
+ *
+ */
 function useFeedPaginationBoundaryRefs() {
   const isInvertedLoadBoundaryArmedRef = useRef(true);
   const isStandardLoadBoundaryArmedRef = useRef(true);
@@ -187,6 +215,14 @@ function useFeedPaginationBoundaryRefs() {
   };
 }
 
+/**
+ * @param options
+ * @param options.articlesPerPage
+ * @param options.filteredFeedLength
+ * @param options.hasCollapsingArticles
+ * @param options.isLoadingMore
+ * @param options.refreshEpoch
+ */
 function useFeedPaginationHistoryRefs(options: {
   articlesPerPage: number;
   filteredFeedLength: number;

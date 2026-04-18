@@ -23,6 +23,9 @@ interface ProxyMutationHandlerOptions {
   requestState: SettingsProxyRequestState;
 }
 
+/**
+ * @param proxyState
+ */
 export function useClearCompatibilityResults(
   proxyState: SettingsProxyWritableState,
 ) {
@@ -40,6 +43,14 @@ export function useClearCompatibilityResults(
   };
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.clearCompatibilityResults
+ * @param root0.hasProxy
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 export function useSettingsProxyActions({
   applyProxySettings,
   clearCompatibilityResults,
@@ -79,6 +90,14 @@ export function useSettingsProxyActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.hasCachedSnapshot
+ * @param root0.isEnabled
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 export function useSettingsProxyLifecycle({
   applyProxySettings,
   hasCachedSnapshot,
@@ -117,6 +136,13 @@ export function useSettingsProxyLifecycle({
   useProxyResultsAutoScroll(proxyState);
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.clearCompatibilityResults
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 function createHandleClear({
   applyProxySettings,
   clearCompatibilityResults,
@@ -155,6 +181,12 @@ function createHandleClear({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.hasProxy
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 function createHandleRunCompatibilityCheck({
   hasProxy,
   proxyState,
@@ -201,6 +233,13 @@ function createHandleRunCompatibilityCheck({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.clearCompatibilityResults
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 function createHandleSave({
   applyProxySettings,
   clearCompatibilityResults,
@@ -252,6 +291,12 @@ function createHandleSave({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 function createSyncAllowInsecureTls({
   applyProxySettings,
   proxyState,
@@ -295,6 +340,9 @@ function createSyncAllowInsecureTls({
   };
 }
 
+/**
+ * @param proxyState
+ */
 function useHydrateCompatibilityCache(proxyState: SettingsProxyWritableState) {
   const { setCompatibilityCheckedAt, setCompatibilityResults } = proxyState;
   useEffect(() => {
@@ -307,6 +355,14 @@ function useHydrateCompatibilityCache(proxyState: SettingsProxyWritableState) {
   }, [setCompatibilityCheckedAt, setCompatibilityResults]);
 }
 
+/**
+ * @param root0
+ * @param root0.applyProxySettings
+ * @param root0.hasCachedSnapshot
+ * @param root0.isEnabled
+ * @param root0.proxyState
+ * @param root0.requestState
+ */
 function useLoadProxySettings({
   applyProxySettings,
   hasCachedSnapshot,
@@ -359,6 +415,9 @@ function useLoadProxySettings({
   ]);
 }
 
+/**
+ * @param proxyState
+ */
 function useProxyNowClock(proxyState: SettingsProxyWritableState) {
   const { compatibilityCheckedAt, resultsRef, setNowTs } = proxyState;
   useEffect(() => {
@@ -376,6 +435,9 @@ function useProxyNowClock(proxyState: SettingsProxyWritableState) {
   }, [compatibilityCheckedAt, resultsRef, setNowTs]);
 }
 
+/**
+ * @param proxyState
+ */
 function useProxyResultsAutoScroll(proxyState: SettingsProxyWritableState) {
   useEffect(() => {
     if (

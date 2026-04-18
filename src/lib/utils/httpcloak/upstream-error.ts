@@ -20,6 +20,10 @@ export class HttpCloakUpstreamError extends Error {
   readonly responseHeaders: Record<string, string | string[] | undefined>;
   readonly statusCode: number;
 
+  /**
+   * @param options
+   * @param message
+   */
   constructor(options: HttpCloakUpstreamErrorOptions, message?: string) {
     const resolvedMessage =
       message ?? `Upstream responded with status ${options.statusCode}`;

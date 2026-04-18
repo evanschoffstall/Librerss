@@ -14,6 +14,7 @@ const PG_SSLMODE_VERIFY_FULL_ALIASES = new Set([
  *
  * When the URL explicitly opts into libpq compatibility via
  * `uselibpqcompat=true`, the string is left untouched.
+ * @param connectionString
  */
 export function normalizePostgresConnectionString(
   connectionString: string,
@@ -51,6 +52,9 @@ export function normalizePostgresConnectionString(
   return parsedConnectionString.toString();
 }
 
+/**
+ * @param searchParams
+ */
 function usesLibpqCompatibility(searchParams: URLSearchParams): boolean {
   const rawValue = searchParams.get("uselibpqcompat")?.trim().toLowerCase();
 

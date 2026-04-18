@@ -68,6 +68,9 @@ type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   skipRefresh?: boolean;
 };
 
+/**
+ * @param options
+ */
 export async function initializeDashboardSelection(
   options: InitializeDashboardSelectionOptions,
 ): Promise<void> {
@@ -124,6 +127,9 @@ export async function initializeDashboardSelection(
   }
 }
 
+/**
+ * @param options
+ */
 export async function refreshCurrentSelection(
   options: RefreshCurrentSelectionOptions,
 ): Promise<void> {

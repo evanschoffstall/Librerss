@@ -8,6 +8,14 @@ import * as serverApi from "./server-api";
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
 
+/**
+ * @param request
+ * @param options
+ * @param options.rateLimit
+ * @param options.rateLimit.key
+ * @param options.rateLimit.maxAttempts
+ * @param options.rateLimit.windowMs
+ */
 export async function requireMutableFeedAccess(
   request: NextRequest,
   options?: {

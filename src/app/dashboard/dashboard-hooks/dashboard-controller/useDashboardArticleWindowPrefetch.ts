@@ -32,7 +32,10 @@ interface UseDashboardArticleWindowPrefetchOptions {
   usePlaceholderData: boolean;
 }
 
-/** Marks article-window settlement as active whenever the live feed starts loading. */
+/**
+ * Marks article-window settlement as active whenever the live feed starts loading.
+ * @param options
+ */
 export function useDashboardArticleWindowLoadingState(
   options: UseDashboardArticleWindowLoadingStateOptions,
 ) {
@@ -59,6 +62,7 @@ export function useDashboardArticleWindowLoadingState(
 /**
  * Keeps the next article-window page warm in the query cache so repeated
  * load-more interactions can hydrate from a completed prefetch when available.
+ * @param options
  */
 export function useDashboardArticleWindowPrefetch(
   options: UseDashboardArticleWindowPrefetchOptions,
@@ -130,6 +134,17 @@ export function useDashboardArticleWindowPrefetch(
   return requestNextPagePrefetch;
 }
 
+/**
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.hasMoreServerArticles
+ * @param root0.inFlightPrefetchedLimitRef
+ * @param root0.isLoading
+ * @param root0.lastPrefetchedLimitRef
+ * @param root0.prefetchNextPage
+ * @param root0.requestedArticleLimit
+ * @param root0.shouldUseArticleWindow
+ */
 function useArticleWindowPrefetchEffect({
   articlesPerPage,
   hasMoreServerArticles,

@@ -32,6 +32,15 @@ interface UseArticleActionsOptions {
  *
  * Each lifecycle now lives in its owning helper so this hook can expose the
  * stable article-action contract consumed by the dashboard controller.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.categories
+ * @param root0.distillStrategy
+ * @param root0.expandedArticleKey
+ * @param root0.feed
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
  */
 export function useArticleActions({
   articleFilter,
@@ -55,6 +64,13 @@ export function useArticleActions({
   });
 }
 
+/**
+ * @param options
+ * @param options.actionHandlers
+ * @param options.expansion
+ * @param options.handleToggleStarredState
+ * @param options.readState
+ */
 function buildArticleActionDependenciesResult(options: {
   actionHandlers: ReturnType<typeof useArticleActionHandlers>;
   expansion: ReturnType<typeof useArticleExpansionDependencies>;
@@ -85,6 +101,17 @@ function buildArticleActionDependenciesResult(options: {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.categories
+ * @param root0.distillStrategy
+ * @param root0.expandedArticleKey
+ * @param root0.feed
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
+ */
 function useArticleActionDependencies({
   articleFilter,
   categories,
@@ -131,6 +158,15 @@ function useArticleActionDependencies({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.markExpandedArticleHydrationHandled
+ * @param root0.setArticlesReadState
+ * @param root0.startRemovalAnimation
+ * @param root0.toggleArticleReadState
+ * @param root0.toggleExpandedArticle
+ */
 function useArticleActionHandlers({
   articleFilter,
   markExpandedArticleHydrationHandled,
@@ -212,6 +248,17 @@ function useArticleActionHandlers({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.distillStrategy
+ * @param root0.expandedArticleKey
+ * @param root0.feed
+ * @param root0.getFeedSettings
+ * @param root0.readState
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ */
 function useArticleExpansionDependencies({
   articleFilter,
   distillStrategy,
@@ -270,6 +317,9 @@ function useArticleExpansionDependencies({
   };
 }
 
+/**
+ * @param categories
+ */
 function useFeedSettingsLookup(categories?: CategoryTreeNode[]) {
   return useMemo(() => {
     const settingsByFeedUrl = new Map<string, FeedExtractionSettings>();

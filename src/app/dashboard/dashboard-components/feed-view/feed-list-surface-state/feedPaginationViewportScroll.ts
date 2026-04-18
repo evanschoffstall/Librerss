@@ -29,6 +29,9 @@ export interface ViewportScrollBindingOptions {
   suppressImmediateNormalScrollIntent: () => void;
 }
 
+/**
+ * @param options
+ */
 export function createViewportBoundaryHandlers(
   options: PaginationBoundaryRearmRefs & {
     isInvertedLoadBoundaryArmedRef: { current: boolean };
@@ -69,6 +72,26 @@ export function createViewportBoundaryHandlers(
   };
 }
 
+/**
+ * @param options
+ * @param options.capturePendingInvertedPaginationAnchorSnapshot
+ * @param options.clearInitialNormalScrollLock
+ * @param options.hasActiveInvertedExpansionScrollLock
+ * @param options.hasUserScrolledRef
+ * @param options.hasUserScrolledRef.current
+ * @param options.isInvertedScroll
+ * @param options.maybeLoadNextPage
+ * @param options.normalScrollIntentSuppressionFrameRef
+ * @param options.normalScrollIntentSuppressionFrameRef.current
+ * @param options.onClaimInvertedScrollOwnership
+ * @param options.onSyncInvertedExpansionScrollLock
+ * @param options.rearmInvertedBoundaryFromScrollPosition
+ * @param options.rearmStandardBoundaryFromScrollPosition
+ * @param options.releaseInvertedPaginationAnchor
+ * @param options.scrollViewport
+ * @param options.shouldLockInitialNormalScroll
+ * @param options.suppressImmediateNormalScrollIntent
+ */
 export function createViewportScrollHandler(options: {
   capturePendingInvertedPaginationAnchorSnapshot: () => void;
   clearInitialNormalScrollLock: () => void;
@@ -147,6 +170,9 @@ export function createViewportScrollHandler(options: {
   };
 }
 
+/**
+ * @param options
+ */
 function createRearmInvertedBoundaryHandler(
   options: PaginationBoundaryRearmRefs & {
     isInvertedLoadBoundaryArmedRef: { current: boolean };
@@ -192,6 +218,9 @@ function createRearmInvertedBoundaryHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createRearmStandardBoundaryHandler(
   options: PaginationBoundaryRearmRefs & {
     isInvertedScroll: boolean;

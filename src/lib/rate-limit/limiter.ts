@@ -31,6 +31,9 @@ export class RateLimiter {
   private store = new Map<string, RateLimitEntry>();
 
   // Clean up expired entries every 5 minutes
+  /**
+   *
+   */
   constructor() {
     this.cleanupTimer = setInterval(
       () => {
@@ -53,6 +56,9 @@ export class RateLimiter {
   /**
    * Checks whether the incoming request is within the rate limit.
    *
+   * @param request
+   * @param key
+   * @param config
    * @param skipClientId - When `true`, the `key` is used verbatim as the
    *   bucket identifier with no client-IP suffix appended.  Set this for
    *   user-scoped keys that already embed a user identifier (e.g.
@@ -135,6 +141,9 @@ export class RateLimiter {
     this._trustedProxyCount = undefined;
   }
 
+  /**
+   *
+   */
   private cleanup(): void {
     const now = Date.now();
     // Snapshot entries to avoid mutation-during-iteration edge cases
@@ -183,6 +192,9 @@ export class RateLimiter {
     }
   }
 
+  /**
+   * @param request
+   */
   private getClientIdentifier(request: Request): string {
     // A client can forge any left-hand entries in X-Forwarded-For. The
     // rightmost entry is appended by the last trusted proxy (i.e. your load
@@ -213,6 +225,10 @@ export class RateLimiter {
     return "unknown";
   }
 
+  /**
+   * @param request
+   * @param trustedProxies
+   */
   private resolveForwardedClientId(
     request: Request,
     trustedProxies: number,
@@ -244,6 +260,9 @@ export class RateLimiter {
     return clientIp && isLikelyIpAddress(clientIp) ? clientIp : "unknown";
   }
 
+  /**
+   *
+   */
   private resolveTrustedProxyState(): TrustedProxyState {
     if (this._trustedProxyCount !== undefined) {
       return {
@@ -282,12 +301,19 @@ export function resetRateLimiterForTesting(): void {
   rateLimiter.resetForTesting();
 }
 
+/**
+ * @param message
+ */
 function logRateLimitError(message: string): void {
   if (typeof console.error === "function") {
     console.error(message);
   }
 }
 
+/**
+ * @param message
+ * @param context
+ */
 function logRateLimitWarning(
   message: string,
   context: Record<string, number | string>,

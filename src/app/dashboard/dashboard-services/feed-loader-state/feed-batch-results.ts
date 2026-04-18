@@ -7,6 +7,12 @@ import {
   retainMissingPreviousFeedArticles,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+/**
+ * @param previousFeed
+ * @param freshArticles
+ * @param options
+ * @param options.preserveLocalFeedState
+ */
 export function mergeHydratedContent(
   previousFeed: Article[],
   freshArticles: Article[],
@@ -49,6 +55,10 @@ export function mergeHydratedContent(
     : mergedFreshArticles;
 }
 
+/**
+ * @param currentKey
+ * @param articles
+ */
 export function resolveExpandedArticleKey(
   currentKey: null | string,
   articles: Article[],
@@ -62,6 +72,9 @@ export function resolveExpandedArticleKey(
     : null;
 }
 
+/**
+ * @param batchResults
+ */
 export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
   let okCount = 0;
   let missingCount = 0;
@@ -97,6 +110,10 @@ export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
 
 export type { BatchFeedResponseItem as FeedBatchResult };
 
+/**
+ * @param prev
+ * @param next
+ */
 function areArticlesDisplayEqual(prev: Article, next: Article): boolean {
   return (
     prev.content === next.content &&

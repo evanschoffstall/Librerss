@@ -26,6 +26,10 @@ interface ArticlesRouteDeps {
   requireMutableAuthenticatedUserFn?: typeof serverApi.requireMutableAuthenticatedUser;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function GET(
   request: NextRequest,
   depsOrContext: ArticlesRouteDeps | serverApi.RouteHandlerContext = {},
@@ -52,6 +56,10 @@ export async function GET(
   }
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: ArticlesRouteDeps | serverApi.RouteHandlerContext = {},
@@ -86,6 +94,9 @@ export async function POST(
   }
 }
 
+/**
+ * @param payload
+ */
 function parseCreateArticleDates(
   payload: Record<string, unknown>,
 ): Response | { lastChecked: Date; publicationDate: Date } {
@@ -106,6 +117,9 @@ function parseCreateArticleDates(
   return { lastChecked, publicationDate };
 }
 
+/**
+ * @param payload
+ */
 function parseCreateArticlePayload(
   payload: Record<string, unknown>,
 ): CreateArticleParams | Response {

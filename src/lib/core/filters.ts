@@ -4,7 +4,10 @@ export const ARTICLE_FILTERS = ["all", "unread", "read", "starred"] as const;
 /** Canonical article visibility filter for dashboard and batch-feed requests. */
 export type ArticleFilter = (typeof ARTICLE_FILTERS)[number];
 
-/** Runtime guard for validating external article-filter input. */
+/**
+ * Runtime guard for validating external article-filter input.
+ * @param value
+ */
 export function isArticleFilter(value: unknown): value is ArticleFilter {
   return (
     typeof value === "string" &&

@@ -29,6 +29,14 @@ export interface DashboardControllerProps {
   usePlaceholderData: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.distillStrategy
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.usePlaceholderData
+ */
 export function useDashboardController({
   backgroundMode,
   distillStrategy,
@@ -65,6 +73,12 @@ export function useDashboardController({
   });
 }
 
+/**
+ * @param categories
+ * @param customCategoryLabels
+ * @param orderedCategoryLabels
+ * @param setOrderedCategoryLabels
+ */
 function useDashboardCategoryOrderEffect(
   categories: ReturnType<typeof useDashboardState>["categories"],
   customCategoryLabels: ReturnType<
@@ -102,6 +116,14 @@ function useDashboardCategoryOrderEffect(
   ]);
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.categories
+ * @param root0.categoryTree
+ * @param root0.selectedCategory
+ * @param root0.setExpandedArticleKey
+ */
 function useDashboardControllerEffects({
   articleFilter,
   categories,
@@ -132,6 +154,11 @@ function useDashboardControllerEffects({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.distillStrategy
+ * @param root0.usePlaceholderData
+ */
 function useDashboardControllerState({
   distillStrategy,
   usePlaceholderData,
@@ -192,6 +219,11 @@ function useDashboardControllerState({
   };
 }
 
+/**
+ * @param articleFilter
+ * @param selectedCategory
+ * @param setExpandedArticleKey
+ */
 function useDashboardExpandedArticleResetEffect(
   articleFilter: ReturnType<typeof useDashboardState>["articleFilter"],
   selectedCategory: ReturnType<typeof useDashboardState>["selectedCategory"],

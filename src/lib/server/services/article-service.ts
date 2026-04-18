@@ -44,6 +44,11 @@ interface ArticleServiceDeps {
   upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
+/**
+ * @param userId
+ * @param params
+ * @param deps
+ */
 export async function createArticle(
   userId: number,
   params: CreateArticleParams,
@@ -68,6 +73,11 @@ export async function createArticle(
   return rows[0];
 }
 
+/**
+ * @param userId
+ * @param articleId
+ * @param deps
+ */
 export async function getArticleById(
   userId: number,
   articleId: number,
@@ -83,6 +93,10 @@ export async function getArticleById(
   return withNormalizedArticleContent(article);
 }
 
+/**
+ * @param userId
+ * @param deps
+ */
 export async function listUserArticles(
   userId: number,
   deps: Pick<ArticleServiceDeps, "getDbFn"> = {},
@@ -98,11 +112,21 @@ export async function listUserArticles(
   return rows.map(withNormalizedArticleContent);
 }
 
+/**
+ * @param userId
+ * @param streamId
+ */
 export async function markStreamRead(userId: number, streamId: string) {
   await markStreamAsRead(userId, streamId);
   invalidateUserCache(userId);
 }
 
+/**
+ * @param userId
+ * @param articleId
+ * @param updates
+ * @param deps
+ */
 export async function updateArticleStatus(
   userId: number,
   articleId: number,
@@ -126,6 +150,9 @@ export async function updateArticleStatus(
 /**
  * Confirms the target feed belongs to the authenticated user before allowing
  * direct article insertion.
+ * @param db
+ * @param userId
+ * @param feedId
  */
 async function assertUserOwnsFeed(
   db: ReturnType<typeof getDb>,
@@ -151,7 +178,10 @@ async function assertUserOwnsFeed(
   }
 }
 
-/** Builds the sanitized article insert payload from raw request parameters. */
+/**
+ * Builds the sanitized article insert payload from raw request parameters.
+ * @param params
+ */
 function buildArticleInsertValues(params: CreateArticleParams) {
   return {
     content: sanitizeAndTruncateArticleContent(params.content),

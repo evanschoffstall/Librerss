@@ -14,6 +14,13 @@ export {
 } from "./swipeGestureController";
 export type { SwipePhase, SwipeState } from "./swipeGestureController";
 
+/**
+ * @param direction
+ * @param onCommit
+ * @param disabled
+ * @param shouldIgnoreTarget
+ * @param reattachKey
+ */
 export function useSwipeGesture(
   direction: "left" | "right",
   onCommit: () => void,
@@ -45,6 +52,13 @@ export function useSwipeGesture(
   return { containerRef: context.containerRef, swipeState };
 }
 
+/**
+ * @param direction
+ * @param onCommit
+ * @param disabled
+ * @param setState
+ * @param shouldIgnoreTarget
+ */
 function useSwipeGestureContext(
   direction: "left" | "right",
   onCommit: () => void,

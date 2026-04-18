@@ -34,6 +34,11 @@ const feedSourceFields = {
   url: feedSources.url,
 };
 
+/**
+ * @param tx
+ * @param userId
+ * @param payload
+ */
 export async function createOrUpdateFeedSource(
   tx: FeedTransaction,
   userId: number,
@@ -51,6 +56,10 @@ export async function createOrUpdateFeedSource(
   return upsertFeedSource(tx, userId, payload.name, normalizedUrl);
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ */
 export async function deleteFeedSourceForUser(
   userId: number,
   sourceId: number,
@@ -92,6 +101,9 @@ export async function deleteFeedSourceForUser(
   return deletedSources[0] ?? null;
 }
 
+/**
+ * @param userId
+ */
 export async function listFeedSourcesForUser(
   userId: number,
 ): Promise<FeedSourceListRow[]> {
@@ -120,6 +132,12 @@ export async function listFeedSourcesForUser(
     .orderBy(feedSources.name);
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param name
+ * @param url
+ */
 export async function renameFeedSourceForUser(
   userId: number,
   sourceId: number,
@@ -194,6 +212,11 @@ export async function renameFeedSourceForUser(
   return updatedSources[0] ?? null;
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param enabled
+ */
 export async function setFeedSourceEnabledForUser(
   userId: number,
   sourceId: number,
@@ -210,6 +233,9 @@ export async function setFeedSourceEnabledForUser(
   return updatedSources[0] ?? null;
 }
 
+/**
+ * @param row
+ */
 export function toFeedSourceResponse(
   row: FeedSourceListRow,
 ): FeedSourceListRow {
@@ -219,6 +245,13 @@ export function toFeedSourceResponse(
   };
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param settings
+ * @param settings.extractionDisabled
+ * @param settings.proxyEnabled
+ */
 export async function updateFeedSettingsForUser(
   userId: number,
   sourceId: number,
@@ -249,6 +282,11 @@ export async function updateFeedSettingsForUser(
   return updatedSources[0] ?? null;
 }
 
+/**
+ * @param tx
+ * @param userId
+ * @param normalizedUrl
+ */
 async function findExistingFeedSource(
   tx: FeedTransaction,
   userId: number,
@@ -265,6 +303,12 @@ async function findExistingFeedSource(
   return existingSources[0];
 }
 
+/**
+ * @param tx
+ * @param userId
+ * @param name
+ * @param normalizedUrl
+ */
 async function upsertFeedSource(
   tx: FeedTransaction,
   userId: number,

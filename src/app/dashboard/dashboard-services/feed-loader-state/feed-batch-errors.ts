@@ -2,7 +2,7 @@
  * Classified feed batch error with a user-facing toast title and description.
  *
  * Separating classification from presentation lets callers decide whether to
- * show the toast at all (e.g. silent background refreshes).
+ * show the toast at all (e.g. Silent background refreshes).
  */
 interface FeedBatchErrorToast {
   description: string;
@@ -14,6 +14,7 @@ interface FeedBatchErrorToast {
  *
  * The classifier duck-types the error shape to avoid coupling the dashboard
  * service layer to a specific HTTP client implementation.
+ * @param error
  */
 export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
   const status = extractHttpStatus(error);
@@ -71,6 +72,7 @@ export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
  * Recognizes expected request-cancellation variants from browser aborts and
  * TanStack Query internals so overlapping pagination requests do not surface
  * as user-visible failures.
+ * @param error
  */
 export function isCanceledBatchRequest(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -90,6 +92,7 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 /**
  * Returns whether a batch failure is already classified and user-actionable,
  * so callers can avoid duplicating noisy console errors for expected states.
+ * @param error
  */
 export function isHandledFeedBatchError(error: unknown): boolean {
   const status = extractHttpStatus(error);
@@ -104,14 +107,23 @@ export function isHandledFeedBatchError(error: unknown): boolean {
   );
 }
 
+/**
+ * @param error
+ */
 function extractErrorCode(error: unknown): string | undefined {
   return readStringProperty(error, "code");
 }
 
+/**
+ * @param error
+ */
 function extractErrorReason(error: unknown): string | undefined {
   return readStringProperty(extractHttpResponseData(error), "reason");
 }
 
+/**
+ * @param error
+ */
 function extractHttpResponse(error: unknown): null | Record<string, unknown> {
   if (
     error &&
@@ -126,6 +138,9 @@ function extractHttpResponse(error: unknown): null | Record<string, unknown> {
   return null;
 }
 
+/**
+ * @param error
+ */
 function extractHttpResponseData(
   error: unknown,
 ): null | Record<string, unknown> {
@@ -143,6 +158,9 @@ function extractHttpResponseData(
   return null;
 }
 
+/**
+ * @param error
+ */
 function extractHttpStatus(error: unknown): number | undefined {
   const response = extractHttpResponse(error);
 
@@ -153,6 +171,10 @@ function extractHttpStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * @param value
+ * @param key
+ */
 function readStringProperty(value: unknown, key: string): string | undefined {
   if (value && typeof value === "object" && key in value) {
     const candidate = value[key as keyof typeof value];

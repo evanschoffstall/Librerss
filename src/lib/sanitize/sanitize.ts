@@ -13,6 +13,9 @@ import {
 } from "./cleaners";
 import { purifyRawHtml } from "./purify";
 
+/**
+ * @param attribs
+ */
 function isKnownPlaceholderImage(
   attribs: Record<string, string | undefined> | undefined,
 ): boolean {
@@ -33,6 +36,9 @@ const NON_CONTENT_IMAGE_SOURCE_PATTERN =
 const NON_CONTENT_IMAGE_TEXT_PATTERN =
   /\b(?:avatar|logo|icon|menu|search|toggle|button|close|share|social|badge|placeholder|pixel|spacer|sprite)\b/i;
 
+/**
+ * @param descriptor
+ */
 function hasLikelyContentDescriptor(descriptor: string): boolean {
   if (!descriptor) {
     return false;
@@ -45,6 +51,9 @@ function hasLikelyContentDescriptor(descriptor: string): boolean {
   return descriptor.length >= 12 || /\S+\s+\S+/.test(descriptor);
 }
 
+/**
+ * @param attribs
+ */
 function hasLikelyContentImageSignal(
   attribs: Record<string, string | undefined> | undefined,
 ): boolean {
@@ -65,10 +74,17 @@ function hasLikelyContentImageSignal(
   return /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i.test(source);
 }
 
+/**
+ * @param srcset
+ */
 function hasTooSmallSrcset(srcset: string): boolean {
   return maxSrcsetWidth(srcset) < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX;
 }
 
+/**
+ * @param width
+ * @param height
+ */
 function isBelowMinimumDimensions(
   width: null | number,
   height: null | number,
@@ -79,6 +95,9 @@ function isBelowMinimumDimensions(
   );
 }
 
+/**
+ * @param attribs
+ */
 function isTooSmallImage(
   attribs: Record<string, string | undefined> | undefined,
 ): boolean {
@@ -100,6 +119,9 @@ function isTooSmallImage(
   return false;
 }
 
+/**
+ * @param srcset
+ */
 function maxSrcsetWidth(srcset: string): number {
   const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
     parseInt(m[1], 10),
@@ -107,6 +129,9 @@ function maxSrcsetWidth(srcset: string): number {
   return widths.length > 0 ? Math.max(...widths) : Infinity;
 }
 
+/**
+ * @param value
+ */
 function parseDimension(value: string | undefined): null | number {
   if (!value) return null;
   const normalized = value.trim();
@@ -116,6 +141,9 @@ function parseDimension(value: string | undefined): null | number {
   return parsed;
 }
 
+/**
+ * @param attribs
+ */
 function readImageDescriptor(
   attribs: Record<string, string | undefined>,
 ): string {
@@ -169,6 +197,11 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "img",
     "hr",
   ],
+  /**
+   * @param frame
+   * @param frame.attribs
+   * @param frame.tag
+   */
   exclusiveFilter: (frame: { attribs?: Record<string, string>; tag: string }) =>
     frame.tag === "img" &&
     (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
@@ -201,6 +234,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "col",
   ],
   transformTags: {
+    /**
+     * @param tagName
+     * @param attribs
+     */
     a: (tagName: string, attribs: Record<string, string>) => ({
       attribs: {
         ...attribs,
@@ -209,6 +246,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
       },
       tagName,
     }),
+    /**
+     * @param tagName
+     * @param attribs
+     */
     img: (tagName: string, attribs: Record<string, string>) => {
       const trimmedSource = (
         attribs.src ||
@@ -238,6 +279,7 @@ const ARTICLE_SANITIZE_OPTIONS = {
  * Unlike naively calling `sanitizeArticleHtml` + `substring`, this function
  * re-sanitizes the truncated string so that any HTML tag broken at the hard
  * length boundary is properly closed before the content is stored.
+ * @param raw
  */
 export function sanitizeAndTruncateArticleContent(raw: string): string {
   const sanitized = sanitizeArticleHtml(raw);
@@ -261,6 +303,7 @@ export function sanitizeAndTruncateArticleContent(raw: string): string {
  * CRITICAL: This function may receive raw HTML from RSS feeds or other
  * external sources. `sanitize-html` (via `purifyRawHtml`) is applied FIRST
  * as mandatory XSS protection before any downstream transformation.
+ * @param raw
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
@@ -287,6 +330,7 @@ export function sanitizeArticleHtml(raw: string): string {
  * RSS feed titles occasionally contain escaped or literal HTML
  * (e.g. `<b>Breaking</b>` or `<script>…</script>`); all markup must be
  * removed before the value is stored or rendered.
+ * @param title
  */
 export function sanitizeArticleTitle(title: null | string | undefined): string {
   const stripped = sanitizeHtml(title ?? "", {

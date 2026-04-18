@@ -16,6 +16,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+/**
+ * @param root0
+ * @param root0.result
+ */
 export function CompatibilityResultBadge({
   result,
 }: {
@@ -67,6 +71,11 @@ export function CompatibilityResultBadge({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.routingCheck
+ * @param root0.status
+ */
 export function ProxyRoutingBadge({
   routingCheck,
   status,
@@ -124,6 +133,11 @@ export function ProxyRoutingBadge({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.routingCheck
+ * @param root0.status
+ */
 export function StatusBadge({
   routingCheck,
   status,
@@ -149,6 +163,9 @@ export function StatusBadge({
   );
 }
 
+/**
+ * @param routingCheck
+ */
 function describeRoutingCheck(routingCheck: ProxyRoutingCheck): string {
   const directExit = routingCheck.directIp ?? "unknown";
   const proxyExit = routingCheck.proxyExitIp ?? "unknown";
@@ -163,6 +180,9 @@ function describeRoutingCheck(routingCheck: ProxyRoutingCheck): string {
   return statusDescriptions[routingCheck.status];
 }
 
+/**
+ * @param routingCheck
+ */
 function resolveProxyRoutingBadgeConfig(routingCheck: ProxyRoutingCheck) {
   const exitIpLabel = routingCheck.proxyExitIp
     ? `Exit ${previewText(routingCheck.proxyExitIp, 18)}`
@@ -195,6 +215,10 @@ function resolveProxyRoutingBadgeConfig(routingCheck: ProxyRoutingCheck) {
   }[routingCheck.status];
 }
 
+/**
+ * @param status
+ * @param routingCheck
+ */
 function resolveStatusBadgeConfig(
   status: Exclude<ProxyUIStatus, "loading">,
   routingCheck?: null | ProxyRoutingCheck,

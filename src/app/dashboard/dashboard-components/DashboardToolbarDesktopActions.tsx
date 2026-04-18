@@ -35,6 +35,24 @@ type DashboardToolbarDesktopActionsProps = Pick<
   | "themeToggleLabel"
 > & { isToolbarActionPending: boolean };
 
+/**
+ * @param root0
+ * @param root0.handleMarkAllRead
+ * @param root0.handleMarkViewportRead
+ * @param root0.handleOpenSettings
+ * @param root0.handleRefresh
+ * @param root0.handleRefreshFromUpstream
+ * @param root0.handleReset
+ * @param root0.handleSignOut
+ * @param root0.handleToggleTheme
+ * @param root0.isDark
+ * @param root0.isDevelopmentMode
+ * @param root0.isResetting
+ * @param root0.isSigningOut
+ * @param root0.isToolbarActionPending
+ * @param root0.mounted
+ * @param root0.themeToggleLabel
+ */
 export function DashboardToolbarDesktopActions({
   handleMarkAllRead,
   handleMarkViewportRead,
@@ -109,6 +127,12 @@ export function DashboardToolbarDesktopActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleReset
+ * @param root0.isDevelopmentMode
+ * @param root0.isResetting
+ */
 function DashboardToolbarResetIconButton({
   handleReset,
   isDevelopmentMode,
@@ -128,6 +152,13 @@ function DashboardToolbarResetIconButton({
   ) : null;
 }
 
+/**
+ * @param root0
+ * @param root0.handleToggleTheme
+ * @param root0.isDark
+ * @param root0.mounted
+ * @param root0.themeToggleLabel
+ */
 function DashboardToolbarThemeButton({
   handleToggleTheme,
   isDark,
@@ -150,6 +181,12 @@ function DashboardToolbarThemeButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleRefreshFromUpstream
+ * @param root0.isDevelopmentMode
+ * @param root0.isToolbarActionPending
+ */
 function DashboardToolbarUpstreamRefreshButton({
   handleRefreshFromUpstream,
   isDevelopmentMode,

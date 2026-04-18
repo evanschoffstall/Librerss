@@ -19,12 +19,24 @@ type UserScopedIndexSpec = readonly [
   unique?: true,
 ];
 
+/**
+ * @param name
+ * @param columns
+ */
 const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
   index(name).on(...columns);
 
+/**
+ * @param name
+ * @param columns
+ */
 const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
   uniqueIndex(name).on(...columns);
 
+/**
+ * @param userId
+ * @param indexes
+ */
 const defineUserScopedIndexes = (
   userId: CompositeIndexColumns[number],
   indexes: readonly UserScopedIndexSpec[],
@@ -35,10 +47,16 @@ const defineUserScopedIndexes = (
       : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
   );
 
+/**
+ * @param indexConfig
+ */
 const defineSingleUniqueIndex = (
   indexConfig: ReturnType<typeof defineUniqueIndex>,
 ) => [indexConfig];
 
+/**
+ *
+ */
 const defineUserOwnedAuditColumns = () => ({
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
     .notNull()

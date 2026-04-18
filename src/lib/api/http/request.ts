@@ -14,14 +14,25 @@ interface ParsedJsonSuccess<T> {
   ok: true;
 }
 
+/**
+ * @param value
+ */
 export function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/**
+ * @param request
+ */
 export function getSearchParams(request: Request): URLSearchParams {
   return new URL(request.url).searchParams;
 }
 
+/**
+ * @param request
+ * @param options
+ * @param options.maxBytes
+ */
 export async function parseFormOrQueryParams(
   request: Request,
   options?: { maxBytes?: number },
@@ -51,6 +62,11 @@ export async function parseFormOrQueryParams(
   return new URLSearchParams(raw);
 }
 
+/**
+ * @param request
+ * @param options
+ * @param options.maxBytes
+ */
 export async function parseJsonBody<T>(
   request: Request,
   options?: { maxBytes?: number },
@@ -83,6 +99,11 @@ export async function parseJsonBody<T>(
   }
 }
 
+/**
+ * @param request
+ * @param options
+ * @param options.maxBytes
+ */
 export async function parseJsonBodyOrResponse<T>(
   request: Request,
   options?: { maxBytes?: number },
@@ -95,6 +116,11 @@ export async function parseJsonBodyOrResponse<T>(
   return parsed.data;
 }
 
+/**
+ * @param request
+ * @param options
+ * @param options.maxBytes
+ */
 export async function parseJsonObjectBodyOrResponse(
   request: Request,
   options?: { maxBytes?: number },
@@ -111,6 +137,9 @@ export async function parseJsonObjectBodyOrResponse(
   return parsed.data;
 }
 
+/**
+ * @param value
+ */
 export function parseNonNegativeInt(value: unknown): null | number {
   if (value === null || value === undefined) return null;
   const parsed = Number(value);
@@ -118,6 +147,9 @@ export function parseNonNegativeInt(value: unknown): null | number {
   return parsed;
 }
 
+/**
+ * @param value
+ */
 export function parsePositiveInt(value: unknown): null | number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
@@ -127,6 +159,10 @@ export function parsePositiveInt(value: unknown): null | number {
   return parsed;
 }
 
+/**
+ * @param request
+ * @param maxBytes
+ */
 function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
   const contentLengthHeader = request.headers.get("content-length");
   if (!contentLengthHeader) {
@@ -137,14 +173,26 @@ function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
   return Number.isFinite(contentLength) && contentLength > maxBytes;
 }
 
+/**
+ * @param raw
+ * @param maxBytes
+ */
 function isBodyTooLargeByUtf8Length(raw: string, maxBytes: number): boolean {
   return Buffer.byteLength(raw, "utf8") > maxBytes;
 }
 
+/**
+ * @param value
+ */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * @param request
+ * @param maxBytes
+ * @param bodyTooLarge
+ */
 async function parseMultipartFormBody(
   request: Request,
   maxBytes: number,

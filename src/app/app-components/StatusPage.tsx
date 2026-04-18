@@ -22,6 +22,13 @@ interface StatusPageProps {
  * Reusable visual shell for app-wide status pages such as 403, 404, and 500.
  * Keeps the layout, atmospheric background, and content framing aligned while
  * leaving the status-specific copy and action slot configurable.
+ * @param root0
+ * @param root0.action
+ * @param root0.code
+ * @param root0.eyebrow
+ * @param root0.icon
+ * @param root0.iconClassName
+ * @param root0.message
  */
 export function StatusPage({
   action,
@@ -56,6 +63,9 @@ export function StatusPage({
   );
 }
 
+/**
+ *
+ */
 function StatusPageBackground() {
   return (
     <div className="pointer-events-none absolute inset-0">
@@ -75,6 +85,15 @@ function StatusPageBackground() {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.action
+ * @param root0.code
+ * @param root0.eyebrow
+ * @param root0.icon
+ * @param root0.iconClassName
+ * @param root0.message
+ */
 function StatusPageContent({
   action,
   code,

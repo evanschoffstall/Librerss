@@ -10,6 +10,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type { LegalDocumentPageProps, LegalSection };
 
+/**
+ * @param root0
+ * @param root0.contactCard
+ * @param root0.eyebrow
+ * @param root0.footerLinks
+ * @param root0.intro
+ * @param root0.lastUpdated
+ * @param root0.returnHref
+ * @param root0.returnLabel
+ * @param root0.sections
+ * @param root0.title
+ */
 export function LegalDocumentPage({
   contactCard,
   eyebrow,
@@ -55,6 +67,12 @@ export function LegalDocumentPage({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.contactCard
+ * @param root0.footerLinks
+ * @param root0.sections
+ */
 function LegalDocumentArticle({
   contactCard,
   footerLinks,
@@ -80,6 +98,10 @@ function LegalDocumentArticle({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.footerLinks
+ */
 function LegalDocumentFooter({
   footerLinks,
 }: Pick<LegalDocumentPageProps, "footerLinks">) {
@@ -105,6 +127,13 @@ function LegalDocumentFooter({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.eyebrow
+ * @param root0.intro
+ * @param root0.lastUpdated
+ * @param root0.title
+ */
 function LegalDocumentHeader({
   eyebrow,
   intro,
@@ -165,6 +194,11 @@ function LegalDocumentHeader({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.returnHref
+ * @param root0.returnLabel
+ */
 function LegalDocumentReturnLink({
   returnHref,
   returnLabel,
@@ -193,6 +227,11 @@ function LegalDocumentReturnLink({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.contactCard
+ * @param root0.section
+ */
 function LegalDocumentSection({
   contactCard,
   section,
@@ -247,6 +286,9 @@ function LegalDocumentSection({
   );
 }
 
+/**
+ *
+ */
 function LegalPageBackground() {
   return (
     <div className="pointer-events-none absolute inset-0">

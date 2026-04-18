@@ -71,6 +71,9 @@ const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
   buildRefreshPlan,
   diagInfo,
   diagWarn,
+  /**
+   * @param args
+   */
   ensureFeedRecordByUrl: async (
     ...args: Parameters<DbMod["ensureFeedRecordByUrl"]>
   ) => {
@@ -91,6 +94,12 @@ const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
 
 let feedFetcherDependencies = defaultFeedFetcherDependencies;
 
+/**
+ * @param db
+ * @param userId
+ * @param feedUrl
+ * @param options
+ */
 export async function fetchAndCacheFeedArticles(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -118,6 +127,12 @@ export async function fetchAndCacheFeedArticles(
   return queryFeedArticles(db, feed.id, userId);
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param feedUrls
+ * @param options
+ */
 export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -171,10 +186,16 @@ export async function fetchAndCacheFeedArticlesBatch(
   );
 }
 
+/**
+ *
+ */
 export function resetFeedFetcherDependenciesForTesting(): void {
   feedFetcherDependencies = defaultFeedFetcherDependencies;
 }
 
+/**
+ * @param overrides
+ */
 export function setFeedFetcherDependenciesForTesting(
   overrides: Partial<FeedFetcherDependencies>,
 ): void {
@@ -184,6 +205,11 @@ export function setFeedFetcherDependenciesForTesting(
   };
 }
 
+/**
+ * @param db
+ * @param feedId
+ * @param userId
+ */
 async function queryFeedArticles(
   db: ReturnType<DbMod["getDb"]>,
   feedId: number,
@@ -215,6 +241,11 @@ async function queryFeedArticles(
     .limit(CONFIG.MAX_ARTICLES_PER_FEED);
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param feedUrl
+ */
 async function readAuthorizedFeedSource(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -242,6 +273,13 @@ async function readAuthorizedFeedSource(
   };
 }
 
+/**
+ * @param db
+ * @param feed
+ * @param feedUrl
+ * @param options
+ * @param sourceProxyEnabled
+ */
 async function refreshSingleFeedIfNeeded(
   db: ReturnType<DbMod["getDb"]>,
   feed: FeedRecord,

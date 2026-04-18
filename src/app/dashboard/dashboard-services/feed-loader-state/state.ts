@@ -9,6 +9,12 @@ const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
 
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
+/**
+ * @param queryClient
+ * @param queryClient.getQueryState
+ * @param queryKey
+ * @param staleTime
+ */
 export function isFreshFeedBatchQuery(
   queryClient: {
     getQueryState: (
@@ -30,6 +36,12 @@ export function isFreshFeedBatchQuery(
   return Date.now() - queryState.dataUpdatedAt < staleTime;
 }
 
+/**
+ * @param failedFeeds
+ * @param totalFeedCount
+ * @param sourceNamesByUrl
+ * @param formatFeedFailureLabel
+ */
 export function notifyFeedFailures(
   failedFeeds: FeedBatchResult[],
   totalFeedCount: number,
@@ -56,6 +68,9 @@ export function notifyFeedFailures(
   });
 }
 
+/**
+ * @param options
+ */
 export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
   if (options?.forceRefresh === true) {
     return 0;
@@ -79,6 +94,8 @@ export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
  * Skip-refresh requests intentionally reuse cached feed state, so foreground
  * failure toasts should stay silent even if cached metadata still includes
  * upstream errors from an earlier refresh.
+ * @param options
+ * @param isBackground
  */
 export function shouldNotifyFeedFailureToast(
   options?: FeedFetchOptions,

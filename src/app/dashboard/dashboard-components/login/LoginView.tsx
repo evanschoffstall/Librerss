@@ -21,6 +21,13 @@ const LOGIN_CARD_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
+/**
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.initialFormError
+ * @param root0.onAuthenticated
+ * @param root0.onEnterPreview
+ */
 export const LoginView = ({
   allowSignup,
   initialFormError,

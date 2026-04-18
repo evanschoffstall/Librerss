@@ -4,7 +4,11 @@ import { type FeedArticleSkeletonDescriptor } from "@/app/dashboard/dashboard-co
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/** Collapsed article-card shell that preserves the real row footprint during loading. */
+/**
+ * Collapsed article-card shell that preserves the real row footprint during loading.
+ * @param root0
+ * @param root0.descriptor
+ */
 export function FeedArticleCardSkeleton({
   descriptor,
 }: {

@@ -11,7 +11,15 @@ interface FeedSurfacePresentationOptions {
   viewportResolutionState: FeedViewportResolutionState;
 }
 
-/** Derives the feed surface mode and stable keys from loading and viewport state. */
+/**
+ * Derives the feed surface mode and stable keys from loading and viewport state.
+ * @param root0
+ * @param root0.filteredFeedLength
+ * @param root0.isInitialLoading
+ * @param root0.searchTerm
+ * @param root0.shouldUseVirtualizedFeed
+ * @param root0.viewportResolutionState
+ */
 export function buildFeedSurfacePresentationState({
   filteredFeedLength,
   isInitialLoading,
@@ -47,6 +55,12 @@ export function buildFeedSurfacePresentationState({
   };
 }
 
+/**
+ * @param options
+ * @param options.isInitialLoading
+ * @param options.shouldShowViewportResolutionSkeleton
+ * @param options.showEmptyState
+ */
 function resolveFeedSurfaceContentKey(options: {
   isInitialLoading: boolean;
   shouldShowViewportResolutionSkeleton: boolean;
@@ -65,6 +79,13 @@ function resolveFeedSurfaceContentKey(options: {
     : "feed-content";
 }
 
+/**
+ * @param options
+ * @param options.isInitialLoading
+ * @param options.shouldShowViewportResolutionSkeleton
+ * @param options.shouldUseVirtualizedFeed
+ * @param options.showEmptyState
+ */
 function resolveFeedSurfaceMode(options: {
   isInitialLoading: boolean;
   shouldShowViewportResolutionSkeleton: boolean;

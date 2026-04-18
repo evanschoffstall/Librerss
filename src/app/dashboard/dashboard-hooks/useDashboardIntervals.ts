@@ -20,7 +20,7 @@ const TAB_RESUME_DELAY_MS = 1_500;
 /**
  * Extended delay for tabs that were suspended for a long period.
  * Gives the browser extra time to re-establish DNS/TCP/TLS after
- * prolonged suspension (e.g. overnight, device sleep).
+ * prolonged suspension (e.g. Overnight, device sleep).
  */
 const STALE_TAB_RESUME_DELAY_MS = 4_000;
 
@@ -44,6 +44,11 @@ interface UseDashboardIntervalsOptions {
  *
  * React 19 effect events let the intervals read the latest refresh callback
  * without rebuilding timers whenever the selected feed context changes.
+ * @param root0
+ * @param root0.autoRefreshFeedList
+ * @param root0.autoRefreshIntervalMinutes
+ * @param root0.onStaleTabResume
+ * @param root0.setRelativeRefreshTick
  */
 export function useDashboardIntervals({
   autoRefreshFeedList,
@@ -80,6 +85,9 @@ export function useDashboardIntervals({
     // restore network connectivity before firing the refresh request.
     let resumeTimerId: ReturnType<typeof setTimeout> | undefined;
 
+    /**
+     *
+     */
     const handleVisibilityChange = () => {
       if (document.hidden) {
         hiddenAtRef.current = Date.now();
@@ -123,6 +131,9 @@ export function useDashboardIntervals({
   }, [autoRefreshIntervalMinutes]);
 }
 
+/**
+ * @param setRelativeRefreshTick
+ */
 function useRelativeRefreshTicker(
   setRelativeRefreshTick: Dispatch<SetStateAction<number>>,
 ) {

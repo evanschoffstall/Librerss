@@ -26,6 +26,9 @@ export interface ResetPaginationStateOptions {
   previousFilteredFeedLengthRef: { current: number };
 }
 
+/**
+ * @param options
+ */
 export function useResetPaginationState(options: ResetPaginationStateOptions) {
   const runtimeStateArgs = useResetPaginationRuntimeStateArgs(options);
   const {
@@ -54,6 +57,9 @@ export function useResetPaginationState(options: ResetPaginationStateOptions) {
   ]);
 }
 
+/**
+ * @param options
+ */
 function useResetPaginationRuntimeStateArgs(
   options: ResetPaginationStateOptions,
 ) {

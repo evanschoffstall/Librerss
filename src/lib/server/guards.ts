@@ -23,6 +23,13 @@ interface MutationRequestOptions {
   };
 }
 
+/**
+ * @param message
+ * @param error
+ * @param options
+ * @param options.publicMessage
+ * @param options.status
+ */
 export function logAndRespondError(
   message: string,
   error: unknown,
@@ -40,6 +47,9 @@ export function logAndRespondError(
   );
 }
 
+/**
+ * @param request
+ */
 export async function requireAuthenticatedUser(
   request: NextRequest,
 ): Promise<AuthenticatedUser | Response> {
@@ -58,6 +68,10 @@ export async function requireAuthenticatedUser(
   return user;
 }
 
+/**
+ * @param request
+ * @param options
+ */
 export async function requireMutableAuthenticatedUser(
   request: NextRequest,
   options?: MutationRequestOptions,
@@ -89,6 +103,10 @@ export async function requireMutableAuthenticatedUser(
 // Validates CSRF and applies request-scoped (IP-based) rate limiting.
 // User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
 // because it requires a resolved userId.
+/**
+ * @param request
+ * @param options
+ */
 export function requireMutableRequest(
   request: Request,
   options?: MutationRequestOptions,
@@ -108,6 +126,10 @@ export function requireMutableRequest(
   return null;
 }
 
+/**
+ * @param request
+ * @param options
+ */
 export async function requireMutableUserAndJsonBody<
   TBody extends object = Record<string, unknown>,
 >(

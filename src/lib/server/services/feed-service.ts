@@ -34,6 +34,11 @@ interface FeedServiceDeps {
 
 // ─── Feed source listing ──────────────────────────────────────────────────────
 
+/**
+ * @param userId
+ * @param payload
+ * @param deps
+ */
 export async function createFeed(
   userId: number,
   payload: CreateFeedPayload,
@@ -52,6 +57,11 @@ export async function createFeed(
   return result;
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param deps
+ */
 export async function deleteFeed(
   userId: number,
   sourceId: number,
@@ -70,6 +80,10 @@ export async function deleteFeed(
 
 // ─── Feed source CRUD ─────────────────────────────────────────────────────────
 
+/**
+ * @param userId
+ * @param deps
+ */
 export async function getCategoryOrder(
   userId: number,
   deps: Pick<FeedServiceDeps, "getDbFn"> = {},
@@ -84,6 +98,13 @@ export async function getCategoryOrder(
   return rows.length === 0 ? [] : safeParseLabelArray(rows[0].orderedLabels);
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param name
+ * @param url
+ * @param deps
+ */
 export async function renameFeed(
   userId: number,
   sourceId: number,
@@ -100,6 +121,11 @@ export async function renameFeed(
   return updated;
 }
 
+/**
+ * @param userId
+ * @param labels
+ * @param deps
+ */
 export async function saveCategoryOrder(
   userId: number,
   labels: string[],
@@ -121,6 +147,12 @@ export async function saveCategoryOrder(
   return labels;
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param enabled
+ * @param deps
+ */
 export async function setFeedEnabled(
   userId: number,
   sourceId: number,
@@ -137,6 +169,14 @@ export async function setFeedEnabled(
   return updated;
 }
 
+/**
+ * @param userId
+ * @param sourceId
+ * @param settings
+ * @param settings.extractionDisabled
+ * @param settings.proxyEnabled
+ * @param deps
+ */
 export async function updateFeedSettings(
   userId: number,
   sourceId: number,
@@ -154,6 +194,9 @@ export async function updateFeedSettings(
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
+/**
+ * @param raw
+ */
 function safeParseLabelArray(raw: string): string[] {
   try {
     const parsed: unknown = JSON.parse(raw);

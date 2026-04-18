@@ -116,6 +116,13 @@ interface PurgeCssConfig {
 // ── Helper functions ──────────────────────────────────────────────────────────
 const BUN_LINE_COVERAGE_PATTERN =
   /(?:^|\n)\s*[│|]\s*Lines\s*[│|]\s*([\d.]+)\s*%\s*[│|]\s*([\d,]+)\s*[│|]\s*[\d,]+\s*[│|]\s*([\d,]+)\s*[│|]/u;
+/**
+ * @param root0
+ * @param root0.config
+ * @param root0.cwd
+ * @param root0.importModule
+ * @param root0.joinPath
+ */
 async function analyzePurgeCss({
   config,
   cwd,
@@ -168,6 +175,15 @@ async function analyzePurgeCss({
       : [],
   };
 }
+/**
+ * @param input
+ * @param input.coverageLabel
+ * @param input.coveragePath
+ * @param input.coverageThreshold
+ * @param input.totals
+ * @param messages
+ * @param extraChecks
+ */
 function appendCoverageCheckResult(
   input: {
     coverageLabel: string;
@@ -206,6 +222,12 @@ function appendCoverageCheckResult(
     });
   return status === "fail";
 }
+/**
+ * @param executionReport
+ * @param sections
+ * @param failedTitle
+ * @param skippedTitle
+ */
 function appendExecutionResultSections(
   executionReport: Pick<ExecutionReport, "failedItems" | "skippedItems">,
   sections: PostProcessSection[],
@@ -229,6 +251,10 @@ function appendExecutionResultSections(
     });
   return hasFailures;
 }
+/**
+ * @param messages
+ * @param reportPath
+ */
 function appendMissingReportMessage(
   messages: PostProcessMessage[],
   reportPath?: string,
@@ -238,6 +264,11 @@ function appendMissingReportMessage(
     tone: "fail",
   });
 }
+/**
+ * @param data
+ * @param resolveTokenString
+ * @param defaultThreshold
+ */
 function buildCommonCoverageState(
   data: Record<string, unknown>,
   resolveTokenString: (value: string) => string,
@@ -285,6 +316,9 @@ function buildCommonCoverageState(
         : "",
   };
 }
+/**
+ * @param commandOutput
+ */
 function buildConsoleOnlyExecutionReport(
   commandOutput: string,
 ): ExecutionReport {
@@ -296,6 +330,9 @@ function buildConsoleOnlyExecutionReport(
     skippedItems: [],
   };
 }
+/**
+ * @param options
+ */
 function buildCoverageReportPostProcess(
   options: CoverageReportPostProcessOptions,
 ) {
@@ -378,6 +415,11 @@ function buildCoverageReportPostProcess(
     };
   };
 }
+/**
+ * @param executionReport
+ * @param exitCode
+ * @param coverageTotals
+ */
 function buildExecutionSummary(
   executionReport: Pick<ExecutionReport, "failed" | "passed" | "skipped">,
   exitCode: number,
@@ -385,6 +427,10 @@ function buildExecutionSummary(
 ): string {
   return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${formatExecutionSummaryCoverage(coverageTotals)}${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
 }
+/**
+ * @param report
+ * @param resultType
+ */
 function collectCaseResults(
   report: string,
   resultType: "failed" | "skipped",
@@ -399,6 +445,15 @@ function collectCaseResults(
   }
   return collected;
 }
+/**
+ * @param options
+ * @param options.coveragePath
+ * @param options.excludedFiles
+ * @param options.excludedPaths
+ * @param options.existsSync
+ * @param options.includedPaths
+ * @param options.readFileSync
+ */
 function collectLineCoverage(options: {
   coveragePath: string;
   excludedFiles: ReadonlySet<string>;
@@ -442,6 +497,13 @@ function collectLineCoverage(options: {
   }
   return { covered, found, pct: found > 0 ? (covered / found) * 100 : 0 };
 }
+/**
+ * @param key
+ * @param args
+ * @param coverage
+ * @param defaultThreshold
+ * @param options
+ */
 function createCoverageStep(
   key: string,
   args: string[],
@@ -474,6 +536,9 @@ function createCoverageStep(
     tokens: options.tokens,
   });
 }
+/**
+ * @param input
+ */
 function defineCoverageCommandStep(
   input: CoverageCommandStepOptions,
 ): StepConfig {
@@ -508,6 +573,10 @@ function defineCoverageCommandStep(
     };
   return step;
 }
+/**
+ * @param match
+ * @param body
+ */
 function formatCaseResult(match: RegExpMatchArray, body: string): string {
   const failure = readXmlAttributes(
       /<(?:failure|error)\b([^>]*)>/.exec(body)?.[1] ?? "",
@@ -515,18 +584,32 @@ function formatCaseResult(match: RegExpMatchArray, body: string): string {
     test = readXmlAttributes(match[1]);
   return `${test.file ?? "unknown-file"}${test.line ? `:${test.line}` : ""} - ${test.classname ? `${test.classname} > ` : ""}${test.name ?? "(unnamed test)"}${failure.message ? ` [${failure.message}]` : ""}`;
 }
+/**
+ * @param coverageTotals
+ */
 function formatExecutionSummaryCoverage(
   coverageTotals: CoverageTotals | null,
 ): string {
   if (!coverageTotals) return " · coverage missing";
   return ` · coverage ${coverageTotals.pct.toFixed(2)}% (${coverageTotals.covered}/${coverageTotals.found})`;
 }
+/**
+ * @param unusedSelectors
+ */
 function formatUnusedSelectorOutput(unusedSelectors: string[]): string {
   return `${unusedSelectors.map((selector) => `  unused: ${selector}`).join("\n")}\nfound ${unusedSelectors.length} unused CSS selector(s)\n`;
 }
+/**
+ * @param filePath
+ * @param matcherPath
+ */
 function matchesCoveragePath(filePath: string, matcherPath: string): boolean {
   return filePath === matcherPath || filePath.startsWith(`${matcherPath}/`);
 }
+/**
+ * @param body
+ * @param resultType
+ */
 function matchesResultType(
   body: string,
   resultType: "failed" | "skipped",
@@ -536,6 +619,9 @@ function matchesResultType(
     : !/<skipped\b/.test(body) &&
         (body.includes("<failure") || body.includes("<error"));
 }
+/**
+ * @param value
+ */
 function normalizeCoverageFilePath(value: string): string {
   return value
     .replace(/\\/g, "/")
@@ -543,6 +629,10 @@ function normalizeCoverageFilePath(value: string): string {
     .replace(/^\.\//u, "")
     .replace(/\/$/u, "");
 }
+/**
+ * @param commandOutput
+ * @param label
+ */
 function parseConsoleCount(
   commandOutput: string,
   label: "failed" | "passed" | "skipped",
@@ -556,6 +646,12 @@ function parseConsoleCount(
   )[label].exec(commandOutput);
   return match ? Number.parseInt(match[1], 10) : 0;
 }
+/**
+ * @param reportPath
+ * @param commandOutput
+ * @param existsSync
+ * @param readFileSync
+ */
 function parseJunitExecutionReport(
   reportPath: string,
   commandOutput: string,
@@ -577,6 +673,10 @@ function parseJunitExecutionReport(
     skippedItems: collectCaseResults(report, "skipped"),
   };
 }
+/**
+ * @param displayOutput
+ * @param pattern
+ */
 function parseTableLineCoverage(
   displayOutput: string,
   pattern: RegExp,
@@ -590,7 +690,13 @@ function parseTableLineCoverage(
       }
     : null;
 }
+/**
+ * @param data
+ */
 function readPurgeCssConfig(data: unknown): null | PurgeCssConfig {
+  /**
+   * @param entry
+   */
   const hasStringList = (entry: unknown): entry is string[] =>
       Array.isArray(entry) && entry.every((item) => typeof item === "string"),
     value = data as null | Partial<PurgeCssConfig>;
@@ -610,11 +716,19 @@ function readPurgeCssConfig(data: unknown): null | PurgeCssConfig {
     selectorPrefix: value.selectorPrefix,
   };
 }
+/**
+ * @param raw
+ */
 function readXmlAttributes(raw: string): Partial<Record<string, string>> {
   return Object.fromEntries(
     [...raw.matchAll(/(\w+)="([^"]*)"/g)].map((match) => [match[1], match[2]]),
   );
 }
+/**
+ * @param values
+ * @param includePaths
+ * @param resolveTokenString
+ */
 function resolveCoverageMatchers(
   values: unknown,
   includePaths: string[],
@@ -646,6 +760,14 @@ function resolveCoverageMatchers(
     ),
   ];
 }
+/**
+ * @param options
+ * @param coverageState
+ * @param displayOutput
+ * @param messages
+ * @param existsSync
+ * @param readFileSync
+ */
 function resolveCoverageTotals(
   options: CoverageReportPostProcessOptions,
   coverageState: CoverageState,
@@ -676,6 +798,13 @@ function resolveCoverageTotals(
     readFileSync,
   });
 }
+/**
+ * @param options
+ * @param executionReport
+ * @param messages
+ * @param reportPath
+ * @param currentStatus
+ */
 function resolveMissingReportStatus(
   options: CoverageReportPostProcessOptions,
   executionReport: ExecutionReport,
@@ -697,6 +826,12 @@ function resolveMissingReportStatus(
   }
   return executionReport.failed > 0 ? "fail" : currentStatus;
 }
+/**
+ * @param filePath
+ * @param includedPaths
+ * @param excludedFiles
+ * @param excludedPaths
+ */
 function shouldIncludeCoverageFile(
   filePath: string,
   includedPaths: string[],
@@ -719,6 +854,10 @@ function shouldIncludeCoverageFile(
 }
 
 // ── Summary helpers ───────────────────────────────────────────────────────────
+/**
+ * @param defaultValue
+ * @param patterns
+ */
 const pat = (
   defaultValue: string,
   patterns: PatternSummary["patterns"],
@@ -876,6 +1015,13 @@ const architecture = defineStep({
   },
   failMsg: "architecture violations found",
   label: "architecture",
+  /**
+   * @param root0
+   * @param root0.cwd
+   * @param root0.data
+   * @param root0.fail
+   * @param root0.ok
+   */
   source: async ({
     cwd,
     data,
@@ -918,6 +1064,15 @@ const purgeCss = defineStep({
   } satisfies PurgeCssConfig,
   failMsg: "unused CSS selectors found",
   label: "purgecss",
+  /**
+   * @param root0
+   * @param root0.cwd
+   * @param root0.data
+   * @param root0.fail
+   * @param root0.importModule
+   * @param root0.join
+   * @param root0.ok
+   */
   source: async ({
     cwd,
     data,
@@ -943,6 +1098,10 @@ const purgeCss = defineStep({
 const secretlint = defineStep({
   failMsg: "secretlint failed",
   label: "secretlint",
+  /**
+   * @param root0
+   * @param root0.cwd
+   */
   source: async ({ cwd }: InlineTypeScriptContext) =>
     runGitFileScan(cwd, {
       command: "bunx",
@@ -1055,9 +1214,18 @@ const prettier = defineStep({
 const lizard = defineStep({
   failMsg: "complexity limits exceeded",
   label: "lizard",
+  /**
+   * @param root0
+   * @param root0.fail
+   * @param root0.ok
+   */
   source: async ({ fail, ok }: InlineTypeScriptContext): Promise<Command> => {
     const result = await runComplexityCheck({
       analyzer: createSpawnComplexityAdapter({
+        /**
+         * @param targets
+         * @param excluded
+         */
         buildArgs: (
           targets: readonly string[],
           excluded: readonly string[],
@@ -1075,6 +1243,9 @@ const lizard = defineStep({
         command: "python3",
         failureLabel: "complexity",
         installHint: "python3 -m pip install lizard",
+        /**
+         * @param output
+         */
         parseOutput: (output: string) =>
           parseCsvComplexityRows(output, {
             ccn: 1,
@@ -1154,6 +1325,9 @@ const playwright = createCoverageStep(
   {
     enabled: hasPackageScript("test:e2e:coverage"),
     failMsg: "playwright e2e failed",
+    /**
+     * @param output
+     */
     parseConsoleCoverage: (output) =>
       parseTableLineCoverage(output, BUN_LINE_COVERAGE_PATTERN),
     reportDirs: ["coverage/playwright"],

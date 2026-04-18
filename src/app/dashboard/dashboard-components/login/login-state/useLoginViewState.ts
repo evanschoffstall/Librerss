@@ -20,6 +20,12 @@ interface UseLoginViewStateOptions {
   onAuthenticated: (user: AuthUser) => void;
 }
 
+/**
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.initialFormError
+ * @param root0.onAuthenticated
+ */
 export function useLoginViewState({
   allowSignup,
   initialFormError,
@@ -35,6 +41,9 @@ export function useLoginViewState({
     initialFormError ? { form: initialFormError } : {},
   );
 
+  /**
+   * @param field
+   */
   const clearFieldError = (field: keyof LoginFieldErrors) => {
     setFieldErrors((current) => {
       if (!current[field]) return current;
@@ -43,6 +52,9 @@ export function useLoginViewState({
     });
   };
 
+  /**
+   *
+   */
   const handleSubmit = async () => {
     const errors = validateLoginFields({
       allowSignup,
@@ -72,9 +84,15 @@ export function useLoginViewState({
     }
   };
 
+  /**
+   * @param event
+   */
   const handleKeyDown = (event: KeyboardEvent) =>
     event.key === "Enter" ? void handleSubmit() : undefined;
 
+  /**
+   *
+   */
   const toggleMode = () => {
     setMode((current) => (current === "login" ? "signup" : "login"));
   };
@@ -98,6 +116,9 @@ export function useLoginViewState({
   };
 }
 
+/**
+ * @param error
+ */
 function resolveAuthenticationErrorMessage(error: unknown) {
   return isApiError<AuthErrorResponse>(error) &&
     typeof error.response?.data.error === "string"
@@ -105,6 +126,12 @@ function resolveAuthenticationErrorMessage(error: unknown) {
     : "Authentication failed.";
 }
 
+/**
+ * @param root0
+ * @param root0.email
+ * @param root0.mode
+ * @param root0.password
+ */
 async function submitAuthenticationRequest({
   email,
   mode,

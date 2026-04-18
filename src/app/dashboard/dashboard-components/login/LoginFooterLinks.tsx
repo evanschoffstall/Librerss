@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+/**
+ *
+ */
 export function LoginFooterLinks() {
   return (
     <div

@@ -26,6 +26,19 @@ interface DashboardViewModelInput {
   useLocalSearch: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.categories
+ * @param root0.collapsingArticleKeys
+ * @param root0.customCategoryLabels
+ * @param root0.expandedArticleKey
+ * @param root0.feed
+ * @param root0.orderedCategoryLabels
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.useLocalSearch
+ */
 export function buildDashboardViewModel({
   articleFilter,
   categories,
@@ -89,6 +102,10 @@ export function buildDashboardViewModel({
   };
 }
 
+/**
+ * @param articles
+ * @param searchTerm
+ */
 export function filterArticlesBySearchTerm(
   articles: Article[],
   searchTerm: string,
@@ -103,6 +120,9 @@ export function filterArticlesBySearchTerm(
   );
 }
 
+/**
+ * @param article
+ */
 function getArticleContentSearchText(article: Article) {
   const cached = articleContentSearchTextCache.get(article);
   if (cached) {
@@ -114,6 +134,9 @@ function getArticleContentSearchText(article: Article) {
   return searchText;
 }
 
+/**
+ * @param article
+ */
 function getArticleTitleSearchText(article: Article) {
   const cached = articleTitleSearchTextCache.get(article);
   if (cached) {
@@ -125,6 +148,10 @@ function getArticleTitleSearchText(article: Article) {
   return searchText;
 }
 
+/**
+ * @param article
+ * @param normalizedSearchTerm
+ */
 function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {
   if (getArticleTitleSearchText(article).includes(normalizedSearchTerm)) {
     return true;

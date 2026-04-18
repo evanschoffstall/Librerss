@@ -49,6 +49,13 @@ const articleServiceBaseUrl = "/api";
 let proxySettingsRequest: null | Promise<ProxySettings> = null;
 
 export const ArticleService = {
+  /**
+   * @param url
+   * @param options
+   * @param options.distillStrategy
+   * @param options.signal
+   * @param options.useProxy
+   */
   async extractArticleContent(
     url: string,
     options?: {
@@ -73,6 +80,9 @@ export const ArticleService = {
       : "";
   },
 
+  /**
+   *
+   */
   async getArticles(): Promise<Article[]> {
     const response = await getApiClient().get<Article[]>(
       `${articleServiceBaseUrl}/articles`,
@@ -80,6 +90,9 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   *
+   */
   async getProxySettings(): Promise<ProxySettings> {
     proxySettingsRequest ??= getApiClient()
       .get<ProxySettings>(`${articleServiceBaseUrl}/settings/proxy`)
@@ -91,6 +104,9 @@ export const ArticleService = {
     return proxySettingsRequest;
   },
 
+  /**
+   *
+   */
   async getProxyStatus(): Promise<ProxyStatusResponse> {
     const response = await getApiClient().get<ProxyStatusResponse>(
       `${articleServiceBaseUrl}/articles/proxy-status`,
@@ -98,6 +114,9 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * @param articleId
+   */
   async getStoredArticleContent(articleId: number): Promise<string> {
     const response = await getApiClient().get<ArticleByIdResponse>(
       `${articleServiceBaseUrl}/articles/${articleId}`,
@@ -107,6 +126,9 @@ export const ArticleService = {
       : "";
   },
 
+  /**
+   * @param streamId
+   */
   async markAllRead(streamId: string): Promise<void> {
     await getApiClient().post(
       `${articleServiceBaseUrl}/articles/mark-all-read`,
@@ -116,6 +138,10 @@ export const ArticleService = {
     );
   },
 
+  /**
+   * @param options
+   * @param options.useProxy
+   */
   async runProxyCompatibilityCheck(options?: {
     useProxy?: boolean;
   }): Promise<CompatibilityCheckResponse> {
@@ -126,6 +152,13 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * @param proxyUrl
+   * @param options
+   * @param options.allowInsecureTls
+   * @param options.proxyPassword
+   * @param options.proxyUsername
+   */
   async saveProxyUrl(
     proxyUrl: null | string,
     options?: {
@@ -141,6 +174,12 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * @param articleId
+   * @param updates
+   * @param updates.isRead
+   * @param updates.isStarred
+   */
   async updateArticleStatus(
     articleId: number,
     updates: { isRead?: boolean; isStarred?: boolean },

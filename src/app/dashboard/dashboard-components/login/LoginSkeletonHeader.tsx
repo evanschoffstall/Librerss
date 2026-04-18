@@ -1,6 +1,9 @@
 import { CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ *
+ */
 export function LoginSkeletonHeader() {
   return (
     <CardHeader className="items-center pb-2 text-center">

@@ -6,6 +6,7 @@
 /**
  * Extracts embedded URL credentials while returning a version of the URL with
  * userinfo removed.
+ * @param raw
  */
 export function getUrlCredentials(raw: string): null | {
   password: null | string;
@@ -47,6 +48,7 @@ const DEFAULT_PROXY_PORT_BY_PROTOCOL: Readonly<Record<string, string>> = {
  * Some downstream proxy clients reject `socks5://host` even though the WHATWG
  * URL parser accepts it. Returning an explicit `:1080` keeps stored legacy
  * values usable across all fetch paths without changing HTTP/HTTPS handling.
+ * @param raw
  */
 export function ensureProxyUrlHasExplicitPort(raw: string): string {
   try {
@@ -65,6 +67,10 @@ export function ensureProxyUrlHasExplicitPort(raw: string): string {
 
 /**
  * Human-friendly hostname label with optional `www.` stripping.
+ * @param raw
+ * @param options
+ * @param options.fallback
+ * @param options.stripWww
  */
 export function getUrlHostnameDisplayLabel(
   raw?: string,
@@ -83,6 +89,8 @@ export function getUrlHostnameDisplayLabel(
 
 /**
  * Human-friendly hostname label with fallback for invalid/missing URLs.
+ * @param raw
+ * @param fallback
  */
 export function getUrlHostnameLabel(
   raw?: string,
@@ -100,6 +108,9 @@ export function getUrlHostnameLabel(
  * The URL API's `.username` / `.password` setters apply the correct userinfo
  * percent-encoding (RFC 3986 §3.2.1), so plain strings are assigned directly.
  * Returns the original URL string if it is unparseable.
+ * @param proxyUrl
+ * @param username
+ * @param password
  */
 export function injectProxyCredentials(
   proxyUrl: string,
@@ -120,6 +131,7 @@ export function injectProxyCredentials(
  * Returns true when the URL is a valid http/https URL.
  * Consolidates the single validation path used across server routes and
  * client modules; replaces the former isValidUrl in lib/core/utils.
+ * @param url
  */
 export function isValidUrl(url: string): boolean {
   try {
@@ -134,6 +146,7 @@ export function isValidUrl(url: string): boolean {
 /**
  * Normalizes an unknown list of URL candidates into a deduplicated array.
  * Non-string and empty values are discarded.
+ * @param urls
  */
 export function normalizeDistinctUrlList(urls: unknown): string[] {
   if (!Array.isArray(urls)) {
@@ -153,6 +166,7 @@ export function normalizeDistinctUrlList(urls: unknown): string[] {
 /**
  * Normalizes a feed URL by stripping hash, credentials, and trailing slashes.
  *
+ * @param raw
  * @throws {TypeError} if {@link raw} is not a valid URL.
  */
 export function normalizeFeedUrl(raw: string): string {
@@ -165,6 +179,7 @@ export function normalizeFeedUrl(raw: string): string {
 
 /**
  * Redacts sensitive URL components (credentials, query, hash) for logs.
+ * @param raw
  */
 export function redactUrlForLogs(raw: string): string {
   const trimmed = raw.trim();
@@ -192,6 +207,7 @@ export function redactUrlForLogs(raw: string): string {
 
 /**
  * Removes embedded URL credentials while preserving the rest of the URL.
+ * @param raw
  */
 export function stripUrlCredentials(raw: string): string {
   return getUrlCredentials(raw)?.sanitizedUrl ?? raw;
@@ -205,6 +221,7 @@ export function stripUrlCredentials(raw: string): string {
  * HTTP request URIs (RFC 3986 §3.5).  Some CDN edge nodes (Cloudflare,
  * Akamai, Fastly) treat a request-URI containing a literal '#' as
  * malformed and return 403/400.
+ * @param url
  */
 export function stripUrlFragment(url: string): string {
   try {
@@ -221,6 +238,7 @@ export function stripUrlFragment(url: string): string {
 
 /**
  * Best-effort hostname extraction for display/caching.
+ * @param raw
  */
 export function tryGetUrlHostname(raw?: string): null | string {
   if (!raw) {
@@ -242,6 +260,7 @@ export function tryGetUrlHostname(raw?: string): null | string {
  * Like {@link normalizeFeedUrl} but returns a best-effort fallback instead of
  * throwing when the URL is unparseable. Use this when the input URL is
  * user-supplied or otherwise untrusted.
+ * @param raw
  */
 export function tryNormalizeFeedUrl(raw: string): string {
   try {
@@ -255,6 +274,7 @@ export function tryNormalizeFeedUrl(raw: string): string {
 /**
  * Injects username/password credentials into a proxy URL.
  * Returns the original URL if it's unparseable.
+ * @param parsed
  */
 function formatUrlWithoutCredentials(parsed: URL): string {
   const base = `${parsed.protocol}//${parsed.host}`;

@@ -6,6 +6,9 @@ import { deleteAccount, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * @param request
+ */
 export async function DELETE(request: NextRequest) {
   try {
     const authResult = await serverApi.requireMutableAuthenticatedUser(request);

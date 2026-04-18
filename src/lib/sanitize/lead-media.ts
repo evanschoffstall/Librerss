@@ -12,6 +12,9 @@ interface LeadMediaPrefix {
   imagePrefix: string;
 }
 
+/**
+ * @param content
+ */
 export function removeLeadingDuplicateImage(content: string): string {
   const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
   if (!imagePrefix.trim()) return content;
@@ -29,6 +32,11 @@ export function removeLeadingDuplicateImage(content: string): string {
     : content;
 }
 
+/**
+ * @param content
+ * @param isShortHeadingLabel
+ * @param normalizeHeadingText
+ */
 export function stripLeadMediaBoilerplateHeadings(
   content: string,
   isShortHeadingLabel: (text: string) => boolean,
@@ -54,6 +62,10 @@ export function stripLeadMediaBoilerplateHeadings(
   );
 }
 
+/**
+ * @param content
+ * @param cursor
+ */
 function consumeLeadingImageSegment(
   content: string,
   cursor: number,
@@ -100,10 +112,17 @@ function consumeLeadingImageSegment(
   return { nextCursor, segment };
 }
 
+/**
+ * @param source
+ * @param tokenRe
+ */
 function consumeLeadingToken(source: string, tokenRe: RegExp): string {
   return tokenRe.exec(source)?.[0] ?? "";
 }
 
+/**
+ * @param source
+ */
 function normalizeImageSource(source: string): string {
   const normalized = source.trim().replace(/&amp;/g, "&");
   if (!normalized) return "";
@@ -117,6 +136,9 @@ function normalizeImageSource(source: string): string {
   }
 }
 
+/**
+ * @param content
+ */
 function parseLeadMediaAndHeadingPrefix(content: string): LeadMediaPrefix {
   let cursor = 0;
   let imagePrefix = "";
@@ -152,6 +174,9 @@ function parseLeadMediaAndHeadingPrefix(content: string): LeadMediaPrefix {
   return { consumedLength: cursor, headingBlock, imagePrefix };
 }
 
+/**
+ * @param content
+ */
 function readFirstImageSource(content: string): string {
   const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
   const imageTag = /<img\b[^>]*>/i.exec(imagePrefix)?.[0];

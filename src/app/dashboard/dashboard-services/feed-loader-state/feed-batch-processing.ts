@@ -3,6 +3,9 @@ export {
   getSourceNamesByUrl,
 } from "@/app/dashboard/dashboard-services/feed-data/batch";
 
+/**
+ * @param timestamp
+ */
 export function formatLastRefreshLabel(timestamp: Date | null): string {
   if (!timestamp) {
     return "never";

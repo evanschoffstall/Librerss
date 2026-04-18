@@ -13,6 +13,13 @@ import {
   resolveCollapseRestoreViewport,
 } from "@/app/dashboard/dashboard-hooks/articleCollapseViewport";
 
+/**
+ * @param root0
+ * @param root0.articleKey
+ * @param root0.clearPreExpandSnapshot
+ * @param root0.setIsCollapseScrollRestoreActive
+ * @param root0.snapshot
+ */
 export function createCollapseScrollRestoreRuntime({
   articleKey,
   clearPreExpandSnapshot,
@@ -27,6 +34,9 @@ export function createCollapseScrollRestoreRuntime({
   snapshot: ArticleViewportSnapshot;
 }) {
   const state = createCollapseScrollRestoreState(articleKey, snapshot);
+  /**
+   *
+   */
   const release = () => {
     releaseCollapseScrollRestore(
       state,
@@ -35,6 +45,9 @@ export function createCollapseScrollRestoreRuntime({
       setIsCollapseScrollRestoreActive,
     );
   };
+  /**
+   *
+   */
   const reconnectLayoutObservers = () => {
     state.disconnectLayoutObservers?.();
     state.disconnectLayoutObservers = observeCollapseRestoreLayout({
@@ -43,6 +56,9 @@ export function createCollapseScrollRestoreRuntime({
       viewport: state.activeViewport,
     });
   };
+  /**
+   * @param nextViewport
+   */
   const adoptViewport = (nextViewport: HTMLElement) => {
     adoptCollapseRestoreViewport(
       state,
@@ -51,6 +67,9 @@ export function createCollapseScrollRestoreRuntime({
       release,
     );
   };
+  /**
+   *
+   */
   const scheduleViewportSync = () => {
     scheduleCollapseViewportSync(state, syncViewportScroll);
   };
@@ -70,6 +89,12 @@ export function createCollapseScrollRestoreRuntime({
   };
 }
 
+/**
+ * @param state
+ * @param nextViewport
+ * @param reconnectLayoutObservers
+ * @param release
+ */
 function adoptCollapseRestoreViewport(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
   nextViewport: HTMLElement,
@@ -89,6 +114,11 @@ function adoptCollapseRestoreViewport(
   reconnectLayoutObservers();
 }
 
+/**
+ * @param targetViewport
+ * @param release
+ * @param shouldBind
+ */
 function bindCollapseReleaseListeners(
   targetViewport: HTMLElement,
   release: () => void,
@@ -99,6 +129,10 @@ function bindCollapseReleaseListeners(
   targetViewport[method]("touchmove", release, { passive: true });
 }
 
+/**
+ * @param articleKey
+ * @param snapshot
+ */
 function createCollapseScrollRestoreState(
   articleKey: string,
   snapshot: ArticleViewportSnapshot,
@@ -121,6 +155,14 @@ function createCollapseScrollRestoreState(
   };
 }
 
+/**
+ * @param options
+ * @param options.adoptViewport
+ * @param options.articleKey
+ * @param options.release
+ * @param options.scheduleViewportSync
+ * @param options.state
+ */
 function createCollapseViewportSync(options: {
   adoptViewport: (nextViewport: HTMLElement) => void;
   articleKey: string;
@@ -128,6 +170,9 @@ function createCollapseViewportSync(options: {
   scheduleViewportSync: () => void;
   state: ReturnType<typeof createCollapseScrollRestoreState>;
 }) {
+  /**
+   *
+   */
   return function syncViewportScroll() {
     const currentViewport = resolveCollapseRestoreViewport(
       options.articleKey,
@@ -164,6 +209,11 @@ function createCollapseViewportSync(options: {
   };
 }
 
+/**
+ * @param state
+ * @param reconnectLayoutObservers
+ * @param release
+ */
 function initializeCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
   reconnectLayoutObservers: () => void,
@@ -174,6 +224,12 @@ function initializeCollapseScrollRestore(
   reconnectLayoutObservers();
 }
 
+/**
+ * @param state
+ * @param clearPreExpandSnapshot
+ * @param release
+ * @param setIsCollapseScrollRestoreActive
+ */
 function releaseCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
   clearPreExpandSnapshot: () => void,
@@ -195,6 +251,10 @@ function releaseCollapseScrollRestore(
   clearPreExpandSnapshot();
 }
 
+/**
+ * @param state
+ * @param syncViewportScroll
+ */
 function scheduleCollapseViewportSync(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
   syncViewportScroll: () => void,

@@ -29,6 +29,9 @@ interface CollapsingArticleState {
   mode: ArticleRemovalAnimationMode;
 }
 
+/**
+ * @param mode
+ */
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,
 ) {

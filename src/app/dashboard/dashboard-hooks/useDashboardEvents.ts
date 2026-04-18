@@ -45,7 +45,11 @@ interface UseDashboardEventsOptions {
   usePlaceholderData?: boolean;
 }
 
-/** Runs the mark-all-read command and emits the matching toolbar lifecycle events. */
+/**
+ * Runs the mark-all-read command and emits the matching toolbar lifecycle events.
+ * @param target
+ * @param options
+ */
 export async function runDashboardMarkAllReadCommand(
   target: Pick<Window, "dispatchEvent">,
   options: DashboardMarkAllReadCommandOptions,
@@ -86,7 +90,12 @@ export async function runDashboardMarkAllReadCommand(
   }
 }
 
-/** Runs the refresh command and emits the matching toolbar lifecycle events. */
+/**
+ * Runs the refresh command and emits the matching toolbar lifecycle events.
+ * @param target
+ * @param onRefresh
+ * @param detail
+ */
 export async function runDashboardRefreshCommand(
   target: Pick<Window, "dispatchEvent">,
   onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>,
@@ -110,6 +119,8 @@ export async function runDashboardRefreshCommand(
  * update is enqueued. Server persistence continues in the background; the
  * mutation pipeline owns its own error-recovery path (restoring failed article
  * read states via `setFeed`) so no additional error handling is needed here.
+ * @param target
+ * @param onMarkViewportRead
  */
 export function runDashboardViewportReadCommand(
   target: Pick<Window, "dispatchEvent">,
@@ -134,6 +145,17 @@ export function runDashboardViewportReadCommand(
  *
  * React 19 effect events keep the listeners stable while still seeing the
  * newest selected feed context, search callback, and placeholder-mode state.
+ * @param root0
+ * @param root0.onMarkAllReadLocally
+ * @param root0.onMarkViewportRead
+ * @param root0.onOpenFeedsSidebar
+ * @param root0.onOpenSettings
+ * @param root0.onRefresh
+ * @param root0.onSearchChange
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ * @param root0.usePlaceholderData
  */
 export function useDashboardEvents({
   onMarkAllReadLocally,
@@ -185,7 +207,12 @@ export function useDashboardEvents({
   });
 }
 
-/** Resolves the feed stream ids affected by a mark-all-read action. */
+/**
+ * Resolves the feed stream ids affected by a mark-all-read action.
+ * @param selectedCategory
+ * @param selectedFeedUrl
+ * @param selectedCategoryNode
+ */
 function collectMarkAllReadStreams(
   selectedCategory: string,
   selectedFeedUrl: string | undefined,
@@ -210,6 +237,14 @@ function collectMarkAllReadStreams(
     .map((url) => `feed/${url}`);
 }
 
+/**
+ * @param options
+ * @param options.onMarkAllReadLocally
+ * @param options.onMarkViewportRead
+ * @param options.onOpenFeedsSidebar
+ * @param options.onOpenSettings
+ * @param options.onRefresh
+ */
 function useDashboardActionRefs(options: {
   onMarkAllReadLocally: (() => void) | undefined;
   onMarkViewportRead: () => Promise<void>;
@@ -238,6 +273,15 @@ function useDashboardActionRefs(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.onMarkAllReadLocallyRef
+ * @param options.onRefreshRef
+ * @param options.selectedCategoryNodeRef
+ * @param options.selectedCategoryRef
+ * @param options.selectedFeedUrlRef
+ * @param options.usePlaceholderDataRef
+ */
 function useDashboardMarkAllReadEvent(options: {
   onMarkAllReadLocallyRef: React.RefObject<(() => void) | undefined>;
   onRefreshRef: React.RefObject<
@@ -257,6 +301,9 @@ function useDashboardMarkAllReadEvent(options: {
     usePlaceholderDataRef,
   } = options;
   useEffect(() => {
+    /**
+     *
+     */
     const handleMarkAllRead = () => {
       void runDashboardMarkAllReadCommand(window, {
         onMarkAllReadLocally: onMarkAllReadLocallyRef.current,
@@ -285,15 +332,26 @@ function useDashboardMarkAllReadEvent(options: {
   ]);
 }
 
+/**
+ * @param options
+ * @param options.onOpenFeedsSidebarRef
+ * @param options.onOpenSettingsRef
+ */
 function useDashboardOpenPanelEvents(options: {
   onOpenFeedsSidebarRef: React.RefObject<() => void>;
   onOpenSettingsRef: React.RefObject<() => void>;
 }) {
   const { onOpenFeedsSidebarRef, onOpenSettingsRef } = options;
   useEffect(() => {
+    /**
+     *
+     */
     const handleOpenSettings = () => {
       onOpenSettingsRef.current();
     };
+    /**
+     *
+     */
     const handleOpenFeedsSidebar = () => {
       onOpenFeedsSidebarRef.current();
     };
@@ -317,6 +375,11 @@ function useDashboardOpenPanelEvents(options: {
   }, [onOpenFeedsSidebarRef, onOpenSettingsRef]);
 }
 
+/**
+ * @param options
+ * @param options.onMarkViewportReadRef
+ * @param options.onRefreshRef
+ */
 function useDashboardRefreshEvents(options: {
   onMarkViewportReadRef: React.RefObject<() => Promise<void>>;
   onRefreshRef: React.RefObject<
@@ -325,6 +388,9 @@ function useDashboardRefreshEvents(options: {
 }) {
   const { onMarkViewportReadRef, onRefreshRef } = options;
   useEffect(() => {
+    /**
+     * @param event
+     */
     const handleRefresh = (event: Event) => {
       void (async () => {
         const detail = (
@@ -334,6 +400,9 @@ function useDashboardRefreshEvents(options: {
       })();
     };
 
+    /**
+     *
+     */
     const handleMarkViewportRead = () => {
       runDashboardViewportReadCommand(window, onMarkViewportReadRef.current);
     };
@@ -354,6 +423,12 @@ function useDashboardRefreshEvents(options: {
   }, [onMarkViewportReadRef, onRefreshRef]);
 }
 
+/**
+ * @param options
+ * @param options.onSearchChangeRef
+ * @param options.pendingSearchTermRef
+ * @param options.searchFrameRef
+ */
 function useDashboardSearchEvent(options: {
   onSearchChangeRef: React.RefObject<(term: string) => void>;
   pendingSearchTermRef: React.RefObject<string>;
@@ -361,6 +436,9 @@ function useDashboardSearchEvent(options: {
 }) {
   const { onSearchChangeRef, pendingSearchTermRef, searchFrameRef } = options;
   useEffect(() => {
+    /**
+     *
+     */
     const flushSearchChange = () => {
       searchFrameRef.current = null;
       const nextTerm = pendingSearchTermRef.current;
@@ -369,6 +447,9 @@ function useDashboardSearchEvent(options: {
       });
     };
 
+    /**
+     * @param event
+     */
     const handleSearchChange = (event: Event) => {
       const detail = (event as CustomEvent<{ term?: string }>).detail;
       pendingSearchTermRef.current =
@@ -399,6 +480,9 @@ function useDashboardSearchEvent(options: {
   }, [onSearchChangeRef, pendingSearchTermRef, searchFrameRef]);
 }
 
+/**
+ * @param onSearchChange
+ */
 function useDashboardSearchRefs(onSearchChange: (term: string) => void) {
   const pendingSearchTermRef = useRef("");
   const searchFrameRef = useRef<null | number>(null);
@@ -412,6 +496,13 @@ function useDashboardSearchRefs(onSearchChange: (term: string) => void) {
   };
 }
 
+/**
+ * @param options
+ * @param options.selectedCategory
+ * @param options.selectedCategoryNode
+ * @param options.selectedFeedUrl
+ * @param options.usePlaceholderData
+ */
 function useDashboardSelectionRefs(options: {
   selectedCategory: string;
   selectedCategoryNode: CategoryTreeNode | undefined;

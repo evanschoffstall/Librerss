@@ -66,10 +66,17 @@ const ERROR_PREVIEW_CHARS = 88;
 export const COMPATIBILITY_RESULTS_CACHE_KEY =
   "librerss:settings:proxy:compatibility-results:v1";
 
+/**
+ * @param storage
+ */
 export function clearCompatibilityResultsCache(storage: StorageWriter) {
   storage.removeItem(COMPATIBILITY_RESULTS_CACHE_KEY);
 }
 
+/**
+ * @param checkedAt
+ * @param now
+ */
 export function formatElapsed(checkedAt: number, now: number) {
   const elapsedSec = Math.max(0, Math.floor((now - checkedAt) / 1000));
   if (elapsedSec < 60) return `${elapsedSec}s ago`;
@@ -81,12 +88,18 @@ export function formatElapsed(checkedAt: number, now: number) {
   return `${elapsedDay}d ago`;
 }
 
+/**
+ * @param status
+ */
 export function hasConfiguredProxyStatus(status: ProxyUIStatus) {
   return (
     status === "checking" || status === "reachable" || status === "unreachable"
   );
 }
 
+/**
+ * @param value
+ */
 export function isCompatibilityResultsCache(
   value: unknown,
 ): value is CompatibilityResultsCache {
@@ -110,6 +123,9 @@ export function isCompatibilityResultsCache(
   );
 }
 
+/**
+ * @param results
+ */
 export function normalizeCompatibilityResults(
   results: ProxyCompatibilityCheckResult[],
 ): CompatibilityResult[] {
@@ -124,11 +140,18 @@ export function normalizeCompatibilityResults(
   );
 }
 
+/**
+ * @param text
+ * @param maxChars
+ */
 export function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
   if (text.length <= maxChars) return text;
   return `${text.slice(0, maxChars)}...`;
 }
 
+/**
+ * @param storage
+ */
 export function readCompatibilityResultsCache(
   storage: StorageReader,
 ): CompatibilityResultsCache | null {
@@ -145,6 +168,9 @@ export function readCompatibilityResultsCache(
   }
 }
 
+/**
+ * @param settings
+ */
 export function toProxySettingsSnapshot(
   settings: PersistedProxySettings,
 ): ProxySettingsSnapshot {
@@ -159,6 +185,10 @@ export function toProxySettingsSnapshot(
   };
 }
 
+/**
+ * @param storage
+ * @param cache
+ */
 export function writeCompatibilityResultsCache(
   storage: StorageWriter,
   cache: CompatibilityResultsCache,
@@ -166,6 +196,10 @@ export function writeCompatibilityResultsCache(
   storage.setItem(COMPATIBILITY_RESULTS_CACHE_KEY, JSON.stringify(cache));
 }
 
+/**
+ * @param value
+ * @param key
+ */
 function hasOptionalNumber(value: Record<string, unknown>, key: "statusCode") {
   return !(
     key in value &&
@@ -174,6 +208,10 @@ function hasOptionalNumber(value: Record<string, unknown>, key: "statusCode") {
   );
 }
 
+/**
+ * @param value
+ * @param key
+ */
 function hasOptionalString(value: Record<string, unknown>, key: "error") {
   return !(
     key in value &&
@@ -182,6 +220,9 @@ function hasOptionalString(value: Record<string, unknown>, key: "error") {
   );
 }
 
+/**
+ * @param value
+ */
 function isCompatibilityResult(value: unknown): value is CompatibilityResult {
   if (typeof value !== "object" || value === null) {
     return false;

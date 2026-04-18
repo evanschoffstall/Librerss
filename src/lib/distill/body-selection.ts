@@ -47,7 +47,9 @@ const CONTENT_CLASS_PATTERNS = [
  * 2. Content-indicative CSS class/id patterns
  * 3. `<article>` elements (largest by content length)
  * 4. `role="main"` / `role="article"` attributes
- * 5. `<main>` elements (largest by content length)
+ * 5. `<main>` elements (largest by content length).
+ * @param html
+ * @param minLength
  */
 export function findArticleBody(
   html: string,
@@ -80,12 +82,22 @@ export function findArticleBody(
   return findLargestTagBody(html, "main", minLength);
 }
 
+/**
+ * @param attrsStr
+ * @param segment
+ */
 function classOrIdContains(attrsStr: string, segment: string): boolean {
   const classVal = readAttrValue(attrsStr, "class") ?? "";
   const idVal = readAttrValue(attrsStr, "id") ?? "";
   return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
 }
 
+/**
+ * @param html
+ * @param startIdx
+ * @param openTagLength
+ * @param tagName
+ */
 function extractInnerHtml(
   html: string,
   startIdx: number,
@@ -107,6 +119,10 @@ function extractInnerHtml(
   return null;
 }
 
+/**
+ * @param html
+ * @param tagName
+ */
 function findAllByTag(html: string, tagName: string): string[] {
   const results: string[] = [];
   const lowerTag = tagName.toLowerCase();
@@ -120,6 +136,11 @@ function findAllByTag(html: string, tagName: string): string[] {
   return results;
 }
 
+/**
+ * @param html
+ * @param attr
+ * @param value
+ */
 function findFirstByAttr(
   html: string,
   attr: string,
@@ -134,6 +155,11 @@ function findFirstByAttr(
   return null;
 }
 
+/**
+ * @param html
+ * @param patterns
+ * @param minLength
+ */
 function findFirstByClassContains(
   html: string,
   patterns: readonly string[],
@@ -151,6 +177,11 @@ function findFirstByClassContains(
   return null;
 }
 
+/**
+ * @param html
+ * @param tagName
+ * @param minLength
+ */
 function findLargestTagBody(
   html: string,
   tagName: string,
@@ -168,6 +199,10 @@ function findLargestTagBody(
   return meetsMinLength(largestMatch, minLength) ? largestMatch : null;
 }
 
+/**
+ * @param value
+ * @param minLength
+ */
 function meetsMinLength(
   value: null | string,
   minLength: number,
@@ -175,6 +210,10 @@ function meetsMinLength(
   return value !== null && value.trim().length >= minLength;
 }
 
+/**
+ * @param attrValue
+ * @param segment
+ */
 function segmentMatch(attrValue: string, segment: string): boolean {
   let start = 0;
   while (start <= attrValue.length - segment.length) {

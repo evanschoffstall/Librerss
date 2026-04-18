@@ -34,6 +34,7 @@ export interface UseFeedPaginationOptions {
  *
  * This keeps feed paging mechanics separate from the higher-level viewport lock
  * and anchor logic so the main hook reads as orchestration instead of event soup.
+ * @param options
  */
 export function useFeedPagination(options: UseFeedPaginationOptions) {
   const canLoadMoreFromServer = options.canLoadMoreFromServer ?? false;
@@ -67,6 +68,11 @@ export function useFeedPagination(options: UseFeedPaginationOptions) {
   );
 }
 
+/**
+ * @param options
+ * @param canLoadMoreFromServer
+ * @param controllers
+ */
 function buildFeedPaginationEffectsOptions(
   options: UseFeedPaginationOptions,
   canLoadMoreFromServer: boolean,
@@ -75,6 +81,11 @@ function buildFeedPaginationEffectsOptions(
   return { ...options, canLoadMoreFromServer, controllers };
 }
 
+/**
+ * @param options
+ * @param canLoadMoreFromServer
+ * @param controllers
+ */
 function buildFeedPaginationRuntimeOptions(
   options: UseFeedPaginationOptions,
   canLoadMoreFromServer: boolean,

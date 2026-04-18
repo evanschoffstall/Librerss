@@ -19,6 +19,11 @@ interface UseFeedViewportStateOptions {
  * The feed surface renders inside the owning scroll viewport, which is resolved
  * after mount. This hook keeps that lookup and the normal-mode initial scroll
  * reset isolated from the higher-level feed state coordinator.
+ * @param root0
+ * @param root0.feedViewKey
+ * @param root0.isCollapseScrollRestoreActive
+ * @param root0.isInvertedScroll
+ * @param root0.refreshEpoch
  */
 export function useFeedViewportState({
   feedViewKey,
@@ -96,6 +101,16 @@ export function useFeedViewportState({
   };
 }
 
+/**
+ * @param options
+ * @param options.feedViewKey
+ * @param options.hasResolvedInitialViewportRef
+ * @param options.isInvertedScroll
+ * @param options.previousFeedViewKeyRef
+ * @param options.previousIsInvertedRef
+ * @param options.previousRefreshEpochRef
+ * @param options.refreshEpoch
+ */
 function updateFeedViewportHistory(options: {
   feedViewKey: string;
   hasResolvedInitialViewportRef: React.RefObject<boolean>;
@@ -111,6 +126,13 @@ function updateFeedViewportHistory(options: {
   options.previousIsInvertedRef.current = options.isInvertedScroll;
 }
 
+/**
+ * @param options
+ * @param options.isMountedRef
+ * @param options.setScrollViewport
+ * @param options.setViewportResolutionState
+ * @param options.viewportResolutionRequestRef
+ */
 function useFeedViewportHostRef(options: {
   isMountedRef: React.RefObject<boolean>;
   setScrollViewport: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
@@ -136,6 +158,10 @@ function useFeedViewportHostRef(options: {
   );
 }
 
+/**
+ * @param isMountedRef
+ * @param viewportResolutionRequestRef
+ */
 function useFeedViewportMountState(
   isMountedRef: React.RefObject<boolean>,
   viewportResolutionRequestRef: React.RefObject<number>,

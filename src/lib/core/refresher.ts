@@ -21,9 +21,17 @@ import {
 type DbMod = typeof import("@/lib/db");
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
+/**
+ * @param msg
+ * @param ctx
+ */
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.info(msg, ctx);
 };
+/**
+ * @param msg
+ * @param ctx
+ */
 export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.warn(msg, ctx);
 };
@@ -87,6 +95,11 @@ interface ResolvedRefreshDeps {
   toPendingArticleFn: typeof toPendingArticle;
 }
 
+/**
+ * @param db
+ * @param feed
+ * @param deps
+ */
 export async function refreshFeedFromUpstream(
   db: ReturnType<DbMod["getDb"]>,
   feed: FeedRecord,
@@ -125,16 +138,28 @@ export async function refreshFeedFromUpstream(
   }
 }
 
+/**
+ * @param lastFetched
+ */
 export function shouldForceRefreshFeed(lastFetched: Date): boolean {
   const ageMinutes = getAgeInMinutes(lastFetched);
   return ageMinutes >= CONFIG.FEED_FORCE_REFRESH_TTL_MINUTES;
 }
 
+/**
+ * @param lastFetched
+ */
 export function shouldRefreshFeed(lastFetched: Date): boolean {
   const ageMinutes = getAgeInMinutes(lastFetched);
   return ageMinutes >= CONFIG.FEED_CACHE_TTL_MINUTES;
 }
 
+/**
+ * @param db
+ * @param feed
+ * @param now
+ * @param errorMessage
+ */
 async function applyRefreshFailureCooldown(
   db: ReturnType<DbMod["getDb"]>,
   feed: FeedRecord,
@@ -157,10 +182,19 @@ async function applyRefreshFailureCooldown(
   }
 }
 
+/**
+ * @param date
+ */
 function getAgeInMinutes(date: Date): number {
   return (Date.now() - date.getTime()) / 60_000;
 }
 
+/**
+ * @param feed
+ * @param parsedItems
+ * @param publicationDateRange
+ * @param validItems
+ */
 function logParsedRefreshResult(
   feed: FeedRecord,
   parsedItems: (Parser.Item & { contentEncoded?: string })[],
@@ -177,6 +211,10 @@ function logParsedRefreshResult(
   });
 }
 
+/**
+ * @param feed
+ * @param now
+ */
 function logRefreshComplete(feed: FeedRecord, now: Date): void {
   diagInfo("Upstream refresh completed", {
     feedId: feed.id,
@@ -185,6 +223,11 @@ function logRefreshComplete(feed: FeedRecord, now: Date): void {
   });
 }
 
+/**
+ * @param feed
+ * @param proxyTransport
+ * @param connectionMode
+ */
 function logRefreshStart(
   feed: FeedRecord,
   proxyTransport: FeedUpstreamTransport | undefined,
@@ -202,6 +245,12 @@ function logRefreshStart(
   });
 }
 
+/**
+ * @param feed
+ * @param now
+ * @param proxyTransport
+ * @param deps
+ */
 async function parseRefreshItems(
   feed: FeedRecord,
   now: Date,
@@ -223,6 +272,12 @@ async function parseRefreshItems(
   };
 }
 
+/**
+ * @param db
+ * @param feed
+ * @param now
+ * @param validItems
+ */
 async function persistSuccessfulRefresh(
   db: ReturnType<DbMod["getDb"]>,
   feed: FeedRecord,
@@ -264,6 +319,9 @@ async function persistSuccessfulRefresh(
     .where(eq(feeds.id, feed.id));
 }
 
+/**
+ * @param deps
+ */
 function resolveRefreshDeps(
   deps: RefreshDeps | undefined,
 ): ResolvedRefreshDeps {

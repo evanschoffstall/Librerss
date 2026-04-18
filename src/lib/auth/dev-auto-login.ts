@@ -15,7 +15,10 @@ interface DevAutoLoginCredentials {
   password: string;
 }
 
-/** Builds the failure redirect used after an env-backed login attempt fails. */
+/**
+ * Builds the failure redirect used after an env-backed login attempt fails.
+ * @param pathname
+ */
 export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
   const url = new URL(pathname, "http://localhost");
   url.searchParams.set(
@@ -26,7 +29,10 @@ export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
   return `${url.pathname}${url.search}`;
 }
 
-/** Builds the same-origin request path for the development auto-login route. */
+/**
+ * Builds the same-origin request path for the development auto-login route.
+ * @param returnTo
+ */
 export function buildDevAutoLoginRequestPath(returnTo = "/dashboard"): string {
   const searchParams = new URLSearchParams({
     [DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY]: returnTo,
@@ -85,7 +91,10 @@ export function isDevAutoLoginEnabled(): boolean {
   return getDevAutoLoginCredentials() !== null;
 }
 
-/** Detects the dashboard query flag that suppresses auto-login retry loops. */
+/**
+ * Detects the dashboard query flag that suppresses auto-login retry loops.
+ * @param value
+ */
 export function isDevAutoLoginFailure(value: string | string[] | undefined) {
   const normalized = Array.isArray(value) ? value[0] : value;
   return normalized === DEV_AUTO_LOGIN_FAILURE_QUERY_VALUE;

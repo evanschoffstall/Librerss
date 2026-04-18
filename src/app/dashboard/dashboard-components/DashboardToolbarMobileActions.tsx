@@ -75,7 +75,28 @@ type DashboardToolbarMobileMenuContentProps = Pick<
   mobileToolbarMirror: boolean;
 };
 
-/** Renders the mobile toolbar actions using the desktop uncondensed icon treatment. */
+/**
+ * Renders the mobile toolbar actions using the desktop uncondensed icon treatment.
+ * @param root0
+ * @param root0.handleMarkAllRead
+ * @param root0.handleMarkViewportRead
+ * @param root0.handleOpenSettings
+ * @param root0.handleRefresh
+ * @param root0.handleRefreshFromUpstream
+ * @param root0.handleReset
+ * @param root0.handleSignOut
+ * @param root0.handleToggleTheme
+ * @param root0.isDark
+ * @param root0.isDevelopmentMode
+ * @param root0.isMarkingAllRead
+ * @param root0.isRefreshing
+ * @param root0.isResetting
+ * @param root0.isSigningOut
+ * @param root0.isToolbarActionPending
+ * @param root0.mobileToolbarMirror
+ * @param root0.mounted
+ * @param root0.themeToggleLabel
+ */
 export function DashboardToolbarMobileActions({
   handleMarkAllRead,
   handleMarkViewportRead,
@@ -141,6 +162,10 @@ export function DashboardToolbarMobileActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleOpenFeedsSidebar
+ */
 export function DashboardToolbarMobileMenuButton({
   handleOpenFeedsSidebar,
 }: Pick<
@@ -166,7 +191,12 @@ export function DashboardToolbarMobileMenuButton({
 const DashboardToolbarMobileActionsTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ComponentPropsWithoutRef<"button">
->(function DashboardToolbarMobileActionsTrigger(
+> /**
+ * @param root0
+ * @param root0.className
+ * @param root0.type
+ * @param ref
+ */(function DashboardToolbarMobileActionsTrigger(
   { className, type = "button", ...props },
   ref,
 ) {
@@ -187,6 +217,24 @@ const DashboardToolbarMobileActionsTrigger = React.forwardRef<
   );
 });
 
+/**
+ * @param root0
+ * @param root0.handleMarkAllRead
+ * @param root0.handleOpenSettings
+ * @param root0.handleRefreshFromUpstream
+ * @param root0.handleReset
+ * @param root0.handleSignOut
+ * @param root0.handleToggleTheme
+ * @param root0.isDark
+ * @param root0.isDevelopmentMode
+ * @param root0.isMarkingAllRead
+ * @param root0.isRefreshing
+ * @param root0.isResetting
+ * @param root0.isSigningOut
+ * @param root0.mobileToolbarMirror
+ * @param root0.mounted
+ * @param root0.themeToggleLabel
+ */
 function DashboardToolbarMobileMenuContent({
   handleMarkAllRead,
   handleOpenSettings,
@@ -254,7 +302,14 @@ function DashboardToolbarMobileMenuContent({
   );
 }
 
-/** Uses the shared desktop-sized quick-action footprint on mobile. */
+/**
+ * Uses the shared desktop-sized quick-action footprint on mobile.
+ * @param root0
+ * @param root0.ariaLabel
+ * @param root0.icon
+ * @param root0.isPending
+ * @param root0.onClick
+ */
 function DashboardToolbarMobileQuickAction({
   ariaLabel,
   icon,
@@ -277,6 +332,12 @@ function DashboardToolbarMobileQuickAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleReset
+ * @param root0.isDevelopmentMode
+ * @param root0.isResetting
+ */
 function DashboardToolbarResetMenuItem({
   handleReset,
   isDevelopmentMode,
@@ -297,6 +358,12 @@ function DashboardToolbarResetMenuItem({
   ) : null;
 }
 
+/**
+ * @param root0
+ * @param root0.handleRefreshFromUpstream
+ * @param root0.isDevelopmentMode
+ * @param root0.isRefreshing
+ */
 function DashboardToolbarUpstreamRefreshMenuItem({
   handleRefreshFromUpstream,
   isDevelopmentMode,

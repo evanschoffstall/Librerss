@@ -29,7 +29,10 @@ interface DashboardRouterProps {
   initialSession?: AuthSession;
 }
 
-/** Routes between dashboard loading, login, and the hydrated app surface. */
+/**
+ * Routes between dashboard loading, login, and the hydrated app surface.
+ * @param props
+ */
 export function DashboardRouter(props: DashboardRouterProps) {
   const routerState = useDashboardRouterState(props);
   const viewKey = resolveDashboardRouterViewKey(
@@ -71,6 +74,13 @@ export function DashboardRouter(props: DashboardRouterProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleEnterPreview
+ * @param root0.routerDerivedState
+ * @param root0.routerPreferenceState
+ * @param root0.routerSessionState
+ */
 function buildDashboardRouterState({
   handleEnterPreview,
   routerDerivedState,
@@ -99,6 +109,17 @@ function buildDashboardRouterState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.currentUser
+ * @param root0.distillStrategy
+ * @param root0.hasHydratedClientState
+ * @param root0.initialAutoLoginPath
+ * @param root0.initialPreviewMode
+ * @param root0.isPreviewMode
+ * @param root0.resolvedTheme
+ */
 function resolveDashboardRouterDerivedState({
   backgroundMode,
   currentUser,
@@ -136,6 +157,11 @@ function resolveDashboardRouterDerivedState({
   };
 }
 
+/**
+ * @param isSessionLoading
+ * @param currentUser
+ * @param resolvedPreviewMode
+ */
 function resolveDashboardRouterViewKey(
   isSessionLoading: boolean,
   currentUser: AuthSession["user"] | null,
@@ -148,6 +174,9 @@ function resolveDashboardRouterViewKey(
   return !currentUser && !resolvedPreviewMode ? "login" : "dashboard";
 }
 
+/**
+ * @param setIsPreviewMode
+ */
 function useDashboardEnterPreview(
   setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>,
 ) {
@@ -158,6 +187,20 @@ function useDashboardEnterPreview(
   }, [setIsPreviewMode]);
 }
 
+/**
+ * @param root0
+ * @param root0.hasHydratedClientState
+ * @param root0.hasPreviewQuery
+ * @param root0.initialPreviewMode
+ * @param root0.resolvedPreviewMode
+ * @param root0.setAllowSignup
+ * @param root0.setCurrentUser
+ * @param root0.setHasHydratedClientState
+ * @param root0.setIsPreviewMode
+ * @param root0.setIsSessionLoading
+ * @param root0.setUsePlaceholderData
+ * @param root0.shouldAutoLogin
+ */
 function useDashboardRouterEffects({
   hasHydratedClientState,
   hasPreviewQuery,
@@ -205,6 +248,15 @@ function useDashboardRouterEffects({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.hasHydratedClientState
+ * @param root0.hasPreviewQuery
+ * @param root0.initialPreviewMode
+ * @param root0.resolvedPreviewMode
+ * @param root0.setHasHydratedClientState
+ * @param root0.setIsPreviewMode
+ */
 function useDashboardRouterHydrationEffects({
   hasHydratedClientState,
   hasPreviewQuery,
@@ -248,6 +300,9 @@ function useDashboardRouterHydrationEffects({
   ]);
 }
 
+/**
+ * @param initialPreviewMode
+ */
 function useDashboardRouterPreferenceState(initialPreviewMode: boolean) {
   const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(initialPreviewMode);
@@ -274,6 +329,17 @@ function useDashboardRouterPreferenceState(initialPreviewMode: boolean) {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.hasHydratedClientState
+ * @param root0.hasPreviewQuery
+ * @param root0.resolvedPreviewMode
+ * @param root0.setAllowSignup
+ * @param root0.setCurrentUser
+ * @param root0.setIsSessionLoading
+ * @param root0.setUsePlaceholderData
+ * @param root0.shouldAutoLogin
+ */
 function useDashboardRouterSessionEffect({
   hasHydratedClientState,
   hasPreviewQuery,
@@ -313,6 +379,9 @@ function useDashboardRouterSessionEffect({
 
     let isCanceled = false;
 
+    /**
+     *
+     */
     const loadSession = async () => {
       try {
         const session = await AuthService.getSession();
@@ -354,6 +423,10 @@ function useDashboardRouterSessionEffect({
   ]);
 }
 
+/**
+ * @param initialSession
+ * @param initialPreviewMode
+ */
 function useDashboardRouterSessionState(
   initialSession: AuthSession | undefined,
   initialPreviewMode: boolean,
@@ -383,6 +456,13 @@ function useDashboardRouterSessionState(
   };
 }
 
+/**
+ * @param root0
+ * @param root0.hasPreviewQuery
+ * @param root0.initialAutoLoginPath
+ * @param root0.initialPreviewMode
+ * @param root0.initialSession
+ */
 function useDashboardRouterState({
   hasPreviewQuery,
   initialAutoLoginPath,

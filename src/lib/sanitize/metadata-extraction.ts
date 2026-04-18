@@ -6,6 +6,9 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
+/**
+ * @param rawHtml
+ */
 export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   const imageUrl = readMetaTagContent(rawHtml, [
     "og:image",
@@ -52,7 +55,10 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   );
 }
 
-/** Parse page title from HTML via og:title, first `<h1>`, or `<title>`. */
+/**
+ * Parse page title from HTML via og:title, first `<h1>`, or `<title>`.
+ * @param html
+ */
 export function parsePageTitle(html: string): null | string {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const tag of metaTags) {
@@ -72,6 +78,10 @@ export function parsePageTitle(html: string): null | string {
   return null;
 }
 
+/**
+ * @param rawHtml
+ * @param keys
+ */
 export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
   const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
@@ -88,6 +98,9 @@ export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   return "";
 }
 
+/**
+ * @param tag
+ */
 function parseMetaTagAttributes(tag: string): Record<string, string> {
   const attributes: Record<string, string> = {};
 
@@ -102,10 +115,18 @@ function parseMetaTagAttributes(tag: string): Record<string, string> {
   return attributes;
 }
 
+/**
+ * @param tag
+ * @param attribute
+ */
 function readMetaTagAttribute(tag: string, attribute: string): string {
   return parseMetaTagAttributes(tag)[attribute.toLowerCase()] ?? "";
 }
 
+/**
+ * @param html
+ * @param tagName
+ */
 function readTagText(html: string, tagName: "h1" | "title"): string {
   const tagMatch = (
     tagName === "h1"

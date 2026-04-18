@@ -31,6 +31,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { type AuthSession } from "@/lib/core";
 import { useLocalStorage } from "@/lib/hooks";
 
+/**
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.distillStrategy
+ * @param root0.isLightMode
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.usePlaceholderData
+ * @param root0.viewKey
+ */
 export function DashboardApplicationSurface({
   backgroundMode,
   distillStrategy,
@@ -76,6 +86,16 @@ export function DashboardApplicationSurface({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.initialAutoLoginPath
+ * @param root0.initialFormError
+ * @param root0.onAuthenticated
+ * @param root0.onEnterPreview
+ * @param root0.shouldAutoLogin
+ * @param root0.viewKey
+ */
 export function DashboardLoginSurface({
   allowSignup,
   initialAutoLoginPath,
@@ -117,6 +137,10 @@ export function DashboardLoginSurface({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.viewKey
+ */
 export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
   const [mobileGroupedLayout] = useLocalStorage(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
@@ -165,6 +189,11 @@ export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.isLightMode
+ */
 function DashboardBackground({
   backgroundMode,
   isLightMode,

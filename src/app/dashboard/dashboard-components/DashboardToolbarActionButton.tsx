@@ -22,7 +22,15 @@ export const toolbarActionButtonLayoutClassName =
 /** Shared toolbar action skeleton footprint for non-theme icon actions. */
 export const toolbarActionSkeletonClassName = "size-4 rounded-sm";
 
-/** Renders a canonical icon button for dashboard toolbar actions. */
+/**
+ * Renders a canonical icon button for dashboard toolbar actions.
+ * @param root0
+ * @param root0.ariaLabel
+ * @param root0.className
+ * @param root0.icon
+ * @param root0.isPending
+ * @param root0.onClick
+ */
 export function DashboardToolbarActionButton({
   ariaLabel,
   className,
@@ -52,7 +60,12 @@ export function DashboardToolbarActionButton({
   );
 }
 
-/** Swaps a toolbar icon for a skeleton while its action is active. */
+/**
+ * Swaps a toolbar icon for a skeleton while its action is active.
+ * @param root0
+ * @param root0.icon
+ * @param root0.isPending
+ */
 export function DashboardToolbarActionIcon({
   icon: Icon,
   isPending,

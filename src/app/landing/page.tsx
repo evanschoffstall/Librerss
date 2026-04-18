@@ -38,6 +38,9 @@ const LANDING_GLOW_TRANSITION = {
   repeatType: "mirror" as const,
 };
 
+/**
+ * @param delay
+ */
 function getLandingRevealTransition(delay: number) {
   return {
     ...LANDING_REVEAL_TRANSITION,
@@ -45,6 +48,9 @@ function getLandingRevealTransition(delay: number) {
   };
 }
 
+/**
+ *
+ */
 const LandingView = () => {
   return (
     <div className="relative box-border flex flex-1 flex-col overflow-hidden">
@@ -150,6 +156,9 @@ export default function Landing() {
   );
 }
 
+/**
+ *
+ */
 function LandingBackground() {
   return (
     <>
@@ -200,6 +209,13 @@ function LandingBackground() {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.delay
+ * @param root0.desc
+ * @param root0.icon
+ * @param root0.label
+ */
 function LandingFeatureCard({
   delay,
   desc,
@@ -273,6 +289,9 @@ function LandingFeatureCard({
   );
 }
 
+/**
+ *
+ */
 function LandingFeatureGrid() {
   return (
     <div
@@ -294,6 +313,9 @@ function LandingFeatureGrid() {
   );
 }
 
+/**
+ *
+ */
 function LandingHero() {
   return (
     <div
@@ -341,6 +363,9 @@ function LandingHero() {
   );
 }
 
+/**
+ *
+ */
 function LandingHeroCallToAction() {
   return (
     <motion.div

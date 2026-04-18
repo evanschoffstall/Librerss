@@ -9,13 +9,20 @@ interface UseSettingsOpmlImportStateOptions {
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
 }
 
-/** Owns OPML file parsing and import lifecycle state for the settings surface. */
+/**
+ * Owns OPML file parsing and import lifecycle state for the settings surface.
+ * @param root0
+ * @param root0.onImportOpml
+ */
 export function useSettingsOpmlImportState({
   onImportOpml,
 }: UseSettingsOpmlImportStateOptions) {
   const [isImportingOpml, setIsImportingOpml] = useState(false);
   const opmlInputRef = useRef<HTMLInputElement | null>(null);
 
+  /**
+   * @param event
+   */
   const handleOpmlFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.currentTarget.value = "";

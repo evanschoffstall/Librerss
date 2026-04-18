@@ -75,6 +75,10 @@ interface StoredUserProxyRow {
 /**
  * Compares the direct and proxied public egress IPs using the same HTTPCloak
  * request path used by upstream fetches.
+ * @param options
+ * @param options.allowInsecureTls
+ * @param options.proxyUrl
+ * @param deps
  */
 export async function getProxyRoutingCheck(
   options: {
@@ -124,6 +128,7 @@ export async function getProxyRoutingCheck(
 
 /**
  * Returns a simple reachability check for the user's configured proxy.
+ * @param userId
  */
 export async function getProxyStatus(
   userId: number,
@@ -162,6 +167,7 @@ export async function getProxyStatus(
  * user. Returns `undefined` proxy URL when the user has no proxy configured.
  *
  * Throws {@link ServerServiceError} when stored credentials cannot be materialized.
+ * @param userId
  */
 export async function resolveUserProxy(
   userId: number,
@@ -186,6 +192,13 @@ export async function resolveUserProxy(
   return { allowInsecureTls: row.allowInsecureTls, proxyUrl };
 }
 
+/**
+ * @param options
+ * @param options.baseProxyUrl
+ * @param options.decryptedProxyPassword
+ * @param options.embeddedCredentials
+ * @param options.proxyUsername
+ */
 function buildResolvedProxyUrl(options: {
   baseProxyUrl: string | undefined;
   decryptedProxyPassword: null | string;
@@ -223,6 +236,9 @@ function buildResolvedProxyUrl(options: {
   );
 }
 
+/**
+ * @param userId
+ */
 async function loadStoredUserProxyRow(
   userId: number,
 ): Promise<StoredUserProxyRow | undefined> {
@@ -242,6 +258,10 @@ async function loadStoredUserProxyRow(
   return rows[0];
 }
 
+/**
+ * @param row
+ * @param userId
+ */
 async function materializeProxyPassword(
   row: StoredUserProxyRow,
   userId: number,
@@ -271,6 +291,9 @@ async function materializeProxyPassword(
   }
 }
 
+/**
+ * @param proxyUrl
+ */
 function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
   const trimmedProxyUrl = proxyUrl?.trim();
   const canonicalProxyUrl = trimmedProxyUrl
@@ -289,6 +312,9 @@ function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
   return canonicalProxyUrl;
 }
 
+/**
+ * @param body
+ */
 function parsePlainTextPublicIpPayload(body: string): { ip: string } {
   const trimmedBody = body.trim();
 
@@ -299,6 +325,10 @@ function parsePlainTextPublicIpPayload(body: string): { ip: string } {
   return { ip: trimmedBody };
 }
 
+/**
+ * @param provider
+ * @param body
+ */
 function parseProviderPublicIpPayload(
   provider: PublicIpProvider,
   body: string,
@@ -310,6 +340,7 @@ function parseProviderPublicIpPayload(
 
 /**
  * Parses and validates the fixed JSON payload returned by the public IP echo.
+ * @param body
  */
 function parsePublicIpPayload(body: string): { ip: string } {
   let parsedBody: unknown;
@@ -335,6 +366,9 @@ function parsePublicIpPayload(body: string): { ip: string } {
 
 /**
  * Fetches a public IP echo payload through HTTPCloak and validates the result.
+ * @param proxyUrl
+ * @param allowInsecureTls
+ * @param fetchPublicIp
  */
 async function readPublicIp(
   proxyUrl: string | undefined,
@@ -370,10 +404,16 @@ async function readPublicIp(
   throw lastError ?? new Error("Exit IP check failed.");
 }
 
+/**
+ * @param proxyUrl
+ */
 function resolveEmbeddedCredentials(proxyUrl: string | undefined) {
   return proxyUrl ? getUrlCredentials(proxyUrl) : null;
 }
 
+/**
+ * @param result
+ */
 function toSettledReason(result: PromiseSettledResult<string>): string {
   if (result.status === "fulfilled") {
     return "Exit IP check completed without an error.";
@@ -386,6 +426,7 @@ function toSettledReason(result: PromiseSettledResult<string>): string {
 
 /**
  * Restricts the egress proof request to the fixed public IP echo endpoint.
+ * @param candidateUrl
  */
 function validatePublicIpEndpoint(candidateUrl: string): boolean {
   const parsedUrl = new URL(candidateUrl);

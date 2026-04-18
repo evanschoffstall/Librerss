@@ -1,6 +1,9 @@
 import type { FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data/batch/batch";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
 
+/**
+ * @param batchResults
+ */
 export function getNewestLastFetchedAt(
   batchResults: BatchFeedResponseItem[],
 ): Date | null {
@@ -17,6 +20,9 @@ export function getNewestLastFetchedAt(
   }, null);
 }
 
+/**
+ * @param sources
+ */
 export function getSourceNamesByUrl(
   sources: FeedBatchSource[],
 ): Map<string, string | undefined> {

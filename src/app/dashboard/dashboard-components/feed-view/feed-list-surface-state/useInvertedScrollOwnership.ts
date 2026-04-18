@@ -17,6 +17,7 @@ interface InvertedScrollOwnershipState {
  * Inverted feeds auto-anchor only until the reader intentionally scrolls or an
  * interaction claims ownership. Keeping that bookkeeping isolated keeps the
  * higher-level feed surface hook focused on composition.
+ * @param scrollViewport
  */
 export function useInvertedScrollOwnership(
   scrollViewport: HTMLElement | null,

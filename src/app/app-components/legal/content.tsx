@@ -22,6 +22,9 @@ interface LegalDeploymentProfile {
 
 type LegalProfile = (typeof LEGAL_PROFILES)[number];
 
+/**
+ * @param rawValue
+ */
 const trimOptionalEnv = (rawValue: string | undefined): string | undefined => {
   if (rawValue === undefined) {
     return undefined;
@@ -31,6 +34,11 @@ const trimOptionalEnv = (rawValue: string | undefined): string | undefined => {
   return trimmedValue === "" ? undefined : trimmedValue;
 };
 
+/**
+ * @param key
+ * @param rawValue
+ * @param maximumLength
+ */
 const readOptionalDisplayEnv = (
   key: string,
   rawValue: string | undefined,
@@ -51,6 +59,10 @@ const readOptionalDisplayEnv = (
   return value;
 };
 
+/**
+ * @param key
+ * @param rawValue
+ */
 const readOptionalEmailEnv = (
   key: string,
   rawValue: string | undefined,
@@ -68,6 +80,9 @@ const readOptionalEmailEnv = (
   return value;
 };
 
+/**
+ *
+ */
 const readLegalProfile = (): LegalProfile => {
   const rawValue = trimOptionalEnv(process.env.LEGAL_PROFILE)?.toLowerCase();
 
@@ -114,16 +129,26 @@ export const getLegalDeploymentProfile = (): LegalDeploymentProfile => {
   };
 };
 
+/**
+ * @param profile
+ */
 function resolveDefaultDeploymentName(profile: LegalProfile): string {
   return profile === "official"
     ? DEFAULT_OFFICIAL_DEPLOYMENT_NAME
     : DEFAULT_GENERIC_DEPLOYMENT_NAME;
 }
 
+/**
+ * @param profile
+ */
 function resolveDefaultOperatorName(profile: LegalProfile): string | undefined {
   return profile === "official" ? DEFAULT_OFFICIAL_OPERATOR_NAME : undefined;
 }
 
+/**
+ * @param profile
+ * @param topicLabel
+ */
 const buildContactCard = (
   profile: LegalDeploymentProfile,
   topicLabel: string,
@@ -168,6 +193,9 @@ const buildContactCard = (
   return `Contact the person or organization operating ${profile.deploymentName}. Other LibreRSS deployments are responsible for publishing and maintaining their own legal details.`;
 };
 
+/**
+ * @param profile
+ */
 const buildPrivacySections = (
   profile: LegalDeploymentProfile,
 ): readonly LegalSection[] => [
@@ -206,6 +234,9 @@ const buildPrivacySections = (
   },
 ];
 
+/**
+ * @param profile
+ */
 const buildTermsSections = (
   profile: LegalDeploymentProfile,
 ): readonly LegalSection[] => [

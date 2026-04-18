@@ -32,6 +32,18 @@ interface DashboardRuntimeStateOptions {
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
 
+/**
+ * @param root0
+ * @param root0.articleActions
+ * @param root0.articleWindowState
+ * @param root0.dashboardState
+ * @param root0.feedLoader
+ * @param root0.loadingState
+ * @param root0.refreshState
+ * @param root0.selectedCategoryNode
+ * @param root0.usePlaceholderData
+ * @param root0.viewModelState
+ */
 export function useDashboardRuntimeState({
   articleActions,
   articleWindowState,
@@ -50,9 +62,15 @@ export function useDashboardRuntimeState({
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter: dashboardState.articleFilter,
     capturePreExpandSnapshot: articleActions.capturePreExpandSnapshot,
+    /**
+     * @param article
+     */
     handleArticleToggle: (article) => {
       void articleActions.handleArticleToggle(article);
     },
+    /**
+     * @param article
+     */
     handleExpandedSwipeRead: (article) => {
       void articleActions.handleExpandedSwipeRead(article);
     },
@@ -87,6 +105,17 @@ export function useDashboardRuntimeState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleActions
+ * @param root0.articleWindowState
+ * @param root0.dashboardState
+ * @param root0.feedLoader
+ * @param root0.loadingState
+ * @param root0.selectedCategoryNode
+ * @param root0.usePlaceholderData
+ * @param root0.viewModelState
+ */
 function buildDashboardRuntimeDataState({
   articleActions,
   articleWindowState,
@@ -113,11 +142,18 @@ function buildDashboardRuntimeDataState({
     selectedCategoryNode,
     selectedFeed: viewModelState.dashboardViewModel.selectedFeed,
     selectedFeedUrl: viewModelState.dashboardViewModel.selectedFeedUrl,
+    selectionArticleLimit: dashboardState.articlesPerPage,
     timeoutMs: feedLoader.FEED_LOADING_FAILSAFE_MS,
     usePlaceholderData,
   };
 }
 
+/**
+ * @param root0
+ * @param root0.dashboardState
+ * @param root0.feedLoader
+ * @param root0.refreshState
+ */
 function buildDashboardRuntimeSetterState({
   dashboardState,
   feedLoader,
@@ -144,6 +180,9 @@ function buildDashboardRuntimeSetterState({
     setRelativeRefreshTick: refreshState.setRelativeRefreshTick,
     setSearchTerm: dashboardState.setSearchTerm,
     setSelectedCategory: dashboardState.setSelectedCategory,
+    /**
+     *
+     */
     setShowSettingsModal: () => {
       dashboardState.setShowSettingsModal(true);
     },

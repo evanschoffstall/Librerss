@@ -15,7 +15,16 @@ interface LoginValidationInput {
   password: string;
 }
 
-/** Validates the login or signup form and returns field-scoped errors when invalid. */
+/**
+ * Validates the login or signup form and returns field-scoped errors when invalid.
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.confirmPassword
+ * @param root0.email
+ * @param root0.hasAcceptedLegalTerms
+ * @param root0.mode
+ * @param root0.password
+ */
 export function validateLoginFields({
   allowSignup,
   confirmPassword,
@@ -51,6 +60,12 @@ export function validateLoginFields({
   return Object.keys(errors).length > 0 ? errors : null;
 }
 
+/**
+ * @param errors
+ * @param password
+ * @param confirmPassword
+ * @param hasAcceptedLegalTerms
+ */
 function validateSignupFields(
   errors: LoginFieldErrors,
   password: string,

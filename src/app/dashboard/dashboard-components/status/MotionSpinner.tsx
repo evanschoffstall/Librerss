@@ -10,7 +10,12 @@ interface MotionSpinnerProps {
   iconClassName?: string;
 }
 
-/** Renders a dashboard spinner using Motion instead of CSS keyframe classes. */
+/**
+ * Renders a dashboard spinner using Motion instead of CSS keyframe classes.
+ * @param root0
+ * @param root0.className
+ * @param root0.iconClassName
+ */
 export function MotionSpinner({
   className,
   iconClassName,

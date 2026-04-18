@@ -9,6 +9,7 @@ const IP_TOKEN_RE = /^[\da-f:.]{1,64}$/i;
  * parsing. False negatives degrade to the shared "unknown" bucket; false
  * positives would let attackers manufacture buckets, so this validator stays
  * intentionally strict.
+ * @param value
  */
 export function isLikelyIpAddress(value: string): boolean {
   const candidate = value.trim();
@@ -27,6 +28,9 @@ export function isLikelyIpAddress(value: string): boolean {
   return false;
 }
 
+/**
+ * @param value
+ */
 function isValidIpv4Address(value: string): boolean {
   const segments = value.split(".");
   if (segments.length !== 4) {
@@ -43,6 +47,9 @@ function isValidIpv4Address(value: string): boolean {
   });
 }
 
+/**
+ * @param value
+ */
 function isValidIpv6Address(value: string): boolean {
   const normalized = value.trim();
   if (!normalized.includes(":")) {

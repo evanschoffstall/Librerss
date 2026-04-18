@@ -13,6 +13,10 @@ import {
 } from "@/app/dashboard/settings-state";
 import { Separator } from "@/components/ui/separator";
 
+/**
+ * @param root0
+ * @param root0.isPreviewMode
+ */
 export function SettingsProxySection({
   isPreviewMode = false,
 }: {
@@ -23,7 +27,10 @@ export function SettingsProxySection({
   return <SettingsProxySectionContent {...proxyState} />;
 }
 
-/** Renders the proxy settings surface from an already-owned proxy state model. */
+/**
+ * Renders the proxy settings surface from an already-owned proxy state model.
+ * @param proxyState
+ */
 export function SettingsProxySectionContent(
   proxyState: UseSettingsProxyStateResult,
 ) {
@@ -94,12 +101,27 @@ export function SettingsProxySectionContent(
   );
 }
 
+/**
+ * @param proxyStatus
+ */
 function getProxyBadgeStatus(
   proxyStatus: UseSettingsProxyStateResult["proxyStatus"],
 ) {
   return proxyStatus === "loading" ? null : proxyStatus;
 }
 
+/**
+ * @param root0
+ * @param root0.hasProxy
+ * @param root0.hasProxyPassword
+ * @param root0.isInitialProxyLoadPending
+ * @param root0.proxyPassword
+ * @param root0.proxyRoutingCheck
+ * @param root0.proxyStatus
+ * @param root0.proxyUrl
+ * @param root0.proxyUsername
+ * @param root0.saving
+ */
 function getProxySectionViewState({
   hasProxy,
   hasProxyPassword,
@@ -143,6 +165,12 @@ function getProxySectionViewState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.badgeStatus
+ * @param root0.hasProxy
+ * @param root0.proxyRoutingCheck
+ */
 function shouldShowProxyStatusBadges({
   badgeStatus,
   hasProxy,

@@ -17,6 +17,12 @@ interface PendingServerRevealOptions {
   startServerLoadRearmCooldown: () => void;
 }
 
+/**
+ * @param options
+ * @param options.hasCollapsingArticles
+ * @param options.hasCollapsingArticlesRef
+ * @param options.hasCollapsingArticlesRef.current
+ */
 export function useCollapsingArticlesRefSync(options: {
   hasCollapsingArticles: boolean;
   hasCollapsingArticlesRef: { current: boolean };
@@ -26,6 +32,9 @@ export function useCollapsingArticlesRefSync(options: {
   }, [options.hasCollapsingArticles, options.hasCollapsingArticlesRef]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedPaginationLoadingMoreRevealEffect(
   options: PendingServerRevealOptions & {
     isLoadingMore: boolean;
@@ -77,6 +86,14 @@ export function useFeedPaginationLoadingMoreRevealEffect(
   ]);
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.feedViewKey
+ * @param options.isInvertedScroll
+ * @param options.resetPaginationState
+ * @param options.searchTerm
+ */
 export function useFeedPaginationQueryResetEffect(options: {
   articleFilter: string;
   feedViewKey: string;
@@ -109,6 +126,20 @@ export function useFeedPaginationQueryResetEffect(options: {
   ]);
 }
 
+/**
+ * @param options
+ * @param options.hasUserScrolledRef
+ * @param options.hasUserScrolledRef.current
+ * @param options.isInvertedScroll
+ * @param options.isLoadingMore
+ * @param options.isRefreshing
+ * @param options.isStandardViewportRefillActiveRef
+ * @param options.isStandardViewportRefillActiveRef.current
+ * @param options.previousRefreshEpochRef
+ * @param options.previousRefreshEpochRef.current
+ * @param options.refreshEpoch
+ * @param options.resetPaginationState
+ */
 export function useFeedPaginationRefreshResetEffect(options: {
   hasUserScrolledRef: { current: boolean };
   isInvertedScroll: boolean;
@@ -154,6 +185,9 @@ export function useFeedPaginationRefreshResetEffect(options: {
   ]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedPaginationRevealCountEffect(
   options: PendingServerRevealOptions & {
     commitVisibleArticleCount: (nextVisibleCount: number) => void;
@@ -230,6 +264,15 @@ export function useFeedPaginationRevealCountEffect(
   ]);
 }
 
+/**
+ * @param options
+ * @param options.filteredFeedLength
+ * @param options.isInitialLoading
+ * @param options.maybeAutoFillViewport
+ * @param options.scrollViewport
+ * @param options.shouldUseVirtualizedFeed
+ * @param options.visibleArticleCount
+ */
 export function useInitialFeedPaginationAutoFillEffect(options: {
   filteredFeedLength: number;
   isInitialLoading: boolean;
@@ -270,6 +313,11 @@ export function useInitialFeedPaginationAutoFillEffect(options: {
   ]);
 }
 
+/**
+ * @param options
+ * @param options.isMountedRef
+ * @param options.isMountedRef.current
+ */
 export function useMountedFlagCleanupEffect(options: {
   isMountedRef: { current: boolean };
 }) {
@@ -280,6 +328,9 @@ export function useMountedFlagCleanupEffect(options: {
   }, [options.isMountedRef]);
 }
 
+/**
+ * @param options
+ */
 export function useRearmPaginationBoundaryFromUserIntent(
   options: PaginationBoundaryUserIntentOptions,
 ) {
@@ -336,6 +387,14 @@ export function useRearmPaginationBoundaryFromUserIntent(
   ]);
 }
 
+/**
+ * @param options
+ * @param options.filteredFeedLength
+ * @param options.hasResolvedStandardViewportRevealRef
+ * @param options.hasResolvedStandardViewportRevealRef.current
+ * @param options.isInvertedScroll
+ * @param options.maybeAutoFillViewport
+ */
 export function useResolvedStandardViewportRevealEffect(options: {
   filteredFeedLength: number;
   hasResolvedStandardViewportRevealRef: { current: boolean };
@@ -363,6 +422,12 @@ export function useResolvedStandardViewportRevealEffect(options: {
   ]);
 }
 
+/**
+ * @param options
+ * @param options.visibleArticleCount
+ * @param options.visibleArticleCountRef
+ * @param options.visibleArticleCountRef.current
+ */
 export function useVisibleArticleCountRefSync(options: {
   visibleArticleCount: number;
   visibleArticleCountRef: { current: number };
@@ -372,6 +437,9 @@ export function useVisibleArticleCountRefSync(options: {
   }, [options.visibleArticleCount, options.visibleArticleCountRef]);
 }
 
+/**
+ * @param options
+ */
 function completePendingServerReveal(options: PendingServerRevealOptions) {
   options.hasPendingServerRevealRef.current = false;
   if (options.isInvertedScroll) {

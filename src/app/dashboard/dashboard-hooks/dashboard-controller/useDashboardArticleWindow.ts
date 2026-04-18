@@ -76,6 +76,7 @@ interface UseDashboardArticleWindowOptions extends FeedSelectionFetchers {
  * The dashboard controller consumes this hook as the single authority for
  * server-backed feed pagination so the controller can remain focused on wiring
  * together surface state instead of manually coordinating many pagination refs.
+ * @param options
  */
 export function useDashboardArticleWindow(
   options: UseDashboardArticleWindowOptions,
@@ -114,6 +115,9 @@ export function useDashboardArticleWindow(
   };
 }
 
+/**
+ * @param articleWindowState
+ */
 function getDashboardArticleWindowAvailabilityState(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
 ) {
@@ -139,6 +143,10 @@ function getDashboardArticleWindowAvailabilityState(
   };
 }
 
+/**
+ * @param articleWindowState
+ * @param options
+ */
 function getDashboardArticleWindowControlCounts(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
   options: UseDashboardArticleWindowOptions,
@@ -151,6 +159,16 @@ function getDashboardArticleWindowControlCounts(
   });
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.articleWindowState
+ * @param root0.currentFeedLength
+ * @param root0.isLoading
+ * @param root0.selectedCategory
+ * @param root0.shouldUseArticleWindow
+ */
 function useDashboardArticleWindowAvailabilityLifecycle({
   articleFilter,
   articlesPerPage,
@@ -209,6 +227,11 @@ function useDashboardArticleWindowAvailabilityLifecycle({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.articleWindowState
+ * @param root0.options
+ */
 function useDashboardArticleWindowControls({
   articleWindowState,
   options,
@@ -237,6 +260,22 @@ function useDashboardArticleWindowControls({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.articleWindowState
+ * @param root0.currentFeedLength
+ * @param root0.currentFilteredFeedLength
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.isLoading
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ * @param root0.shouldUseArticleWindow
+ */
 function useDashboardArticleWindowLifecycle({
   articleFilter,
   articlesPerPage,
@@ -278,6 +317,11 @@ function useDashboardArticleWindowLifecycle({
   });
 }
 
+/**
+ * @param articleWindowState
+ * @param options
+ * @param prefetchNextPage
+ */
 function useDashboardArticleWindowLoadMoreControl(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
   options: UseDashboardArticleWindowOptions,
@@ -312,6 +356,10 @@ function useDashboardArticleWindowLoadMoreControl(
   });
 }
 
+/**
+ * @param articleWindowState
+ * @param options
+ */
 function useDashboardArticleWindowNextPagePrefetch(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
   options: UseDashboardArticleWindowOptions,
@@ -334,6 +382,11 @@ function useDashboardArticleWindowNextPagePrefetch(
   });
 }
 
+/**
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.shouldUseArticleWindow
+ */
 function useDashboardArticleWindowState({
   articlesPerPage,
   shouldUseArticleWindow,
@@ -374,6 +427,22 @@ function useDashboardArticleWindowState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.articleWindowState
+ * @param root0.currentFeedLength
+ * @param root0.currentFilteredFeedLength
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.isLoading
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ * @param root0.shouldUseArticleWindow
+ */
 function useDashboardArticleWindowUnreadRefillLifecycle({
   articleFilter,
   articlesPerPage,

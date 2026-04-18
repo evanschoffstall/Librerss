@@ -26,6 +26,8 @@ interface FeedLoadMoreSkeletonRowsProps {
  * — meta row (date + dot + favicon + source + action buttons), two-line title,
  * and single-line preview — so the first hydrated frame does not shift wrapper
  * spacing, header rails, or preview rhythm when real articles replace them.
+ * @param root0
+ * @param root0.isInvertedScroll
  */
 export function FeedListSkeleton({
   isInvertedScroll = false,
@@ -64,6 +66,8 @@ export function FeedListSkeleton({
  *
  * The placeholder count is caller-controlled so load-more flows can reserve the
  * exact next page footprint and grow the scrollbar immediately.
+ * @param root0
+ * @param root0.count
  */
 export function FeedLoadMoreSkeletonRows({
   count,

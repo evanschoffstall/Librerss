@@ -9,7 +9,13 @@ interface DashboardToolbarSkeletonProps {
   mobileToolbarMirror: boolean;
 }
 
-/** Mirrors the full toolbar footprint while the dashboard shell is still hydrating. */
+/**
+ * Mirrors the full toolbar footprint while the dashboard shell is still hydrating.
+ * @param root0
+ * @param root0.isDevelopmentMode
+ * @param root0.mobileToolbarBottom
+ * @param root0.mobileToolbarMirror
+ */
 export function DashboardToolbarSkeleton({
   isDevelopmentMode,
   mobileToolbarBottom,
@@ -63,6 +69,10 @@ export function DashboardToolbarSkeleton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.desktopActionCount
+ */
 function ToolbarDesktopActions({
   desktopActionCount,
 }: {
@@ -92,6 +102,9 @@ function ToolbarDesktopActions({
   );
 }
 
+/**
+ *
+ */
 function ToolbarMobileActions() {
   return (
     <div
@@ -117,6 +130,9 @@ function ToolbarMobileActions() {
   );
 }
 
+/**
+ *
+ */
 function ToolbarMobileEdgeAction() {
   return (
     <Skeleton
@@ -130,6 +146,9 @@ function ToolbarMobileEdgeAction() {
   );
 }
 
+/**
+ *
+ */
 function ToolbarSearchSkeleton() {
   return (
     <div
@@ -141,6 +160,9 @@ function ToolbarSearchSkeleton() {
   );
 }
 
+/**
+ *
+ */
 function ToolbarTitleSkeleton() {
   return (
     <div

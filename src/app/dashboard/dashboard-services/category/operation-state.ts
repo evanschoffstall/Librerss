@@ -13,6 +13,11 @@ import {
   removeCategoryLabel,
 } from "@/lib/utils";
 
+/**
+ * @param categories
+ * @param customCategoryLabels
+ * @param labelToRemove
+ */
 export function getCategoryRemovalTarget(
   categories: CategoryTreeNode[],
   customCategoryLabels: string[],
@@ -23,6 +28,11 @@ export function getCategoryRemovalTarget(
     .find((label) => !isSameCategoryLabel(label, labelToRemove));
 }
 
+/**
+ * @param setCustomCategoryLabels
+ * @param setOrderedCategoryLabels
+ * @param label
+ */
 export function removeCategoryFromLabelCollections(
   setCustomCategoryLabels: Dispatch<SetStateAction<string[]>>,
   setOrderedCategoryLabels: Dispatch<SetStateAction<string[]>>,
@@ -35,6 +45,11 @@ export function removeCategoryFromLabelCollections(
   );
 }
 
+/**
+ * @param currentCategories
+ * @param labelToRemove
+ * @param targetCategory
+ */
 export function removeCategoryFromLocalState(
   currentCategories: CategoryTreeNode[],
   labelToRemove: string,
@@ -85,6 +100,12 @@ export function removeCategoryFromLocalState(
   return nextCategories;
 }
 
+/**
+ * @param root0
+ * @param root0.refreshedCategories
+ * @param root0.selectedSourceUrl
+ * @param root0.setSelectedCategory
+ */
 export function restoreSelectedCategoryFromSourceUrl({
   refreshedCategories,
   selectedSourceUrl,
@@ -108,6 +129,11 @@ export function restoreSelectedCategoryFromSourceUrl({
   }
 }
 
+/**
+ * @param setCustomCategoryLabels
+ * @param setOrderedCategoryLabels
+ * @param update
+ */
 export function updateCategoryLabelCollections(
   setCustomCategoryLabels: Dispatch<SetStateAction<string[]>>,
   setOrderedCategoryLabels: Dispatch<SetStateAction<string[]>>,

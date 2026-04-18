@@ -28,6 +28,10 @@ interface StatusPostDeps {
   upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: serverApi.RouteHandlerContext | StatusPostDeps = {},
@@ -66,6 +70,9 @@ export async function POST(
   }
 }
 
+/**
+ * @param data
+ */
 function parseStatusPayload(
   data: Record<string, unknown>,
 ): Response | StatusPayload {

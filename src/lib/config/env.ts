@@ -29,10 +29,15 @@ const getBuildTimeDefaults = (): Record<string, string> => {
 /**
  * Reads an environment variable with build-time fallback. Runtime values
  * (hosting platform env vars, .env.local) always take precedence.
+ * @param key
  */
 export const getEnv = (key: string): string | undefined =>
   process.env[key] ?? getBuildTimeDefaults()[key];
 
+/**
+ * @param value
+ * @param key
+ */
 export function parseEnvBoolean(value: string, key: string): boolean {
   const normalized = value.trim().toLowerCase();
 
@@ -47,6 +52,10 @@ export function parseEnvBoolean(value: string, key: string): boolean {
   throw new Error(`Invalid boolean environment variable: ${key}`);
 }
 
+/**
+ * @param value
+ * @param key
+ */
 export function parseEnvNumber(value: string, key: string): number {
   const parsed = Number(value);
 
@@ -57,6 +66,10 @@ export function parseEnvNumber(value: string, key: string): number {
   return parsed;
 }
 
+/**
+ * @param value
+ * @param key
+ */
 export function requireEnvValue(
   value: string | undefined,
   key: string,
@@ -68,15 +81,28 @@ export function requireEnvValue(
   return value;
 }
 
+/**
+ * @param key
+ */
 export const envString = (key: string): string =>
   requireEnvValue(getEnv(key), key);
 
+/**
+ * @param key
+ */
 export const envNumber = (key: string): number =>
   parseEnvNumber(envString(key), key);
 
+/**
+ * @param key
+ */
 export const envBoolean = (key: string): boolean =>
   parseEnvBoolean(envString(key), key);
 
+/**
+ * @param key
+ * @param allowedValues
+ */
 export const envEnum = <T extends string>(
   key: string,
   allowedValues: readonly T[],

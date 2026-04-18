@@ -83,6 +83,9 @@ export interface UseDashboardControllerViewStateOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * @param options
+ */
 export function useDashboardControllerViewState(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -90,6 +93,10 @@ export function useDashboardControllerViewState(
   return useDashboardControllerStateMemo(controllerSections);
 }
 
+/**
+ * @param isFeedListInitialLoading
+ * @param settleMs
+ */
 export function useDashboardShellLoadingState(
   isFeedListInitialLoading: boolean,
   settleMs: number,
@@ -132,6 +139,9 @@ export function useDashboardShellLoadingState(
   return isShellLoading;
 }
 
+/**
+ * @param options
+ */
 function buildDashboardFeedListState(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -172,6 +182,9 @@ function buildDashboardFeedListState(
   };
 }
 
+/**
+ * @param options
+ */
 function buildDashboardFilterBarState(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -187,6 +200,9 @@ function buildDashboardFilterBarState(
   };
 }
 
+/**
+ * @param options
+ */
 function buildDashboardSettingsState(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -210,6 +226,9 @@ function buildDashboardSettingsState(
   };
 }
 
+/**
+ * @param options
+ */
 function buildDashboardSidebarState(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -229,6 +248,9 @@ function buildDashboardSidebarState(
   };
 }
 
+/**
+ * @param options
+ */
 function useDashboardControllerSections(
   options: UseDashboardControllerViewStateOptions,
 ) {
@@ -240,6 +262,9 @@ function useDashboardControllerSections(
   };
 }
 
+/**
+ * @param controllerSections
+ */
 function useDashboardControllerStateMemo(
   controllerSections: ReturnType<typeof useDashboardControllerSections>,
 ) {

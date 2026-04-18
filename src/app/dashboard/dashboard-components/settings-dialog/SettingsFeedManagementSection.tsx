@@ -20,7 +20,15 @@ interface SettingsFeedManagementSectionProps {
   state: SettingsModalState;
 }
 
-/** Renders feed import, export, and category/feed management controls. */
+/**
+ * Renders feed import, export, and category/feed management controls.
+ * @param root0
+ * @param root0.categories
+ * @param root0.isPreviewMode
+ * @param root0.onRemoveCategory
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.state
+ */
 export function SettingsFeedManagementSection({
   categories,
   isPreviewMode = false,
@@ -68,6 +76,15 @@ export function SettingsFeedManagementSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.isImportingOpml
+ * @param root0.isMobile
+ * @param root0.onImportClick
+ * @param root0.onOpmlFileChange
+ * @param root0.opmlInputRef
+ */
 function SettingsFeedManagementActions({
   categories,
   isImportingOpml,
@@ -136,6 +153,13 @@ function SettingsFeedManagementActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.onRemoveCategory
+ * @param root0.pendingCategoryRemovalLabel
+ * @param root0.state
+ */
 function SettingsFeedManagementList({
   categories,
   onRemoveCategory,

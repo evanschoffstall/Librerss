@@ -23,6 +23,9 @@ export { buildRefreshPlan, executeParallelRefreshes } from "./refresh-plans";
  *
  * Uses a single JOIN query to resolve both ownership and feed records in one
  * DB round-trip (previously two separate queries).
+ * @param db
+ * @param userId
+ * @param feedUrls
  */
 export async function resolveAuthorizedFeedRecords(
   db: ReturnType<DbMod["getDb"]>,
@@ -36,6 +39,12 @@ export async function resolveAuthorizedFeedRecords(
   return resolveAuthorizedFeedRecordResult(db, feedUrls, joinedRows);
 }
 
+/**
+ * @param db
+ * @param joinedRows
+ * @param missingUrls
+ * @param feedByUrl
+ */
 async function insertMissingFeedRecords(
   db: ReturnType<DbMod["getDb"]>,
   joinedRows: { proxyEnabled: boolean | null; sourceUrl: string }[],
@@ -67,6 +76,11 @@ async function insertMissingFeedRecords(
   }
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param feedUrls
+ */
 async function listAuthorizedFeedRows(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -93,6 +107,10 @@ async function listAuthorizedFeedRows(
     );
 }
 
+/**
+ * @param feedUrls
+ * @param joinedRows
+ */
 function resolveAllowedUrls(
   feedUrls: string[],
   joinedRows: { sourceUrl: string }[],
@@ -101,6 +119,11 @@ function resolveAllowedUrls(
   return feedUrls.filter((url) => ownedUrls.has(url));
 }
 
+/**
+ * @param db
+ * @param feedUrls
+ * @param joinedRows
+ */
 async function resolveAuthorizedFeedRecordResult(
   db: ReturnType<DbMod["getDb"]>,
   feedUrls: string[],
@@ -131,6 +154,10 @@ async function resolveAuthorizedFeedRecordResult(
 
 // ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
 
+/**
+ * @param joinedRows
+ * @param feedByUrl
+ */
 function setExistingFeedRecords(
   joinedRows: {
     feedId: null | number;

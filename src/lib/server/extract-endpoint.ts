@@ -78,10 +78,17 @@ interface ExtractRuntimeDeps {
   warn: typeof logger.warn;
 }
 
+/**
+ * @param url
+ */
 export function getHostname(url: string): string {
   return tryGetUrlHostname(url) ?? "";
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function handleArticleExtractPost(
   request: NextRequest,
   depsOrContext: ExtractPostDeps | RouteHandlerContext = {},
@@ -103,6 +110,10 @@ export async function handleArticleExtractPost(
   }
 }
 
+/**
+ * @param requestResolution
+ * @param deps
+ */
 async function buildExtractPayload(
   requestResolution: ExtractRequestResolution,
   deps: ExtractRuntimeDeps,
@@ -150,6 +161,12 @@ async function buildExtractPayload(
   return payload;
 }
 
+/**
+ * @param error
+ * @param context
+ * @param deps
+ * @param requestResolution
+ */
 function handleExtractFailure(
   error: unknown,
   context: ExtractRequestContext,
@@ -198,6 +215,10 @@ function handleExtractFailure(
   );
 }
 
+/**
+ * @param requestResolution
+ * @param deps
+ */
 async function resolveArticleHtml(
   requestResolution: ExtractRequestResolution,
   deps: ExtractRuntimeDeps,
@@ -225,6 +246,11 @@ async function resolveArticleHtml(
   );
 }
 
+/**
+ * @param request
+ * @param requireAuth
+ * @param isLocalPlaceholderRequest
+ */
 async function resolveAuthenticatedUserId(
   request: NextRequest,
   requireAuth: typeof requireMutableAuthenticatedUser,
@@ -248,6 +274,10 @@ async function resolveAuthenticatedUserId(
   return authResult.userId;
 }
 
+/**
+ * @param request
+ * @param deps
+ */
 async function resolveExtractRequest(
   request: NextRequest,
   deps: ExtractRuntimeDeps,
@@ -295,6 +325,11 @@ async function resolveExtractRequest(
   };
 }
 
+/**
+ * @param authUserId
+ * @param resolveUserProxy
+ * @param useProxy
+ */
 async function resolveProxyRequest(
   authUserId: number | undefined,
   resolveUserProxy: (userId: number) => Promise<ExtractResolvedUserProxy>,
@@ -328,6 +363,9 @@ async function resolveProxyRequest(
   }
 }
 
+/**
+ * @param strategy
+ */
 function resolveSupportedDistillStrategy(strategy: unknown): DistillStrategy {
   return resolveDistillStrategy(
     strategy,

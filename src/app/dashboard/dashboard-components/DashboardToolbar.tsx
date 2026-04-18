@@ -25,7 +25,12 @@ interface DashboardToolbarProps {
   startInShellLoading?: boolean;
 }
 
-/** Renders the persistent dashboard toolbar with search, feed actions, and settings controls. */
+/**
+ * Renders the persistent dashboard toolbar with search, feed actions, and settings controls.
+ * @param root0
+ * @param root0.isShellLoading
+ * @param root0.startInShellLoading
+ */
 export function DashboardToolbar({
   isShellLoading: controlledIsShellLoading,
   startInShellLoading = false,
@@ -48,6 +53,10 @@ export function DashboardToolbar({
   return <DashboardToolbarContent toolbar={toolbar} />;
 }
 
+/**
+ * @param root0
+ * @param root0.toolbar
+ */
 function DashboardToolbarContent({
   toolbar,
 }: {
@@ -108,6 +117,12 @@ function DashboardToolbarContent({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.handleSearchChange
+ * @param root0.isSearchPending
+ * @param root0.search
+ */
 function DashboardToolbarSearch({
   handleSearchChange,
   isSearchPending,
@@ -149,6 +164,12 @@ function DashboardToolbarSearch({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.children
+ * @param root0.mobileToolbarBottom
+ * @param root0.mobileToolbarMirror
+ */
 function DashboardToolbarShell({
   children,
   mobileToolbarBottom,
@@ -199,6 +220,10 @@ function DashboardToolbarShell({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.title
+ */
 function DashboardToolbarTitle({
   title,
 }: Pick<ReturnType<typeof useDashboardToolbarState>, "title">) {
@@ -215,6 +240,10 @@ function DashboardToolbarTitle({
   );
 }
 
+/**
+ * @param startInShellLoading
+ * @param controlledIsShellLoading
+ */
 function useDashboardToolbarPresentationState(
   startInShellLoading: boolean,
   controlledIsShellLoading?: boolean,

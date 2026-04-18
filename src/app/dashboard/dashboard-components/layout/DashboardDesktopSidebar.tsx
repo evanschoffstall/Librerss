@@ -23,7 +23,10 @@ interface DashboardDesktopSidebarProps {
  * This isolates desktop-only sidebar animation and scroll wiring from the main
  * dashboard route view.
  *
- * @param props Reveal state, scroll ref, and sidebar content props.
+ * @param props - Reveal state, scroll ref, and sidebar content props.
+ * @param props.isSidebarVisible
+ * @param props.sidebarContentProps
+ * @param props.sidebarScrollRef
  * @returns The desktop sidebar surface used inside the shared dashboard scaffold.
  */
 export function DashboardDesktopSidebar({

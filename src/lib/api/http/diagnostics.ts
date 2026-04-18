@@ -25,6 +25,10 @@ const SAFE_UPSTREAM_REQUEST_HEADERS = [
   "cache-control",
 ] as const;
 
+/**
+ * @param error
+ * @param isApiErrorFn
+ */
 export function buildApiFailureDiagnostics(
   error: unknown,
   isApiErrorFn: typeof isApiError = isApiError,
@@ -56,6 +60,9 @@ export function buildApiFailureDiagnostics(
   };
 }
 
+/**
+ *
+ */
 export function isVerboseLoggingEnabled(): boolean {
   const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
   if (envLevel) {
@@ -69,6 +76,10 @@ export function isVerboseLoggingEnabled(): boolean {
   }
 }
 
+/**
+ * @param data
+ * @param maxLength
+ */
 export function toBodySnippet(
   data: unknown,
   maxLength = 240,
@@ -94,6 +105,10 @@ export function toBodySnippet(
   return undefined;
 }
 
+/**
+ * @param headers
+ * @param allowed
+ */
 function pickAllowedHeaders(
   headers: unknown,
   allowed: readonly string[],
@@ -108,6 +123,10 @@ function pickAllowedHeaders(
   }, {});
 }
 
+/**
+ * @param text
+ * @param maxLength
+ */
 function toCompactSnippet(text: string, maxLength: number): string | undefined {
   const compact = text.replace(/\s+/g, " ").trim();
   if (!compact) {
@@ -119,6 +138,9 @@ function toCompactSnippet(text: string, maxLength: number): string | undefined {
     : compact;
 }
 
+/**
+ * @param headers
+ */
 function toHeaderRecord(headers: unknown): Record<string, string> {
   if (!headers || typeof headers !== "object") {
     return {};

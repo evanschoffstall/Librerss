@@ -1,6 +1,6 @@
 /**
  * Category normalization utilities
- * Centralizes category handling logic
+ * Centralizes category handling logic.
  */
 
 import type { CategoryTreeNode } from "@/lib/types";
@@ -9,6 +9,8 @@ export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 /**
  * Compares category labels with consistent trimming/case-folding.
+ * @param left
+ * @param right
  */
 export function isSameCategoryLabel(
   left?: null | string,
@@ -19,6 +21,7 @@ export function isSameCategoryLabel(
 
 /**
  * Stable key used for case-insensitive category label comparisons.
+ * @param label
  */
 export function normalizeCategoryLabelKey(label?: null | string): string {
   return label?.trim().toLowerCase() ?? "";
@@ -26,6 +29,7 @@ export function normalizeCategoryLabelKey(label?: null | string): string {
 
 /**
  * Returns a non-empty category label, defaulting to the canonical label.
+ * @param label
  */
 export function toCategoryLabelOrDefault(label?: null | string): string {
   return toOptionalCategoryLabel(label) ?? DEFAULT_CATEGORY_LABEL;
@@ -33,6 +37,7 @@ export function toCategoryLabelOrDefault(label?: null | string): string {
 
 /**
  * Trims category labels and returns null when empty/missing.
+ * @param label
  */
 function toOptionalCategoryLabel(label?: null | string): null | string {
   const trimmed = label?.trim();
@@ -53,9 +58,9 @@ const UNCATEGORIZED_VARIANTS = new Set([
 ]);
 
 /**
- * Normalizes category labels consistently across the application
- * @param label - Raw category label
- * @returns Normalized category label
+ * Normalizes category labels consistently across the application.
+ * @param label - Raw category label.
+ * @returns Normalized category label.
  */
 export function normalizeCategory(label?: null | string): string {
   const trimmed = toOptionalCategoryLabel(label);
@@ -75,11 +80,20 @@ export function normalizeCategory(label?: null | string): string {
 
 // ── Array helper methods for category operations ────────────────────────────
 
+/**
+ * @param labels
+ * @param target
+ */
 export const includesCategoryLabel = (
   labels: readonly string[],
   target: string,
 ): boolean => labels.some((label) => isSameCategoryLabel(label, target));
 
+/**
+ * @param labels
+ * @param currentLabel
+ * @param nextLabel
+ */
 export const replaceCategoryLabel = (
   labels: readonly string[],
   currentLabel: string,
@@ -89,11 +103,19 @@ export const replaceCategoryLabel = (
     isSameCategoryLabel(label, currentLabel) ? nextLabel : label,
   );
 
+/**
+ * @param labels
+ * @param target
+ */
 export const removeCategoryLabel = (
   labels: readonly string[],
   target: string,
 ): string[] => labels.filter((label) => !isSameCategoryLabel(label, target));
 
+/**
+ * @param categories
+ * @param label
+ */
 export const findCategoryByLabel = (
   categories: readonly CategoryTreeNode[],
   label: string,

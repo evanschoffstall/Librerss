@@ -32,12 +32,20 @@ export class Logger {
     "proxyurl",
   ]);
 
+  /**
+   * @param message
+   * @param context
+   */
   debug(message: string, context?: LogContext): void {
     if (!isDevelopment() || this.getCurrentLogLevel() !== "verbose") return;
     const sanitized = this.sanitizeContext(context);
     console.info(this.formatMessage("debug", message, sanitized));
   }
 
+  /**
+   * @param message
+   * @param context
+   */
   error(message: string, context?: LogContext): void {
     if (this.getCurrentLogLevel() === "none") return;
     if (!this.shouldEmitToConsole()) return;
@@ -45,6 +53,10 @@ export class Logger {
     console.error(this.formatMessage("error", message, sanitized));
   }
 
+  /**
+   * @param message
+   * @param context
+   */
   info(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
     if (logLevel === "none" || logLevel === "error" || logLevel === "warn") {
@@ -56,6 +68,10 @@ export class Logger {
     console.info(this.formatMessage("info", message, sanitized));
   }
 
+  /**
+   * @param message
+   * @param context
+   */
   warn(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
     if (logLevel === "none" || logLevel === "error") return;
@@ -64,6 +80,9 @@ export class Logger {
     console.warn(this.formatMessage("warn", message, sanitized));
   }
 
+  /**
+   * @param contextJson
+   */
   private formatContextBlock(contextJson: string): string {
     const lines = contextJson.split("\n");
     const heading = this.supportsColor()
@@ -80,6 +99,11 @@ export class Logger {
     return `${heading}\n${body}`;
   }
 
+  /**
+   * @param level
+   * @param message
+   * @param context
+   */
   private formatMessage(
     level: LogLevel,
     message: string,
@@ -102,14 +126,23 @@ export class Logger {
     return `${coloredLine}${contextStr}`;
   }
 
+  /**
+   *
+   */
   private getCurrentLogLevel(): "error" | "info" | "none" | "verbose" | "warn" {
     return CONFIG.LOG_LEVEL;
   }
 
+  /**
+   *
+   */
   private isColorEnabledByEnv(): boolean {
     return envBooleanOptional("LOG_COLORS_ENABLED", true);
   }
 
+  /**
+   * @param email
+   */
   private redactEmail(email: string): string {
     const atIdx = email.lastIndexOf("@");
     if (atIdx <= 0) {
@@ -121,6 +154,9 @@ export class Logger {
     return `${local.slice(0, 2)}***@${domain}`;
   }
 
+  /**
+   * @param context
+   */
   private sanitizeContext(context?: LogContext): LogContext | undefined {
     if (!context) return undefined;
 
@@ -129,6 +165,9 @@ export class Logger {
     return sanitized;
   }
 
+  /**
+   * @param value
+   */
   private sanitizeErrorValue(value: Error): {
     message: string;
     stack?: string;
@@ -138,6 +177,10 @@ export class Logger {
       : { message: value.message };
   }
 
+  /**
+   * @param value
+   * @param depth
+   */
   private sanitizeObjectValue(
     value: Record<string, unknown>,
     depth: number,
@@ -164,6 +207,10 @@ export class Logger {
     return output;
   }
 
+  /**
+   * @param value
+   * @param depth
+   */
   private sanitizeValue(value: unknown, depth: number): unknown {
     if (depth > 6) {
       return "[truncated]";
@@ -188,6 +235,9 @@ export class Logger {
     return value;
   }
 
+  /**
+   *
+   */
   private shouldEmitToConsole(): boolean {
     if (process.env.NODE_ENV !== "test") {
       return true;
@@ -196,6 +246,9 @@ export class Logger {
     return process.env.ENABLE_TEST_LOG_OUTPUT === "true";
   }
 
+  /**
+   *
+   */
   private supportsColor(): boolean {
     if (process.env.NODE_ENV === "test") return false;
     if (process.env.NO_COLOR === "1") return false;

@@ -33,7 +33,10 @@ interface HydrateArticleContentOptions {
   force?: boolean;
 }
 
-/** Safely escape an article key for use in a CSS attribute selector. */
+/**
+ * Safely escape an article key for use in a CSS attribute selector.
+ * @param articleKey
+ */
 export function escapeArticleKey(articleKey: string): string {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape(articleKey)
@@ -43,6 +46,10 @@ export function escapeArticleKey(articleKey: string): string {
 /**
  * Hydrate article bodies on demand while preventing overlapping requests for
  * the same article link from committing stale state.
+ * @param root0
+ * @param root0.distillStrategy
+ * @param root0.getFeedSettings
+ * @param root0.setFeed
  */
 export function useArticleHydration({
   distillStrategy,
@@ -68,6 +75,9 @@ export function useArticleHydration({
   };
 }
 
+/**
+ *
+ */
 function useArticleHydrationState() {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
     Record<string, boolean>
@@ -88,6 +98,9 @@ function useArticleHydrationState() {
   } satisfies ArticleHydrationState;
 }
 
+/**
+ * @param hydrationState
+ */
 function useCancelHydration(hydrationState: ArticleHydrationState) {
   return useCallback(
     (link: string) => {
@@ -102,6 +115,13 @@ function useCancelHydration(hydrationState: ArticleHydrationState) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.distillStrategy
+ * @param root0.getFeedSettings
+ * @param root0.hydrationState
+ * @param root0.setFeed
+ */
 function useHydrateArticleContent({
   distillStrategy,
   getFeedSettings,
@@ -178,6 +198,9 @@ function useHydrateArticleContent({
   );
 }
 
+/**
+ *
+ */
 function useScrollArticleIntoView() {
   return useCallback((articleKey: string) => {
     try {

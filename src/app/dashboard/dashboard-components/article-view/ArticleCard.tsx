@@ -51,6 +51,14 @@ interface ArticleCardProps {
   useRichFormatting: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.isExpanded
+ * @param root0.onExpandedSwipeRead
+ * @param root0.onSwipeRead
+ * @param root0.onToggleRead
+ */
 export function applyReadSwipeAction({
   article,
   isExpanded,
@@ -92,635 +100,716 @@ const ARTICLE_SURFACE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
 const COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 24;
 
 /** Renders a swipeable article card with header-scoped gestures while expanded. */
-export const ArticleCard = memo(function ArticleCard({
-  article,
-  articleKey,
-  hasScrapedContent,
-  isDark,
-  isExpanded,
-  isHydrating,
-  isMobile,
-  isUpdatingState,
-  onExpandedSwipeRead,
-  onPrepareExpand,
-  onSwipeRead,
-  onToggle,
-  onToggleRead,
-  onToggleStarred,
-  removalAnimationMode = null,
-  showFavicon,
-  useRichFormatting,
-}: ArticleCardProps) {
-  const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
-  const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
-  const isGradientTrackedRef = useRef(isExpanded);
-  const [isGradientTracked, setIsGradientTracked] = useState(isExpanded);
-  const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
-  const [supportsNativeShare] = useState(
-    () =>
-      typeof navigator !== "undefined" && typeof navigator.share === "function",
-  );
-  const isDevelopment = process.env.NODE_ENV === "development";
+export const ArticleCard = memo(
+  /**
+   * @param root0
+   * @param root0.article
+   * @param root0.articleKey
+   * @param root0.hasScrapedContent
+   * @param root0.isDark
+   * @param root0.isExpanded
+   * @param root0.isHydrating
+   * @param root0.isMobile
+   * @param root0.isUpdatingState
+   * @param root0.onExpandedSwipeRead
+   * @param root0.onPrepareExpand
+   * @param root0.onSwipeRead
+   * @param root0.onToggle
+   * @param root0.onToggleRead
+   * @param root0.onToggleStarred
+   * @param root0.removalAnimationMode
+   * @param root0.showFavicon
+   * @param root0.useRichFormatting
+   */
+  function ArticleCard({
+    article,
+    articleKey,
+    hasScrapedContent,
+    isDark,
+    isExpanded,
+    isHydrating,
+    isMobile,
+    isUpdatingState,
+    onExpandedSwipeRead,
+    onPrepareExpand,
+    onSwipeRead,
+    onToggle,
+    onToggleRead,
+    onToggleStarred,
+    removalAnimationMode = null,
+    showFavicon,
+    useRichFormatting,
+  }: ArticleCardProps) {
+    const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
+    const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
+    const isGradientTrackedRef = useRef(isExpanded);
+    const [isGradientTracked, setIsGradientTracked] = useState(isExpanded);
+    const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+    const [supportsNativeShare] = useState(
+      () =>
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function",
+    );
+    const isDevelopment = process.env.NODE_ENV === "development";
 
-  const rawHtml = article.content || "";
-  const { collapsedPreview, content, normalizedHtml, plainContent } =
-    useMemo(() => {
-      const normalized = normalizeArticleHtmlSpacing(rawHtml);
-      const plain = toPlainText(normalized).trim();
-      const body = plain || "No description available";
-      const { hasOverflow: ho, preview: p } = buildPreview(body);
-      return {
-        collapsedPreview: ho ? `${p}\u2026` : p,
-        content: body,
-        hasOverflow: ho,
-        normalizedHtml: normalized,
-        plainContent: plain,
-        preview: p,
-      };
-    }, [rawHtml]);
-  const hasReadableContent = plainContent.length > 0;
+    const rawHtml = article.content || "";
+    const { collapsedPreview, content, normalizedHtml, plainContent } =
+      useMemo(() => {
+        const normalized = normalizeArticleHtmlSpacing(rawHtml);
+        const plain = toPlainText(normalized).trim();
+        const body = plain || "No description available";
+        const { hasOverflow: ho, preview: p } = buildPreview(body);
+        return {
+          collapsedPreview: ho ? `${p}\u2026` : p,
+          content: body,
+          hasOverflow: ho,
+          normalizedHtml: normalized,
+          plainContent: plain,
+          preview: p,
+        };
+      }, [rawHtml]);
+    const hasReadableContent = plainContent.length > 0;
 
-  const { phase } = useArticleExpansion(isExpanded, isHydrating);
+    const { phase } = useArticleExpansion(isExpanded, isHydrating);
 
-  const isDeExpandingRemoval =
-    removalAnimationMode === "de-expanding" && !isExpanded;
-  const showSkeleton = phase === "loading";
-  const showFullContent =
-    isDeExpandingRemoval ||
-    phase === "collapsing" ||
-    phase === "expanding" ||
-    phase === "expanded";
-  const expandedBodyOpen =
-    isDeExpandingRemoval ||
-    phase === "loading" ||
-    phase === "expanding" ||
-    phase === "expanded";
-  const collapsedPreviewOpen = !expandedBodyOpen && !showSkeleton;
-  const visuallyExpanded =
-    isDeExpandingRemoval ||
-    phase === "loading" ||
-    phase === "collapsing" ||
-    phase === "expanding" ||
-    phase === "expanded";
-  const suppressCollapsedReadDimming = removalAnimationMode === "de-expanding";
+    const isDeExpandingRemoval =
+      removalAnimationMode === "de-expanding" && !isExpanded;
+    const showSkeleton = phase === "loading";
+    const showFullContent =
+      isDeExpandingRemoval ||
+      phase === "collapsing" ||
+      phase === "expanding" ||
+      phase === "expanded";
+    const expandedBodyOpen =
+      isDeExpandingRemoval ||
+      phase === "loading" ||
+      phase === "expanding" ||
+      phase === "expanded";
+    const collapsedPreviewOpen = !expandedBodyOpen && !showSkeleton;
+    const visuallyExpanded =
+      isDeExpandingRemoval ||
+      phase === "loading" ||
+      phase === "collapsing" ||
+      phase === "expanding" ||
+      phase === "expanded";
+    const suppressCollapsedReadDimming =
+      removalAnimationMode === "de-expanding";
 
-  const cardT = `180ms ${ARTICLE_SURFACE_EASING}` as const;
-  const bodyTransitionMs = phase === "collapsing" ? 240 : 280;
+    const cardT = `180ms ${ARTICLE_SURFACE_EASING}` as const;
+    const bodyTransitionMs = phase === "collapsing" ? 240 : 280;
 
-  const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
+    const visibleRichContentClassName = getRichContentClass(visuallyExpanded);
 
-  const {
-    faviconCacheKey,
-    faviconCandidates,
-    faviconIndex,
-    faviconTint,
-    faviconUrl,
-    setFaviconIndex,
-  } = useArticleFavicon({
-    fallbackUrl: article.link,
-    primaryUrl: article.feedUrl,
-  });
+    const {
+      faviconCacheKey,
+      faviconCandidates,
+      faviconIndex,
+      faviconTint,
+      faviconUrl,
+      setFaviconIndex,
+    } = useArticleFavicon({
+      fallbackUrl: article.link,
+      primaryUrl: article.feedUrl,
+    });
 
-  const pressStartPos = useRef<null | { x: number; y: number }>(null);
-  const pressPointerIdRef = useRef<null | number>(null);
-  const pressMovedRef = useRef(false);
-  const ignoreNextClickRef = useRef(false);
-  const afterSwipeRef = useRef(0);
-  const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
-  const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
-  const articleRef = useRef<HTMLElement | null>(null);
-  const headerZoneRef = useRef<HTMLDivElement | null>(null);
-  const contentZoneRef = useRef<HTMLDivElement | null>(null);
-  const bodyMeasureRef = useRef<HTMLDivElement | null>(null);
-  const headerGradientOverlayRef = useRef<HTMLDivElement | null>(null);
-  const contentGradientOverlayRef = useRef<HTMLDivElement | null>(null);
-  const interactionBlockUntilRef = useRef(0);
-  const previousPhaseRef = useRef(phase);
-  const [expandedBodyHeight, setExpandedBodyHeight] = useState(
-    COLLAPSED_ARTICLE_BODY_HEIGHT_PX,
-  );
+    const pressStartPos = useRef<null | { x: number; y: number }>(null);
+    const pressPointerIdRef = useRef<null | number>(null);
+    const pressMovedRef = useRef(false);
+    const ignoreNextClickRef = useRef(false);
+    const afterSwipeRef = useRef(0);
+    const rawHtmlTextAreaRef = useRef<HTMLTextAreaElement | null>(null);
+    const copyLinkInputRef = useRef<HTMLInputElement | null>(null);
+    const articleRef = useRef<HTMLElement | null>(null);
+    const headerZoneRef = useRef<HTMLDivElement | null>(null);
+    const contentZoneRef = useRef<HTMLDivElement | null>(null);
+    const bodyMeasureRef = useRef<HTMLDivElement | null>(null);
+    const headerGradientOverlayRef = useRef<HTMLDivElement | null>(null);
+    const contentGradientOverlayRef = useRef<HTMLDivElement | null>(null);
+    const interactionBlockUntilRef = useRef(0);
+    const previousPhaseRef = useRef(phase);
+    const [expandedBodyHeight, setExpandedBodyHeight] = useState(
+      COLLAPSED_ARTICLE_BODY_HEIGHT_PX,
+    );
 
-  useEffect(() => {
-    if (
-      phase === "expanded" &&
-      previousPhaseRef.current !== "expanded" &&
-      articleRef.current
-    ) {
-      articleRef.current.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED, {
-          bubbles: true,
-        }),
-      );
-    }
-
-    if (
-      phase === "collapsed" &&
-      previousPhaseRef.current === "collapsing" &&
-      articleRef.current
-    ) {
-      articleRef.current.dispatchEvent(
-        new CustomEvent(DASHBOARD_EVENTS.ARTICLE_COLLAPSE_SETTLED, {
-          bubbles: true,
-        }),
-      );
-    }
-
-    previousPhaseRef.current = phase;
-  }, [phase]);
-
-  useEffect(() => {
-    isGradientTrackedRef.current = isExpanded;
-    setIsGradientTracked(isExpanded);
-  }, [isExpanded]);
-
-  useEffect(() => {
-    const node = bodyMeasureRef.current;
-    if (!node) {
-      return;
-    }
-
-    const updateHeight = () => {
-      setExpandedBodyHeight(
-        Math.max(node.scrollHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX),
-      );
-    };
-
-    updateHeight();
-
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(() => {
-            updateHeight();
-          });
-    resizeObserver?.observe(node);
-
-    return () => {
-      resizeObserver?.disconnect();
-    };
-  }, [isExpanded, normalizedHtml, useRichFormatting]);
-
-  const isExpandedBodyTarget = useCallback(
-    (target: EventTarget | null) =>
-      Boolean(
-        visuallyExpanded &&
-        target instanceof Node &&
-        contentZoneRef.current?.contains(target),
-      ),
-    [visuallyExpanded],
-  );
-  const isInteractiveControlTarget = useCallback(
-    (target: EventTarget | null) => {
-      if (!(target instanceof Element)) {
-        return false;
+    useEffect(() => {
+      if (
+        phase === "expanded" &&
+        previousPhaseRef.current !== "expanded" &&
+        articleRef.current
+      ) {
+        articleRef.current.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.ARTICLE_EXPAND_SETTLED, {
+            bubbles: true,
+          }),
+        );
       }
 
-      return Boolean(
-        target.closest(
-          [
-            "button",
-            "a[href]",
-            "input",
-            "textarea",
-            "select",
-            "summary",
-            '[contenteditable="true"]',
-            '[role="menuitem"]',
-          ].join(", "),
-        ),
-      );
-    },
-    [],
-  );
-  const shouldIgnoreSwipeTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof Element)) {
-      return false;
-    }
+      if (
+        phase === "collapsed" &&
+        previousPhaseRef.current === "collapsing" &&
+        articleRef.current
+      ) {
+        articleRef.current.dispatchEvent(
+          new CustomEvent(DASHBOARD_EVENTS.ARTICLE_COLLAPSE_SETTLED, {
+            bubbles: true,
+          }),
+        );
+      }
 
-    const control = target.closest(
-      'button, input, textarea, select, summary, [contenteditable="true"]',
-    );
-    if (control) return true;
+      previousPhaseRef.current = phase;
+    }, [phase]);
 
-    const link = target.closest("a");
-    if (!link) return false;
+    useEffect(() => {
+      isGradientTrackedRef.current = isExpanded;
+      setIsGradientTracked(isExpanded);
+    }, [isExpanded]);
 
-    return !contentZoneRef.current?.contains(link);
-  }, []);
-
-  const commitReadSwipe = useCallback(() => {
-    afterSwipeRef.current = Date.now();
-    applyReadSwipeAction({
-      article,
-      isExpanded,
-      onExpandedSwipeRead,
-      onSwipeRead,
-      onToggleRead,
-    });
-  }, [article, isExpanded, onExpandedSwipeRead, onSwipeRead, onToggleRead]);
-  const commitStarSwipe = useCallback(() => {
-    afterSwipeRef.current = Date.now();
-    onToggleStarred(article);
-  }, [article, onToggleStarred]);
-
-  const {
-    containerRef: collapsedReadSwipeRef,
-    swipeState: collapsedReadSwipeState,
-  } = useSwipeGesture(
-    "right",
-    commitReadSwipe,
-    isUpdatingState || visuallyExpanded,
-    shouldIgnoreSwipeTarget,
-    "collapsed-article-surface",
-  );
-  const {
-    containerRef: expandedReadSwipeRef,
-    swipeState: expandedReadSwipeState,
-  } = useSwipeGesture(
-    "right",
-    commitReadSwipe,
-    isUpdatingState || !visuallyExpanded,
-    shouldIgnoreSwipeTarget,
-    "expanded-article-surface",
-  );
-  const {
-    containerRef: collapsedStarSwipeRef,
-    swipeState: collapsedStarSwipeState,
-  } = useSwipeGesture(
-    "left",
-    commitStarSwipe,
-    isUpdatingState || visuallyExpanded,
-    shouldIgnoreSwipeTarget,
-    "collapsed-article-surface",
-  );
-  const {
-    containerRef: expandedStarSwipeRef,
-    swipeState: expandedStarSwipeState,
-  } = useSwipeGesture(
-    "left",
-    commitStarSwipe,
-    isUpdatingState || !visuallyExpanded,
-    shouldIgnoreSwipeTarget,
-    "expanded-article-surface",
-  );
-  const readSwipeState = visuallyExpanded
-    ? expandedReadSwipeState
-    : collapsedReadSwipeState;
-  const starSwipeState = visuallyExpanded
-    ? expandedStarSwipeState
-    : collapsedStarSwipeState;
-  const readActive = readSwipeState.phase !== "idle";
-  const starActive = starSwipeState.phase !== "idle";
-  const anyActive = readActive || starActive;
-  const isActivelySwiping =
-    readSwipeState.phase === "swiping" || starSwipeState.phase === "swiping";
-  const isSwipeAnimating =
-    readSwipeState.phase === "releasing" ||
-    readSwipeState.phase === "committing" ||
-    starSwipeState.phase === "releasing" ||
-    starSwipeState.phase === "committing";
-  const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
-  const swipeTransitionMs =
-    readSwipeState.phase === "committing" ||
-    starSwipeState.phase === "committing"
-      ? SWIPE_COMMIT_SLIDE_MS
-      : SWIPE_RELEASE_MS;
-  const articleSurfaceRef = useCallback(
-    (el: HTMLElement | null) => {
-      articleRef.current = el;
-      collapsedReadSwipeRef.current = el;
-      collapsedStarSwipeRef.current = el;
-      expandedReadSwipeRef.current = el;
-      expandedStarSwipeRef.current = el;
-    },
-    [
-      collapsedReadSwipeRef,
-      collapsedStarSwipeRef,
-      expandedReadSwipeRef,
-      expandedStarSwipeRef,
-    ],
-  );
-  const headerSwipeZoneRef = useCallback((el: HTMLDivElement | null) => {
-    headerZoneRef.current = el;
-  }, []);
-
-  const shouldBlockArticleInteraction = () =>
-    Date.now() < interactionBlockUntilRef.current;
-
-  const blockArticleInteractionTemporarily = () => {
-    interactionBlockUntilRef.current = Date.now() + 200;
-  };
-
-  const makeOpenChangeHandler =
-    (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
-    (open: boolean) => {
-      setter(open);
-      if (!open) blockArticleInteractionTemporarily();
-    };
-
-  const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
-  const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
-  const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
-  const stopArticleInteractionPropagation = useCallback(
-    (event: React.SyntheticEvent) => {
-      event.stopPropagation();
-    },
-    [],
-  );
-  const articleActionControlProps = {
-    onPointerDown: stopArticleInteractionPropagation,
-    onPointerUp: stopArticleInteractionPropagation,
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
-    if (
-      isExpandedBodyTarget(e.target) ||
-      isInteractiveControlTarget(e.target)
-    ) {
-      return;
-    }
-    if (shouldBlockArticleInteraction()) {
-      e.stopPropagation();
-      return;
-    }
-    if (!isExpanded) {
-      onPrepareExpand?.(article);
-    }
-    pressPointerIdRef.current = e.pointerId;
-    pressMovedRef.current = false;
-    pressStartPos.current = { x: e.clientX, y: e.clientY };
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
-    if (shouldIgnorePressPointerTarget(e.target)) {
-      return;
-    }
-    if (pressPointerIdRef.current !== e.pointerId) return;
-    const start = pressStartPos.current;
-    if (!start) return;
-    const dx = e.clientX - start.x;
-    const dy = e.clientY - start.y;
-    if (Math.hypot(dx, dy) > TAP_DRIFT_PX) pressMovedRef.current = true;
-  };
-
-  const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
-    if (shouldIgnorePressPointerTarget(e.target)) {
-      return;
-    }
-    if (pressPointerIdRef.current !== e.pointerId) return;
-    pressPointerIdRef.current = null;
-  };
-
-  const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
-    if (shouldIgnorePressPointerTarget(e.target)) {
-      return;
-    }
-    if (pressPointerIdRef.current !== e.pointerId) return;
-    resetPressPointerState();
-  };
-
-  function resetPressPointerState() {
-    pressPointerIdRef.current = null;
-    pressStartPos.current = null;
-    pressMovedRef.current = false;
-  }
-
-  function shouldIgnorePressPointerTarget(target: EventTarget | null) {
-    return isExpandedBodyTarget(target) || isInteractiveControlTarget(target);
-  }
-
-  const toggleExpanded = (e: React.MouseEvent) => {
-    if (ignoreNextClickRef.current) {
-      ignoreNextClickRef.current = false;
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-    if (isInteractiveControlTarget(e.target)) {
-      pressPointerIdRef.current = null;
-      pressStartPos.current = null;
-      pressMovedRef.current = false;
-      return;
-    }
-    if (shouldBlockArticleInteraction()) {
-      e.stopPropagation();
-      return;
-    }
-    if (Date.now() - afterSwipeRef.current < AFTER_SWIPE_BLOCK_MS) return;
-    if (pressMovedRef.current) {
-      pressStartPos.current = null;
-      pressMovedRef.current = false;
-      return;
-    }
-    const down = pressStartPos.current;
-    if (down) {
-      const dx = e.clientX - down.x;
-      const dy = e.clientY - down.y;
-      if (Math.hypot(dx, dy) > TAP_DRIFT_PX) return;
-    }
-    pressStartPos.current = null;
-    pressMovedRef.current = false;
-    const sel = window.getSelection();
-    if (sel && sel.toString().length > 0) return;
-    // Pointer interactions already prime scroll restoration on pointerdown.
-    // Re-capturing here can overwrite the original viewport position after the
-    // browser auto-scrolls a partially visible card into focus.
-    if (!isExpanded && down === null) {
-      onPrepareExpand?.(article);
-    }
-    onToggle(article);
-  };
-
-  const stopExpandedContentPropagation = useCallback(
-    (event: React.MouseEvent | React.PointerEvent) => {
-      if (!visuallyExpanded) {
+    useEffect(() => {
+      const node = bodyMeasureRef.current;
+      if (!node) {
         return;
       }
 
-      event.stopPropagation();
-    },
-    [visuallyExpanded],
-  );
+      /**
+       *
+       */
+      const updateHeight = () => {
+        setExpandedBodyHeight(
+          Math.max(node.scrollHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX),
+        );
+      };
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
-    if (isInteractiveControlTarget(event.target)) {
-      return;
-    }
-    if (shouldBlockArticleInteraction()) {
-      event.stopPropagation();
-      return;
-    }
-    if (event.key !== "Enter" && event.key !== " ") return;
-    ignoreNextClickRef.current = true;
-    event.preventDefault();
-    if (!isExpanded) {
-      onPrepareExpand?.(article);
-    }
-    onToggle(article);
-  };
+      updateHeight();
 
-  const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
+      const resizeObserver =
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(() => {
+              updateHeight();
+            });
+      resizeObserver?.observe(node);
+
+      return () => {
+        resizeObserver?.disconnect();
+      };
+    }, [isExpanded, normalizedHtml, useRichFormatting]);
+
+    const isExpandedBodyTarget = useCallback(
+      (target: EventTarget | null) =>
+        Boolean(
+          visuallyExpanded &&
+          target instanceof Node &&
+          contentZoneRef.current?.contains(target),
+        ),
+      [visuallyExpanded],
+    );
+    const isInteractiveControlTarget = useCallback(
+      (target: EventTarget | null) => {
+        if (!(target instanceof Element)) {
+          return false;
+        }
+
+        return Boolean(
+          target.closest(
+            [
+              "button",
+              "a[href]",
+              "input",
+              "textarea",
+              "select",
+              "summary",
+              '[contenteditable="true"]',
+              '[role="menuitem"]',
+            ].join(", "),
+          ),
+        );
+      },
+      [],
+    );
+    const shouldIgnoreSwipeTarget = useCallback(
+      (target: EventTarget | null) => {
+        if (!(target instanceof Element)) {
+          return false;
+        }
+
+        const control = target.closest(
+          'button, input, textarea, select, summary, [contenteditable="true"]',
+        );
+        if (control) return true;
+
+        const link = target.closest("a");
+        if (!link) return false;
+
+        return !contentZoneRef.current?.contains(link);
+      },
+      [],
+    );
+
+    const commitReadSwipe = useCallback(() => {
+      afterSwipeRef.current = Date.now();
+      applyReadSwipeAction({
+        article,
+        isExpanded,
+        onExpandedSwipeRead,
+        onSwipeRead,
+        onToggleRead,
+      });
+    }, [article, isExpanded, onExpandedSwipeRead, onSwipeRead, onToggleRead]);
+    const commitStarSwipe = useCallback(() => {
+      afterSwipeRef.current = Date.now();
+      onToggleStarred(article);
+    }, [article, onToggleStarred]);
+
+    const {
+      containerRef: collapsedReadSwipeRef,
+      swipeState: collapsedReadSwipeState,
+    } = useSwipeGesture(
+      "right",
+      commitReadSwipe,
+      isUpdatingState || visuallyExpanded,
+      shouldIgnoreSwipeTarget,
+      "collapsed-article-surface",
+    );
+    const {
+      containerRef: expandedReadSwipeRef,
+      swipeState: expandedReadSwipeState,
+    } = useSwipeGesture(
+      "right",
+      commitReadSwipe,
+      isUpdatingState || !visuallyExpanded,
+      shouldIgnoreSwipeTarget,
+      "expanded-article-surface",
+    );
+    const {
+      containerRef: collapsedStarSwipeRef,
+      swipeState: collapsedStarSwipeState,
+    } = useSwipeGesture(
+      "left",
+      commitStarSwipe,
+      isUpdatingState || visuallyExpanded,
+      shouldIgnoreSwipeTarget,
+      "collapsed-article-surface",
+    );
+    const {
+      containerRef: expandedStarSwipeRef,
+      swipeState: expandedStarSwipeState,
+    } = useSwipeGesture(
+      "left",
+      commitStarSwipe,
+      isUpdatingState || !visuallyExpanded,
+      shouldIgnoreSwipeTarget,
+      "expanded-article-surface",
+    );
+    const readSwipeState = visuallyExpanded
+      ? expandedReadSwipeState
+      : collapsedReadSwipeState;
+    const starSwipeState = visuallyExpanded
+      ? expandedStarSwipeState
+      : collapsedStarSwipeState;
+    const readActive = readSwipeState.phase !== "idle";
+    const starActive = starSwipeState.phase !== "idle";
+    const anyActive = readActive || starActive;
+    const isActivelySwiping =
+      readSwipeState.phase === "swiping" || starSwipeState.phase === "swiping";
+    const isSwipeAnimating =
+      readSwipeState.phase === "releasing" ||
+      readSwipeState.phase === "committing" ||
+      starSwipeState.phase === "releasing" ||
+      starSwipeState.phase === "committing";
+    const swipeOffsetX = readSwipeState.offsetX + starSwipeState.offsetX;
+    const swipeTransitionMs =
+      readSwipeState.phase === "committing" ||
+      starSwipeState.phase === "committing"
+        ? SWIPE_COMMIT_SLIDE_MS
+        : SWIPE_RELEASE_MS;
+    const articleSurfaceRef = useCallback(
+      (el: HTMLElement | null) => {
+        articleRef.current = el;
+        collapsedReadSwipeRef.current = el;
+        collapsedStarSwipeRef.current = el;
+        expandedReadSwipeRef.current = el;
+        expandedStarSwipeRef.current = el;
+      },
+      [
+        collapsedReadSwipeRef,
+        collapsedStarSwipeRef,
+        expandedReadSwipeRef,
+        expandedStarSwipeRef,
+      ],
+    );
+    const headerSwipeZoneRef = useCallback((el: HTMLDivElement | null) => {
+      headerZoneRef.current = el;
+    }, []);
+
+    /**
+     *
+     */
+    const shouldBlockArticleInteraction = () =>
+      Date.now() < interactionBlockUntilRef.current;
+
+    /**
+     *
+     */
+    const blockArticleInteractionTemporarily = () => {
+      interactionBlockUntilRef.current = Date.now() + 200;
+    };
+
+    /**
+     * @param setter
+     */
+    const makeOpenChangeHandler =
+      (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
+      (open: boolean) => {
+        setter(open);
+        if (!open) blockArticleInteractionTemporarily();
+      };
+
+    const handleRawHtmlOpenChange = makeOpenChangeHandler(setIsRawHtmlOpen);
+    const handleCopyLinkOpenChange = makeOpenChangeHandler(setIsCopyLinkOpen);
+    const handleShareMenuOpenChange = makeOpenChangeHandler(setIsShareMenuOpen);
+    const stopArticleInteractionPropagation = useCallback(
+      (event: React.SyntheticEvent) => {
+        event.stopPropagation();
+      },
+      [],
+    );
+    const articleActionControlProps = {
+      onPointerDown: stopArticleInteractionPropagation,
+      onPointerUp: stopArticleInteractionPropagation,
+    };
+
+    /**
+     * @param e
+     */
+    const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
+      if (
+        isExpandedBodyTarget(e.target) ||
+        isInteractiveControlTarget(e.target)
+      ) {
+        return;
+      }
+      if (shouldBlockArticleInteraction()) {
+        e.stopPropagation();
+        return;
+      }
+      if (!isExpanded) {
+        onPrepareExpand?.(article);
+      }
+      pressPointerIdRef.current = e.pointerId;
+      pressMovedRef.current = false;
+      pressStartPos.current = { x: e.clientX, y: e.clientY };
+    };
+
+    /**
+     * @param e
+     */
+    const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
+      if (shouldIgnorePressPointerTarget(e.target)) {
+        return;
+      }
+      if (pressPointerIdRef.current !== e.pointerId) return;
+      const start = pressStartPos.current;
+      if (!start) return;
+      const dx = e.clientX - start.x;
+      const dy = e.clientY - start.y;
+      if (Math.hypot(dx, dy) > TAP_DRIFT_PX) pressMovedRef.current = true;
+    };
+
+    /**
+     * @param e
+     */
+    const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
+      if (shouldIgnorePressPointerTarget(e.target)) {
+        return;
+      }
+      if (pressPointerIdRef.current !== e.pointerId) return;
+      pressPointerIdRef.current = null;
+    };
+
+    /**
+     * @param e
+     */
+    const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
+      if (shouldIgnorePressPointerTarget(e.target)) {
+        return;
+      }
+      if (pressPointerIdRef.current !== e.pointerId) return;
+      resetPressPointerState();
+    };
+
+    /**
+     *
+     */
+    function resetPressPointerState() {
+      pressPointerIdRef.current = null;
+      pressStartPos.current = null;
+      pressMovedRef.current = false;
+    }
+
+    /**
+     * @param target
+     */
+    function shouldIgnorePressPointerTarget(target: EventTarget | null) {
+      return isExpandedBodyTarget(target) || isInteractiveControlTarget(target);
+    }
+
+    /**
+     * @param e
+     */
+    const toggleExpanded = (e: React.MouseEvent) => {
+      if (ignoreNextClickRef.current) {
+        ignoreNextClickRef.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (isInteractiveControlTarget(e.target)) {
+        pressPointerIdRef.current = null;
+        pressStartPos.current = null;
+        pressMovedRef.current = false;
+        return;
+      }
+      if (shouldBlockArticleInteraction()) {
+        e.stopPropagation();
+        return;
+      }
+      if (Date.now() - afterSwipeRef.current < AFTER_SWIPE_BLOCK_MS) return;
+      if (pressMovedRef.current) {
+        pressStartPos.current = null;
+        pressMovedRef.current = false;
+        return;
+      }
+      const down = pressStartPos.current;
+      if (down) {
+        const dx = e.clientX - down.x;
+        const dy = e.clientY - down.y;
+        if (Math.hypot(dx, dy) > TAP_DRIFT_PX) return;
+      }
+      pressStartPos.current = null;
+      pressMovedRef.current = false;
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) return;
+      // Pointer interactions already prime scroll restoration on pointerdown.
+      // Re-capturing here can overwrite the original viewport position after the
+      // browser auto-scrolls a partially visible card into focus.
+      if (!isExpanded && down === null) {
+        onPrepareExpand?.(article);
+      }
+      onToggle(article);
+    };
+
+    const stopExpandedContentPropagation = useCallback(
+      (event: React.MouseEvent | React.PointerEvent) => {
+        if (!visuallyExpanded) {
+          return;
+        }
+
+        event.stopPropagation();
+      },
+      [visuallyExpanded],
+    );
+
+    /**
+     * @param event
+     */
+    const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+      if (isInteractiveControlTarget(event.target)) {
+        return;
+      }
+      if (shouldBlockArticleInteraction()) {
+        event.stopPropagation();
+        return;
+      }
+      if (event.key !== "Enter" && event.key !== " ") return;
+      ignoreNextClickRef.current = true;
+      event.preventDefault();
+      if (!isExpanded) {
+        onPrepareExpand?.(article);
+      }
+      onToggle(article);
+    };
+
+    /**
+     * @param event
+     */
+    const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+
+      const shareUrl = article.link;
+      if (!shareUrl) return;
+
+      try {
+        await navigator.share({
+          text: article.title,
+          title: article.title,
+          url: shareUrl,
+        });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
+        toast.error("Could not open share dialog");
+      }
+    };
+
+    /**
+     * @param event
+     */
+    const handleSelectRawHtml = (
+      event: React.MouseEvent<HTMLButtonElement>,
+    ) => {
+      event.stopPropagation();
+      event.preventDefault();
+      selectRawHtml();
+    };
+
+    /**
+     *
+     */
+    const selectRawHtml = () => {
+      const textarea = rawHtmlTextAreaRef.current;
+      if (!textarea) return;
+
+      textarea.focus();
+      textarea.select();
+      textarea.setSelectionRange(0, textarea.value.length);
+    };
 
     const shareUrl = article.link;
-    if (!shareUrl) return;
+    const encodedShareUrl = encodeURIComponent(shareUrl || "");
+    const encodedShareTitle = encodeURIComponent(article.title || "");
 
-    try {
-      await navigator.share({
-        text: article.title,
-        title: article.title,
-        url: shareUrl,
-      });
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      toast.error("Could not open share dialog");
-    }
-  };
+    /**
+     *
+     */
+    const selectShareLink = () => {
+      const input = copyLinkInputRef.current;
+      if (!input) return;
 
-  const handleSelectRawHtml = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    event.preventDefault();
-    selectRawHtml();
-  };
+      input.focus();
+      input.select();
+      input.setSelectionRange(0, input.value.length);
+    };
 
-  const selectRawHtml = () => {
-    const textarea = rawHtmlTextAreaRef.current;
-    if (!textarea) return;
-
-    textarea.focus();
-    textarea.select();
-    textarea.setSelectionRange(0, textarea.value.length);
-  };
-
-  const shareUrl = article.link;
-  const encodedShareUrl = encodeURIComponent(shareUrl || "");
-  const encodedShareTitle = encodeURIComponent(article.title || "");
-
-  const selectShareLink = () => {
-    const input = copyLinkInputRef.current;
-    if (!input) return;
-
-    input.focus();
-    input.select();
-    input.setSelectionRange(0, input.value.length);
-  };
-
-  const handleSelectShareLink = (
-    event: React.MouseEvent<HTMLButtonElement>,
-  ) => {
-    event.stopPropagation();
-    selectShareLink();
-  };
-
-  useEffect(() => {
-    if (!isCopyLinkOpen) return;
-
-    const timer = window.setTimeout(() => {
+    /**
+     * @param event
+     */
+    const handleSelectShareLink = (
+      event: React.MouseEvent<HTMLButtonElement>,
+    ) => {
+      event.stopPropagation();
       selectShareLink();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timer);
     };
-  }, [isCopyLinkOpen]);
 
-  useEffect(() => {
-    if (!isRawHtmlOpen) return;
+    useEffect(() => {
+      if (!isCopyLinkOpen) return;
 
-    const timer = window.setTimeout(() => {
-      selectRawHtml();
-    }, 0);
+      const timer = window.setTimeout(() => {
+        selectShareLink();
+      }, 0);
 
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [isRawHtmlOpen]);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }, [isCopyLinkOpen]);
 
-  // Gradient coordinate measurement — writes directly to DOM to avoid
-  // re-render on every ResizeObserver callback during hover.
-  const applyGradientStyles = useCallback(() => {
-    const a = articleRef.current;
-    const h = headerZoneRef.current;
-    const c = contentZoneRef.current;
-    if (!a || !h || !c) return;
-    const ch = a.offsetHeight;
-    const cw = a.offsetWidth;
-    if (cw <= 0 || ch <= 0) return;
-    const size = `${cw}px ${ch}px`;
-    const hel = headerGradientOverlayRef.current;
-    if (hel) {
-      hel.style.backgroundPosition = `0px -${h.offsetTop}px`;
-      hel.style.backgroundSize = size;
-    }
-    const cel = contentGradientOverlayRef.current;
-    if (cel) {
-      cel.style.backgroundPosition = `0px -${c.offsetTop}px`;
-      cel.style.backgroundSize = size;
-    }
-  }, []);
+    useEffect(() => {
+      if (!isRawHtmlOpen) return;
 
-  useEffect(() => {
-    if (!isGradientTracked) {
-      return;
-    }
+      const timer = window.setTimeout(() => {
+        selectRawHtml();
+      }, 0);
 
-    const a = articleRef.current;
-    const h = headerZoneRef.current;
-    const c = contentZoneRef.current;
-    if (!a || !h || !c) return;
-    applyGradientStyles();
-    const resizeObserver =
-      typeof ResizeObserver === "undefined"
-        ? null
-        : new ResizeObserver(applyGradientStyles);
-    resizeObserver?.observe(a);
-    resizeObserver?.observe(h);
-    resizeObserver?.observe(c);
-    return () => {
-      resizeObserver?.disconnect();
-    };
-  }, [isGradientTracked, applyGradientStyles]);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }, [isRawHtmlOpen]);
 
-  const gradientCls = `absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
-    isDark
-      ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
-      : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
-  } opacity-0 group-hover:opacity-100`;
+    // Gradient coordinate measurement — writes directly to DOM to avoid
+    // re-render on every ResizeObserver callback during hover.
+    const applyGradientStyles = useCallback(() => {
+      const a = articleRef.current;
+      const h = headerZoneRef.current;
+      const c = contentZoneRef.current;
+      if (!a || !h || !c) return;
+      const ch = a.offsetHeight;
+      const cw = a.offsetWidth;
+      if (cw <= 0 || ch <= 0) return;
+      const size = `${cw}px ${ch}px`;
+      const hel = headerGradientOverlayRef.current;
+      if (hel) {
+        hel.style.backgroundPosition = `0px -${h.offsetTop}px`;
+        hel.style.backgroundSize = size;
+      }
+      const cel = contentGradientOverlayRef.current;
+      if (cel) {
+        cel.style.backgroundPosition = `0px -${c.offsetTop}px`;
+        cel.style.backgroundSize = size;
+      }
+    }, []);
 
-  const resolvedBodyHeight =
-    phase === "collapsed" || phase === "collapsing"
-      ? COLLAPSED_ARTICLE_BODY_HEIGHT_PX
-      : Math.max(expandedBodyHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX);
-  const showPreviewLayer = collapsedPreviewOpen || phase === "collapsing";
-  const expandedBodyContent = showSkeleton ? (
-    <div className="space-y-2 py-1" data-article-hydration-state="loading">
-      <Skeleton className="h-3 w-full" />
-      <Skeleton className="h-3 w-[94%]" />
-      <Skeleton className="h-3 w-[88%]" />
-      <Skeleton className="h-3 w-[76%]" />
-    </div>
-  ) : !showFullContent ? null : isExpanded &&
-    !hasScrapedContent &&
-    !hasReadableContent ? (
-    <p
-      className="
+    useEffect(() => {
+      if (!isGradientTracked) {
+        return;
+      }
+
+      const a = articleRef.current;
+      const h = headerZoneRef.current;
+      const c = contentZoneRef.current;
+      if (!a || !h || !c) return;
+      applyGradientStyles();
+      const resizeObserver =
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(applyGradientStyles);
+      resizeObserver?.observe(a);
+      resizeObserver?.observe(h);
+      resizeObserver?.observe(c);
+      return () => {
+        resizeObserver?.disconnect();
+      };
+    }, [isGradientTracked, applyGradientStyles]);
+
+    const gradientCls = `absolute inset-0 bg-gradient-to-br transition-opacity duration-1000 ${
+      isDark
+        ? "from-zinc-100/20 via-zinc-100/10 to-transparent mix-blend-overlay"
+        : "from-zinc-900/20 via-zinc-900/10 to-transparent mix-blend-overlay"
+    } opacity-0 group-hover:opacity-100`;
+
+    const resolvedBodyHeight =
+      phase === "collapsed" || phase === "collapsing"
+        ? COLLAPSED_ARTICLE_BODY_HEIGHT_PX
+        : Math.max(expandedBodyHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX);
+    const showPreviewLayer = collapsedPreviewOpen || phase === "collapsing";
+    const expandedBodyContent = showSkeleton ? (
+      <div className="space-y-2 py-1" data-article-hydration-state="loading">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-[94%]" />
+        <Skeleton className="h-3 w-[88%]" />
+        <Skeleton className="h-3 w-[76%]" />
+      </div>
+    ) : !showFullContent ? null : isExpanded &&
+      !hasScrapedContent &&
+      !hasReadableContent ? (
+      <p
+        className="
           font-sans text-[0.93rem]/6 tracking-[-0.01em] text-muted-foreground/75
           antialiased
         "
-    >
-      Full article content unavailable. Open the original article to read more.
-    </p>
-  ) : useRichFormatting ? (
-    <div
-      className={`
+      >
+        Full article content unavailable. Open the original article to read
+        more.
+      </p>
+    ) : useRichFormatting ? (
+      <div
+        className={`
           ${visibleRichContentClassName}
           ${visuallyExpanded ? `cursor-text select-text` : ""}
         `}
-      dangerouslySetInnerHTML={{ __html: normalizedHtml }}
-    />
-  ) : (
-    <p
-      className={`
+        dangerouslySetInnerHTML={{ __html: normalizedHtml }}
+      />
+    ) : (
+      <p
+        className={`
           font-sans tracking-[-0.01em] wrap-break-word whitespace-pre-line
           antialiased
           ${
@@ -729,105 +818,105 @@ export const ArticleCard = memo(function ArticleCard({
               : `text-[0.93rem]/6 text-muted-foreground/85`
           }
         `}
-    >
-      {content}
-    </p>
-  );
+      >
+        {content}
+      </p>
+    );
 
-  return (
-    <div
-      className={`
+    return (
+      <div
+        className={`
         relative
         ${visuallyExpanded ? "overflow-visible" : `overflow-hidden`}
         rounded-xl
       `}
-      style={{
-        touchAction: "pan-y",
-      }}
-    >
-      {/* Swipe-to-read / swipe-to-star background indicators */}
-      <div
-        className={`
+        style={{
+          touchAction: "pan-y",
+        }}
+      >
+        {/* Swipe-to-read / swipe-to-star background indicators */}
+        <div
+          className={`
           pointer-events-none absolute inset-0 z-0 flex items-center rounded-xl
           ${readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"}
         `}
-        style={{
-          opacity: readActive ? 1 : 0,
-          transform: readSwipeState.committed ? "scale(1)" : "scale(0.985)",
-          transition:
-            readSwipeState.phase === "releasing"
-              ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
-              : readSwipeState.phase === "committing"
-                ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
-                : "none",
-        }}
-      >
-        <div
-          className="
+          style={{
+            opacity: readActive ? 1 : 0,
+            transform: readSwipeState.committed ? "scale(1)" : "scale(0.985)",
+            transition:
+              readSwipeState.phase === "releasing"
+                ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
+                : readSwipeState.phase === "committing"
+                  ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
+                  : "none",
+          }}
+        >
+          <div
+            className="
             flex items-center gap-2 pl-4 text-emerald-600
             dark:text-emerald-400
           "
-        >
-          {article.isRead ? (
-            <Circle
-              className={`
-                size-5
-                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
-              `}
-            />
-          ) : (
-            <CircleCheck
-              className={`
-                size-5
-                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
-              `}
-            />
-          )}
-          <span
-            className="text-xs font-medium"
-            style={{
-              opacity: readSwipeState.committed ? 1 : 0,
-              transform: `translate3d(${readSwipeState.committed ? 0 : -4}px, 0, 0)`,
-            }}
           >
-            {article.isRead ? "Mark unread" : "Mark read"}
-          </span>
+            {article.isRead ? (
+              <Circle
+                className={`
+                size-5
+                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
+              `}
+              />
+            ) : (
+              <CircleCheck
+                className={`
+                size-5
+                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
+              `}
+              />
+            )}
+            <span
+              className="text-xs font-medium"
+              style={{
+                opacity: readSwipeState.committed ? 1 : 0,
+                transform: `translate3d(${readSwipeState.committed ? 0 : -4}px, 0, 0)`,
+              }}
+            >
+              {article.isRead ? "Mark unread" : "Mark read"}
+            </span>
+          </div>
         </div>
-      </div>
-      <div
-        className={`
+        <div
+          className={`
           pointer-events-none absolute inset-0 z-0 flex items-center justify-end
           rounded-xl
           ${starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"}
         `}
-        style={{
-          opacity: starActive ? 1 : 0,
-          transform: starSwipeState.committed ? "scale(1)" : "scale(0.985)",
-          transition:
-            starSwipeState.phase === "releasing"
-              ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
-              : starSwipeState.phase === "committing"
-                ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
-                : "none",
-        }}
-      >
-        <div
-          className="
+          style={{
+            opacity: starActive ? 1 : 0,
+            transform: starSwipeState.committed ? "scale(1)" : "scale(0.985)",
+            transition:
+              starSwipeState.phase === "releasing"
+                ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
+                : starSwipeState.phase === "committing"
+                  ? `opacity ${SWIPE_COMMIT_SLIDE_MS}ms ease-out`
+                  : "none",
+          }}
+        >
+          <div
+            className="
             flex items-center gap-2 pr-4 text-amber-600
             dark:text-amber-400
           "
-        >
-          <span
-            className="text-xs font-medium"
-            style={{
-              opacity: starSwipeState.committed ? 1 : 0,
-              transform: `translate3d(${starSwipeState.committed ? 0 : 4}px, 0, 0)`,
-            }}
           >
-            {article.isStarred ? "Unstar" : "Star"}
-          </span>
-          <Star
-            className={`
+            <span
+              className="text-xs font-medium"
+              style={{
+                opacity: starSwipeState.committed ? 1 : 0,
+                transform: `translate3d(${starSwipeState.committed ? 0 : 4}px, 0, 0)`,
+              }}
+            >
+              {article.isStarred ? "Unstar" : "Star"}
+            </span>
+            <Star
+              className={`
               size-5
               ${
                 starSwipeState.committed
@@ -835,12 +924,12 @@ export const ArticleCard = memo(function ArticleCard({
                   : "scale-90 opacity-60"
               }
             `}
-          />
+            />
+          </div>
         </div>
-      </div>
-      <article
-        aria-expanded={isExpanded}
-        className={`
+        <article
+          aria-expanded={isExpanded}
+          className={`
           article-swipe-surface group relative overflow-visible border
           border-border
           dark:shadow-2xl dark:shadow-zinc-900/50
@@ -854,117 +943,118 @@ export const ArticleCard = memo(function ArticleCard({
               : ""
           }
         `}
-        data-article-key={articleKey}
-        data-swipe-active={anyActive ? "true" : "false"}
-        data-swipe-direction={
-          readActive ? "read" : starActive ? "star" : "idle"
-        }
-        onClick={toggleExpanded}
-        onKeyDown={handleKeyDown}
-        onMouseEnter={() => {
-          if (!isGradientTrackedRef.current) {
-            isGradientTrackedRef.current = true;
-            setIsGradientTracked(true);
+          data-article-key={articleKey}
+          data-swipe-active={anyActive ? "true" : "false"}
+          data-swipe-direction={
+            readActive ? "read" : starActive ? "star" : "idle"
           }
-        }}
-        onMouseLeave={() => {
-          if (!isExpanded && isGradientTrackedRef.current) {
-            isGradientTrackedRef.current = false;
-            setIsGradientTracked(false);
-          }
-        }}
-        onPointerCancel={handlePointerCancel}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        ref={articleSurfaceRef}
-        role="button"
-        style={{
-          cursor: visuallyExpanded ? "default" : "pointer",
-          touchAction: "pan-y",
-          transform:
-            swipeOffsetX === 0
-              ? undefined
-              : `translate3d(${swipeOffsetX}px, 0, 0)`,
-          transition: isActivelySwiping
-            ? "none"
-            : isSwipeAnimating
-              ? `transform ${swipeTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), border-radius ${cardT}`
-              : `border-radius ${cardT}`,
-          userSelect: visuallyExpanded ? "text" : "none",
-          WebkitTouchCallout: visuallyExpanded ? "default" : "none",
-          WebkitUserSelect: visuallyExpanded ? "text" : "none",
-        }}
-        tabIndex={0}
-      >
-        <ArticleCardHeader
-          article={article}
-          articleActionControlProps={articleActionControlProps}
-          collapsedTitleClassName={COLLAPSED_ARTICLE_TITLE_CLASS_NAME}
-          encodedShareTitle={encodedShareTitle}
-          encodedShareUrl={encodedShareUrl}
-          faviconCacheKey={faviconCacheKey ?? ""}
-          faviconCandidates={faviconCandidates}
-          faviconIndex={faviconIndex}
-          faviconTint={faviconTint}
-          faviconUrl={faviconUrl ?? null}
-          gradientCls={gradientCls}
-          headerGradientOverlayRef={headerGradientOverlayRef}
-          headerSwipeZoneRef={headerSwipeZoneRef}
-          iconBtnCls={iconBtnCls}
-          iconLinkCls={iconLinkCls}
-          isDevelopment={isDevelopment}
-          isMobile={isMobile}
-          isShareMenuOpen={isShareMenuOpen}
-          isUpdatingState={isUpdatingState}
-          onCopyLinkOpen={() => {
-            setIsCopyLinkOpen(true);
+          onClick={toggleExpanded}
+          onKeyDown={handleKeyDown}
+          onMouseEnter={() => {
+            if (!isGradientTrackedRef.current) {
+              isGradientTrackedRef.current = true;
+              setIsGradientTracked(true);
+            }
           }}
-          onRawHtmlOpen={() => {
-            setIsRawHtmlOpen(true);
+          onMouseLeave={() => {
+            if (!isExpanded && isGradientTrackedRef.current) {
+              isGradientTrackedRef.current = false;
+              setIsGradientTracked(false);
+            }
           }}
-          onShare={handleShare}
-          onShareMenuOpenChange={handleShareMenuOpenChange}
-          onToggleRead={onToggleRead}
-          onToggleStarred={onToggleStarred}
-          setFaviconIndex={setFaviconIndex}
-          shareUrl={shareUrl}
-          showFavicon={showFavicon}
-          supportsNativeShare={supportsNativeShare}
-          visuallyExpanded={visuallyExpanded}
-        />
+          onPointerCancel={handlePointerCancel}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          ref={articleSurfaceRef}
+          role="button"
+          style={{
+            cursor: visuallyExpanded ? "default" : "pointer",
+            touchAction: "pan-y",
+            transform:
+              swipeOffsetX === 0
+                ? undefined
+                : `translate3d(${swipeOffsetX}px, 0, 0)`,
+            transition: isActivelySwiping
+              ? "none"
+              : isSwipeAnimating
+                ? `transform ${swipeTransitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), border-radius ${cardT}`
+                : `border-radius ${cardT}`,
+            userSelect: visuallyExpanded ? "text" : "none",
+            WebkitTouchCallout: visuallyExpanded ? "default" : "none",
+            WebkitUserSelect: visuallyExpanded ? "text" : "none",
+          }}
+          tabIndex={0}
+        >
+          <ArticleCardHeader
+            article={article}
+            articleActionControlProps={articleActionControlProps}
+            collapsedTitleClassName={COLLAPSED_ARTICLE_TITLE_CLASS_NAME}
+            encodedShareTitle={encodedShareTitle}
+            encodedShareUrl={encodedShareUrl}
+            faviconCacheKey={faviconCacheKey ?? ""}
+            faviconCandidates={faviconCandidates}
+            faviconIndex={faviconIndex}
+            faviconTint={faviconTint}
+            faviconUrl={faviconUrl ?? null}
+            gradientCls={gradientCls}
+            headerGradientOverlayRef={headerGradientOverlayRef}
+            headerSwipeZoneRef={headerSwipeZoneRef}
+            iconBtnCls={iconBtnCls}
+            iconLinkCls={iconLinkCls}
+            isDevelopment={isDevelopment}
+            isMobile={isMobile}
+            isShareMenuOpen={isShareMenuOpen}
+            isUpdatingState={isUpdatingState}
+            onCopyLinkOpen={() => {
+              setIsCopyLinkOpen(true);
+            }}
+            onRawHtmlOpen={() => {
+              setIsRawHtmlOpen(true);
+            }}
+            onShare={handleShare}
+            onShareMenuOpenChange={handleShareMenuOpenChange}
+            onToggleRead={onToggleRead}
+            onToggleStarred={onToggleStarred}
+            setFaviconIndex={setFaviconIndex}
+            shareUrl={shareUrl}
+            showFavicon={showFavicon}
+            supportsNativeShare={supportsNativeShare}
+            visuallyExpanded={visuallyExpanded}
+          />
 
-        <ArticleCardContent
-          bodyMeasureRef={bodyMeasureRef}
-          bodyTransitionMs={bodyTransitionMs}
-          collapsedPreview={collapsedPreview}
-          collapsedPreviewClassName={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
-          contentGradientOverlayRef={contentGradientOverlayRef}
-          contentZoneRef={contentZoneRef}
-          expandedBodyContent={expandedBodyContent}
-          gradientCls={gradientCls}
-          phase={phase}
-          resolvedBodyHeight={resolvedBodyHeight}
-          showPreviewLayer={showPreviewLayer}
-          stopExpandedContentPropagation={stopExpandedContentPropagation}
-          visuallyExpanded={visuallyExpanded}
-        />
+          <ArticleCardContent
+            bodyMeasureRef={bodyMeasureRef}
+            bodyTransitionMs={bodyTransitionMs}
+            collapsedPreview={collapsedPreview}
+            collapsedPreviewClassName={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
+            contentGradientOverlayRef={contentGradientOverlayRef}
+            contentZoneRef={contentZoneRef}
+            expandedBodyContent={expandedBodyContent}
+            gradientCls={gradientCls}
+            phase={phase}
+            resolvedBodyHeight={resolvedBodyHeight}
+            showPreviewLayer={showPreviewLayer}
+            stopExpandedContentPropagation={stopExpandedContentPropagation}
+            visuallyExpanded={visuallyExpanded}
+          />
 
-        <ArticleCardDialogs
-          copyLinkInputRef={copyLinkInputRef}
-          isCopyLinkOpen={isCopyLinkOpen}
-          isDevelopment={isDevelopment}
-          isMobile={isMobile}
-          isRawHtmlOpen={isRawHtmlOpen}
-          normalizedHtml={normalizedHtml}
-          onCopyLinkOpenChange={handleCopyLinkOpenChange}
-          onRawHtmlOpenChange={handleRawHtmlOpenChange}
-          onSelectRawHtml={handleSelectRawHtml}
-          onSelectShareLink={handleSelectShareLink}
-          rawHtmlTextAreaRef={rawHtmlTextAreaRef}
-          shareUrl={shareUrl}
-        />
-      </article>
-    </div>
-  );
-});
+          <ArticleCardDialogs
+            copyLinkInputRef={copyLinkInputRef}
+            isCopyLinkOpen={isCopyLinkOpen}
+            isDevelopment={isDevelopment}
+            isMobile={isMobile}
+            isRawHtmlOpen={isRawHtmlOpen}
+            normalizedHtml={normalizedHtml}
+            onCopyLinkOpenChange={handleCopyLinkOpenChange}
+            onRawHtmlOpenChange={handleRawHtmlOpenChange}
+            onSelectRawHtml={handleSelectRawHtml}
+            onSelectShareLink={handleSelectShareLink}
+            rawHtmlTextAreaRef={rawHtmlTextAreaRef}
+            shareUrl={shareUrl}
+          />
+        </article>
+      </div>
+    );
+  },
+);

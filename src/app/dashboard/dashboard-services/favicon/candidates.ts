@@ -1,5 +1,8 @@
 import { tryGetUrlHostname } from "@/lib/utils";
 
+/**
+ * @param hostname
+ */
 const isIPv4 = (hostname: string) => {
   const octets = hostname.split(".");
 
@@ -17,6 +20,9 @@ const isIPv4 = (hostname: string) => {
   });
 };
 
+/**
+ * @param raw
+ */
 const parseUrl = (raw: string) => {
   try {
     return new URL(raw);
@@ -25,6 +31,9 @@ const parseUrl = (raw: string) => {
   }
 };
 
+/**
+ * @param hostname
+ */
 const getHostCandidates = (hostname: string) => {
   const candidates = new Set<string>([hostname]);
 
@@ -45,6 +54,9 @@ const getHostCandidates = (hostname: string) => {
   return [...candidates];
 };
 
+/**
+ * @param url
+ */
 const getOriginCandidates = (url?: string) => {
   if (!url) {
     return [];
@@ -54,6 +66,9 @@ const getOriginCandidates = (url?: string) => {
   return parsed ? [parsed.origin] : [];
 };
 
+/**
+ * @param origin
+ */
 const getDirectIconCandidates = (origin: string) => {
   const staticPaths = [
     "/favicon.ico",
@@ -66,11 +81,17 @@ const getDirectIconCandidates = (origin: string) => {
   return staticPaths.map((path) => `${origin}${path}`);
 };
 
+/**
+ * @param hostname
+ */
 const getProviderCandidates = (hostname: string) => [
   `https://icon.horse/icon/${hostname}`,
   `https://icons.duckduckgo.com/ip3/${hostname}.ico`,
 ];
 
+/**
+ * @param url
+ */
 const getFaviconCandidates = (url?: string) => {
   const hostname = tryGetUrlHostname(url);
 
@@ -97,6 +118,9 @@ const getFaviconCandidates = (url?: string) => {
   ];
 };
 
+/**
+ * @param urls
+ */
 export function getFaviconCacheKey(...urls: (string | undefined)[]) {
   for (const url of urls) {
     const hostname = tryGetUrlHostname(url);
@@ -109,6 +133,9 @@ export function getFaviconCacheKey(...urls: (string | undefined)[]) {
   return null;
 }
 
+/**
+ * @param urls
+ */
 export function getMergedFaviconCandidates(...urls: (string | undefined)[]) {
   return [...new Set(urls.flatMap((url) => getFaviconCandidates(url)))];
 }

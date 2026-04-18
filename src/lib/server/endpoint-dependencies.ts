@@ -32,7 +32,10 @@ interface ExtractRuntimeDeps {
   warn: typeof logger.warn;
 }
 
-/** Resolves the effective runtime dependencies for article extraction route handling. */
+/**
+ * Resolves the effective runtime dependencies for article extraction route handling.
+ * @param depsOrContext
+ */
 export function createExtractRuntimeDeps(
   depsOrContext: ExtractPostDeps | RouteHandlerContext,
 ): ExtractRuntimeDeps {
@@ -57,6 +60,9 @@ export function createExtractRuntimeDeps(
   };
 }
 
+/**
+ * @param deps
+ */
 function resolveRuntimeContentDeps(deps: ExtractPostDeps) {
   return {
     cleanContent: deps.cleanSanitizedHtmlFn ?? cleanSanitizedHtml,
@@ -65,6 +71,9 @@ function resolveRuntimeContentDeps(deps: ExtractPostDeps) {
   };
 }
 
+/**
+ * @param deps
+ */
 function resolveRuntimeLoggerBindings(deps: ExtractPostDeps) {
   return {
     errorLog: deps.errorFn ?? logger.error.bind(logger),
@@ -72,6 +81,9 @@ function resolveRuntimeLoggerBindings(deps: ExtractPostDeps) {
   };
 }
 
+/**
+ * @param deps
+ */
 function resolveRuntimeParsingDeps(deps: ExtractPostDeps) {
   return {
     fetchArticleHtml: deps.fetchHtmlFn ?? fetchHtml,

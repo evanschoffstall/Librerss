@@ -24,7 +24,10 @@ interface DashboardMobileSidebarSheetProps {
  * Keeping the mobile sheet structure in its own component prevents the main
  * dashboard view from mixing route orchestration with sidebar chrome details.
  *
- * @param props Mobile sheet open state and sidebar content props.
+ * @param props - Mobile sheet open state and sidebar content props.
+ * @param props.isOpen
+ * @param props.onOpenChange
+ * @param props.sidebarContentProps
  * @returns The mobile sidebar sheet used on narrow viewports.
  */
 export function DashboardMobileSidebarSheet({

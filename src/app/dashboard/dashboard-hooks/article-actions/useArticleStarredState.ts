@@ -25,6 +25,11 @@ interface UseArticleStarredStateOptions {
  * Starred toggles update the visible feed immediately, then either confirm the
  * server mutation or roll back the optimistic change with the correct filter-aware
  * list restoration.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.mutationTracker
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
  */
 export function useArticleStarredState({
   articleFilter,
@@ -38,6 +43,10 @@ export function useArticleStarredState({
       const nextStarredState = !article.isStarred;
 
       await runOptimisticArticleStatusMutation({
+        /**
+         * @param currentFeed
+         * @param _articleMap
+         */
         applyOptimisticUpdate: (currentFeed, _articleMap) => {
           const articleKey = getArticleKey(article);
           const updated = currentFeed.map((candidate) =>
@@ -57,9 +66,17 @@ export function useArticleStarredState({
         articles: [article],
         errorLogLabel: "Toggle starred state error",
         mutationTracker,
+        /**
+         *
+         */
         onError: () => {
           toast.error("Unable to update starred state right now.");
         },
+        /**
+         * @param currentFeed
+         * @param articleMap
+         * @param failedArticleKeys
+         */
         restoreUpdate: (currentFeed, articleMap, failedArticleKeys) => {
           const articleKey = getArticleKey(article);
           const reverted = currentFeed.map((candidate) => {
@@ -92,6 +109,9 @@ export function useArticleStarredState({
           return reverted;
         },
         setFeed,
+        /**
+         *
+         */
         statusPatchForArticle: () => ({ isStarred: nextStarredState }),
         usePlaceholderData,
       });

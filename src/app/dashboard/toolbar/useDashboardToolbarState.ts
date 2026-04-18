@@ -30,8 +30,8 @@ export {
 };
 
 /**
- * @param startInShellLoading  Optimistic initial state for the event-based path.
- * @param controlledIsShellLoading  When provided by a parent controller the toolbar
+ * @param startInShellLoading  - Optimistic initial state for the event-based path.
+ * @param controlledIsShellLoading  - When provided by a parent controller the toolbar
  *   skips the event bus entirely and uses this value directly, guaranteeing it
  *   hydrates in the same React render as the article list and filter bar.
  */
@@ -92,6 +92,32 @@ export function useDashboardToolbarState(
   });
 }
 
+/**
+ * @param state
+ * @param state.handleMarkAllRead
+ * @param state.handleMarkViewportRead
+ * @param state.handleOpenFeedsSidebar
+ * @param state.handleOpenSettings
+ * @param state.handleRefresh
+ * @param state.handleRefreshFromUpstream
+ * @param state.handleReset
+ * @param state.handleSearchChange
+ * @param state.handleSignOut
+ * @param state.handleToggleTheme
+ * @param state.isDark
+ * @param state.isDevelopmentMode
+ * @param state.isMarkingAllRead
+ * @param state.isMarkingViewportRead
+ * @param state.isRefreshing
+ * @param state.isResetting
+ * @param state.isSearchPending
+ * @param state.isShellLoading
+ * @param state.isSigningOut
+ * @param state.mounted
+ * @param state.search
+ * @param state.themeToggleLabel
+ * @param state.title
+ */
 function buildDashboardToolbarState(state: {
   handleMarkAllRead: () => void;
   handleMarkViewportRead: () => void;
@@ -120,6 +146,9 @@ function buildDashboardToolbarState(state: {
   return state;
 }
 
+/**
+ * @param enabled
+ */
 function setDashboardPreviewPersistence(enabled: boolean): void {
   if (typeof document === "undefined") {
     return;
@@ -130,6 +159,12 @@ function setDashboardPreviewPersistence(enabled: boolean): void {
     : "librerss_dashboard_preview=; Path=/; Max-Age=0; SameSite=Lax";
 }
 
+/**
+ * @param root0
+ * @param root0.mounted
+ * @param root0.resolvedTheme
+ * @param root0.setTheme
+ */
 function useDashboardThemeState({
   mounted,
   resolvedTheme,
@@ -143,6 +178,9 @@ function useDashboardThemeState({
   const nextTheme = isDark ? "light" : "dark";
 
   return {
+    /**
+     *
+     */
     handleToggleTheme: () => {
       setTheme(nextTheme);
     },
@@ -151,6 +189,17 @@ function useDashboardThemeState({
   };
 }
 
+/**
+ * @param options
+ * @param options.isPreviewMode
+ * @param options.isRefreshing
+ * @param options.isResetting
+ * @param options.isSigningOut
+ * @param options.setIsPreviewMode
+ * @param options.setIsResetting
+ * @param options.setIsSigningOut
+ * @param options.setSearch
+ */
 function useDashboardToolbarActions(options: {
   isPreviewMode: boolean;
   isRefreshing: boolean;
@@ -177,6 +226,11 @@ function useDashboardToolbarActions(options: {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.isRefreshing
+ * @param root0.setSearch
+ */
 function useDashboardToolbarEventActions({
   isRefreshing,
   setSearch,
@@ -185,23 +239,41 @@ function useDashboardToolbarEventActions({
   setSearch: (term: string) => void;
 }) {
   return {
+    /**
+     *
+     */
     handleMarkAllRead: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
     },
+    /**
+     *
+     */
     handleMarkViewportRead: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ);
     },
+    /**
+     *
+     */
     handleOpenFeedsSidebar: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR);
     },
+    /**
+     *
+     */
     handleOpenSettings: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_SETTINGS);
     },
+    /**
+     *
+     */
     handleRefresh: () => {
       if (!isRefreshing) {
         dispatchDashboardWindowEvent(DASHBOARD_EVENTS.REFRESH);
       }
     },
+    /**
+     *
+     */
     handleRefreshFromUpstream: () => {
       if (!isRefreshing) {
         dispatchDashboardWindowEvent(DASHBOARD_EVENTS.REFRESH, {
@@ -209,6 +281,9 @@ function useDashboardToolbarEventActions({
         });
       }
     },
+    /**
+     * @param term
+     */
     handleSearchChange: (term: string) => {
       setSearch(term);
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.SEARCH_CHANGE, { term });
@@ -216,6 +291,10 @@ function useDashboardToolbarEventActions({
   };
 }
 
+/**
+ * @param startInShellLoading
+ * @param controlledIsShellLoading
+ */
 function useDashboardToolbarRuntimeState(
   startInShellLoading: boolean,
   controlledIsShellLoading?: boolean,
@@ -238,6 +317,15 @@ function useDashboardToolbarRuntimeState(
   };
 }
 
+/**
+ * @param root0
+ * @param root0.isPreviewMode
+ * @param root0.isResetting
+ * @param root0.isSigningOut
+ * @param root0.setIsPreviewMode
+ * @param root0.setIsResetting
+ * @param root0.setIsSigningOut
+ */
 function useDashboardToolbarSessionActions({
   isPreviewMode,
   isResetting,
@@ -253,6 +341,9 @@ function useDashboardToolbarSessionActions({
   setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
   setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+  /**
+   *
+   */
   const navigateToLanding = async () => {
     await clearClientOriginState();
     setIsPreviewMode(false);
@@ -261,6 +352,9 @@ function useDashboardToolbarSessionActions({
   };
 
   return {
+    /**
+     *
+     */
     handleReset: async () => {
       if (isResetting) {
         return;
@@ -282,6 +376,9 @@ function useDashboardToolbarSessionActions({
         setIsResetting(false);
       }
     },
+    /**
+     *
+     */
     handleSignOut: async () => {
       if (isSigningOut) {
         return;
@@ -304,6 +401,9 @@ function useDashboardToolbarSessionActions({
   };
 }
 
+/**
+ *
+ */
 function useMountedFlag() {
   const [mounted, setMounted] = useState(false);
 

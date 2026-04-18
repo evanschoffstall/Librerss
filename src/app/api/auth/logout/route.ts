@@ -7,6 +7,9 @@ import {
 } from "@/lib/auth";
 import { serverApi } from "@/lib/server";
 
+/**
+ * @param request
+ */
 export async function POST(request: NextRequest) {
   try {
     const requestError = serverApi.requireMutableRequest(request);

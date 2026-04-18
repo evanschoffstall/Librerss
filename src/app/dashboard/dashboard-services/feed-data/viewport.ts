@@ -18,6 +18,10 @@ export function findDashboardFeedViewport() {
   return Array.from(viewports).find(isDashboardFeedViewport) ?? null;
 }
 
+/**
+ * @param element
+ * @param viewport
+ */
 export function getViewportOffsetTop(
   element: HTMLElement,
   viewport: HTMLElement,
@@ -27,7 +31,10 @@ export function getViewportOffsetTop(
   );
 }
 
-/** Detects whether a Radix viewport belongs to the dashboard feed surface. */
+/**
+ * Detects whether a Radix viewport belongs to the dashboard feed surface.
+ * @param viewport
+ */
 export function isDashboardFeedViewport(viewport: HTMLElement) {
   return Boolean(
     viewport.querySelector(
@@ -39,6 +46,10 @@ export function isDashboardFeedViewport(viewport: HTMLElement) {
 /**
  * Observes feed viewport layout changes and rebinds resize targets when the
  * anchor subtree changes.
+ * @param root0
+ * @param root0.findAnchor
+ * @param root0.onLayoutChange
+ * @param root0.viewport
  */
 export function observeFeedViewportLayout({
   findAnchor,
@@ -59,6 +70,9 @@ export function observeFeedViewportLayout({
           onLayoutChange();
         });
 
+  /**
+   * @param target
+   */
   const observeResizeTarget = (target: Element | null) => {
     if (!resizeObserver || !target) {
       return;
@@ -67,6 +81,9 @@ export function observeFeedViewportLayout({
     resizeObserver.observe(target);
   };
 
+  /**
+   *
+   */
   const observeResizeTargets = () => {
     resizeObserver?.disconnect();
     observeResizeTarget(viewport);
@@ -86,7 +103,12 @@ export function observeFeedViewportLayout({
   };
 }
 
-/** Resolves the first live viewport candidate and otherwise falls back to the current viewport. */
+/**
+ * Resolves the first live viewport candidate and otherwise falls back to the current viewport.
+ * @param root0
+ * @param root0.candidateViewports
+ * @param root0.fallbackViewport
+ */
 export function resolveFeedViewport({
   candidateViewports,
   fallbackViewport,

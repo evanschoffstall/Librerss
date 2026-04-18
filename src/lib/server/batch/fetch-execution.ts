@@ -6,6 +6,18 @@ import type { BatchUrlDescriptor } from "./endpoint";
 
 import { buildBatchResultItem } from "./result-item";
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.knownLastFetchedAtByUrl
+ * @param options.requestSource
+ * @param options.resolveProxyTransport
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ */
 export function buildBatchFetchRequestOptions(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -30,6 +42,11 @@ export function buildBatchFetchRequestOptions(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.requestUrls
+ * @param options.response
+ */
 export function buildBatchFetchResults(options: {
   requestUrls: BatchUrlDescriptor[];
   response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;

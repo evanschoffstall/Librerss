@@ -23,14 +23,23 @@ export function readDashboardShellLoadingFromDocument() {
   return null;
 }
 
-/** Resolves the next shell-loading state from an incoming dashboard event. */
+/**
+ * Resolves the next shell-loading state from an incoming dashboard event.
+ * @param event
+ */
 export function readDashboardShellLoadingFromEvent(event: Event) {
   const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
 
   return detail.loading === true;
 }
 
-/** Resolves the current shell-loading state from document readiness and events. */
+/**
+ * Resolves the current shell-loading state from document readiness and events.
+ * @param root0
+ * @param root0.hasReceivedShellLoadingEvent
+ * @param root0.readyState
+ * @param root0.shellLoadingFromDocument
+ */
 export function resolveDashboardShellLoadingState({
   hasReceivedShellLoadingEvent,
   readyState,
@@ -51,12 +60,18 @@ export function resolveDashboardShellLoadingState({
   return null;
 }
 
-/** Synchronizes toolbar shell-loading state with the dashboard event bus. */
+/**
+ * Synchronizes toolbar shell-loading state with the dashboard event bus.
+ * @param startInShellLoading
+ */
 export function useDashboardShellLoadingState(startInShellLoading: boolean) {
   const hasReceivedShellLoadingEventRef = useRef(false);
   const [isShellLoading, setIsShellLoading] = useState(startInShellLoading);
 
   useLayoutEffect(() => {
+    /**
+     *
+     */
     const syncShellLoadingFromDocument = () => {
       const shellLoading = readDashboardShellLoadingFromDocument();
 
@@ -69,6 +84,9 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
       return true;
     };
 
+    /**
+     *
+     */
     const settleOptimisticShellLoading = () => {
       const shellLoading = resolveDashboardShellLoadingState({
         hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
@@ -82,11 +100,17 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
       }
     };
 
+    /**
+     * @param event
+     */
     const handleShellLoading = (event: Event) => {
       hasReceivedShellLoadingEventRef.current = true;
       setIsShellLoading(readDashboardShellLoadingFromEvent(event));
     };
 
+    /**
+     *
+     */
     const handleReadyStateChange = () => {
       settleOptimisticShellLoading();
     };

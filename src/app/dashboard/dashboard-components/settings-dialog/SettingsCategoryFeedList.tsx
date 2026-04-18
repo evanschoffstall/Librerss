@@ -4,6 +4,9 @@ import { SettingsFeedRow } from "@/app/dashboard/dashboard-components/settings-d
 
 export type { SettingsCategoryFeedListProps } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsCategoryFeedContracts";
 
+/**
+ * @param props
+ */
 export function SettingsCategoryFeedList(props: SettingsCategoryFeedListProps) {
   return (
     <div

@@ -15,6 +15,9 @@ type CompatibilityProvider =
 /**
  * Detect whether an upstream response looks like a bot-management challenge
  * and whether retrying the same profile has a reasonable chance of success.
+ * @param responseStatus
+ * @param headers
+ * @param responseBody
  */
 export function detectResponseCompatibilitySignal(
   responseStatus: number | undefined,
@@ -48,6 +51,10 @@ export function detectResponseCompatibilitySignal(
   return { retryable: true, signal: { detected: false } };
 }
 
+/**
+ * @param provider
+ * @param challengeCookies
+ */
 function createDetectedResponse(
   provider: CompatibilityProvider,
   challengeCookies: string[],
@@ -62,6 +69,9 @@ function createDetectedResponse(
   };
 }
 
+/**
+ * @param headers
+ */
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {
   const setCookie = headers?.["set-cookie"];
   return Array.isArray(setCookie)
@@ -71,10 +81,17 @@ function getChallengeCookies(headers: Record<string, unknown> | undefined) {
       : [];
 }
 
+/**
+ * @param headers
+ */
 function getLowercaseHeaderKeys(headers: Record<string, unknown> | undefined) {
   return Object.keys(headers ?? {}).map((header) => header.toLowerCase());
 }
 
+/**
+ * @param headers
+ * @param key
+ */
 function headerText(headers: Record<string, unknown> | undefined, key: string) {
   const value = headers?.[key];
   return Array.isArray(value)
@@ -84,6 +101,10 @@ function headerText(headers: Record<string, unknown> | undefined, key: string) {
       : "";
 }
 
+/**
+ * @param headers
+ * @param responseBody
+ */
 function isCloudflareChallenge(
   headers: Record<string, unknown> | undefined,
   responseBody: string,
@@ -96,10 +117,17 @@ function isCloudflareChallenge(
   );
 }
 
+/**
+ * @param headers
+ */
 function isDataDomeChallenge(headers: Record<string, unknown> | undefined) {
   return headerText(headers, "x-datadome") === "protected";
 }
 
+/**
+ * @param responseBody
+ * @param responseHeaderKeys
+ */
 function isPerimeterXChallenge(
   responseBody: string,
   responseHeaderKeys: string[],
@@ -110,6 +138,10 @@ function isPerimeterXChallenge(
   );
 }
 
+/**
+ * @param responseBody
+ * @param responseBodyLower
+ */
 function isRecaptchaChallenge(responseBody: string, responseBodyLower: string) {
   return (
     /(?:^|\W)g-recaptcha(?:\W|$)|grecaptcha(?:\W|$)|recaptcha\/api(?:2)?(?:\.js|\/anchor|\/reload)|google\.com\/recaptcha|gstatic\.com\/recaptcha/i.test(

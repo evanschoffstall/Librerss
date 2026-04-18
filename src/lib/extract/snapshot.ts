@@ -5,7 +5,10 @@ import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core/placeholder";
 
 import type { PlaceholderSnapshotHit } from "./constants";
 
-/** Reads a bundled placeholder snapshot and normalizes relative asset URLs to the article origin. */
+/**
+ * Reads a bundled placeholder snapshot and normalizes relative asset URLs to the article origin.
+ * @param url
+ */
 export async function readPlaceholderSnapshotHtml(
   url: string,
 ): Promise<null | PlaceholderSnapshotHit> {
@@ -30,6 +33,8 @@ export async function readPlaceholderSnapshotHtml(
  * Rewrites relative placeholder HTML asset URLs against the source article URL
  * so preview-mode bundled snapshots behave like the original publisher page.
  * This is intentionally placeholder-only and does not affect production fetches.
+ * @param articleUrl
+ * @param html
  */
 function normalizePlaceholderSnapshotHtml(
   articleUrl: string,
@@ -65,7 +70,11 @@ function normalizePlaceholderSnapshotHtml(
     );
 }
 
-/** Normalizes every candidate URL inside a srcset attribute. */
+/**
+ * Normalizes every candidate URL inside a srcset attribute.
+ * @param baseUrl
+ * @param value
+ */
 function normalizeSrcsetValue(baseUrl: URL, value: string): string {
   return value
     .split(",")
@@ -82,7 +91,11 @@ function normalizeSrcsetValue(baseUrl: URL, value: string): string {
     .join(", ");
 }
 
-/** Normalizes a single URL-bearing attribute while leaving absolute/special URLs untouched. */
+/**
+ * Normalizes a single URL-bearing attribute while leaving absolute/special URLs untouched.
+ * @param baseUrl
+ * @param value
+ */
 function normalizeUrlAttributeValue(baseUrl: URL, value: string): string {
   const trimmedValue = value.trim();
   if (!trimmedValue) return value;

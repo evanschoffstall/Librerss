@@ -7,6 +7,11 @@ import {
 } from "@/app/dashboard/dashboard-services/category-tree";
 import { normalizeCategoryLabelKey } from "@/lib/utils";
 
+/**
+ * @param categories
+ * @param customCategoryLabels
+ * @param orderedCategoryLabels
+ */
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],
   customCategoryLabels: string[],
@@ -33,6 +38,11 @@ export function buildDisplayCategories(
     .filter((node): node is CategoryTreeNode => node !== undefined);
 }
 
+/**
+ * @param categories
+ * @param customCategoryLabels
+ * @param currentLabels
+ */
 export function computeNextOrderedCategoryLabels(
   categories: CategoryTreeNode[],
   customCategoryLabels: string[],

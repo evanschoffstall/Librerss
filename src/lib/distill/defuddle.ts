@@ -4,10 +4,18 @@ import { parseHTML } from "linkedom";
 import type { DistilledArticle, DistillOptions } from "./types";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
-const EMPTY_STYLE = Object.freeze({ getPropertyValue: () => "" });
+const EMPTY_STYLE = Object.freeze({
+  /**
+   *
+   */
+  getPropertyValue: () => "",
+});
 
 /**
  * Runs the Defuddle-backed distillation strategy against already-fetched HTML.
+ * @param html
+ * @param url
+ * @param options
  */
 export function distillWithDefuddle(
   html: string,
@@ -30,7 +38,10 @@ export function distillWithDefuddle(
   };
 }
 
-/** Stub browser APIs that linkedom lacks but Defuddle expects. */
+/**
+ * Stub browser APIs that linkedom lacks but Defuddle expects.
+ * @param document
+ */
 function patchLinkedomWindow(document: unknown): void {
   const doc = document as Record<string, unknown>;
   const win = (doc.defaultView as Record<string, unknown> | undefined) ?? doc;
@@ -38,6 +49,9 @@ function patchLinkedomWindow(document: unknown): void {
     !("getComputedStyle" in win) ||
     typeof win.getComputedStyle !== "function"
   ) {
+    /**
+     *
+     */
     win.getComputedStyle = () => EMPTY_STYLE;
   }
   if (!("styleSheets" in doc)) {

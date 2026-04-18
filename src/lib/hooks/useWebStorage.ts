@@ -31,6 +31,11 @@ interface StorageSyncDetail {
   value: string;
 }
 
+/**
+ * @param getStorage
+ * @param key
+ * @param defaultValue
+ */
 export function useWebStorage<T>(
   getStorage: () => Storage,
   key: string,
@@ -110,6 +115,13 @@ export function useWebStorage<T>(
   return [value, setStoredValue];
 }
 
+/**
+ * @param defaultValue
+ * @param key
+ * @param setValue
+ * @param shouldSkipNextWriteRef
+ * @param isEmittingRef
+ */
 function createStorageSyncHandler<T>(
   defaultValue: T,
   key: string,
@@ -133,6 +145,10 @@ function createStorageSyncHandler<T>(
   };
 }
 
+/**
+ * @param key
+ * @param value
+ */
 function emitStorageSync(key: string, value: string): void {
   window.dispatchEvent(
     new CustomEvent<StorageSyncDetail>(STORAGE_SYNC_EVENT, {
@@ -141,6 +157,12 @@ function emitStorageSync(key: string, value: string): void {
   );
 }
 
+/**
+ * @param getStorage
+ * @param isEmittingRef
+ * @param key
+ * @param value
+ */
 function persistStorageValue(
   getStorage: () => Storage,
   isEmittingRef: React.RefObject<boolean>,
@@ -158,7 +180,12 @@ function persistStorageValue(
   }
 }
 
-/** Reads and parses the persisted value for a storage key with a safe fallback. */
+/**
+ * Reads and parses the persisted value for a storage key with a safe fallback.
+ * @param getStorage
+ * @param key
+ * @param defaultValue
+ */
 function readStoredValue<T>(
   getStorage: () => Storage,
   key: string,
@@ -172,6 +199,13 @@ function readStoredValue<T>(
   }
 }
 
+/**
+ * @param defaultValue
+ * @param getStorage
+ * @param key
+ * @param setValue
+ * @param shouldSkipNextWriteRef
+ */
 function restoreStoredSnapshot<T>(
   defaultValue: T,
   getStorage: () => Storage,

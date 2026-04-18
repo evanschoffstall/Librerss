@@ -49,6 +49,12 @@ interface FeedRowActionsProps {
   rowState: SettingsFeedRowDerivedState;
 }
 
+/**
+ * @param root0
+ * @param root0.isMobile
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 export function FeedRowActions({
   isMobile,
   rowProps,
@@ -61,6 +67,11 @@ export function FeedRowActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function DesktopFeedActions({
   rowProps,
   rowState,
@@ -77,6 +88,11 @@ function DesktopFeedActions({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedEditButton({
   rowProps,
   rowState,
@@ -98,6 +114,11 @@ function FeedEditButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedEnabledButton({
   rowProps,
   rowState,
@@ -123,6 +144,11 @@ function FeedEnabledButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedEnabledMenuItem({
   rowProps,
   rowState,
@@ -146,6 +172,11 @@ function FeedEnabledMenuItem({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedExtractionButton({
   rowProps,
   rowState,
@@ -183,6 +214,11 @@ function FeedExtractionButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedExtractionMenuItem({
   rowProps,
   rowState,
@@ -215,6 +251,11 @@ function FeedExtractionMenuItem({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedProxyButton({
   rowProps,
   rowState,
@@ -248,6 +289,11 @@ function FeedProxyButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedProxyMenuItem({
   rowProps,
   rowState,
@@ -278,6 +324,11 @@ function FeedProxyMenuItem({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedRemoveButton({
   rowProps,
   rowState,
@@ -305,6 +356,11 @@ function FeedRemoveButton({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function FeedRemoveMenuItem({
   rowProps,
   rowState,
@@ -330,6 +386,11 @@ function FeedRemoveMenuItem({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.rowProps
+ * @param root0.rowState
+ */
 function MobileFeedActions({
   rowProps,
   rowState,
@@ -366,6 +427,12 @@ function MobileFeedActions({
   );
 }
 
+/**
+ * @param isUpdatingSettings
+ * @param pendingSetting
+ * @param setting
+ * @param icon
+ */
 function renderSettingsProgressIcon(
   isUpdatingSettings: boolean,
   pendingSetting: SettingsFeedRowDerivedState["pendingSetting"],

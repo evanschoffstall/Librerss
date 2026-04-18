@@ -30,6 +30,9 @@ interface MarkStreamAsReadDeps {
  *
  * Shared by mark-all-read flows that operate on feed, label, or starred
  * streams.
+ * @param userId
+ * @param stream
+ * @param deps
  */
 export async function markStreamAsRead(
   userId: number,
@@ -73,6 +76,10 @@ export async function markStreamAsRead(
   );
 }
 
+/**
+ * @param userId
+ * @param tables
+ */
 function buildEnabledFeedJoin(userId: number, tables: DbTables) {
   return and(
     eq(tables.feedSources.url, tables.feeds.url),
@@ -81,6 +88,11 @@ function buildEnabledFeedJoin(userId: number, tables: DbTables) {
   );
 }
 
+/**
+ * @param db
+ * @param enabledJoin
+ * @param tables
+ */
 function createBaseArticleIdQuery(
   db: DbInstance,
   enabledJoin: ReturnType<typeof and>,
@@ -93,6 +105,12 @@ function createBaseArticleIdQuery(
     .innerJoin(tables.feedSources, enabledJoin);
 }
 
+/**
+ * @param db
+ * @param enabledJoin
+ * @param tables
+ * @param beforeDate
+ */
 function listAllStreamArticleIds(
   db: DbInstance,
   enabledJoin: ReturnType<typeof and>,
@@ -106,6 +124,13 @@ function listAllStreamArticleIds(
     .limit(MARK_ALL_READ_LIMIT);
 }
 
+/**
+ * @param db
+ * @param enabledJoin
+ * @param tables
+ * @param feedUrl
+ * @param beforeDate
+ */
 function listFeedStreamArticleIds(
   db: DbInstance,
   enabledJoin: ReturnType<typeof and>,
@@ -125,6 +150,14 @@ function listFeedStreamArticleIds(
     .limit(MARK_ALL_READ_LIMIT);
 }
 
+/**
+ * @param db
+ * @param enabledJoin
+ * @param tables
+ * @param userId
+ * @param userLabel
+ * @param beforeDate
+ */
 function listLabelStreamArticleIds(
   db: DbInstance,
   enabledJoin: ReturnType<typeof and>,
@@ -148,6 +181,13 @@ function listLabelStreamArticleIds(
     .limit(MARK_ALL_READ_LIMIT);
 }
 
+/**
+ * @param db
+ * @param enabledJoin
+ * @param tables
+ * @param userId
+ * @param beforeDate
+ */
 function listStarredStreamArticleIds(
   db: DbInstance,
   enabledJoin: ReturnType<typeof and>,
@@ -174,6 +214,17 @@ function listStarredStreamArticleIds(
     .limit(MARK_ALL_READ_LIMIT);
 }
 
+/**
+ * @param root0
+ * @param root0.beforeDate
+ * @param root0.db
+ * @param root0.enabledJoin
+ * @param root0.stream
+ * @param root0.tables
+ * @param root0.useArticleStatuses
+ * @param root0.userId
+ * @param root0.userLabel
+ */
 async function resolveArticleIdsForStream({
   beforeDate,
   db,
@@ -223,6 +274,10 @@ async function resolveArticleIdsForStream({
   return listAllStreamArticleIds(db, enabledJoin, tables, beforeDate);
 }
 
+/**
+ * @param deps
+ * @param getDbFn
+ */
 function resolveMarkStreamAsReadDeps(
   deps: MarkStreamAsReadDeps | undefined,
   getDbFn: () => DbInstance,

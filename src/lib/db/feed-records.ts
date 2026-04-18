@@ -23,6 +23,10 @@ export const feedRecordFields = {
 
 // Single-query upsert: always returns the row whether inserted or already existing.
 // ON CONFLICT DO UPDATE with a no-op SET guarantees RETURNING always fires.
+/**
+ * @param executor
+ * @param feedUrl
+ */
 export async function ensureFeedRecordByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
@@ -40,6 +44,10 @@ export async function ensureFeedRecordByUrl(
   return records[0];
 }
 
+/**
+ * @param executor
+ * @param feedUrl
+ */
 export async function findFeedIdByUrl(
   executor: FeedDbExecutor,
   feedUrl: string,
@@ -53,6 +61,13 @@ export async function findFeedIdByUrl(
   return feedsByUrl.length === 0 ? null : feedsByUrl[0].id;
 }
 
+/**
+ * @param executor
+ * @param root0
+ * @param root0.category
+ * @param root0.feedId
+ * @param root0.userId
+ */
 export async function removeUserFeedCategory(
   executor: FeedDbExecutor,
   {
@@ -81,6 +96,13 @@ export async function removeUserFeedCategory(
     );
 }
 
+/**
+ * @param executor
+ * @param root0
+ * @param root0.category
+ * @param root0.feedId
+ * @param root0.userId
+ */
 export async function replaceUserFeedCategory(
   executor: FeedDbExecutor,
   {

@@ -4,6 +4,9 @@ import { maxArticleConsecutiveBlankLines } from "@/lib";
 // process, and this value is read on every article parse invocation.
 let _maxConsecutiveBlankLines: number | undefined;
 
+/**
+ * @param html
+ */
 export function collapseExcessNewlines(html: string): string {
   const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
@@ -31,6 +34,9 @@ export function collapseExcessNewlines(html: string): string {
     );
 }
 
+/**
+ * @param value
+ */
 export function decodeHtmlEntities(value: string): string {
   return value.replace(
     /&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]+);/gi,
@@ -49,10 +55,16 @@ export function decodeHtmlEntities(value: string): string {
   );
 }
 
+/**
+ * @param html
+ */
 export function normalizeInlineText(html: string): string {
   return toPlainText(html).replace(/\s+/g, " ").trim();
 }
 
+/**
+ * @param rawHtml
+ */
 export function normalizeNoscriptForManipulation(rawHtml: string): string {
   return rawHtml.replace(
     /<noscript\b[^>]*>([\s\S]*?)<\/noscript>/gi,
@@ -69,12 +81,18 @@ export function normalizeNoscriptForManipulation(rawHtml: string): string {
   );
 }
 
+/**
+ * @param html
+ */
 export function stripEmbeddedMediaBlocks(html: string): string {
   return html
     .replace(/<(iframe|video|object|embed)\b[^>]*>[\s\S]*?<\/\1>/gi, "\n")
     .replace(/<(iframe|video|object|embed)\b[^>]*\/?>/gi, "\n");
 }
 
+/**
+ * @param value
+ */
 export function toPlainText(value: string): string {
   const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
   const minOverflowRun = maxConsecutiveBlankLines + 1;
@@ -86,6 +104,11 @@ export function toPlainText(value: string): string {
   );
 }
 
+/**
+ * @param value
+ * @param maxConsecutiveBlankLines
+ * @param minOverflowRun
+ */
 function collapseOverflowBlankLines(
   value: string,
   maxConsecutiveBlankLines: number,
@@ -114,6 +137,10 @@ function collapseOverflowBlankLines(
   return normalized;
 }
 
+/**
+ * @param raw
+ * @param radix
+ */
 function decodeNumericEntity(raw: string, radix: 10 | 16): string {
   try {
     return String.fromCodePoint(Number.parseInt(raw, radix));
@@ -122,10 +149,18 @@ function decodeNumericEntity(raw: string, radix: 10 | 16): string {
   }
 }
 
+/**
+ *
+ */
 function getMaxConsecutiveBlankLines(): number {
   return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
 }
 
+/**
+ * @param tagStripped
+ * @param maxConsecutiveBlankLines
+ * @param minOverflowRun
+ */
 function normalizePlainTextOutput(
   tagStripped: string,
   maxConsecutiveBlankLines: number,
@@ -143,6 +178,9 @@ function normalizePlainTextOutput(
   );
 }
 
+/**
+ * @param value
+ */
 function stripHtmlForPlainText(value: string): string {
   return stripEmbeddedMediaBlocks(value)
     .replace(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi, "\n")

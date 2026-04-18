@@ -10,6 +10,9 @@ export interface BlockedRequestPolicy {
   responseMessage: string;
 }
 
+/**
+ * @param policies
+ */
 function defineBlockedRequestPolicies(
   policies: readonly BlockedRequestPolicy[],
 ): readonly BlockedRequestPolicy[] {
@@ -67,6 +70,10 @@ export const blockedRequestPolicies = defineBlockedRequestPolicies([
   },
 ]);
 
+/**
+ * @param request
+ * @param policy
+ */
 export function createBlockedRequestResponse(
   request: NextRequest,
   policy: BlockedRequestPolicy,
@@ -97,6 +104,9 @@ export function createBlockedRequestResponse(
   return response;
 }
 
+/**
+ * @param pathname
+ */
 export function matchBlockedRequestPolicy(
   pathname: string,
 ): BlockedRequestPolicy | null {

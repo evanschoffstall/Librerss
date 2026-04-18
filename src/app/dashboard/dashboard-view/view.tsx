@@ -19,7 +19,15 @@ import { useLocalStorage } from "@/lib/hooks";
 
 type DashboardViewProps = DashboardControllerProps;
 
-/** Hydrated dashboard view with shared shell chrome and interactive feed surfaces. */
+/**
+ * Hydrated dashboard view with shared shell chrome and interactive feed surfaces.
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.distillStrategy
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.usePlaceholderData
+ */
 export const DashboardView = ({
   backgroundMode,
   distillStrategy,
@@ -57,6 +65,10 @@ export const DashboardView = ({
   );
 };
 
+/**
+ * @param root0
+ * @param root0.feedList
+ */
 function DashboardFeedSection({
   feedList,
 }: {
@@ -99,6 +111,10 @@ function DashboardFeedSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.filterBar
+ */
 function DashboardFilterSection({
   filterBar,
 }: {
@@ -116,6 +132,13 @@ function DashboardFilterSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.feedList
+ * @param root0.filterBar
+ * @param root0.mobileToolbarBottom
+ * @param root0.sidebar
+ */
 function DashboardShellView({
   feedList,
   filterBar,
@@ -137,6 +160,10 @@ function DashboardShellView({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.sidebar
+ */
 function DashboardSidebarSection({
   sidebar,
 }: {
@@ -151,6 +178,10 @@ function DashboardSidebarSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.sidebar
+ */
 function DashboardSidebarSheet({
   sidebar,
 }: {

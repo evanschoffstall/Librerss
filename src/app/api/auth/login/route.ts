@@ -15,6 +15,9 @@ interface LoginPayload {
   password: string;
 }
 
+/**
+ * @param request
+ */
 export async function POST(request: NextRequest) {
   try {
     const requestError = serverApi.requireMutableRequest(request, {
@@ -62,6 +65,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * @param payload
+ */
 function parseLoginPayload(
   payload: Record<string, unknown>,
 ): LoginPayload | Response {
@@ -86,6 +92,9 @@ function parseLoginPayload(
   return { email, password };
 }
 
+/**
+ *
+ */
 function respondInvalidCredentials(): Response {
   const warn =
     typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;

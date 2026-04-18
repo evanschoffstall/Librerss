@@ -16,7 +16,10 @@ interface VisibleArticleHeaderEntry {
   headerTop: number;
 }
 
-/** Returns article keys whose rows are fully visible inside the current viewport. */
+/**
+ * Returns article keys whose rows are fully visible inside the current viewport.
+ * @param viewport
+ */
 export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
 
@@ -35,7 +38,10 @@ export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
     .filter((articleKey): articleKey is string => Boolean(articleKey));
 }
 
-/** Resolves the header element used as the inverted scroll lock anchor. */
+/**
+ * Resolves the header element used as the inverted scroll lock anchor.
+ * @param articleKey
+ */
 export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
   if (!articleKey) {
     return null;
@@ -46,7 +52,10 @@ export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
   );
 }
 
-/** Resolves the lock anchor element for expansion and collapse transitions. */
+/**
+ * Resolves the lock anchor element for expansion and collapse transitions.
+ * @param articleKey
+ */
 export function findInvertedExpansionLockAnchor(articleKey: null | string) {
   if (!articleKey) {
     return null;
@@ -84,7 +93,10 @@ export function findTopVisibleInvertedPaginationAnchorArticleKey() {
   return visibleHeaders[0]?.articleKey ?? null;
 }
 
-/** Selects the visible survivor article whose header should anchor unread-removal scroll compensation. */
+/**
+ * Selects the visible survivor article whose header should anchor unread-removal scroll compensation.
+ * @param excludedArticleKeys
+ */
 export function findVisibleInvertedRemovalAnchorArticleKey(
   excludedArticleKeys: ReadonlySet<string>,
 ) {
@@ -108,7 +120,11 @@ export function findVisibleInvertedRemovalAnchorArticleKey(
   return visibleArticles[0]?.articleKey ?? null;
 }
 
-/** Measures an element's top offset relative to the owning viewport. */
+/**
+ * Measures an element's top offset relative to the owning viewport.
+ * @param element
+ * @param viewport
+ */
 export function getViewportOffsetTop(
   element: HTMLElement | null,
   viewport: HTMLElement,
@@ -122,18 +138,30 @@ export function getViewportOffsetTop(
   );
 }
 
-/** Detects whether a viewport belongs to the feed surface that supports restore anchors. */
+/**
+ * Detects whether a viewport belongs to the feed surface that supports restore anchors.
+ * @param viewport
+ */
 export function isInvertedExpansionLockViewport(viewport: HTMLElement) {
   return isDashboardFeedViewport(viewport);
 }
 
-/** Watches layout changes that can invalidate an active inverted expansion lock. */
+/**
+ * Watches layout changes that can invalidate an active inverted expansion lock.
+ * @param root0
+ * @param root0.articleKey
+ * @param root0.onLayoutChange
+ * @param root0.viewport
+ */
 export function observeInvertedExpansionScrollLockLayout({
   articleKey,
   onLayoutChange,
   viewport,
 }: InvertedExpansionScrollLockObserverOptions) {
   return observeFeedViewportLayout({
+    /**
+     *
+     */
     findAnchor: () =>
       findInvertedExpansionHeaderAnchor(articleKey) ??
       findInvertedExpansionLockAnchor(articleKey),
@@ -142,7 +170,10 @@ export function observeInvertedExpansionScrollLockLayout({
   });
 }
 
-/** Reads the prepared article key from a dashboard custom event payload. */
+/**
+ * Reads the prepared article key from a dashboard custom event payload.
+ * @param event
+ */
 export function readPreparedArticleKey(event: Event) {
   if (!(event instanceof CustomEvent)) {
     return null;
@@ -153,7 +184,11 @@ export function readPreparedArticleKey(event: Event) {
   return typeof detail?.articleKey === "string" ? detail.articleKey : null;
 }
 
-/** Re-resolves the viewport after layout migration or Radix viewport replacement. */
+/**
+ * Re-resolves the viewport after layout migration or Radix viewport replacement.
+ * @param articleKey
+ * @param viewport
+ */
 export function resolveInvertedExpansionLockViewport(
   articleKey: null | string,
   viewport: HTMLElement,
@@ -170,7 +205,14 @@ export function resolveInvertedExpansionLockViewport(
   });
 }
 
-/** Determines whether inverted mode should keep anchoring the newest visible row. */
+/**
+ * Determines whether inverted mode should keep anchoring the newest visible row.
+ * @param root0
+ * @param root0.expandedArticleKey
+ * @param root0.hasClaimedInvertedScrollOwnership
+ * @param root0.isInvertedScroll
+ * @param root0.isUnderfilledInvertedViewport
+ */
 export function shouldAutoAnchorInvertedScrollViewport({
   expandedArticleKey,
   hasClaimedInvertedScrollOwnership,
@@ -184,6 +226,10 @@ export function shouldAutoAnchorInvertedScrollViewport({
   );
 }
 
+/**
+ * @param viewport
+ * @param excludedArticleKeys
+ */
 function collectVisibleArticleHeaderEntries(
   viewport: HTMLElement,
   excludedArticleKeys: ReadonlySet<string> = new Set<string>(),

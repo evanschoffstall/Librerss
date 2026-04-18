@@ -32,10 +32,21 @@ interface PlaceholderArticleCandidate {
 }
 
 const defaultDependencies: FeedBatchResolverDependencies = {
+  /**
+   * @param urls
+   * @param options
+   */
   fetchFeedsBatch: (urls, options) => FeedService.getFeedsBatch(urls, options),
   getPlaceholderArticles: getPlaceholderArticlesForSource,
 };
 
+/**
+ * @param normalizedSources
+ * @param usePlaceholderData
+ * @param options
+ * @param signal
+ * @param dependencies
+ */
 export async function resolveFeedBatchResults(
   normalizedSources: FeedBatchSource[],
   usePlaceholderData: boolean,
@@ -69,6 +80,11 @@ export async function resolveFeedBatchResults(
   );
 }
 
+/**
+ * @param normalizedSources
+ * @param getPlaceholderArticles
+ * @param options
+ */
 function resolveLimitedPlaceholderCandidates(
   normalizedSources: FeedBatchSource[],
   getPlaceholderArticles: (url: string) => Article[],
@@ -129,6 +145,11 @@ function resolveLimitedPlaceholderCandidates(
   return filteredCandidates.slice(0, Math.max(0, options.articleLimit));
 }
 
+/**
+ * @param normalizedSources
+ * @param getPlaceholderArticles
+ * @param options
+ */
 function resolvePlaceholderBatchResults(
   normalizedSources: FeedBatchSource[],
   getPlaceholderArticles: (url: string) => Article[],

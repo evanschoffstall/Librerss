@@ -40,6 +40,14 @@ type UseDashboardHandlersOptions = FeedSelectionFetchers & {
   selectedCategoryNode?: CategoryTreeNode;
   /** Selected concrete feed URL for single-feed views. */
   selectedFeedUrl?: string;
+  /**
+   * Article limit used for selection-change fetches (category/feed click and prefetch).
+   *
+   * Selection changes always reset the article window to 1 page, so the fetch
+   * must use `articlesPerPage` — not the current expanded `articleWindowLimit`
+   * which may still reflect a prior scrolled-up window.
+   */
+  selectionArticleLimit?: FeedFetchOptions["articleLimit"];
   /** Closes the mobile sidebar after the user commits a selection. */
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   /** Persists the newly selected category/feed node key. */
@@ -53,7 +61,22 @@ type UseDashboardHandlersOptions = FeedSelectionFetchers & {
  * category/feed switching so UI components can stay declarative and free of
  * selection-service details.
  *
- * @param options Current selection context, fetchers, and local UI setters.
+ * @param options - Current selection context, fetchers, and local UI setters.
+ * @param options.articleLimit
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.fetchFeed
+ * @param options.onBeforeRefresh
+ * @param options.prefetchAllFeeds
+ * @param options.prefetchCategoryFeeds
+ * @param options.prefetchFeed
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ * @param options.selectedCategoryNode
+ * @param options.selectedFeedUrl
+ * @param options.selectionArticleLimit
+ * @param options.setIsMobileSidebarOpen
+ * @param options.setSelectedCategory
  * @returns Stable callbacks for feed/category clicks and refresh actions.
  */
 export function useDashboardHandlers({
@@ -69,6 +92,7 @@ export function useDashboardHandlers({
   selectedCategory,
   selectedCategoryNode,
   selectedFeedUrl,
+  selectionArticleLimit,
   setIsMobileSidebarOpen,
   setSelectedCategory,
 }: UseDashboardHandlersOptions) {
@@ -90,7 +114,7 @@ export function useDashboardHandlers({
     handleFeedClick,
     handleFeedPrefetch,
   } = useDashboardSelectionHandlers({
-    articleLimit,
+    articleLimit: selectionArticleLimit ?? articleLimit,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -120,6 +144,18 @@ export function useDashboardHandlers({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.prefetchAllFeeds
+ * @param root0.prefetchCategoryFeeds
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.setIsMobileSidebarOpen
+ * @param root0.setSelectedCategory
+ */
 function useDashboardCategorySelectionHandlers({
   articleLimit,
   fetchAllFeeds,
@@ -184,6 +220,16 @@ function useDashboardCategorySelectionHandlers({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchFeed
+ * @param root0.prefetchFeed
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.setIsMobileSidebarOpen
+ * @param root0.setSelectedCategory
+ */
 function useDashboardFeedSelectionHandlers({
   articleLimit,
   fetchFeed,
@@ -235,6 +281,18 @@ function useDashboardFeedSelectionHandlers({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.onBeforeRefresh
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ */
 function useDashboardRefreshHandlers({
   articleLimit,
   fetchAllFeeds,
@@ -300,6 +358,20 @@ function useDashboardRefreshHandlers({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.prefetchAllFeeds
+ * @param root0.prefetchCategoryFeeds
+ * @param root0.prefetchFeed
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.setIsMobileSidebarOpen
+ * @param root0.setSelectedCategory
+ */
 function useDashboardSelectionHandlers({
   articleLimit,
   fetchAllFeeds,

@@ -39,6 +39,19 @@ interface UseExpandedArticleCollapseOptions {
  * This keeps the expanded-row lifecycle together so the top-level article
  * actions hook can compose read-state, hydration, and star-state mutations
  * without carrying the expansion orchestration inline.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.cancelCollapseScrollRestore
+ * @param root0.cancelHydration
+ * @param root0.clearExpandedArticleHydrationTracking
+ * @param root0.clearRemovalAnimation
+ * @param root0.expandedArticleKey
+ * @param root0.hydrateArticleContent
+ * @param root0.restoreCollapseScrollPosition
+ * @param root0.setArticleReadState
+ * @param root0.setExpandedArticleKey
+ * @param root0.startRemovalAnimation
+ * @param root0.updatingArticleState
  */
 export function useExpandedArticleCollapse({
   articleFilter,
@@ -93,6 +106,16 @@ export function useExpandedArticleCollapse({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.cancelHydration
+ * @param root0.clearExpandedArticleHydrationTracking
+ * @param root0.clearRemovalAnimation
+ * @param root0.queueCollapseScrollRestore
+ * @param root0.setExpandedArticleKey
+ * @param root0.startRemovalAnimation
+ */
 function useCollapseExpandedArticle({
   articleFilter,
   cancelHydration,
@@ -149,6 +172,17 @@ function useCollapseExpandedArticle({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.cancelCollapseScrollRestore
+ * @param root0.clearRemovalAnimation
+ * @param root0.collapseExpandedArticle
+ * @param root0.expandedArticleKey
+ * @param root0.hydrateArticleContent
+ * @param root0.markArticleReadIfNeeded
+ * @param root0.setExpandedArticleKey
+ */
 function useHandleExpandedArticleToggle({
   articleFilter,
   cancelCollapseScrollRestore,
@@ -216,6 +250,11 @@ function useHandleExpandedArticleToggle({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.collapseExpandedArticle
+ * @param root0.markArticleReadIfNeeded
+ */
 function useHandleExpandedSwipeRead({
   collapseExpandedArticle,
   markArticleReadIfNeeded,
@@ -241,6 +280,11 @@ function useHandleExpandedSwipeRead({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.setArticleReadState
+ * @param root0.updatingArticleState
+ */
 function useMarkExpandedArticleReadIfNeeded({
   setArticleReadState,
   updatingArticleState,
@@ -265,6 +309,9 @@ function useMarkExpandedArticleReadIfNeeded({
  * Restoring during the click handler can be overwritten while the expanded row
  * is still mounted, especially after hydration grows the article and the user
  * collapses from deep inside the content body.
+ * @param root0
+ * @param root0.expandedArticleKey
+ * @param root0.restoreCollapseScrollPosition
  */
 function usePendingCollapseScrollRestore({
   expandedArticleKey,

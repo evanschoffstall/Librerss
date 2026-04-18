@@ -100,7 +100,14 @@ interface DashboardSidebarState<SidebarScrollRef> {
   sidebarScrollRef: SidebarScrollRef;
 }
 
-/** Builds the grouped controller contract consumed by the dashboard view. */
+/**
+ * Builds the grouped controller contract consumed by the dashboard view.
+ * @param root0
+ * @param root0.feedList
+ * @param root0.filterBar
+ * @param root0.settings
+ * @param root0.sidebar
+ */
 export function buildDashboardControllerState<
   CategoryTreeController,
   SidebarScrollRef,
@@ -121,7 +128,19 @@ export function buildDashboardControllerState<
   };
 }
 
-/** Builds the memoized sidebar content prop bag shared by desktop and mobile rails. */
+/**
+ * Builds the memoized sidebar content prop bag shared by desktop and mobile rails.
+ * @param root0
+ * @param root0.isCategoriesLoading
+ * @param root0.isSidebarVisible
+ * @param root0.onCategoryClick
+ * @param root0.onCategoryPrefetch
+ * @param root0.onFeedClick
+ * @param root0.onFeedPrefetch
+ * @param root0.selectedCategory
+ * @param root0.showFavicons
+ * @param root0.sidebarCategories
+ */
 export function buildDashboardSidebarContentProps({
   isCategoriesLoading,
   isSidebarVisible,

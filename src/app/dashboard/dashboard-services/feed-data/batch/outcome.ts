@@ -15,6 +15,13 @@ interface FeedBatchOutcome {
   sourceNamesByUrl: Map<string, string | undefined>;
 }
 
+/**
+ * @param normalizedSources
+ * @param batchResults
+ * @param usePlaceholderData
+ * @param getPlaceholderArticles
+ * @param previousFeed
+ */
 export function buildFeedBatchOutcome(
   normalizedSources: FeedBatchSource[],
   batchResults: BatchFeedResponseItem[],
@@ -38,6 +45,10 @@ export function buildFeedBatchOutcome(
   };
 }
 
+/**
+ * @param failedFeeds
+ * @param sourceNamesByUrl
+ */
 export function formatFeedFailureLabel(
   failedFeeds: BatchFeedResponseItem[],
   sourceNamesByUrl: Map<string, string | undefined>,

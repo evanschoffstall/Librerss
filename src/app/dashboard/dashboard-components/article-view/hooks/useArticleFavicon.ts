@@ -12,6 +12,11 @@ interface UseArticleFaviconOptions {
   primaryUrl?: string;
 }
 
+/**
+ * @param root0
+ * @param root0.fallbackUrl
+ * @param root0.primaryUrl
+ */
 export function useArticleFavicon({
   fallbackUrl,
   primaryUrl,

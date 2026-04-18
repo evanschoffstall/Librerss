@@ -1,6 +1,11 @@
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import { Button } from "@/components/ui/button";
 
+/**
+ * @param event
+ * @param onSave
+ * @param onCancel
+ */
 export function handleInlineEditorKeyDown(
   event: React.KeyboardEvent<HTMLInputElement>,
   onSave: () => void,
@@ -10,6 +15,13 @@ export function handleInlineEditorKeyDown(
   if (event.key === "Escape") onCancel();
 }
 
+/**
+ * @param root0
+ * @param root0.disabled
+ * @param root0.isSaving
+ * @param root0.onCancel
+ * @param root0.onSave
+ */
 export function SettingsInlineEditorControls({
   disabled,
   isSaving,

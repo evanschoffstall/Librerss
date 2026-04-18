@@ -31,6 +31,10 @@ interface HttpCloakFetchResult {
 /**
  * Fetch article HTML through HTTPCloak using the shared transport request
  * profile and SSRF-safe redirect validation.
+ * @param url
+ * @param isAllowedUrl
+ * @param options
+ * @param deps
  */
 export async function fetchHtmlWithHttpCloak(
   url: string,
@@ -69,6 +73,14 @@ export async function fetchHtmlWithHttpCloak(
   };
 }
 
+/**
+ * @param root0
+ * @param root0.allowInsecureTls
+ * @param root0.decodedBody
+ * @param root0.proxyAddress
+ * @param root0.proxyMode
+ * @param root0.response
+ */
 function assertSuccessfulHttpCloakResponse({
   allowInsecureTls,
   decodedBody,
@@ -102,6 +114,13 @@ function assertSuccessfulHttpCloakResponse({
   }
 }
 
+/**
+ * @param url
+ * @param isAllowedUrl
+ * @param options
+ * @param deps
+ * @param allowInsecureTls
+ */
 async function requestHttpCloakResponse(
   url: string,
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
@@ -117,6 +136,10 @@ async function requestHttpCloakResponse(
       proxyUrl: options?.proxyUrl,
       timeoutMs: 25_000,
       url,
+      /**
+       * @param candidateUrl
+       * @param isRedirectTarget
+       */
       validateUrl: async (candidateUrl, isRedirectTarget) => {
         if (!(await isAllowedUrl(candidateUrl))) {
           throw new Error(

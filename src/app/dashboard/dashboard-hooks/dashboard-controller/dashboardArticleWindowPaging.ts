@@ -56,6 +56,13 @@ interface DashboardArticleWindowResetState {
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
 
+/**
+ * @param options
+ * @param options.currentFeedLength
+ * @param options.isLoadingMoreArticles
+ * @param options.requestedArticleLimit
+ * @param options.shouldUseArticleWindow
+ */
 export function getDashboardArticleWindowCounts(options: {
   currentFeedLength: number;
   isLoadingMoreArticles: boolean;
@@ -73,6 +80,10 @@ export function getDashboardArticleWindowCounts(options: {
   };
 }
 
+/**
+ * @param nextLimit
+ * @param options
+ */
 export async function prefetchNextPageForCurrentSelection(
   nextLimit: number,
   options: DashboardArticleWindowHelperOptions,
@@ -113,6 +124,9 @@ export async function prefetchNextPageForCurrentSelection(
   }
 }
 
+/**
+ * @param options
+ */
 export function refillDashboardArticleWindow(
   options: DashboardArticleWindowRefillOptions,
 ): void {
@@ -153,6 +167,12 @@ export function refillDashboardArticleWindow(
   });
 }
 
+/**
+ * @param state
+ * @param options
+ * @param options.articlesPerPage
+ * @param options.shouldUseArticleWindow
+ */
 export function resetDashboardArticleWindowState(
   state: DashboardArticleWindowResetState,
   options: {
@@ -183,6 +203,9 @@ export function resetDashboardArticleWindowState(
   setHasMoreServerArticles(options.shouldUseArticleWindow);
 }
 
+/**
+ * @param options
+ */
 export function scheduleDashboardArticleWindowRefresh(
   options: DashboardArticleWindowRefreshOptions,
 ): void {

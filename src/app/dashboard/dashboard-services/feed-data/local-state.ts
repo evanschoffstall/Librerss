@@ -4,7 +4,12 @@ interface MergeFeedLocalStateOptions {
   preserveLocalFeedState: boolean;
 }
 
-/** Merges display-relevant local state from the current article into the fresh article. */
+/**
+ * Merges display-relevant local state from the current article into the fresh article.
+ * @param currentArticle
+ * @param freshArticle
+ * @param options
+ */
 export function mergeFeedArticleLocalState(
   currentArticle: Article,
   freshArticle: Article,
@@ -37,7 +42,11 @@ export function mergeFeedArticleLocalState(
     : freshArticle;
 }
 
-/** Keeps already-loaded older articles when background refreshes only return the latest slice. */
+/**
+ * Keeps already-loaded older articles when background refreshes only return the latest slice.
+ * @param previousFeed
+ * @param mergedFreshArticles
+ */
 export function retainMissingPreviousFeedArticles(
   previousFeed: Article[],
   mergedFreshArticles: Article[],

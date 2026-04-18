@@ -15,6 +15,7 @@ const workspaceRequire = createRequire(import.meta.url);
 
 /**
  * Extracts a hostname from an absolute URL-like environment value.
+ * @param value
  */
 export function getHostnameFromValue(value: string | undefined) {
   const trimmedValue = value?.trim();
@@ -40,6 +41,8 @@ export function getHostnameFromValue(value: string | undefined) {
 /**
  * Resolves the HTTPCloak native package name for the current build platform so
  * Next can externalize and trace the matching binary package.
+ * @param getPlatform
+ * @param getArchitecture
  */
 export function getHttpCloakPlatformPackageSpecifier(
   getPlatform: typeof platform = platform,
@@ -62,6 +65,7 @@ export function getHttpCloakPlatformPackageSpecifier(
 
 /**
  * Returns external IPv4 interface addresses that can serve the dev app on the LAN.
+ * @param getInterfaces
  */
 export function getLocalNetworkInterfaceHosts(
   getInterfaces: typeof networkInterfaces = networkInterfaces,
@@ -83,7 +87,8 @@ export function getLocalNetworkInterfaceHosts(
  * 1. Local non-internal IPv4 interface addresses for LAN access
  * 2. `PLAYWRIGHT_BASE_URL` so automation uses the same host as the wrapper
  * 3. `ALLOWED_DEV_ORIGINS` as a comma-separated manual override for tunnels
- *    or forwarded hosts that are not discoverable from local interfaces
+ *    or forwarded hosts that are not discoverable from local interfaces.
+ * @param getInterfaces
  */
 export function resolveAllowedDevOrigins(
   getInterfaces: typeof networkInterfaces = networkInterfaces,
@@ -135,6 +140,7 @@ function buildContentSecurityPolicy() {
 /**
  * Walks upward from a resolved module entry until the owning package.json is
  * found, avoiding unsupported package.json export subpaths.
+ * @param entryPath
  */
 function findPackageRootDirectory(entryPath: string) {
   let currentDirectory = dirname(entryPath);
@@ -156,6 +162,7 @@ function findPackageRootDirectory(entryPath: string) {
 /**
  * Resolves a package tracing glob only when the optional package exists in the
  * current install.
+ * @param packageSpecifier
  */
 function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
   try {
@@ -168,6 +175,7 @@ function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
 /**
  * Resolves a package directory glob relative to the repository root so
  * Next.js file tracing includes native/runtime assets from external packages.
+ * @param packageSpecifier
  */
 function resolvePackageTracingGlob(packageSpecifier: string) {
   const packageDirectory = findPackageRootDirectory(
@@ -278,6 +286,9 @@ const nextConfig: NextConfig = {
   env: {
     LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
   },
+  /**
+   *
+   */
   async headers() {
     const contentSecurityPolicy = buildContentSecurityPolicy();
 

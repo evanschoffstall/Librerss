@@ -31,7 +31,18 @@ interface FeedVirtualListTestSurfaceProps {
 
 type MeasuredTestSurfaceOptions = Parameters<typeof reportMeasuredTotalSize>[0];
 
-/** Non-virtualized fallback surface used by tests where DOM measurement is synthetic. */
+/**
+ * Non-virtualized fallback surface used by tests where DOM measurement is synthetic.
+ * @param root0
+ * @param root0.className
+ * @param root0.entries
+ * @param root0.estimatedItemHeight
+ * @param root0.loadMoreSentinelRef
+ * @param root0.minimumTotalListHeight
+ * @param root0.onTotalListHeightChange
+ * @param root0.renderArticle
+ * @param root0.scrollViewport
+ */
 export function FeedVirtualListTestSurface({
   className,
   entries,
@@ -105,6 +116,12 @@ export function FeedVirtualListTestSurface({
   );
 }
 
+/**
+ * @param container
+ * @param estimatedItemHeight
+ * @param estimatedTotalSize
+ * @param scrollViewport
+ */
 function measureTestSurfaceTotalSize(
   container: HTMLDivElement | null,
   estimatedItemHeight: number,
@@ -142,6 +159,16 @@ function measureTestSurfaceTotalSize(
     : viewportScrollHeight;
 }
 
+/**
+ * @param root0
+ * @param root0.containerRef
+ * @param root0.estimatedItemHeight
+ * @param root0.estimatedTotalSize
+ * @param root0.isMountedRef
+ * @param root0.lastReportedTotalSizeRef
+ * @param root0.onTotalListHeightChange
+ * @param root0.scrollViewport
+ */
 function reportMeasuredTotalSize({
   containerRef,
   estimatedItemHeight,
@@ -177,6 +204,9 @@ function reportMeasuredTotalSize({
   onTotalListHeightChange(nextTotalSize);
 }
 
+/**
+ * @param options
+ */
 function useMeasuredTestSurfaceTotalSize(options: MeasuredTestSurfaceOptions) {
   const {
     containerRef,

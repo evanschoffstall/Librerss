@@ -29,6 +29,16 @@ export type DnsResolverDefaults = Pick<
   "isBlockedResolvedAddressFn" | "lookupFn" | "warnFn"
 >;
 
+/**
+ * @param options
+ * @param options.cache
+ * @param options.cacheTtlMs
+ * @param options.defaults
+ * @param options.deps
+ * @param options.hostname
+ * @param options.maxEntries
+ * @param options.timeoutMs
+ */
 export async function resolveBlockedAddressWithCache(options: {
   cache: Map<string, DnsCacheEntry>;
   cacheTtlMs: number;
@@ -82,6 +92,12 @@ export async function resolveBlockedAddressWithCache(options: {
   }
 }
 
+/**
+ * @param hostname
+ * @param cache
+ * @param defaults
+ * @param deps
+ */
 export function resolveDnsLookupContext(
   hostname: string,
   cache: Map<string, DnsCacheEntry>,
@@ -110,6 +126,15 @@ export function resolveDnsLookupContext(
   };
 }
 
+/**
+ * @param options
+ * @param options.cache
+ * @param options.error
+ * @param options.hostname
+ * @param options.maxEntries
+ * @param options.nowFn
+ * @param options.warnFn
+ */
 function cacheDnsLookupFailure(options: {
   cache: Map<string, DnsCacheEntry>;
   error: unknown;
@@ -132,6 +157,9 @@ function cacheDnsLookupFailure(options: {
   );
 }
 
+/**
+ * @param error
+ */
 function getDnsLookupErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;

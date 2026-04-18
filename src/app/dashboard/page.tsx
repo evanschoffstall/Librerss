@@ -30,7 +30,10 @@ interface DashboardPageProps {
   }>;
 }
 
-/** Resolves the dashboard route shell and authenticated session state. */
+/**
+ * Resolves the dashboard route shell and authenticated session state.
+ * @param props
+ */
 export default async function Dashboard(props: DashboardPageProps) {
   const [cookieStore, searchParams] = await Promise.all([
     cookies(),

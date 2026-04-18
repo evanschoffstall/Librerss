@@ -30,7 +30,20 @@ interface SettingsProxyCompatibilityPanelProps {
   saving: boolean;
 }
 
-/** Renders the proxy compatibility section and its loading-safe shell. */
+/**
+ * Renders the proxy compatibility section and its loading-safe shell.
+ * @param root0
+ * @param root0.compatibilityCheckedAt
+ * @param root0.compatibilityError
+ * @param root0.compatibilityResults
+ * @param root0.hasProxy
+ * @param root0.isLoading
+ * @param root0.isRunningCompatibilityCheck
+ * @param root0.nowTs
+ * @param root0.onRunCompatibilityCheck
+ * @param root0.resultsRef
+ * @param root0.saving
+ */
 export function SettingsProxyCompatibilityPanel({
   compatibilityCheckedAt,
   compatibilityError,
@@ -71,6 +84,10 @@ export function SettingsProxyCompatibilityPanel({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.compatibilityError
+ */
 function CompatibilityErrorRow({
   compatibilityError,
 }: {
@@ -93,6 +110,13 @@ function CompatibilityErrorRow({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.compatibilityError
+ * @param root0.compatibilityResults
+ * @param root0.resultsRef
+ * @param root0.showLoadingSkeleton
+ */
 function CompatibilityPanelBody({
   compatibilityError,
   compatibilityResults,
@@ -123,6 +147,16 @@ function CompatibilityPanelBody({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.compatibilityCheckedAt
+ * @param root0.hasProxy
+ * @param root0.isRunningCompatibilityCheck
+ * @param root0.nowTs
+ * @param root0.onRunCompatibilityCheck
+ * @param root0.saving
+ * @param root0.showLoadingSkeleton
+ */
 function CompatibilityPanelHeader({
   compatibilityCheckedAt,
   hasProxy,
@@ -167,6 +201,11 @@ function CompatibilityPanelHeader({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.compatibilityResults
+ * @param root0.resultsRef
+ */
 function CompatibilityResultsList({
   compatibilityResults,
   resultsRef,
@@ -220,6 +259,12 @@ function CompatibilityResultsList({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.isRunningCompatibilityCheck
+ * @param root0.onRunCompatibilityCheck
+ * @param root0.saving
+ */
 function CompatibilityRunButton({
   isRunningCompatibilityCheck,
   onRunCompatibilityCheck,

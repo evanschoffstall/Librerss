@@ -32,3 +32,11 @@ export const FEED_MIN_AUTOFILL_OVERFLOW_PX = 96;
  * the skeleton state long enough for the user to register the transition.
  */
 export const SKELETON_MIN_VISIBLE_MS = 150;
+
+/**
+ * Minimum extra rows rendered beyond `articlesPerPage` so that the
+ * IntersectionObserver sentinel element sits within observable range.
+ * The initial hydration renders `articlesPerPage + SENTINEL_OVERFLOW_ARTICLES`
+ * rows total.
+ */
+export const SENTINEL_OVERFLOW_ARTICLES = 1;

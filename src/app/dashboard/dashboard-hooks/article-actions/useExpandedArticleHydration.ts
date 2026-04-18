@@ -26,6 +26,14 @@ interface UseExpandedArticleHydrationOptions {
  * Expanded rows can outlive the in-memory hydration map across refreshes or hot
  * reloads. This hook restores rich-content hydration and retriggers it when the
  * distillation strategy changes.
+ * @param root0
+ * @param root0.distillStrategy
+ * @param root0.expandedArticleKey
+ * @param root0.feed
+ * @param root0.getFeedSettings
+ * @param root0.hydrateArticleContent
+ * @param root0.hydratedArticleLinks
+ * @param root0.hydratingArticleLinks
  */
 export function useExpandedArticleHydration({
   distillStrategy,
@@ -82,6 +90,10 @@ export function useExpandedArticleHydration({
   };
 }
 
+/**
+ * @param feed
+ * @param expandedArticleKey
+ */
 function findExpandedArticle(
   feed: Article[],
   expandedArticleKey: null | string,
@@ -95,6 +107,17 @@ function findExpandedArticle(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.autoHydratedExpandedKeyRef
+ * @param root0.distillStrategy
+ * @param root0.expandedArticle
+ * @param root0.expandedArticleKey
+ * @param root0.getFeedSettings
+ * @param root0.hydrateArticleContent
+ * @param root0.hydratingArticleLinks
+ * @param root0.previousDistillStrategyRef
+ */
 function useExpandedArticleDistillStrategyEffect({
   autoHydratedExpandedKeyRef,
   distillStrategy,
@@ -150,6 +173,16 @@ function useExpandedArticleDistillStrategyEffect({
   ]);
 }
 
+/**
+ * @param root0
+ * @param root0.autoHydratedExpandedKeyRef
+ * @param root0.awaitingExpandedSyncKeyRef
+ * @param root0.expandedArticle
+ * @param root0.expandedArticleKey
+ * @param root0.hydrateArticleContent
+ * @param root0.hydratedArticleLinks
+ * @param root0.hydratingArticleLinks
+ */
 function useExpandedArticleHydrationRestoreEffect({
   autoHydratedExpandedKeyRef,
   awaitingExpandedSyncKeyRef,

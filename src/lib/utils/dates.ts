@@ -6,6 +6,7 @@
 /**
  * Returns a human-readable relative date label:
  * "Today 3:34 PM", "Yesterday 3:34 PM", "N days ago", or the locale date string.
+ * @param date
  */
 export const formatRelativeDate = (date: Date): string => {
   const now = new Date();
@@ -28,6 +29,8 @@ export const formatRelativeDate = (date: Date): string => {
 
 /**
  * Parses a date-like input, falling back when invalid or missing.
+ * @param value
+ * @param fallback
  */
 export function parseDateOrFallback(value: unknown, fallback: Date): Date {
   return parseDateOrNull(value) ?? fallback;
@@ -35,6 +38,7 @@ export function parseDateOrFallback(value: unknown, fallback: Date): Date {
 
 /**
  * Parses a date-like input into a valid Date, otherwise returns null.
+ * @param value
  */
 export function parseDateOrNull(value: unknown): Date | null {
   if (!(typeof value === "string" || value instanceof Date)) {

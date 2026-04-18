@@ -22,6 +22,15 @@ import {
   normalizeCategory,
 } from "@/lib/utils";
 
+/**
+ * @param root0
+ * @param root0.category
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.name
+ * @param root0.setSelectedCategory
+ * @param root0.url
+ */
 export async function addFeedSourceAndRefresh({
   category,
   fetchFeed,
@@ -71,6 +80,16 @@ export async function addFeedSourceAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.key
+ * @param root0.loadFeedSources
+ * @param root0.setCategories
+ * @param root0.targetCategory
+ * @param root0.targetIndex
+ */
 export async function moveFeedByDropAndPersist({
   categories,
   ensureCategoryLabelExists,
@@ -122,6 +141,17 @@ export async function moveFeedByDropAndPersist({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.key
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setFeed
+ * @param root0.setSelectedCategory
+ */
 export async function removeFeedSourceAndRefresh({
   categories,
   fetchCategoryFeeds,
@@ -168,6 +198,14 @@ export async function removeFeedSourceAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.key
+ * @param root0.loadFeedSources
+ * @param root0.nextName
+ * @param root0.nextUrl
+ */
 export async function renameFeedSourceAndRefresh({
   categories,
   key,
@@ -218,6 +256,12 @@ export async function renameFeedSourceAndRefresh({
   }
 }
 
+/**
+ * @param categories
+ * @param feedKey
+ * @param setSelectedCategory
+ * @param fetchFeed
+ */
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
   feedKey: string,
@@ -231,6 +275,17 @@ export function selectFeedByKeyFromCategories(
   void fetchFeed(sourceNode.data.url);
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.enabled
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchFeed
+ * @param root0.key
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setSelectedCategory
+ */
 export async function setFeedSourceEnabledAndRefresh({
   categories,
   enabled,
@@ -287,6 +342,15 @@ export async function setFeedSourceEnabledAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.key
+ * @param root0.loadFeedSources
+ * @param root0.settings
+ * @param root0.settings.extractionDisabled
+ * @param root0.settings.proxyEnabled
+ */
 export async function updateFeedSettingsAndRefresh({
   categories,
   key,
@@ -316,6 +380,14 @@ export async function updateFeedSettingsAndRefresh({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchFeed
+ * @param root0.nextCategories
+ * @param root0.nextSelection
+ * @param root0.setSelectedCategory
+ */
 async function applyPostEnabledSelection({
   fetchAllFeeds,
   fetchFeed,
@@ -348,6 +420,14 @@ async function applyPostEnabledSelection({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.nextSelection
+ * @param root0.setFeed
+ * @param root0.setSelectedCategory
+ */
 async function applyPostRemovalSelection({
   fetchCategoryFeeds,
   fetchFeed,
@@ -381,6 +461,10 @@ async function applyPostRemovalSelection({
   }
 }
 
+/**
+ * @param categories
+ * @param key
+ */
 function getFeedSourceReference(categories: CategoryTreeNode[], key: string) {
   const sourceNode = findFeedNodeByKey(categories, key);
 
@@ -390,6 +474,13 @@ function getFeedSourceReference(categories: CategoryTreeNode[], key: string) {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.fetchFeed
+ * @param root0.nextCategories
+ * @param root0.setSelectedCategory
+ * @param root0.url
+ */
 async function refreshAddedFeedSelection({
   fetchFeed,
   nextCategories,

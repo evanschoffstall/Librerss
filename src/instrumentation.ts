@@ -11,6 +11,9 @@
  * @see https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 
+/**
+ *
+ */
 export function register() {
   // Intentionally empty — env validation is handled lazily by CONFIG.
 }

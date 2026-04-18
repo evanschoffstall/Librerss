@@ -27,6 +27,14 @@ interface UseFeedPaginationServerLoadOptions {
   onLoadMore?: () => void;
 }
 
+/**
+ * @param root0
+ * @param root0.canLoadMoreFromServer
+ * @param root0.isInvertedLoadBoundaryArmedRef
+ * @param root0.isInvertedScroll
+ * @param root0.isStandardLoadBoundaryArmedRef
+ * @param root0.onLoadMore
+ */
 export function useFeedPaginationServerLoad({
   canLoadMoreFromServer,
   isInvertedLoadBoundaryArmedRef,
@@ -82,6 +90,9 @@ export function useFeedPaginationServerLoad({
   };
 }
 
+/**
+ * @param options
+ */
 function completeFeedServerLoadCooldown(
   options: FeedPaginationServerLoadCooldownStateOptions,
 ) {
@@ -103,6 +114,11 @@ function completeFeedServerLoadCooldown(
   options.serverLoadCooldownTimerRef.current = null;
 }
 
+/**
+ * @param isInvertedScroll
+ * @param isInvertedLoadBoundaryArmedRef
+ * @param isStandardLoadBoundaryArmedRef
+ */
 function rearmFeedLoadBoundary(
   isInvertedScroll: boolean,
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>,
@@ -116,6 +132,16 @@ function rearmFeedLoadBoundary(
   isStandardLoadBoundaryArmedRef.current = true;
 }
 
+/**
+ * @param root0
+ * @param root0.clearServerLoadCooldown
+ * @param root0.hasPendingBoundaryRearmAfterCooldownRef
+ * @param root0.hasRequestedServerLoadRef
+ * @param root0.isInvertedLoadBoundaryArmedRef
+ * @param root0.isInvertedScroll
+ * @param root0.isStandardLoadBoundaryArmedRef
+ * @param root0.serverLoadCooldownTimerRef
+ */
 function useFeedPaginationServerLoadCooldown({
   clearServerLoadCooldown,
   hasPendingBoundaryRearmAfterCooldownRef,
@@ -161,6 +187,9 @@ function useFeedPaginationServerLoadCooldown({
   ]);
 }
 
+/**
+ *
+ */
 function useFeedPaginationServerLoadRefs() {
   return {
     hasPendingBoundaryRearmAfterCooldownRef: useRef(false),
@@ -174,6 +203,16 @@ function useFeedPaginationServerLoadRefs() {
   };
 }
 
+/**
+ * @param options
+ * @param options.canLoadMoreFromServer
+ * @param options.hasPendingBoundaryRearmAfterCooldownRef
+ * @param options.hasPendingServerRevealRef
+ * @param options.hasRequestedServerLoadRef
+ * @param options.isInvertedScroll
+ * @param options.isStandardViewportRefillActiveRef
+ * @param options.onLoadMore
+ */
 function useRequestMoreFromServer(options: {
   canLoadMoreFromServer: boolean;
   hasPendingBoundaryRearmAfterCooldownRef: React.RefObject<boolean>;

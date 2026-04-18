@@ -14,9 +14,16 @@ interface FeedSourceTreeDependencies {
 const defaultDependencies: FeedSourceTreeDependencies = {
   buildCategoriesFromSources,
   buildDefaultCategories,
+  /**
+   *
+   */
   getFeedSources: () => FeedService.getFeedSources(),
 };
 
+/**
+ * @param usePlaceholderData
+ * @param dependencies
+ */
 export async function loadFeedSourceTree(
   usePlaceholderData: boolean,
   dependencies: FeedSourceTreeDependencies = defaultDependencies,

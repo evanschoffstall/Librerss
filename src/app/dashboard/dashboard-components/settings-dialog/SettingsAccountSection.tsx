@@ -21,6 +21,10 @@ interface SettingsAccountSectionProps {
   onAccountDeleted: () => void;
 }
 
+/**
+ * @param root0
+ * @param root0.onAccountDeleted
+ */
 export function SettingsAccountSection({
   onAccountDeleted,
 }: SettingsAccountSectionProps) {
@@ -99,6 +103,12 @@ export function SettingsAccountSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.action
+ * @param root0.description
+ * @param root0.title
+ */
 function SettingsAccountActionRow({
   action,
   description,
@@ -120,6 +130,11 @@ function SettingsAccountActionRow({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.href
+ * @param root0.label
+ */
 function SettingsAccountPolicyLink({
   href,
   label,
@@ -142,10 +157,16 @@ function SettingsAccountPolicyLink({
   );
 }
 
+/**
+ * @param onAccountDeleted
+ */
 function useSettingsAccountActions(onAccountDeleted: () => void) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  /**
+   *
+   */
   const handleExport = async () => {
     setIsExporting(true);
     try {
@@ -164,6 +185,9 @@ function useSettingsAccountActions(onAccountDeleted: () => void) {
     }
   };
 
+  /**
+   *
+   */
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
@@ -179,6 +203,9 @@ function useSettingsAccountActions(onAccountDeleted: () => void) {
   };
 
   return {
+    /**
+     *
+     */
     handleDeleteActionClick: () => {
       const shouldDelete = window.confirm(
         "Delete this account? This removes your saved feeds, categories, sessions, and reading state from the app.",

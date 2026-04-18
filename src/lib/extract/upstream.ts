@@ -81,6 +81,9 @@ interface StageOptionsBase {
 /**
  * Fetch article HTML through the HTTPCloak transport only, with SSRF-aware
  * redirect validation and bounded retry semantics for retryable responses.
+ * @param url
+ * @param deps
+ * @param options
  */
 export async function fetchHtml(
   url: string,
@@ -116,6 +119,10 @@ export async function fetchHtml(
   );
 }
 
+/**
+ * @param error
+ * @param fallbackMessage
+ */
 function asError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
     return error;
@@ -128,6 +135,11 @@ function asError(error: unknown, fallbackMessage: string): Error {
   return new Error(fallbackMessage);
 }
 
+/**
+ * @param options
+ * @param attempt
+ * @param extra
+ */
 function buildStageLogContext(
   options: StageOptionsBase,
   attempt: number,
@@ -146,12 +158,21 @@ function buildStageLogContext(
   };
 }
 
+/**
+ * @param provider
+ * @param statusCode
+ */
 function createCompatibilityError(provider: string, statusCode: number): Error {
   return new Error(
     `Upstream request received a source access response (${provider}) [HTTP ${statusCode}]`,
   );
 }
 
+/**
+ * @param options
+ * @param attempt
+ * @param result
+ */
 function finishStageSuccess(
   options: StageOptionsBase,
   attempt: number,
@@ -171,6 +192,13 @@ function finishStageSuccess(
   return { html: result.html, ok: true };
 }
 
+/**
+ * @param options
+ * @param attempt
+ * @param retryable
+ * @param error
+ * @param extra
+ */
 function handleStageFailure(
   options: StageOptionsBase,
   attempt: number,
@@ -192,6 +220,9 @@ function handleStageFailure(
   return willRetry;
 }
 
+/**
+ * @param error
+ */
 function isUrlValidationError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -200,6 +231,11 @@ function isUrlValidationError(error: unknown): boolean {
   );
 }
 
+/**
+ * @param label
+ * @param willRetry
+ * @param context
+ */
 function logStageFailure(
   label: string,
   willRetry: boolean,
@@ -211,6 +247,10 @@ function logStageFailure(
   );
 }
 
+/**
+ * @param label
+ * @param context
+ */
 function logStageSuccess(label: string, context: StageLogContext): void {
   logger.info(
     `${label} attempt ${context.attempt}/${context.attempts} succeeded`,
@@ -218,6 +258,9 @@ function logStageSuccess(label: string, context: StageLogContext): void {
   );
 }
 
+/**
+ * @param error
+ */
 function resolveCompatibilityOutcome(error: unknown): {
   httpCloakUpstreamError: HttpCloakUpstreamError | null;
   preferredError?: Error;
@@ -253,6 +296,10 @@ function resolveCompatibilityOutcome(error: unknown): {
   };
 }
 
+/**
+ * @param deps
+ * @param options
+ */
 function resolveFetchHtmlOptions(
   deps: FetchHtmlDeps | undefined,
   options: FetchHtmlOptions | undefined,
@@ -269,6 +316,9 @@ function resolveFetchHtmlOptions(
     proxyUrl: useProxy ? options.proxyUrl : undefined,
   };
 }
+/**
+ * @param proxyUrl
+ */
 function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
   if (proxyUrl) {
     return SOCKS_PROTOCOLS.has(new URL(proxyUrl).protocol) ? "socks" : "http";
@@ -277,6 +327,10 @@ function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
   return "direct";
 }
 
+/**
+ * @param options
+ * @param compatibility
+ */
 function resolveStageFailureExtras(
   options: HttpCloakStageOptions,
   compatibility: ReturnType<typeof resolveCompatibilityOutcome>,
@@ -304,12 +358,16 @@ function resolveStageFailureExtras(
 /**
  * Execute the shared HTTPCloak transport with bounded retries for retryable
  * upstream responses.
+ * @param options
  */
 async function runHttpCloakStage(
   options: HttpCloakStageOptions,
 ): Promise<FetchStageResult> {
   let lastError: unknown;
   let preferredError: Error | undefined;
+  /**
+   * @param attempt
+   */
   const getDelayMs = (attempt: number) =>
     800 * attempt + Math.floor(Math.random() * 400);
 

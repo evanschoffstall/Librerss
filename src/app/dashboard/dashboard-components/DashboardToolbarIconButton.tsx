@@ -10,7 +10,15 @@ export const toolbarButtonClassName =
 export const toolbarIconButtonLayoutClassName =
   "inline-flex shrink-0 items-center justify-center";
 
-/** Renders a dashboard toolbar icon button without a condensed circular wrapper. */
+/**
+ * Renders a dashboard toolbar icon button without a condensed circular wrapper.
+ * @param root0
+ * @param root0.ariaLabel
+ * @param root0.className
+ * @param root0.disabled
+ * @param root0.icon
+ * @param root0.onClick
+ */
 export function DashboardToolbarIconButton({
   ariaLabel,
   className,

@@ -5,6 +5,11 @@ interface LoginSkeletonFieldProps {
   labelWidth: string;
 }
 
+/**
+ * @param root0
+ * @param root0.inputWidth
+ * @param root0.labelWidth
+ */
 export function LoginSkeletonField({
   inputWidth = "w-full",
   labelWidth,

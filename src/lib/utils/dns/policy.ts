@@ -18,6 +18,9 @@ const BLOCKED_HOST_PATTERNS = [
   /^fe80:/i,
 ] as const;
 
+/**
+ * @param hostname
+ */
 export function isBlockedHost(hostname: string): boolean {
   const normalized = normalizeHostname(hostname);
   if (!normalized) {
@@ -31,6 +34,9 @@ export function isBlockedHost(hostname: string): boolean {
   );
 }
 
+/**
+ * @param address
+ */
 export function isBlockedResolvedAddress(address: string): boolean {
   const normalized = address.trim().toLowerCase();
   const mappedIpv4 = extractMappedIpv4FromIpv6(normalized);
@@ -41,6 +47,9 @@ export function isBlockedResolvedAddress(address: string): boolean {
   return isBlockedHost(normalized);
 }
 
+/**
+ * @param hostname
+ */
 export function normalizeHostname(hostname: string): string {
   const normalized = hostname.trim().toLowerCase().replace(/\.$/, "");
 
@@ -51,6 +60,9 @@ export function normalizeHostname(hostname: string): string {
   return normalized;
 }
 
+/**
+ * @param raw
+ */
 function expandIpv6ToHextets(raw: string): null | number[] {
   const normalized = raw.trim().toLowerCase();
   if (!normalized.includes(":")) {
@@ -89,6 +101,9 @@ function expandIpv6ToHextets(raw: string): null | number[] {
   return [...head, ...tail];
 }
 
+/**
+ * @param address
+ */
 function extractMappedIpv4FromIpv6(address: string): null | string {
   const hextets = expandIpv6ToHextets(address);
   if (!hextets) {
@@ -115,6 +130,9 @@ function extractMappedIpv4FromIpv6(address: string): null | string {
   return `${octet1}.${octet2}.${octet3}.${octet4}`;
 }
 
+/**
+ * @param raw
+ */
 function parseIpv4DottedQuad(
   raw: string,
 ): [number, number, number, number] | null {
@@ -131,6 +149,9 @@ function parseIpv4DottedQuad(
   return bytes as [number, number, number, number];
 }
 
+/**
+ * @param part
+ */
 function parseIpv6Hextet(part: string): null | number[] {
   if (!part) {
     return null;
@@ -152,6 +173,9 @@ function parseIpv6Hextet(part: string): null | number[] {
   return [Number.parseInt(part, 16)];
 }
 
+/**
+ * @param value
+ */
 function parseIpv6HextetSequence(value: string): number[] {
   if (!value) {
     return [];

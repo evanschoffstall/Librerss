@@ -32,6 +32,9 @@ interface UseDashboardArticleWindowLoadMoreOptions {
 
 const SERVER_LOAD_MORE_PAGE_BATCH = 1;
 
+/**
+ * @param options
+ */
 export function useDashboardArticleWindowLoadMore(
   options: UseDashboardArticleWindowLoadMoreOptions,
 ) {

@@ -12,6 +12,10 @@ type ExpansionPhase =
 const ARTICLE_EXPAND_DURATION_MS = 160;
 const ARTICLE_COLLAPSE_DURATION_MS = 130;
 
+/**
+ * @param isExpanded
+ * @param isHydrating
+ */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(
     isExpanded ? (isHydrating ? "loading" : "expanded") : "collapsed",

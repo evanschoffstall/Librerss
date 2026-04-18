@@ -17,6 +17,11 @@ interface UserOwnedArticle {
   title: string;
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param articleId
+ */
 export async function getUserOwnedArticleById(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -39,6 +44,11 @@ export async function getUserOwnedArticleById(
   return articlesById[0] ?? null;
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param limit
+ */
 export async function listUserOwnedArticles(
   db: ReturnType<DbMod["getDb"]>,
   userId: number,
@@ -59,6 +69,11 @@ export async function listUserOwnedArticles(
     .limit(limit);
 }
 
+/**
+ * @param userId
+ * @param feedSources
+ * @param feeds
+ */
 function enabledFeedSourceJoin(
   userId: number,
   feedSources: FeedSourcesTable,
@@ -71,6 +86,9 @@ function enabledFeedSourceJoin(
   );
 }
 
+/**
+ *
+ */
 async function loadArticleQueryContext() {
   const {
     articles,

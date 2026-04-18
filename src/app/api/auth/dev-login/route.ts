@@ -17,6 +17,7 @@ const DEFAULT_RETURN_PATH = "/dashboard";
  *
  * The route intentionally accepts only same-origin relative return paths so it
  * cannot be turned into an open redirect.
+ * @param request
  */
 export async function GET(request: NextRequest) {
   try {
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
 /**
  * Builds the active request origin from forwarding headers so redirects stay on
  * the browser-facing host even when Next.js resolves `request.url` to `0.0.0.0`.
+ * @param request
  */
 function getRequestOrigin(request: NextRequest): URL {
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -80,7 +82,10 @@ function getRequestOrigin(request: NextRequest): URL {
   return new URL(`${protocol}://${host}`);
 }
 
-/** Resolves a safe, same-origin relative return path for the redirect. */
+/**
+ * Resolves a safe, same-origin relative return path for the redirect.
+ * @param request
+ */
 function resolveReturnPath(request: NextRequest): string {
   const requestedReturnPath = request.nextUrl.searchParams.get(
     DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY,

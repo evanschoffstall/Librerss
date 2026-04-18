@@ -35,6 +35,7 @@ type UseDashboardControllerRuntimeOptions = Omit<
   cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
   feed: Article[];
   handleMarkArticlesRead: (articles: Article[]) => Promise<void>;
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   setRelativeRefreshTick: ReturnType<
     typeof useDashboardControllerRefreshState
@@ -44,12 +45,18 @@ type UseDashboardControllerRuntimeOptions = Omit<
   usePlaceholderData: boolean;
 };
 
+/**
+ * @param usePlaceholderData
+ */
 export function useDashboardControllerRefreshState(
   usePlaceholderData: boolean,
 ) {
   return useRefreshStatus(usePlaceholderData);
 }
 
+/**
+ * @param options
+ */
 export function useDashboardControllerRuntime(
   options: UseDashboardControllerRuntimeOptions,
 ) {
@@ -102,6 +109,9 @@ export function useDashboardControllerRuntime(
   };
 }
 
+/**
+ * @param options
+ */
 function createDashboardControllerRuntimeStateOptions(
   options: UseDashboardControllerRuntimeOptions,
 ) {
@@ -126,6 +136,7 @@ function createDashboardControllerRuntimeStateOptions(
     selectedCategoryNode: options.selectedCategoryNode,
     selectedFeed: options.selectedFeed,
     selectedFeedUrl: options.selectedFeedUrl,
+    selectionArticleLimit: options.selectionArticleLimit,
     setIsCategoriesLoading: options.setIsCategoriesLoading,
     setIsMobileSidebarOpen: options.setIsMobileSidebarOpen,
     setIsSidebarVisible: options.setIsSidebarVisible,
@@ -135,6 +146,9 @@ function createDashboardControllerRuntimeStateOptions(
   } satisfies Parameters<typeof useDashboardControllerRuntimeState>[0];
 }
 
+/**
+ * @param options
+ */
 function useDashboardArticleFilterRefresh(
   options: Pick<
     UseDashboardControllerRuntimeOptions,
@@ -195,6 +209,13 @@ function useDashboardArticleFilterRefresh(
   }, [options]);
 }
 
+/**
+ * @param options
+ * @param options.autoRefreshFeedList
+ * @param options.autoRefreshIntervalMinutes
+ * @param options.cancelPendingRequest
+ * @param options.setRelativeRefreshTick
+ */
 function useDashboardAutoRefresh(options: {
   autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;
@@ -245,6 +266,9 @@ function useDashboardAutoRefresh(options: {
  */
 const SEARCH_DEBOUNCE_MS = 300;
 
+/**
+ * @param options
+ */
 function useDashboardSearchRefresh(
   options: Pick<
     UseDashboardControllerRuntimeOptions,

@@ -14,6 +14,10 @@ type FeedRemovalResolution =
   | { type: "clear" }
   | { type: "none" };
 
+/**
+ * @param name
+ * @param url
+ */
 export function normalizeFeedSourceInput(name: string, url: string) {
   return {
     name: name.trim(),
@@ -21,6 +25,13 @@ export function normalizeFeedSourceInput(name: string, url: string) {
   };
 }
 
+/**
+ * @param nextCategories
+ * @param selectedCategory
+ * @param sourceUrl
+ * @param enabled
+ * @param key
+ */
 export function resolvePostEnabledToggleSelection(
   nextCategories: CategoryTreeNode[],
   selectedCategory: string,
@@ -45,6 +56,11 @@ export function resolvePostEnabledToggleSelection(
   return { type: "none" };
 }
 
+/**
+ * @param nextCategories
+ * @param selectedCategory
+ * @param removedFeedKey
+ */
 export function resolvePostRemovalSelection(
   nextCategories: CategoryTreeNode[],
   selectedCategory: string,

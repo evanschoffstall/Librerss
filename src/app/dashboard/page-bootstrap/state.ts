@@ -31,6 +31,9 @@ interface DashboardPageBootstrapDeps {
   sessionCookieName: string;
 }
 
+/**
+ * @param runtimeFlags
+ */
 export function buildAnonymousDashboardSession(
   runtimeFlags: Pick<AuthSession, "allowSignup" | "usePlaceholderData">,
 ): AuthSession {
@@ -42,6 +45,10 @@ export function buildAnonymousDashboardSession(
   };
 }
 
+/**
+ * @param cookieStore
+ * @param deps
+ */
 export async function getInitialDashboardSession(
   cookieStore: DashboardCookieStore,
   deps: Pick<
@@ -71,10 +78,19 @@ export async function getInitialDashboardSession(
   }
 }
 
+/**
+ * @param value
+ */
 export function getSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+/**
+ * @param input
+ * @param input.cookieStore
+ * @param input.deps
+ * @param input.searchParams
+ */
 export async function resolveDashboardPageBootstrap(input: {
   cookieStore: DashboardCookieStore;
   deps: DashboardPageBootstrapDeps;

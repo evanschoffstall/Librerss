@@ -31,6 +31,9 @@ export interface SessionUser {
   userId: number;
 }
 
+/**
+ *
+ */
 function getBaseCookieOptions() {
   return {
     httpOnly: true,
@@ -45,6 +48,9 @@ function getSessionDurationMs() {
   return 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 }
 
+/**
+ * @param token
+ */
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
@@ -65,6 +71,9 @@ const hashSessionToken = (token: string) =>
 const SCRYPT_V1 = { N: 16384, p: 1, r: 8 } as const; // legacy (read-only)
 const SCRYPT_V2 = { N: 16384, p: 1, r: 8 } as const; // current — bump N when runtime allows
 
+/**
+ * @param response
+ */
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE_NAME, "", {
     ...getBaseCookieOptions(),
@@ -72,6 +81,9 @@ export function clearSessionCookie(response: NextResponse): void {
   });
 }
 
+/**
+ * @param userId
+ */
 export async function createSession(userId: number): Promise<string> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     if (userId !== PLACEHOLDER_ADMIN_USER.id) {
@@ -128,6 +140,9 @@ export async function createSession(userId: number): Promise<string> {
   return token;
 }
 
+/**
+ * @param token
+ */
 export async function deleteSessionByToken(token: string): Promise<void> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     return;
@@ -139,6 +154,9 @@ export async function deleteSessionByToken(token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
+/**
+ * @param request
+ */
 export async function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
@@ -148,6 +166,9 @@ export async function getUserFromRequest(request: NextRequest) {
   return getUserFromSessionToken(token);
 }
 
+/**
+ * @param token
+ */
 export async function getUserFromSessionToken(
   token: string,
 ): Promise<null | SessionUser> {
@@ -192,12 +213,19 @@ export async function getUserFromSessionToken(
   return activeSessions[0] ?? null;
 }
 
+/**
+ * @param password
+ */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const key = await scrypt(password, salt, 64, SCRYPT_V2);
   return `v2:${salt}:${key.toString("hex")}`;
 }
 
+/**
+ * @param response
+ * @param token
+ */
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
     ...getBaseCookieOptions(),
@@ -205,6 +233,10 @@ export function setSessionCookie(response: NextResponse, token: string): void {
   });
 }
 
+/**
+ * @param password
+ * @param storedHash
+ */
 export async function verifyPassword(
   password: string,
   storedHash: string,
@@ -237,6 +269,10 @@ export async function verifyPassword(
 const DUMMY_HASH =
   "v2:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
+/**
+ * @param email
+ * @param password
+ */
 export async function authenticateCredentials(
   email: string,
   password: string,
@@ -276,6 +312,10 @@ export async function authenticateCredentials(
   return { email: user.email, ok: true, token, userId: user.id };
 }
 
+/**
+ * @param email
+ * @param password
+ */
 async function authenticatePlaceholderCredentials(
   email: string,
   password: string,

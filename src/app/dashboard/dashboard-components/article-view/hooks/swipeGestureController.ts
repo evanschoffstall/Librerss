@@ -45,6 +45,10 @@ export const SWIPE_IDLE: SwipeState = {
   progress: 0,
 };
 
+/**
+ * @param element
+ * @param context
+ */
 export function createSwipeGestureRuntime(
   element: HTMLElement,
   context: SwipeGestureContext,
@@ -53,6 +57,9 @@ export function createSwipeGestureRuntime(
   const handlers = createSwipeGestureHandlers(element, context, controls);
 
   return {
+    /**
+     *
+     */
     attach: () => {
       element.addEventListener("pointerdown", handlers.handlePointerDown, true);
       element.addEventListener("pointermove", handlers.handlePointerMove, {
@@ -70,6 +77,9 @@ export function createSwipeGestureRuntime(
         handlers.handleLostPointerCapture,
       );
     },
+    /**
+     *
+     */
     detach: () => {
       controls.clearReleaseTimer();
       controls.releaseCapture();
@@ -98,10 +108,17 @@ export function createSwipeGestureRuntime(
   };
 }
 
+/**
+ * @param offsetX
+ */
 function applyElasticDamping(offsetX: number) {
   return offsetX < 0 ? 0 : offsetX * ELASTIC_DAMPING;
 }
 
+/**
+ * @param event
+ * @param context
+ */
 function applySwipePointerMoveState(
   event: PointerEvent,
   context: SwipeGestureContext,
@@ -122,6 +139,10 @@ function applySwipePointerMoveState(
   });
 }
 
+/**
+ * @param isRight
+ * @param width
+ */
 function createCommittedSwipeState(
   isRight: boolean,
   width: number,
@@ -134,10 +155,17 @@ function createCommittedSwipeState(
   };
 }
 
+/**
+ * @param element
+ * @param context
+ */
 function createSwipeGestureControls(
   element: HTMLElement,
   context: SwipeGestureContext,
 ) {
+  /**
+   *
+   */
   const clearReleaseTimer = () => {
     if (context.releaseTimerRef.current !== null) {
       clearTimeout(context.releaseTimerRef.current);
@@ -145,12 +173,18 @@ function createSwipeGestureControls(
     }
   };
 
+  /**
+   *
+   */
   const restoreTouchAction = () => {
     if (element.style.touchAction === "none") {
       element.style.touchAction = "";
     }
   };
 
+  /**
+   *
+   */
   const releaseCapture = () => {
     const pointerId = context.activePointerIdRef.current;
     if (pointerId === null || !context.hasCaptureRef.current) return;
@@ -166,6 +200,9 @@ function createSwipeGestureControls(
     context.hasCaptureRef.current = false;
   };
 
+  /**
+   *
+   */
   const resetPointerState = () => {
     restoreTouchAction();
     context.startRef.current = null;
@@ -177,6 +214,9 @@ function createSwipeGestureControls(
   };
 
   return {
+    /**
+     *
+     */
     animateRelease: () => {
       context.setState({
         committed: false,
@@ -194,9 +234,15 @@ function createSwipeGestureControls(
     releaseCapture,
     resetPointerState,
     restoreTouchAction,
+    /**
+     *
+     */
     setTouchActionNone: () => {
       element.style.touchAction = "none";
     },
+    /**
+     * @param pointerId
+     */
     trySetPointerCapture: (pointerId: number) => {
       try {
         element.setPointerCapture(pointerId);
@@ -208,12 +254,20 @@ function createSwipeGestureControls(
   };
 }
 
+/**
+ * @param element
+ * @param context
+ * @param controls
+ */
 function createSwipeGestureHandlers(
   element: HTMLElement,
   context: SwipeGestureContext,
   controls: ReturnType<typeof createSwipeGestureControls>,
 ) {
   return {
+    /**
+     * @param event
+     */
     handleLostPointerCapture: (event: PointerEvent) => {
       if (context.activePointerIdRef.current === null) {
         return;
@@ -227,12 +281,18 @@ function createSwipeGestureHandlers(
       context.setState(SWIPE_IDLE);
       controls.resetPointerState();
     },
+    /**
+     * @param event
+     */
     handlePointerCancel: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
       controls.releaseCapture();
       controls.animateRelease();
       controls.resetPointerState();
     },
+    /**
+     * @param event
+     */
     handlePointerDown: (event: PointerEvent) => {
       if (context.disabledRef.current || event.pointerType === "mouse") return;
       if (context.shouldIgnoreTarget?.(event.target)) return;
@@ -248,6 +308,9 @@ function createSwipeGestureHandlers(
         { t: event.timeStamp, x: event.clientX },
       ];
     },
+    /**
+     * @param event
+     */
     handlePointerEnd: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
 
@@ -273,6 +336,9 @@ function createSwipeGestureHandlers(
 
       controls.resetPointerState();
     },
+    /**
+     * @param event
+     */
     handlePointerMove: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
       if (!shouldTrackSwipeMove(event, context, controls)) return;
@@ -281,6 +347,10 @@ function createSwipeGestureHandlers(
   };
 }
 
+/**
+ * @param event
+ * @param context
+ */
 function resolveShouldCommit(
   event: PointerEvent,
   context: SwipeGestureContext,
@@ -311,6 +381,10 @@ function resolveShouldCommit(
   );
 }
 
+/**
+ * @param clientX
+ * @param context
+ */
 function resolveSignedSwipeOffsetX(
   clientX: number,
   context: SwipeGestureContext,
@@ -329,6 +403,11 @@ function resolveSignedSwipeOffsetX(
   return (context.isRight ? 1 : -1) * applyElasticDamping(signedDelta);
 }
 
+/**
+ * @param event
+ * @param context
+ * @param controls
+ */
 function shouldTrackSwipeMove(
   event: PointerEvent,
   context: SwipeGestureContext,

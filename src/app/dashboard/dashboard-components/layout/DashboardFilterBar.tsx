@@ -85,6 +85,11 @@ export function DashboardFilterBarSkeleton() {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.children
+ * @param root0.skeleton
+ */
 function DashboardFilterBarFrame({
   children,
   skeleton = false,
@@ -104,51 +109,61 @@ function DashboardFilterBarFrame({
 }
 
 /** Renders the quick article filter strip and refresh status indicator. */
-export const DashboardFilterBar = memo(function DashboardFilterBar({
-  articleFilter,
-  isSearchPending = false,
-  isShellLoading = false,
-  lastRefreshLabel,
-  loading,
-  onArticleFilterChange,
-}: DashboardFilterBarProps) {
-  if (isShellLoading) {
-    return <DashboardFilterBarSkeleton />;
-  }
+export const DashboardFilterBar = memo(
+  /**
+   * @param root0
+   * @param root0.articleFilter
+   * @param root0.isSearchPending
+   * @param root0.isShellLoading
+   * @param root0.lastRefreshLabel
+   * @param root0.loading
+   * @param root0.onArticleFilterChange
+   */
+  function DashboardFilterBar({
+    articleFilter,
+    isSearchPending = false,
+    isShellLoading = false,
+    lastRefreshLabel,
+    loading,
+    onArticleFilterChange,
+  }: DashboardFilterBarProps) {
+    if (isShellLoading) {
+      return <DashboardFilterBarSkeleton />;
+    }
 
-  /** Show the spinner/skeleton while loading OR while a search is pending. */
-  const showLoadingIndicator = loading || isSearchPending;
+    /** Show the spinner/skeleton while loading OR while a search is pending. */
+    const showLoadingIndicator = loading || isSearchPending;
 
-  return (
-    <DashboardFilterBarFrame>
-      <div className="flex items-center gap-0">
-        <div
-          className="
+    return (
+      <DashboardFilterBarFrame>
+        <div className="flex items-center gap-0">
+          <div
+            className="
             hidden
             lg:block lg:w-[220px] lg:shrink-0
           "
-        />
-        <div
-          className="
+          />
+          <div
+            className="
             flex-1
             lg:min-w-0
           "
-        >
-          <div
-            className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
-            data-dashboard-width-link="feed"
           >
             <div
-              className="
+              className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
+              data-dashboard-width-link="feed"
+            >
+              <div
+                className="
                 rounded-xl border border-border/60 bg-card/75 px-2
                 backdrop-blur-sm
               "
-            >
-              <div className="flex min-h-8 items-center gap-2">
-                {ARTICLE_FILTER_OPTIONS.map((value) => (
-                  <button
-                    aria-pressed={articleFilter === value}
-                    className={`
+              >
+                <div className="flex min-h-8 items-center gap-2">
+                  {ARTICLE_FILTER_OPTIONS.map((value) => (
+                    <button
+                      aria-pressed={articleFilter === value}
+                      className={`
                       cursor-pointer rounded-full px-2.5 py-0.5 text-xs
                       capitalize transition-colors
                       ${
@@ -163,46 +178,47 @@ export const DashboardFilterBar = memo(function DashboardFilterBar({
                     `
                       }
                     `}
-                    key={value}
-                    onClick={() => {
-                      onArticleFilterChange(value);
-                    }}
-                    type="button"
-                  >
-                    {value}
-                  </button>
-                ))}
+                      key={value}
+                      onClick={() => {
+                        onArticleFilterChange(value);
+                      }}
+                      type="button"
+                    >
+                      {value}
+                    </button>
+                  ))}
 
-                <span
-                  aria-live="polite"
-                  className="
+                  <span
+                    aria-live="polite"
+                    className="
                     ml-auto flex items-center gap-1.5 text-right text-[11px]
                     whitespace-nowrap text-muted-foreground/50 select-none
                   "
-                >
-                  {showLoadingIndicator ? (
-                    <MotionSpinner iconClassName="size-2.5" />
-                  ) : (
-                    <span className="inline-flex shrink-0">
-                      <RefreshCw className="size-2.5 shrink-0" />
-                    </span>
-                  )}
-                  {showLoadingIndicator ? (
-                    <Skeleton
-                      aria-label="Refreshing"
-                      className="
+                  >
+                    {showLoadingIndicator ? (
+                      <MotionSpinner iconClassName="size-2.5" />
+                    ) : (
+                      <span className="inline-flex shrink-0">
+                        <RefreshCw className="size-2.5 shrink-0" />
+                      </span>
+                    )}
+                    {showLoadingIndicator ? (
+                      <Skeleton
+                        aria-label="Refreshing"
+                        className="
                         inline-block h-[11px] w-12 rounded-sm align-middle
                       "
-                    />
-                  ) : (
-                    lastRefreshLabel
-                  )}
-                </span>
+                      />
+                    ) : (
+                      lastRefreshLabel
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </DashboardFilterBarFrame>
-  );
-});
+      </DashboardFilterBarFrame>
+    );
+  },
+);

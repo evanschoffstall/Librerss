@@ -89,6 +89,13 @@ export interface FeedUpstreamTransport {
 
 type ArticleFilter = "all" | "read" | "starred" | "unread";
 
+/**
+ * @param options
+ * @param options.allowedUrls
+ * @param options.cachedArticlesByUrl
+ * @param options.changedArticlesByUrl
+ * @param options.unchangedUrls
+ */
 export function buildCachedArticleMap(options: {
   allowedUrls: string[];
   cachedArticlesByUrl: Map<string, ArticleRow[]> | undefined;
@@ -109,6 +116,13 @@ export function buildCachedArticleMap(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.allWithinCooldown
+ * @param options.cached
+ * @param options.onCacheHit
+ * @param options.request
+ */
 export function buildCachedBatchResponse(options: {
   allWithinCooldown: boolean;
   cached: CachedBatchPayload;
@@ -154,6 +168,9 @@ export function buildCachedBatchResponse(options: {
   };
 }
 
+/**
+ *
+ */
 export function buildEmptyBatchResult(): BatchFeedResult {
   return {
     articles: new Map(),
@@ -167,6 +184,11 @@ export function buildEmptyBatchResult(): BatchFeedResult {
   };
 }
 
+/**
+ * @param options
+ * @param options.allowedUrls
+ * @param options.refreshExecution
+ */
 export function buildFeedIdlessBatchResult(options: {
   allowedUrls: string[];
   refreshExecution: BatchRefreshExecution;
@@ -185,6 +207,12 @@ export function buildFeedIdlessBatchResult(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.allowedUrls
+ * @param options.feedByUrl
+ * @param options.refreshedUrls
+ */
 export function buildLastFetchedByUrl(options: {
   allowedUrls: string[];
   feedByUrl: ReadonlyMap<string, FeedRecord>;
@@ -206,6 +234,12 @@ export function buildLastFetchedByUrl(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.articleMap
+ * @param options.lastFetchedByUrl
+ * @param options.query
+ */
 export function buildQueriedBatchResult(options: {
   articleMap: Map<string, ArticleRow[]>;
   lastFetchedByUrl: Map<string, Date>;
@@ -226,6 +260,13 @@ export function buildQueriedBatchResult(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.allowedUrlCount
+ * @param options.lastFetchedByUrl
+ * @param options.refreshExecution
+ * @param options.unchangedUrls
+ */
 export function buildUnchangedBatchResult(options: {
   allowedUrlCount: number;
   lastFetchedByUrl: Map<string, Date>;
@@ -246,6 +287,13 @@ export function buildUnchangedBatchResult(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.articleLimit
+ * @param options.knownLastFetchedAtByUrl
+ * @param options.lastFetchedByUrl
+ * @param options.urls
+ */
 export function collectUnchangedUrls(options: {
   articleLimit?: number;
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined;
@@ -275,6 +323,20 @@ export function collectUnchangedUrls(options: {
   );
 }
 
+/**
+ * @param userId
+ * @param feedUrls
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articleLimit
+ * @param root0.forceRefresh
+ * @param root0.forceResolveUpstream
+ * @param root0.knownLastFetchedAtByUrl
+ * @param root0.requestSource
+ * @param root0.resolveProxyTransport
+ * @param root0.searchTerm
+ * @param root0.skipRefresh
+ */
 export function createBatchFetchRequest(
   userId: number,
   feedUrls: string[],
@@ -305,6 +367,10 @@ export function createBatchFetchRequest(
   };
 }
 
+/**
+ * @param articlesByUrl
+ * @param urls
+ */
 export function sliceArticleMapByUrls(
   articlesByUrl: ReadonlyMap<string, ArticleRow[]>,
   urls: string[],

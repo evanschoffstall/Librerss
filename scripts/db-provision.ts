@@ -3,18 +3,21 @@
  * Provisions the LibreRSS database from scratch.
  *
  * Usage:
- *   bun run db:provision
+ *   bun run db:provision.
  *
  * What it does:
  *   1. Validates DATABASE_URL is set
  *   2. Verifies the database connection
- *   3. Pushes the Drizzle schema (creates/migrates all tables)
+ *   3. Pushes the Drizzle schema (creates/migrates all tables).
  */
 
 import { execSync } from "node:child_process";
 
 import { createSqlQueryExecutor } from "../src/lib/db/query-executor";
 
+/**
+ *
+ */
 function ensureDatabaseUrl(): void {
   if (process.env.DATABASE_URL?.trim()) {
     return;
@@ -28,6 +31,9 @@ function ensureDatabaseUrl(): void {
   process.exit(1);
 }
 
+/**
+ *
+ */
 async function main(): Promise<void> {
   ensureDatabaseUrl();
 

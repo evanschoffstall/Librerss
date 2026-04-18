@@ -1,5 +1,13 @@
 import type { BatchUrlDescriptor } from "./endpoint";
 
+/**
+ * @param options
+ * @param options.batchMap
+ * @param options.item
+ * @param options.lastFetchedByUrl
+ * @param options.unchangedUrls
+ * @param options.upstreamErrors
+ */
 export function buildBatchResultItem(options: {
   batchMap: ReadonlyMap<string, unknown[]>;
   item: BatchUrlDescriptor;

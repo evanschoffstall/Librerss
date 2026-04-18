@@ -8,6 +8,9 @@ import {
   serverApi,
 } from "@/lib/server";
 
+/**
+ * @param request
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await serverApi.requireAuthenticatedUser(request);
@@ -22,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * @param request
+ */
 export async function PUT(request: NextRequest) {
   try {
     const user = await requireMutableFeedAccess(request);

@@ -29,6 +29,7 @@ export interface ResolvedStoredProxyPassword {
  * is configured, otherwise from `DATABASE_URL`. That keeps local and hosted
  * deployments working immediately while still allowing operators to provide a
  * dedicated secret for credential storage.
+ * @param password
  */
 export function encryptStoredProxyPassword(password: string): string {
   const iv = randomBytes(CIPHER_IV_BYTES);
@@ -57,6 +58,8 @@ export function encryptStoredProxyPassword(password: string): string {
 /**
  * Materializes the stored proxy password and optionally persists an encrypted
  * replacement when the existing value is still plaintext.
+ * @param storedPassword
+ * @param persistNormalizedPassword
  */
 export async function materializeStoredProxyPassword(
   storedPassword: null | string,
@@ -78,6 +81,7 @@ export async function materializeStoredProxyPassword(
  *
  * Existing plaintext rows are upgraded to encrypted storage on first use by
  * returning `needsWriteback = true` along with the normalized ciphertext.
+ * @param storedPassword
  */
 export function resolveStoredProxyPassword(
   storedPassword: null | string,
@@ -117,6 +121,7 @@ export function resolveStoredProxyPassword(
 /**
  * Decrypts an encrypted proxy password envelope previously produced by
  * {@link encryptStoredProxyPassword}.
+ * @param encryptedPassword
  */
 function decryptStoredProxyPassword(encryptedPassword: string): string {
   const [version, ivToken, authTagToken, cipherTextToken, ...rest] =

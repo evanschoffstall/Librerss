@@ -22,7 +22,19 @@ interface ManualDashboardRefreshContext extends DashboardRefreshContext {
   forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
 }
 
-/** Performs the interval-driven refresh for the current dashboard selection. */
+/**
+ * Performs the interval-driven refresh for the current dashboard selection.
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.onBeforeRefresh
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ */
 export async function autoRefreshDashboardSelection({
   articleLimit,
   fetchAllFeeds,
@@ -50,7 +62,16 @@ export async function autoRefreshDashboardSelection({
   });
 }
 
-/** Prefetches a category or synthetic all-feeds node when it is not already active. */
+/**
+ * Prefetches a category or synthetic all-feeds node when it is not already active.
+ * @param categoryNode
+ * @param options
+ * @param options.articleLimit
+ * @param options.prefetchAllFeeds
+ * @param options.prefetchCategoryFeeds
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ */
 export function prefetchDashboardCategory(
   categoryNode: CategoryTreeNode,
   options: {
@@ -88,7 +109,15 @@ export function prefetchDashboardCategory(
   });
 }
 
-/** Prefetches a concrete feed node unless it is already selected or disabled. */
+/**
+ * Prefetches a concrete feed node unless it is already selected or disabled.
+ * @param feedNode
+ * @param options
+ * @param options.articleLimit
+ * @param options.prefetchFeed
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ */
 export function prefetchDashboardFeed(
   feedNode: CategoryTreeNode,
   options: {
@@ -114,7 +143,20 @@ export function prefetchDashboardFeed(
   });
 }
 
-/** Performs the explicit user-initiated refresh for the current dashboard selection. */
+/**
+ * Performs the explicit user-initiated refresh for the current dashboard selection.
+ * @param root0
+ * @param root0.articleLimit
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.forceResolveUpstream
+ * @param root0.onBeforeRefresh
+ * @param root0.searchTerm
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ */
 export async function refreshDashboardSelection({
   articleLimit,
   fetchAllFeeds,
@@ -144,7 +186,17 @@ export async function refreshDashboardSelection({
   });
 }
 
-/** Switches to a category or the synthetic all-feeds node and fetches its surface. */
+/**
+ * Switches to a category or the synthetic all-feeds node and fetches its surface.
+ * @param categoryNode
+ * @param options
+ * @param options.articleLimit
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.searchTerm
+ * @param options.setIsMobileSidebarOpen
+ * @param options.setSelectedCategory
+ */
 export function selectDashboardCategory(
   categoryNode: CategoryTreeNode,
   options: {
@@ -184,7 +236,16 @@ export function selectDashboardCategory(
   });
 }
 
-/** Switches to a concrete feed node and fetches it when the source is enabled. */
+/**
+ * Switches to a concrete feed node and fetches it when the source is enabled.
+ * @param feedNode
+ * @param options
+ * @param options.articleLimit
+ * @param options.fetchFeed
+ * @param options.searchTerm
+ * @param options.setIsMobileSidebarOpen
+ * @param options.setSelectedCategory
+ */
 export function selectDashboardFeed(
   feedNode: CategoryTreeNode,
   options: {

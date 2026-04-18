@@ -69,6 +69,16 @@ const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
  * The controller should only mark the source exhausted after a server-backed fetch for
  * the active requested limit settles with fewer items than requested. Local optimistic
  * read-state changes must preserve the prior availability signal.
+ * @param root0
+ * @param root0.allowPartialFeedGrowth
+ * @param root0.currentFeedLength
+ * @param root0.hasStartedAwaitedWindowSettlement
+ * @param root0.isAwaitingWindowSettlement
+ * @param root0.isLoading
+ * @param root0.previousFeedLength
+ * @param root0.previousHasMoreServerArticles
+ * @param root0.requestedArticleLimit
+ * @param root0.shouldUseArticleWindow
  */
 export function resolveArticleWindowAvailability({
   allowPartialFeedGrowth,
@@ -124,6 +134,12 @@ export function resolveArticleWindowAvailability({
 
 /**
  * Prevents load-more from starting before the live article window is ready.
+ * @param root0
+ * @param root0.currentFeedLength
+ * @param root0.hasMoreServerArticles
+ * @param root0.isCategoriesLoading
+ * @param root0.isLoadingMoreArticles
+ * @param root0.shouldUseArticleWindow
  */
 export function shouldBlockArticleWindowLoadMore({
   currentFeedLength,
@@ -144,6 +160,15 @@ export function shouldBlockArticleWindowLoadMore({
 /**
  * Determines whether the controller should refill an unread window that local
  * read-state changes have emptied.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.currentFeedLength
+ * @param root0.currentFilteredFeedLength
+ * @param root0.hasMoreServerArticles
+ * @param root0.isLoading
+ * @param root0.isRefillingDepletedUnreadWindow
+ * @param root0.shouldUseArticleWindow
  */
 export function shouldRefillDepletedUnreadWindow({
   articleFilter,
@@ -174,6 +199,7 @@ export function shouldRefillDepletedUnreadWindow({
  * This matches the feed viewport contract: do not chase the server just because
  * local read-state updates removed a few visible rows. Refill only when the unread
  * window has fallen below one configured page and its smallest extra overflow.
+ * @param articlesPerPage
  */
 function resolveUnreadRefillThreshold(articlesPerPage: number) {
   return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);

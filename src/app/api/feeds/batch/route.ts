@@ -71,6 +71,10 @@ interface ResolvedBatchRequestUrls {
 const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
   serverApi;
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: BatchRouteDeps | serverApi.RouteHandlerContext = {},
@@ -105,6 +109,23 @@ export async function POST(
   }
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.batchFetchResult
+ * @param options.diagnosticsEnabled
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.intent
+ * @param options.invalidUrlCount
+ * @param options.normalizedUrls
+ * @param options.requestSource
+ * @param options.requestStartedAt
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ * @param options.userId
+ */
 function buildBatchSuccessResponseOptions(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -144,6 +165,21 @@ function buildBatchSuccessResponseOptions(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.articleLimit
+ * @param options.deps
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.knownLastFetchedAtByUrl
+ * @param options.normalizedUrls
+ * @param options.requestSource
+ * @param options.requestUrls
+ * @param options.searchTerm
+ * @param options.skipRefresh
+ * @param options.userId
+ */
 async function executeBatchFetch(options: {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -170,6 +206,9 @@ async function executeBatchFetch(options: {
       forceResolveUpstream: options.forceResolveUpstream,
       knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
       requestSource: options.requestSource,
+      /**
+       *
+       */
       resolveProxyTransport: () =>
         resolveBatchProxyTransport({
           resolveUserProxyForRoute: routeDeps.resolveUserProxyForRoute,
@@ -194,6 +233,13 @@ async function executeBatchFetch(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.deps
+ * @param options.diagnosticsEnabled
+ * @param options.requestStartedAt
+ * @param options.requestState
+ */
 async function handleResolvedBatchPostRequest(options: {
   deps: BatchRouteDeps;
   diagnosticsEnabled: boolean;
@@ -256,6 +302,9 @@ async function handleResolvedBatchPostRequest(options: {
   );
 }
 
+/**
+ * @param value
+ */
 function parseArticleFilter(value: unknown): ArticleFilter | Response {
   if (value === undefined) {
     return "all";
@@ -273,6 +322,9 @@ function parseArticleFilter(value: unknown): ArticleFilter | Response {
   return value;
 }
 
+/**
+ * @param value
+ */
 function parseArticleLimit(value: unknown): number | Response | undefined {
   if (value === undefined) {
     return undefined;
@@ -290,6 +342,9 @@ function parseArticleLimit(value: unknown): number | Response | undefined {
   return Math.min(value, CONFIG.MAX_ALL_ARTICLES_LIMIT);
 }
 
+/**
+ * @param value
+ */
 function parseForceResolveUpstream(value: unknown): boolean | Response {
   if (value === undefined) {
     return false;
@@ -307,6 +362,9 @@ function parseForceResolveUpstream(value: unknown): boolean | Response {
   return value;
 }
 
+/**
+ * @param value
+ */
 function parseKnownLastFetchedAtByUrl(
   value: unknown,
 ): Map<string, Date> | Response {
@@ -347,6 +405,9 @@ function parseKnownLastFetchedAtByUrl(
   );
 }
 
+/**
+ * @param value
+ */
 function parseSearchTerm(value: unknown): Response | string | undefined {
   if (value === undefined) {
     return undefined;
@@ -378,6 +439,11 @@ function parseSearchTerm(value: unknown): Response | string | undefined {
   return normalizedValue;
 }
 
+/**
+ * @param options
+ * @param options.diagnosticsEnabled
+ * @param options.requestState
+ */
 function resolveBatchExecutionPreflight(options: {
   diagnosticsEnabled: boolean;
   requestState: ResolvedBatchRequestState;
@@ -432,6 +498,13 @@ function resolveBatchExecutionPreflight(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.forceRefresh
+ * @param options.forceResolveUpstream
+ * @param options.skipRefresh
+ * @param options.urls
+ */
 function resolveBatchIntentState(options: {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -452,6 +525,11 @@ function resolveBatchIntentState(options: {
   return NextResponse.json([]);
 }
 
+/**
+ * @param options
+ * @param options.resolveUserProxyForRoute
+ * @param options.userId
+ */
 async function resolveBatchProxyTransport(options: {
   resolveUserProxyForRoute: NonNullable<
     ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
@@ -488,6 +566,11 @@ async function resolveBatchProxyTransport(options: {
   };
 }
 
+/**
+ * @param options
+ * @param options.deps
+ * @param options.request
+ */
 async function resolveBatchRequestStateForPost(options: {
   deps: BatchRouteDeps;
   request: NextRequest;
@@ -528,6 +611,12 @@ async function resolveBatchRequestStateForPost(options: {
     : { ...requestState, user };
 }
 
+/**
+ * @param options
+ * @param options.diagnosticsEnabled
+ * @param options.urls
+ * @param options.userId
+ */
 function resolveBatchRequestUrls(options: {
   diagnosticsEnabled: boolean;
   urls: string[];
@@ -554,6 +643,9 @@ function resolveBatchRequestUrls(options: {
   return resolvedUrls;
 }
 
+/**
+ * @param deps
+ */
 function resolveBatchRouteDependencies(deps: BatchRouteDeps) {
   return {
     db: (deps.getDbFn ?? getDb)(),

@@ -6,6 +6,10 @@ import { SettingsPanel } from "@/app/dashboard/dashboard-components/settings-dia
 
 type DashboardSettings = ReturnType<typeof useDashboardController>["settings"];
 
+/**
+ * @param root0
+ * @param root0.settings
+ */
 export function DashboardSettingsModal({
   settings,
 }: {

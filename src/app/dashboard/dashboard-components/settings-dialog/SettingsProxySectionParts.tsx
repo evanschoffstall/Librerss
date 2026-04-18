@@ -67,6 +67,17 @@ type ProxyUrlSectionProps = Pick<
   showProxyUrlRow: boolean;
 };
 
+/**
+ * @param root0
+ * @param root0.hasProxyPassword
+ * @param root0.proxyPassword
+ * @param root0.proxyUsername
+ * @param root0.saving
+ * @param root0.setProxyPassword
+ * @param root0.setProxyUsername
+ * @param root0.showPasswordField
+ * @param root0.showUsernameField
+ */
 export function ProxyCredentialsSection({
   hasProxyPassword,
   proxyPassword,
@@ -134,6 +145,13 @@ export function ProxyCredentialsSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.badgeStatus
+ * @param root0.proxyRoutingCheck
+ * @param root0.showStatusBadges
+ * @param root0.showStatusSkeletons
+ */
 export function ProxySectionHeader({
   badgeStatus,
   proxyRoutingCheck,
@@ -188,6 +206,13 @@ export function ProxySectionHeader({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.allowInsecureTls
+ * @param root0.saving
+ * @param root0.showTlsToggle
+ * @param root0.syncAllowInsecureTls
+ */
 export function ProxyTlsToggle({
   allowInsecureTls,
   saving,
@@ -225,6 +250,20 @@ export function ProxyTlsToggle({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.error
+ * @param root0.handleClear
+ * @param root0.handleSave
+ * @param root0.hasProxy
+ * @param root0.inputRef
+ * @param root0.isSaveDisabled
+ * @param root0.proxyUrl
+ * @param root0.saving
+ * @param root0.setError
+ * @param root0.setProxyUrl
+ * @param root0.showProxyUrlRow
+ */
 export function ProxyUrlSection({
   error,
   handleClear,
@@ -305,6 +344,10 @@ export function ProxyUrlSection({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.proxyState
+ */
 export function SettingsProxySectionBody({
   proxyState,
 }: {
@@ -340,6 +383,9 @@ export function SettingsProxySectionBody({
   );
 }
 
+/**
+ *
+ */
 function ProxyBadgeSkeletons() {
   return (
     <div
@@ -354,6 +400,10 @@ function ProxyBadgeSkeletons() {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.error
+ */
 function ProxyErrorMessage({
   error,
 }: Pick<UseSettingsProxyStateResult, "error">) {
@@ -378,6 +428,9 @@ function ProxyErrorMessage({
   );
 }
 
+/**
+ *
+ */
 function ProxyUrlRowSkeleton() {
   return (
     <div className="flex items-center gap-2">

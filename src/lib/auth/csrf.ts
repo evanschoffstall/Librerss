@@ -3,6 +3,9 @@ import { forbiddenResponse } from "@/lib/api/http";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
 
+/**
+ * @param request
+ */
 export function requireSameOrigin(request: Request): null | Response {
   const method = request.method.toUpperCase();
   if (SAFE_METHODS.has(method)) {
@@ -41,6 +44,11 @@ export function requireSameOrigin(request: Request): null | Response {
   }
 }
 
+/**
+ * @param origin
+ * @param referer
+ * @param secFetchSite
+ */
 function allowsSameSiteFallback(
   origin: null | string,
   referer: null | string,
@@ -54,6 +62,9 @@ function allowsSameSiteFallback(
   );
 }
 
+/**
+ * @param request
+ */
 function getExpectedOrigin(request: Request): null | string {
   const host = request.headers.get("host");
   if (!host) {
@@ -64,6 +75,10 @@ function getExpectedOrigin(request: Request): null | string {
   return new URL(`${requestUrl.protocol}//${host}`).origin.toLowerCase();
 }
 
+/**
+ * @param origin
+ * @param referer
+ */
 function getOriginCandidate(
   origin: null | string,
   referer: null | string,
@@ -71,6 +86,10 @@ function getOriginCandidate(
   return origin ?? referer;
 }
 
+/**
+ * @param value
+ * @param expectedOrigin
+ */
 function isSameOrigin(value: string, expectedOrigin: string): boolean {
   return new URL(value).origin.toLowerCase() === expectedOrigin;
 }

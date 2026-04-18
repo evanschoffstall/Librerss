@@ -18,6 +18,11 @@ export interface FeedBatchSource {
  *
  * For successful responses, enriches each article with `feedName` / `feedUrl`.
  * Falls back to placeholder data when `usePlaceholderData` is true.
+ * @param batchResults
+ * @param sourceNameByUrl
+ * @param usePlaceholderData
+ * @param getPlaceholderArticles
+ * @param previousFeed
  */
 export function mapBatchResultsToArticles(
   batchResults: BatchFeedResponseItem[],
@@ -74,6 +79,11 @@ export function mapBatchResultsToArticles(
   );
 }
 
+/**
+ * @param articles
+ * @param feedUrl
+ * @param feedName
+ */
 function enrichFeedArticles(
   articles: Article[],
   feedUrl: string,
@@ -97,6 +107,7 @@ export const FEED_LOADING_FAILSAFE_MS = BATCH_REQUEST_TIMEOUT_MS + 5_000;
 /**
  * Produces a stable string signature for a batch-sources array so callers can
  * detect when the source list has genuinely changed between renders.
+ * @param sources
  */
 export function buildBatchRequestSignature(sources: FeedBatchSource[]): string {
   return sources
@@ -108,6 +119,7 @@ export function buildBatchRequestSignature(sources: FeedBatchSource[]): string {
 /**
  * Converts a flat list of category tree leaf nodes into FeedBatchSource records,
  * filtering out any nodes that lack a feed URL.
+ * @param nodes
  */
 export function mapFeedNodesToBatchSources(
   nodes: CategoryTreeNode[],
@@ -125,6 +137,7 @@ export function mapFeedNodesToBatchSources(
 
 /**
  * De-duplicates batch sources by URL, preserving first-occurrence order.
+ * @param sources
  */
 export function normalizeFeedBatchSources(
   sources: FeedBatchSource[],

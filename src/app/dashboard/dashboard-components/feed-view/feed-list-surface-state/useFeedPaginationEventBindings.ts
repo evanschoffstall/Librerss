@@ -43,6 +43,18 @@ interface FeedPaginationSentinelObserverOptions extends FeedPaginationSentinelLo
   shouldObserveLoadMoreBoundary: boolean;
 }
 
+/**
+ * @param options
+ * @param options.clearServerLoadCooldown
+ * @param options.hasPendingBoundaryRearmAfterCooldownRef
+ * @param options.hasPendingBoundaryRearmAfterCooldownRef.current
+ * @param options.invertedPaginationAnchorFrameRef
+ * @param options.invertedPaginationAnchorFrameRef.current
+ * @param options.normalScrollIntentSuppressionFrameRef
+ * @param options.normalScrollIntentSuppressionFrameRef.current
+ * @param options.paginationFrameRef
+ * @param options.paginationFrameRef.current
+ */
 export function useFeedPaginationCleanupEffect(options: {
   clearServerLoadCooldown: () => void;
   hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
@@ -88,6 +100,9 @@ export function useFeedPaginationCleanupEffect(options: {
   ]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedPaginationIntentBindings(
   options: FeedPaginationIntentBindingOptions,
 ) {
@@ -147,6 +162,15 @@ export function useFeedPaginationIntentBindings(
   ]);
 }
 
+/**
+ * @param options
+ * @param options.isInvertedScroll
+ * @param options.lastInvertedScrollTopRef
+ * @param options.lastInvertedScrollTopRef.current
+ * @param options.lastStandardScrollTopRef
+ * @param options.lastStandardScrollTopRef.current
+ * @param options.scrollViewport
+ */
 export function useFeedPaginationScrollPositionPriming(options: {
   isInvertedScroll: boolean;
   lastInvertedScrollTopRef: { current: null | number };
@@ -172,6 +196,9 @@ export function useFeedPaginationScrollPositionPriming(options: {
   ]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedPaginationSentinelObserver(
   options: FeedPaginationSentinelObserverOptions,
 ) {
@@ -247,6 +274,9 @@ export function useFeedPaginationSentinelObserver(
   ]);
 }
 
+/**
+ * @param options
+ */
 export function useFeedPaginationViewportScrollBinding(
   options: ViewportScrollBindingOptions,
 ) {
@@ -327,6 +357,9 @@ export function useFeedPaginationViewportScrollBinding(
   ]);
 }
 
+/**
+ * @param options
+ */
 function createScrollIntentHandler(
   options: FeedPaginationIntentBindingOptions & { scrollViewport: HTMLElement },
 ) {
@@ -358,6 +391,9 @@ function createScrollIntentHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function handleSentinelIntersection(
   options: FeedPaginationSentinelLoadOptions & {
     entries: IntersectionObserverEntry[];
@@ -397,6 +433,9 @@ function handleSentinelIntersection(
   });
 }
 
+/**
+ * @param options
+ */
 function shouldSuppressInitialSentinelLoad(
   options: Pick<
     Parameters<typeof handleSentinelIntersection>[0],

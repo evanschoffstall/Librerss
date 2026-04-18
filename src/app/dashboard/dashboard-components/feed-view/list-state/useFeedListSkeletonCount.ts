@@ -12,7 +12,12 @@ interface UseFeedListSkeletonCountOptions {
 const FEED_LIST_SKELETON_SELECTOR =
   "[data-dashboard-feed-list-skeleton-item='true']";
 
-/** Measures the viewport and first skeleton row so the loading surface fills the fold. */
+/**
+ * Measures the viewport and first skeleton row so the loading surface fills the fold.
+ * @param root0
+ * @param root0.listRef
+ * @param root0.setSkeletonCount
+ */
 export function useFeedListSkeletonCount({
   listRef,
   setSkeletonCount,
@@ -24,9 +29,15 @@ export function useFeedListSkeletonCount({
     let animationFrameId = 0;
     let resizeObserver: null | ResizeObserver = null;
     let retryFramesRemaining = 10;
+    /**
+     *
+     */
     const measureSkeletonCount = () =>
       updateFeedListSkeletonCount(listRef, setSkeletonCount);
 
+    /**
+     *
+     */
     const scheduleMeasurement = () => {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = requestAnimationFrame(() => {
@@ -78,6 +89,9 @@ export function useFeedListSkeletonCount({
   }, [listRef, setSkeletonCount]);
 }
 
+/**
+ * @param listRef
+ */
 function resolveFeedListSkeletonElements(
   listRef: React.RefObject<HTMLDivElement | null>,
 ) {
@@ -89,6 +103,9 @@ function resolveFeedListSkeletonElements(
   return { listElement, viewportElement };
 }
 
+/**
+ * @param listElement
+ */
 function resolveFeedListSkeletonRowGap(listElement: HTMLDivElement) {
   const listStyles = getComputedStyle(listElement);
   const rawRowGap = Number.parseFloat(
@@ -98,6 +115,10 @@ function resolveFeedListSkeletonRowGap(listElement: HTMLDivElement) {
   return Number.isFinite(rawRowGap) && rawRowGap > 0 ? rawRowGap : 0;
 }
 
+/**
+ * @param listRef
+ * @param setSkeletonCount
+ */
 function updateFeedListSkeletonCount(
   listRef: React.RefObject<HTMLDivElement | null>,
   setSkeletonCount: React.Dispatch<React.SetStateAction<number>>,

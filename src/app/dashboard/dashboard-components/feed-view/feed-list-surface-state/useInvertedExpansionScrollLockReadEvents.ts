@@ -17,6 +17,14 @@ interface UseInvertedExpansionScrollLockReadEventsOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.isInvertedScrollRef
+ * @param root0.onClaimInvertedScrollOwnership
+ * @param root0.prepareInvertedUnreadRemovalScrollLock
+ * @param root0.scrollViewport
+ */
 export function useInvertedExpansionScrollLockReadEvents({
   articleFilter,
   isInvertedScrollRef,
@@ -41,6 +49,9 @@ export function useInvertedExpansionScrollLockReadEvents({
   ]);
 }
 
+/**
+ * @param options
+ */
 function bindInvertedExpansionScrollLockReadEvents(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
 ) {
@@ -93,6 +104,9 @@ function bindInvertedExpansionScrollLockReadEvents(
   };
 }
 
+/**
+ * @param options
+ */
 function createArticleReadToggleStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
 ) {
@@ -116,6 +130,9 @@ function createArticleReadToggleStartHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createMarkAllReadStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
 ) {
@@ -126,6 +143,9 @@ function createMarkAllReadStartHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createReadToggleIntentHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
 ) {
@@ -154,6 +174,9 @@ function createReadToggleIntentHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createViewportReadStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
 ) {

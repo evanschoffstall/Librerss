@@ -11,6 +11,15 @@ export const animTransitionColorsClass =
 export const settingsDragHandleCls =
   "shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing";
 
+/**
+ * @param root0
+ * @param root0.ariaLabel
+ * @param root0.children
+ * @param root0.className
+ * @param root0.disabled
+ * @param root0.onClick
+ * @param root0.tip
+ */
 export const SettingsIconButton = ({
   ariaLabel,
   children,

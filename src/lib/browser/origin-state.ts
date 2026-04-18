@@ -32,6 +32,7 @@ type IndexedDbFactoryWithDatabases = IDBFactory & {
  * Storage, service-worker registrations, and enumerable IndexedDB databases for
  * the active origin. Callers may allowlist a small set of localStorage keys
  * when a full logout-style wipe would be too destructive.
+ * @param options
  */
 export async function clearClientOriginState(
   options: ClearClientOriginStateOptions = {},
@@ -54,6 +55,9 @@ export async function clearClientOriginState(
   ]);
 }
 
+/**
+ *
+ */
 async function clearCacheStorage() {
   if (typeof caches === "undefined") return;
 
@@ -62,6 +66,9 @@ async function clearCacheStorage() {
     await runCleanupTasks(
       cacheNames.map((cacheName) => ({
         operation: "delete cache",
+        /**
+         *
+         */
         run: async () => {
           await caches.delete(cacheName);
         },
@@ -73,6 +80,9 @@ async function clearCacheStorage() {
   }
 }
 
+/**
+ *
+ */
 function clearDocumentCookies() {
   if (typeof document === "undefined" || document.cookie.trim() === "") {
     return;
@@ -92,6 +102,9 @@ function clearDocumentCookies() {
   }
 }
 
+/**
+ *
+ */
 async function clearIndexedDb() {
   if (typeof indexedDB === "undefined") return;
 
@@ -101,6 +114,9 @@ async function clearIndexedDb() {
   await runCleanupTasks(
     databaseNames.map((databaseName) => ({
       operation: "delete indexeddb database",
+      /**
+       *
+       */
       run: async () => {
         await deleteIndexedDb(databaseName);
       },
@@ -109,6 +125,9 @@ async function clearIndexedDb() {
   );
 }
 
+/**
+ *
+ */
 async function clearServiceWorkers() {
   const serviceWorker = (
     navigator as Navigator & {
@@ -129,6 +148,9 @@ async function clearServiceWorkers() {
     await runCleanupTasks(
       registrations.map((registration, index) => ({
         operation: "unregister service worker",
+        /**
+         *
+         */
         run: async () => {
           await registration.unregister();
         },
@@ -140,6 +162,9 @@ async function clearServiceWorkers() {
   }
 }
 
+/**
+ * @param storage
+ */
 function clearWebStorage(storage: Storage) {
   try {
     storage.clear();
@@ -148,16 +173,28 @@ function clearWebStorage(storage: Storage) {
   }
 }
 
+/**
+ * @param databaseName
+ */
 function deleteIndexedDb(databaseName: string) {
   return new Promise<void>((resolve, reject) => {
     try {
       const request = indexedDB.deleteDatabase(databaseName);
+      /**
+       *
+       */
       request.onerror = () => {
         reject(request.error ?? new Error("IndexedDB delete failed"));
       };
+      /**
+       *
+       */
       request.onblocked = () => {
         reject(new Error("IndexedDB delete blocked"));
       };
+      /**
+       *
+       */
       request.onsuccess = () => {
         resolve();
       };
@@ -169,6 +206,9 @@ function deleteIndexedDb(databaseName: string) {
   });
 }
 
+/**
+ * @param pathname
+ */
 function getCookiePaths(pathname: string) {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
   const segments = normalizedPath
@@ -185,6 +225,9 @@ function getCookiePaths(pathname: string) {
   return [...paths];
 }
 
+/**
+ * @param indexedDbFactory
+ */
 async function listIndexedDbNames(indexedDbFactory: IDBFactory) {
   const indexedDbFactoryWithDatabases =
     indexedDbFactory as IndexedDbFactoryWithDatabases;
@@ -206,6 +249,10 @@ async function listIndexedDbNames(indexedDbFactory: IDBFactory) {
   }
 }
 
+/**
+ * @param storage
+ * @param preserveKeys
+ */
 function readPreservedStorageEntries(
   storage: Storage,
   preserveKeys: readonly string[],
@@ -220,6 +267,10 @@ function readPreservedStorageEntries(
   });
 }
 
+/**
+ * @param storage
+ * @param entries
+ */
 function restoreStorageEntries(
   storage: Storage,
   entries: readonly (readonly [string, string])[],
@@ -237,10 +288,16 @@ function restoreStorageEntries(
   }
 }
 
-/** Run cleanup work in a bounded queue so large origins do not fan out unbounded async work. */
+/**
+ * Run cleanup work in a bounded queue so large origins do not fan out unbounded async work.
+ * @param tasks
+ */
 async function runCleanupTasks(tasks: readonly CleanupTask[]) {
   let nextTaskIndex = 0;
 
+  /**
+   *
+   */
   async function worker() {
     while (nextTaskIndex < tasks.length) {
       const currentTaskIndex = nextTaskIndex;
@@ -267,6 +324,12 @@ async function runCleanupTasks(tasks: readonly CleanupTask[]) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.error
+ * @param root0.operation
+ * @param root0.target
+ */
 function warnCleanupFailure({
   error,
   operation,

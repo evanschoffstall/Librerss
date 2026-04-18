@@ -23,6 +23,9 @@ interface SettingsCategoryAccordionHeaderProps extends SettingsCategoryHeaderCal
   isPendingRemoval: boolean;
 }
 
+/**
+ * @param props
+ */
 export function SettingsCategoryAccordionHeader(
   props: SettingsCategoryAccordionHeaderProps,
 ) {
@@ -40,6 +43,14 @@ export function SettingsCategoryAccordionHeader(
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryNode
+ * @param root0.isAddingFeed
+ * @param root0.isPendingRemoval
+ * @param root0.onRemoveCategory
+ * @param root0.onToggleAddFeed
+ */
 function CategoryActionButtons({
   categoryNode,
   isAddingFeed,
@@ -88,6 +99,13 @@ function CategoryActionButtons({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryLabel
+ * @param root0.isEditing
+ * @param root0.onCategoryDragEnd
+ * @param root0.onCategoryDragStart
+ */
 function CategoryDragHandle({
   categoryLabel,
   isEditing,
@@ -122,6 +140,18 @@ function CategoryDragHandle({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryFeeds
+ * @param root0.categoryNode
+ * @param root0.editingCategoryName
+ * @param root0.isEditing
+ * @param root0.onCancelCategoryEdit
+ * @param root0.onEditingCategoryNameChange
+ * @param root0.onSaveCategoryRename
+ * @param root0.onStartCategoryEdit
+ * @param root0.savingCategoryLabel
+ */
 function CategoryHeaderContent({
   categoryFeeds,
   categoryNode,
@@ -162,6 +192,15 @@ function CategoryHeaderContent({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryLabel
+ * @param root0.editingCategoryName
+ * @param root0.onCancelCategoryEdit
+ * @param root0.onEditingCategoryNameChange
+ * @param root0.onSaveCategoryRename
+ * @param root0.savingCategoryLabel
+ */
 function CategoryRenameFields({
   categoryLabel,
   editingCategoryName,
@@ -210,6 +249,12 @@ function CategoryRenameFields({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.categoryFeeds
+ * @param root0.categoryLabel
+ * @param root0.onStartCategoryEdit
+ */
 function CategorySummaryTrigger({
   categoryFeeds,
   categoryLabel,

@@ -52,6 +52,10 @@ interface SignupRouteDeps {
   setSessionCookieFn?: typeof setSessionCookie;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: serverApi.RouteHandlerContext | SignupRouteDeps = {},
@@ -100,6 +104,11 @@ export async function POST(
   }
 }
 
+/**
+ * @param db
+ * @param payload
+ * @param deps
+ */
 async function createSignupSuccessResponse(
   db: SignupDb,
   payload: SignupPayload,
@@ -132,6 +141,9 @@ async function createSignupSuccessResponse(
   return response;
 }
 
+/**
+ * @param payload
+ */
 function parseSignupPayload(
   payload: Record<string, unknown>,
 ): Response | SignupPayload {
@@ -170,6 +182,11 @@ function parseSignupPayload(
   return { acceptedLegalVersion, email, password };
 }
 
+/**
+ * @param db
+ * @param email
+ * @param appLogger
+ */
 async function resolveExistingUserError(
   db: SignupDb,
   email: string,
@@ -192,6 +209,9 @@ async function resolveExistingUserError(
   );
 }
 
+/**
+ * @param deps
+ */
 function resolveSignupAvailabilityError(
   deps: ResolvedSignupRouteDeps,
 ): null | Response {
@@ -211,6 +231,9 @@ function resolveSignupAvailabilityError(
   );
 }
 
+/**
+ * @param request
+ */
 async function resolveSignupPayload(
   request: NextRequest,
 ): Promise<Response | SignupPayload> {
@@ -222,6 +245,10 @@ async function resolveSignupPayload(
   return parseSignupPayload(payloadOrResponse);
 }
 
+/**
+ * @param request
+ * @param deps
+ */
 function resolveSignupRequestError(
   request: NextRequest,
   deps: ResolvedSignupRouteDeps,
@@ -235,6 +262,9 @@ function resolveSignupRequestError(
   });
 }
 
+/**
+ * @param deps
+ */
 function resolveSignupRouteDeps(
   deps: SignupRouteDeps,
 ): ResolvedSignupRouteDeps {

@@ -3,12 +3,21 @@ import { randomBytes } from "node:crypto";
 import { envBooleanOptional } from "@/lib/config";
 
 export const RUNTIME_FLAGS = {
+  /**
+   *
+   */
   get allowSignup() {
     return envBooleanOptional("ALLOW_SIGNUP", false);
   },
+  /**
+   *
+   */
   get hasDatabaseUrl() {
     return Boolean(process.env.DATABASE_URL?.trim());
   },
+  /**
+   *
+   */
   get usePlaceholderData() {
     return !this.hasDatabaseUrl;
   },

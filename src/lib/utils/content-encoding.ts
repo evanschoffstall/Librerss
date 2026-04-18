@@ -9,6 +9,8 @@ interface DecodeTextBodyOptions {
 /**
  * Decodes HTML-like text that may still contain compressed bytes serialized as
  * latin1 text, such as upstream transport responses.
+ * @param rawText
+ * @param options
  */
 export async function decodePossiblyCompressedText(
   rawText: string,
@@ -24,6 +26,9 @@ export async function decodePossiblyCompressedText(
 /**
  * Decodes a potentially-compressed upstream body into UTF-8 text while
  * enforcing an optional decompressed size ceiling.
+ * @param body
+ * @param contentEncoding
+ * @param options
  */
 export async function decodeTextBody(
   body: Buffer,
@@ -70,6 +75,9 @@ export async function decodeTextBody(
 
 /**
  * Decompresses a single encoded buffer into UTF-8 text.
+ * @param buf
+ * @param encoding
+ * @param options
  */
 export async function decompressBody(
   buf: Buffer,
@@ -81,6 +89,10 @@ export async function decompressBody(
   ).toString("utf8");
 }
 
+/**
+ * @param output
+ * @param maxOutputBytes
+ */
 function assertWithinOutputLimit(
   output: Buffer | string,
   maxOutputBytes: number | undefined,
@@ -96,6 +108,9 @@ function assertWithinOutputLimit(
   }
 }
 
+/**
+ * @param maxOutputBytes
+ */
 function buildNodeZlibOptions(
   maxOutputBytes: number | undefined,
 ): zlib.ZlibOptions {
@@ -104,12 +119,20 @@ function buildNodeZlibOptions(
     : { maxOutputLength: maxOutputBytes };
 }
 
+/**
+ * @param maxOutputBytes
+ */
 function buildNodeZstdOptions(
   maxOutputBytes: number | undefined,
 ): zlib.ZstdOptions {
   return buildNodeZlibOptions(maxOutputBytes) as zlib.ZstdOptions;
 }
 
+/**
+ * @param buf
+ * @param encoding
+ * @param maxOutputBytes
+ */
 async function decompressBodyToBuffer(
   buf: Buffer,
   encoding: string,
@@ -155,6 +178,9 @@ async function decompressBodyToBuffer(
   return Promise.resolve(buf);
 }
 
+/**
+ * @param decompress
+ */
 function decompressWithNodeLimit(
   decompress: (callback: zlib.CompressCallback) => void,
 ): Promise<Buffer> {
@@ -170,6 +196,10 @@ function decompressWithNodeLimit(
   });
 }
 
+/**
+ * @param buf
+ * @param maxOutputBytes
+ */
 function decompressZstd(buf: Buffer, maxOutputBytes?: number): Promise<Buffer> {
   const nativeDecompress = (zlib as Record<string, unknown>).zstdDecompress as
     | typeof zlib.brotliDecompress
@@ -184,6 +214,9 @@ function decompressZstd(buf: Buffer, maxOutputBytes?: number): Promise<Buffer> {
   });
 }
 
+/**
+ * @param body
+ */
 function detectContentEncodingFromBody(body: Buffer): string | undefined {
   const firstFourBytes =
     body.length >= 4 ? body.subarray(0, 4).toString("hex") : null;
@@ -202,6 +235,9 @@ function detectContentEncodingFromBody(body: Buffer): string | undefined {
   return CONTENT_ENCODING_SIGNATURES[firstTwoBytes];
 }
 
+/**
+ * @param output
+ */
 function getOutputByteLength(output: Buffer | string): number {
   return typeof output === "string"
     ? Buffer.byteLength(output, "utf8")
@@ -215,12 +251,18 @@ const CONTENT_ENCODING_SIGNATURES: Record<string, string> = {
   "7801": "deflate",
 };
 
+/**
+ * @param error
+ */
 function isDataError(error: unknown): boolean {
   return (
     error instanceof Error && "code" in error && error.code === "Z_DATA_ERROR"
   );
 }
 
+/**
+ * @param error
+ */
 function isTooLargeError(error: unknown): boolean {
   if (!(error instanceof Error)) {
     return false;
@@ -233,6 +275,9 @@ function isTooLargeError(error: unknown): boolean {
   );
 }
 
+/**
+ * @param body
+ */
 function looksLikeHtmlDocument(body: string): boolean {
   const normalizedBody = body.trimStart().slice(0, 512).toLowerCase();
   return (
@@ -242,6 +287,10 @@ function looksLikeHtmlDocument(body: string): boolean {
   );
 }
 
+/**
+ * @param contentEncoding
+ * @param body
+ */
 function normalizeContentEncodings(
   contentEncoding: string | undefined,
   body: Buffer,

@@ -11,8 +11,14 @@ const FAVICON_FAILURE_TTL_MS = 24 * 60 * 60 * 1000;
 let hasHydratedFaviconIndexCache = false;
 let hydratedFaviconIndexCachePayload: null | string = null;
 
+/**
+ *
+ */
 const canUseStorage = () => typeof window !== "undefined";
 
+/**
+ *
+ */
 const trimFaviconIndexCache = () => {
   let iterations = 0;
 
@@ -31,6 +37,9 @@ const trimFaviconIndexCache = () => {
   }
 };
 
+/**
+ *
+ */
 const persistFaviconIndexCache = () => {
   if (!canUseStorage()) {
     return;
@@ -48,6 +57,9 @@ const persistFaviconIndexCache = () => {
   }
 };
 
+/**
+ * @param entry
+ */
 const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
   if (entry.index !== -1) {
     return false;
@@ -60,6 +72,9 @@ const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
   return Date.now() - entry.failedAt > FAVICON_FAILURE_TTL_MS;
 };
 
+/**
+ * @param value
+ */
 const isCachedFaviconEntry = (
   value: unknown,
 ): value is Record<"index", number> & { failedAt?: number } => {
@@ -71,6 +86,9 @@ const isCachedFaviconEntry = (
   );
 };
 
+/**
+ * @param value
+ */
 const parseCachedFaviconEntry = (value: unknown): FaviconCacheEntry | null => {
   if (!isCachedFaviconEntry(value)) {
     return null;
@@ -84,6 +102,9 @@ const parseCachedFaviconEntry = (value: unknown): FaviconCacheEntry | null => {
   return isExpiredFailure(entry) ? null : entry;
 };
 
+/**
+ *
+ */
 const hydrateFaviconIndexCache = () => {
   if (!canUseStorage()) {
     return;
@@ -121,6 +142,9 @@ const hydrateFaviconIndexCache = () => {
   }
 };
 
+/**
+ * @param parsed
+ */
 const hydrateParsedFaviconEntries = (parsed: object) => {
   for (const [key, value] of Object.entries(parsed)) {
     if (typeof key !== "string" || key.length === 0) {
@@ -137,6 +161,9 @@ const hydrateParsedFaviconEntries = (parsed: object) => {
   }
 };
 
+/**
+ * @param cacheKey
+ */
 export function getCachedFaviconIndex(cacheKey: null | string) {
   hydrateFaviconIndexCache();
 
@@ -159,6 +186,10 @@ export function getCachedFaviconIndex(cacheKey: null | string) {
   return entry.index;
 }
 
+/**
+ * @param cacheKey
+ * @param index
+ */
 export function setCachedFaviconIndex(cacheKey: null | string, index: number) {
   hydrateFaviconIndexCache();
 

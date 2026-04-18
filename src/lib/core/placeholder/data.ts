@@ -26,6 +26,10 @@ interface FeedSource {
 
 export { PLACEHOLDER_CATEGORY };
 
+/**
+ * @param feedId
+ * @param seeds
+ */
 const createPlaceholderArticles = (
   feedId: number,
   seeds: {
@@ -46,9 +50,17 @@ const createPlaceholderArticles = (
   }));
 };
 
+/**
+ * @param basePath
+ * @param slug
+ */
 const toLocalPlaceholderPath = (basePath: string, slug: string) =>
   `/placeholder-articles/${basePath}/${slug}.html`;
 
+/**
+ * @param basePath
+ * @param seeds
+ */
 const buildPlaceholderSnapshotPathByUrl = (
   basePath: string,
   seeds: {
@@ -83,11 +95,17 @@ const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> =
     ]),
   );
 
-/** Resolves the article list exposed by one placeholder feed source. */
+/**
+ * Resolves the article list exposed by one placeholder feed source.
+ * @param url
+ */
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
   PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];
 
-/** Resolves the bundled local snapshot path for a placeholder article URL. */
+/**
+ * Resolves the bundled local snapshot path for a placeholder article URL.
+ * @param url
+ */
 export const getPlaceholderSnapshotPathByArticleUrl = (
   url: string,
 ): null | string => {

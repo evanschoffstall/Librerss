@@ -12,6 +12,15 @@ interface LoginPrimaryActionsProps {
   onToggleMode: () => void;
 }
 
+/**
+ * @param root0
+ * @param root0.allowSignup
+ * @param root0.isSubmitting
+ * @param root0.mode
+ * @param root0.onEnterPreview
+ * @param root0.onSubmit
+ * @param root0.onToggleMode
+ */
 export function LoginPrimaryActions({
   allowSignup,
   isSubmitting,

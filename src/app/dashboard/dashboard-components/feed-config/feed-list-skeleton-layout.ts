@@ -38,6 +38,10 @@ export const MIN_FEED_LIST_SKELETON_COUNT = 1;
  *
  * The extra row keeps the loading surface from ending exactly on the fold while
  * still limiting the off-screen reserve to a single article footprint.
+ * @param root0
+ * @param root0.rowGap
+ * @param root0.skeletonRowHeight
+ * @param root0.viewportHeight
  */
 export function resolveFeedListSkeletonCount({
   rowGap,

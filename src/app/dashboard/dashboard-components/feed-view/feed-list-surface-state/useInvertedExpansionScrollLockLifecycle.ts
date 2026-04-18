@@ -42,6 +42,16 @@ interface InvertedExpansionScrollLockLifecycleOptions {
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * @param options
+ * @param options.captureInvertedExpansionViewportSnapshot
+ * @param options.expandedArticleKey
+ * @param options.invertedExpansionViewportSnapshotRef
+ * @param options.isInvertedScroll
+ * @param options.onClaimInvertedScrollOwnership
+ * @param options.previousExpandedArticleKeyRef
+ * @param options.startInvertedExpansionScrollLock
+ */
 export function useExpandedArticleScrollLockLifecycle(options: {
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
   expandedArticleKey: null | string;
@@ -104,6 +114,9 @@ export function useExpandedArticleScrollLockLifecycle(options: {
   ]);
 }
 
+/**
+ * @param options
+ */
 export function useInvertedExpansionScrollLockLifecycles(
   options: InvertedExpansionScrollLockLifecycleOptions,
 ) {
@@ -156,6 +169,20 @@ export function useInvertedExpansionScrollLockLifecycles(
   });
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.captureInvertedExpansionViewportSnapshot
+ * @param options.invertedExpansionScrollLockRef
+ * @param options.invertedExpansionViewportSnapshotRef
+ * @param options.isInvertedScrollRef
+ * @param options.onClaimInvertedScrollOwnership
+ * @param options.prepareInvertedUnreadRemovalScrollLock
+ * @param options.releaseInvertedExpansionScrollLock
+ * @param options.scrollViewport
+ * @param options.startInvertedExpansionScrollLock
+ * @param options.syncInvertedExpansionScrollLock
+ */
 export function useInvertedExpansionScrollLockRuntime(options: {
   articleFilter: string;
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
@@ -199,6 +226,12 @@ export function useInvertedExpansionScrollLockRuntime(options: {
   ]);
 }
 
+/**
+ * @param options
+ * @param options.expandedArticleKey
+ * @param options.isInvertedScroll
+ * @param options.scrollViewport
+ */
 export function useInvertedExpansionScrollLockState(options: {
   expandedArticleKey: null | string;
   isInvertedScroll: boolean;
@@ -230,6 +263,9 @@ export function useInvertedExpansionScrollLockState(options: {
   };
 }
 
+/**
+ * @param getPreExpandViewportSnapshot
+ */
 export function useInvertedExpansionViewportSnapshot(
   getPreExpandViewportSnapshot: (
     articleKey: string,
@@ -280,6 +316,14 @@ export function useInvertedExpansionViewportSnapshot(
   };
 }
 
+/**
+ * @param options
+ * @param options.captureInvertedExpansionViewportSnapshot
+ * @param options.isInvertedScrollRef
+ * @param options.onClaimInvertedScrollOwnership
+ * @param options.primedUnreadRemovalRef
+ * @param options.startInvertedExpansionScrollLock
+ */
 export function usePrepareInvertedUnreadRemovalScrollLock(options: {
   captureInvertedExpansionViewportSnapshot: (
     articleKey: string,
@@ -355,6 +399,16 @@ export function usePrepareInvertedUnreadRemovalScrollLock(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.articleFilter
+ * @param options.collapsingArticles
+ * @param options.expandedArticleKey
+ * @param options.isInvertedScroll
+ * @param options.prepareInvertedUnreadRemovalScrollLock
+ * @param options.previousCollapsingArticleKeysRef
+ * @param options.primedUnreadRemovalRef
+ */
 export function useUnreadRemovalScrollLockLifecycle(options: {
   articleFilter: string;
   collapsingArticles: Readonly<CollapsingArticles>;

@@ -38,6 +38,19 @@ interface UseFeedLoaderOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.categoriesRef
+ * @param root0.feedRef
+ * @param root0.onFeedBatchLoaded
+ * @param root0.onNewArticlesArrived
+ * @param root0.setCategories
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.setLoading
+ * @param root0.usePlaceholderData
+ */
 export function useFeedLoader({
   articleFilter,
   categoriesRef,
@@ -86,6 +99,10 @@ export function useFeedLoader({
   };
 }
 
+/**
+ * @param articleFilter
+ * @param lastFetchedAtByUrlRef
+ */
 function useFeedBatchRequestHelpers(
   articleFilter: ArticleFilter,
   lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>,
@@ -127,6 +144,9 @@ function useFeedBatchRequestHelpers(
   };
 }
 
+/**
+ *
+ */
 function useFeedLoaderDiagnostics() {
   return useCallback((event: string, details: Record<string, unknown>) => {
     if (!clientFeedRefreshDiagnosticsEnabled()) {
@@ -144,6 +164,18 @@ function useFeedLoaderDiagnostics() {
   }, []);
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.feedRef
+ * @param root0.onFeedBatchLoaded
+ * @param root0.onNewArticlesArrived
+ * @param root0.setCategories
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.setLoading
+ * @param root0.usePlaceholderData
+ */
 function useFeedLoaderResources({
   articleFilter,
   feedRef,
@@ -198,6 +230,12 @@ function useFeedLoaderResources({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categoriesRef
+ * @param root0.fetchFeedBatch
+ * @param root0.prefetchFeedBatch
+ */
 function useFeedLoaderSelectionState({
   categoriesRef,
   fetchFeedBatch,
@@ -222,6 +260,12 @@ function useFeedLoaderSelectionState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.queryClient
+ * @param root0.setCategories
+ * @param root0.usePlaceholderData
+ */
 function useFeedSourceTreeLoader({
   queryClient,
   setCategories,
@@ -233,6 +277,9 @@ function useFeedSourceTreeLoader({
 }) {
   return useCallback(async (): Promise<CategoryTreeNode[]> => {
     const nextCategories = await queryClient.fetchQuery({
+      /**
+       *
+       */
       queryFn: () => loadFeedSourceTree(usePlaceholderData),
       queryKey: getFeedSourceTreeQueryKey(usePlaceholderData),
       staleTime: 0,

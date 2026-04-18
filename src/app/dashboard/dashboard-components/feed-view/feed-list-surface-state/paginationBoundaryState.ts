@@ -24,6 +24,12 @@ interface UnknownNullableRef {
   current: unknown;
 }
 
+/**
+ * @param options
+ * @param options.armedBoundaryRef
+ * @param options.hasPendingBoundaryRearmAfterCooldownRef
+ * @param options.hasRequestedServerLoadRef
+ */
 export function finalizePaginationBoundaryRearm(options: {
   armedBoundaryRef: BooleanRef;
   hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
@@ -40,6 +46,11 @@ export function finalizePaginationBoundaryRearm(options: {
   return true;
 }
 
+/**
+ * @param options
+ * @param options.hasPendingServerRevealRef
+ * @param options.invertedPaginationAnchorRef
+ */
 export function hasPendingPaginationBoundaryState(options: {
   hasPendingServerRevealRef: BooleanRef;
   invertedPaginationAnchorRef: UnknownNullableRef;
@@ -50,6 +61,27 @@ export function hasPendingPaginationBoundaryState(options: {
   );
 }
 
+/**
+ * @param options
+ * @param options.clearServerLoadCooldown
+ * @param options.filteredFeedLength
+ * @param options.hasPendingBoundaryRearmAfterCooldownRef
+ * @param options.hasPendingServerRevealRef
+ * @param options.hasRequestedServerLoadRef
+ * @param options.hasResolvedStandardViewportRevealRef
+ * @param options.hasUserScrolledRef
+ * @param options.isInvertedLoadBoundaryArmedRef
+ * @param options.isStandardLoadBoundaryArmedRef
+ * @param options.isStandardViewportRefillActiveRef
+ * @param options.lastAutoFillListHeightRef
+ * @param options.lastInvertedAwayBoundarySnapshotRef
+ * @param options.lastInvertedScrollTopRef
+ * @param options.lastStandardScrollTopRef
+ * @param options.paginationFrameRef
+ * @param options.pendingInvertedPaginationAnchorSnapshotRef
+ * @param options.previousFilteredFeedLengthRef
+ * @param options.previousFilteredFeedLengthRef.current
+ */
 export function resetPaginationRuntimeState(options: {
   clearServerLoadCooldown: () => void;
   filteredFeedLength: number;
@@ -91,6 +123,11 @@ export function resetPaginationRuntimeState(options: {
   }
 }
 
+/**
+ * @param scrollViewport
+ * @param hasPendingServerRevealRef
+ * @param invertedPaginationAnchorRef
+ */
 export function shouldAbortPaginationBoundaryRearm(
   scrollViewport: HTMLElement | null,
   hasPendingServerRevealRef: BooleanRef,

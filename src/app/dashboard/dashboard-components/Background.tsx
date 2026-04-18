@@ -17,6 +17,8 @@ interface Props {
 
 /**
  * Renders the dark particle dashboard background.
+ * @param root0
+ * @param root0.quantity
  */
 export function ParticlesBackground({ quantity = 200 }: Props) {
   return (
@@ -31,6 +33,8 @@ export function ParticlesBackground({ quantity = 200 }: Props) {
 
 /**
  * Renders the light particle dashboard background.
+ * @param root0
+ * @param root0.quantity
  */
 export function ParticlesBackgroundLight({ quantity = 200 }: Props) {
   return (
@@ -45,6 +49,8 @@ export function ParticlesBackgroundLight({ quantity = 200 }: Props) {
 
 /**
  * Renders the dark starfield dashboard background.
+ * @param root0
+ * @param root0.quantity
  */
 export function StarsBackground({ quantity = 200 }: Props) {
   return (
@@ -59,6 +65,8 @@ export function StarsBackground({ quantity = 200 }: Props) {
 
 /**
  * Renders the light starfield dashboard background.
+ * @param root0
+ * @param root0.quantity
  */
 export function StarsBackgroundLight({ quantity = 200 }: Props) {
   return (
@@ -74,6 +82,11 @@ export function StarsBackgroundLight({ quantity = 200 }: Props) {
 /**
  * Fades the decorative dashboard background in as a single surface so the
  * gradient and animated canvas appear together after hydration.
+ * @param root0
+ * @param root0.gradientTone
+ * @param root0.particleColor
+ * @param root0.quantity
+ * @param root0.variant
  */
 function BackgroundLayer({
   gradientTone,

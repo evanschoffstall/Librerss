@@ -23,11 +23,18 @@ const ANCHOR_HREF_RE = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
 const IMAGE_DOWNLOAD_HREF_RE = /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i;
 
 export class EarlyResponseError extends Error {
+  /**
+   * @param response
+   */
   constructor(public readonly response: Response) {
     super("early-response");
   }
 }
 
+/**
+ * @param content
+ * @param extracted
+ */
 export function createExtractPayload(
   content: string,
   extracted: DistilledArticle | null | undefined,
@@ -39,6 +46,9 @@ export function createExtractPayload(
   };
 }
 
+/**
+ * @param request
+ */
 export function createExtractRequestContext(
   request: Request,
 ): ExtractRequestContext {
@@ -56,6 +66,11 @@ export function createExtractRequestContext(
   };
 }
 
+/**
+ * @param articleUrl
+ * @param shouldUseCache
+ * @param getCachedExtractPayload
+ */
 export function getCachedExtractResponse(
   articleUrl: string,
   shouldUseCache: () => boolean,
@@ -70,6 +85,9 @@ export function getCachedExtractResponse(
   return getCachedExtractPayload(articleUrl);
 }
 
+/**
+ * @param value
+ */
 export function getRequestUrl(value: unknown): string {
   if (typeof value !== "object" || value === null) {
     return "";
@@ -79,6 +97,12 @@ export function getRequestUrl(value: unknown): string {
   return typeof url === "string" ? url.trim() : "";
 }
 
+/**
+ * @param content
+ * @param originalHtml
+ * @param articleUrl
+ * @param cleanContent
+ */
 export function prependMetadataLeadImageWhenMissing(
   content: string,
   originalHtml: string,
@@ -113,6 +137,12 @@ export function prependMetadataLeadImageWhenMissing(
   return /<img\b/i.test(augmented) ? augmented : content;
 }
 
+/**
+ * @param extractableHtml
+ * @param articleUrl
+ * @param sanitizeContent
+ * @param cleanContent
+ */
 export function resolveDirectSanitizedContent(
   extractableHtml: string,
   articleUrl: string,
@@ -129,6 +159,10 @@ export function resolveDirectSanitizedContent(
     : "";
 }
 
+/**
+ * @param strategy
+ * @param distillStrategies
+ */
 export function resolveDistillStrategy(
   strategy: unknown,
   distillStrategies: readonly string[],
@@ -140,6 +174,14 @@ export function resolveDistillStrategy(
   return "librerss";
 }
 
+/**
+ * @param extractableHtml
+ * @param originalHtml
+ * @param articleUrl
+ * @param extracted
+ * @param sanitizeContent
+ * @param cleanContent
+ */
 export function resolveExtractedContent(
   extractableHtml: string,
   originalHtml: string,
@@ -178,6 +220,17 @@ export function resolveExtractedContent(
   return resolveMetadataFallbackContent(originalHtml, articleUrl, cleanContent);
 }
 
+/**
+ * @param error
+ * @param context
+ * @param options
+ * @param options.errorLog
+ * @param options.proxyUrl
+ * @param options.safeArticleUrl
+ * @param options.toMessage
+ * @param options.useProxy
+ * @param options.verboseLoggingEnabled
+ */
 export function respondToUpstreamExtractError(
   error: HttpCloakUpstreamError,
   context: ExtractRequestContext,
@@ -231,6 +284,11 @@ export function respondToUpstreamExtractError(
   );
 }
 
+/**
+ * @param extracted
+ * @param warn
+ * @param safeUrl
+ */
 export function warnOnEmptyExtraction(
   extracted: DistilledArticle | null | undefined,
   warn: typeof logger.warn,
@@ -244,6 +302,9 @@ export function warnOnEmptyExtraction(
   }
 }
 
+/**
+ * @param content
+ */
 function extractLeadImageBlock(content: string): string {
   const leadImageBlock = LEAD_IMAGE_BLOCK_RE.exec(content)?.[0];
   if (leadImageBlock) {
@@ -253,6 +314,9 @@ function extractLeadImageBlock(content: string): string {
   return LEAD_IMAGE_TAG_RE.exec(content)?.[0] ?? "";
 }
 
+/**
+ * @param content
+ */
 function hasImageDownloadLinkInContent(content: string): boolean {
   for (const match of content.matchAll(ANCHOR_HREF_RE)) {
     if (IMAGE_DOWNLOAD_HREF_RE.test(match[1])) {
@@ -263,6 +327,11 @@ function hasImageDownloadLinkInContent(content: string): boolean {
   return false;
 }
 
+/**
+ * @param originalHtml
+ * @param articleUrl
+ * @param cleanContent
+ */
 function resolveMetadataFallbackContent(
   originalHtml: string,
   articleUrl: string,
@@ -277,6 +346,10 @@ function resolveMetadataFallbackContent(
   return fallbackCleaned.trim() ? fallbackCleaned : "";
 }
 
+/**
+ * @param value
+ * @param maxLen
+ */
 function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {
   if (!value) {
     return null;

@@ -89,6 +89,10 @@ export function DashboardSidebarSkeleton() {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.descriptor
+ */
 function SidebarFeedRowSkeleton({
   descriptor,
 }: {
@@ -122,72 +126,85 @@ function SidebarFeedRowSkeleton({
   );
 }
 
-export const DashboardSidebarContent = memo(function DashboardSidebarContent({
-  isCategoriesLoading,
-  isSidebarVisible,
-  onCategoryClick,
-  onCategoryPrefetch,
-  onFeedClick,
-  onFeedPrefetch,
-  selectedCategory,
-  showFavicons,
-  sidebarCategories,
-}: DashboardSidebarContentProps) {
-  return (
-    <AnimatePresence mode="wait">
-      {isCategoriesLoading ? (
-        <motion.div
-          exit={{ opacity: 0, scale: 0.995 }}
-          key="sidebar-skeleton"
-          transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <DashboardSidebarSkeleton />
-        </motion.div>
-      ) : (
-        <motion.div
-          animate={{ opacity: 1 }}
-          className="space-y-2 px-2"
-          initial={{ opacity: 0.96 }}
-          key="sidebar-content"
-          transition={SIDEBAR_SECTION_TRANSITION}
-        >
-          {sidebarCategories.length === 0 ? (
-            <div
-              className="
-                flex flex-col items-center gap-2.5 px-2 py-10 text-center
-              "
-            >
+export const DashboardSidebarContent = memo(
+  /**
+   * @param root0
+   * @param root0.isCategoriesLoading
+   * @param root0.isSidebarVisible
+   * @param root0.onCategoryClick
+   * @param root0.onCategoryPrefetch
+   * @param root0.onFeedClick
+   * @param root0.onFeedPrefetch
+   * @param root0.selectedCategory
+   * @param root0.showFavicons
+   * @param root0.sidebarCategories
+   */
+  function DashboardSidebarContent({
+    isCategoriesLoading,
+    isSidebarVisible,
+    onCategoryClick,
+    onCategoryPrefetch,
+    onFeedClick,
+    onFeedPrefetch,
+    selectedCategory,
+    showFavicons,
+    sidebarCategories,
+  }: DashboardSidebarContentProps) {
+    return (
+      <AnimatePresence mode="wait">
+        {isCategoriesLoading ? (
+          <motion.div
+            exit={{ opacity: 0, scale: 0.995 }}
+            key="sidebar-skeleton"
+            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <DashboardSidebarSkeleton />
+          </motion.div>
+        ) : (
+          <motion.div
+            animate={{ opacity: 1 }}
+            className="space-y-2 px-2"
+            initial={{ opacity: 0.96 }}
+            key="sidebar-content"
+            transition={SIDEBAR_SECTION_TRANSITION}
+          >
+            {sidebarCategories.length === 0 ? (
               <div
                 className="
+                flex flex-col items-center gap-2.5 px-2 py-10 text-center
+              "
+              >
+                <div
+                  className="
                   flex size-9 items-center justify-center rounded-lg border
                   border-border/30 bg-card/50
                 "
-              >
-                <Rss
-                  className="size-4 text-muted-foreground/40"
-                  strokeWidth={1.5}
-                />
+                >
+                  <Rss
+                    className="size-4 text-muted-foreground/40"
+                    strokeWidth={1.5}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground/55">No feeds yet</p>
               </div>
-              <p className="text-xs text-muted-foreground/55">No feeds yet</p>
-            </div>
-          ) : (
-            sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-              <motion.div
-                animate={{
-                  opacity: isSidebarVisible ? 1 : 0,
-                  y: isSidebarVisible ? 0 : 8,
-                }}
-                className="space-y-0.5"
-                initial={false}
-                key={categoryNode.key}
-                transition={{
-                  ...SIDEBAR_SECTION_TRANSITION,
-                  delay: index * 0.035,
-                }}
-              >
-                <div className="px-1.5">
-                  <button
-                    className={`
+            ) : (
+              sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
+                <motion.div
+                  animate={{
+                    opacity: isSidebarVisible ? 1 : 0,
+                    y: isSidebarVisible ? 0 : 8,
+                  }}
+                  className="space-y-0.5"
+                  initial={false}
+                  key={categoryNode.key}
+                  transition={{
+                    ...SIDEBAR_SECTION_TRANSITION,
+                    delay: index * 0.035,
+                  }}
+                >
+                  <div className="px-1.5">
+                    <button
+                      className={`
                       w-full cursor-pointer rounded-sm px-1.5 py-1 text-left
                       font-sans text-[0.65rem] font-semibold tracking-[0.07em]
                       uppercase transition-colors
@@ -200,37 +217,38 @@ export const DashboardSidebarContent = memo(function DashboardSidebarContent({
                 `
                       }
                     `}
-                    onClick={() => {
-                      onCategoryClick(categoryNode);
-                    }}
-                    onFocus={() => {
-                      onCategoryPrefetch(categoryNode);
-                    }}
-                    onMouseEnter={() => {
-                      onCategoryPrefetch(categoryNode);
-                    }}
-                    type="button"
-                  >
-                    {categoryNode.label}
-                  </button>
-                </div>
-                {(categoryNode.children ?? []).map(
-                  (feedNode: CategoryTreeNode) => (
-                    <SidebarFeedCategory
-                      category={feedNode}
-                      isActive={selectedCategory === feedNode.key}
-                      key={feedNode.key}
-                      onClick={onFeedClick}
-                      onPrefetch={onFeedPrefetch}
-                      showFavicon={showFavicons}
-                    />
-                  ),
-                )}
-              </motion.div>
-            ))
-          )}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-});
+                      onClick={() => {
+                        onCategoryClick(categoryNode);
+                      }}
+                      onFocus={() => {
+                        onCategoryPrefetch(categoryNode);
+                      }}
+                      onMouseEnter={() => {
+                        onCategoryPrefetch(categoryNode);
+                      }}
+                      type="button"
+                    >
+                      {categoryNode.label}
+                    </button>
+                  </div>
+                  {(categoryNode.children ?? []).map(
+                    (feedNode: CategoryTreeNode) => (
+                      <SidebarFeedCategory
+                        category={feedNode}
+                        isActive={selectedCategory === feedNode.key}
+                        key={feedNode.key}
+                        onClick={onFeedClick}
+                        onPrefetch={onFeedPrefetch}
+                        showFavicon={showFavicons}
+                      />
+                    ),
+                  )}
+                </motion.div>
+              ))
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  },
+);

@@ -54,7 +54,19 @@ interface OptimisticArticleStatusMutationOptions {
   usePlaceholderData: boolean;
 }
 
-/** Shared optimistic mutation pipeline for dashboard article read/star state. */
+/**
+ * Shared optimistic mutation pipeline for dashboard article read/star state.
+ * @param root0
+ * @param root0.applyOptimisticUpdate
+ * @param root0.articles
+ * @param root0.errorLogLabel
+ * @param root0.mutationTracker
+ * @param root0.onError
+ * @param root0.restoreUpdate
+ * @param root0.setFeed
+ * @param root0.statusPatchForArticle
+ * @param root0.usePlaceholderData
+ */
 export async function runOptimisticArticleStatusMutation({
   applyOptimisticUpdate,
   articles,
@@ -152,6 +164,11 @@ export function useArticleMutationTracker(): ArticleMutationTracker {
   };
 }
 
+/**
+ * @param current
+ * @param articleKeys
+ * @param delta
+ */
 function applyUpdatingArticleDelta(
   current: Record<string, number>,
   articleKeys: Iterable<string>,
@@ -176,6 +193,9 @@ function applyUpdatingArticleDelta(
   return Object.fromEntries(nextEntries);
 }
 
+/**
+ * @param articles
+ */
 function createArticleMap(articles: Article[]): Map<string, Article> {
   const articleMap = new Map<string, Article>();
 
@@ -186,6 +206,11 @@ function createArticleMap(articles: Article[]): Map<string, Article> {
   return articleMap;
 }
 
+/**
+ * @param articleEntries
+ * @param statusPatchForArticle
+ * @param usePlaceholderData
+ */
 async function persistArticleStatusMutations(
   articleEntries: [string, Article][],
   statusPatchForArticle: (article: Article) => ArticleStatusPatch,

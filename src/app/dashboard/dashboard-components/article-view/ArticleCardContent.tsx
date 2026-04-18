@@ -22,6 +22,22 @@ const ARTICLE_SURFACE_EASING_ARRAY: [number, number, number, number] = [
   0.25, 1, 0.5, 1,
 ];
 
+/**
+ * @param root0
+ * @param root0.bodyMeasureRef
+ * @param root0.bodyTransitionMs
+ * @param root0.collapsedPreview
+ * @param root0.collapsedPreviewClassName
+ * @param root0.contentGradientOverlayRef
+ * @param root0.contentZoneRef
+ * @param root0.expandedBodyContent
+ * @param root0.gradientCls
+ * @param root0.phase
+ * @param root0.resolvedBodyHeight
+ * @param root0.showPreviewLayer
+ * @param root0.stopExpandedContentPropagation
+ * @param root0.visuallyExpanded
+ */
 export function ArticleCardContent({
   bodyMeasureRef,
   bodyTransitionMs,
@@ -89,6 +105,19 @@ export function ArticleCardContent({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.bodyInteractionProps
+ * @param root0.bodyMeasureRef
+ * @param root0.bodyTransitionMs
+ * @param root0.collapsedPreview
+ * @param root0.collapsedPreviewClassName
+ * @param root0.expandedBodyContent
+ * @param root0.phase
+ * @param root0.resolvedBodyHeight
+ * @param root0.showPreviewLayer
+ * @param root0.visuallyExpanded
+ */
 function ArticleBodyMotion({
   bodyInteractionProps,
   bodyMeasureRef,
@@ -157,6 +186,13 @@ function ArticleBodyMotion({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.bodyTransitionMs
+ * @param root0.collapsedPreview
+ * @param root0.collapsedPreviewClassName
+ * @param root0.showPreviewLayer
+ */
 function ArticleCollapsedPreview({
   bodyTransitionMs,
   collapsedPreview,
@@ -191,6 +227,10 @@ function ArticleCollapsedPreview({
   );
 }
 
+/**
+ * @param visuallyExpanded
+ * @param stopExpandedContentPropagation
+ */
 function getExpandedBodyInteractionProps(
   visuallyExpanded: boolean,
   stopExpandedContentPropagation: ArticleCardContentProps["stopExpandedContentPropagation"],
@@ -210,6 +250,10 @@ function getExpandedBodyInteractionProps(
   };
 }
 
+/**
+ * @param phase
+ * @param visuallyExpanded
+ */
 function getExpandedBodyMotionStyle(
   phase: ArticleCardContentProps["phase"],
   visuallyExpanded: boolean,

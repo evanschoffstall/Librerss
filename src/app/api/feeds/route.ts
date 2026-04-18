@@ -89,6 +89,10 @@ interface ResolvedFeedRouteDeps {
   respondError: typeof serverApi.logAndRespondError;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function DELETE(
   request: NextRequest,
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
@@ -117,6 +121,10 @@ export async function DELETE(
   }
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function GET(
   request: NextRequest,
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
@@ -160,6 +168,10 @@ export async function GET(
   }
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function PATCH(
   request: NextRequest,
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
@@ -205,6 +217,10 @@ export async function PATCH(
   }
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function POST(
   request: NextRequest,
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
@@ -250,6 +266,9 @@ export async function POST(
   }
 }
 
+/**
+ * @param request
+ */
 function buildFeedAttemptContext(request: NextRequest) {
   return {
     feedAttemptId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
@@ -261,6 +280,12 @@ function buildFeedAttemptContext(request: NextRequest) {
   };
 }
 
+/**
+ * @param userId
+ * @param payload
+ * @param deps
+ * @param resolvedDeps
+ */
 async function handlePatchFromParsedJsonPayload(
   userId: number,
   payload: Record<string, unknown>,
@@ -317,6 +342,15 @@ async function handlePatchFromParsedJsonPayload(
   );
 }
 
+/**
+ * @param userId
+ * @param parsedPayload
+ * @param parsedPayload.name
+ * @param parsedPayload.sourceId
+ * @param parsedPayload.url
+ * @param deps
+ * @param assertAllowedUrl
+ */
 async function renameFeedSourceFromPayload(
   userId: number,
   parsedPayload: { name: string; sourceId: number; url: string },
@@ -338,6 +372,11 @@ async function renameFeedSourceFromPayload(
   return NextResponse.json(updatedSource);
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ * @param options
+ */
 async function requireMutableFeedRouteContext(
   request: NextRequest,
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext,
@@ -354,6 +393,11 @@ async function requireMutableFeedRouteContext(
   };
 }
 
+/**
+ * @param request
+ * @param resolvedDeps
+ * @param options
+ */
 async function requireMutableFeedUser(
   request: NextRequest,
   resolvedDeps: ResolvedFeedRouteDeps,
@@ -362,6 +406,9 @@ async function requireMutableFeedUser(
   return resolvedDeps.requireMutable(request, options);
 }
 
+/**
+ * @param depsOrContext
+ */
 function resolveFeedRouteDeps(
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext,
 ): ResolvedFeedRouteDeps {
@@ -413,6 +460,9 @@ function resolveFeedRouteDeps(
   };
 }
 
+/**
+ * @param warnFn
+ */
 function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
   if (warnFn) {
     return warnFn as FeedRouteWarn;
@@ -423,10 +473,18 @@ function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
     : () => undefined;
 }
 
+/**
+ * @param dependency
+ * @param fallback
+ */
 function resolveRouteDependency<T>(dependency: T | undefined, fallback: T): T {
   return dependency ?? fallback;
 }
 
+/**
+ * @param request
+ * @param resolvedDeps
+ */
 async function resolveValidatedFeedUrl(
   request: NextRequest,
   resolvedDeps: ResolvedFeedRouteDeps,
@@ -440,6 +498,10 @@ async function resolveValidatedFeedUrl(
   return invalidFeedUrlResponse ?? feedUrl;
 }
 
+/**
+ * @param error
+ * @param deps
+ */
 function toServerServiceErrorResponse(
   error: serverApi.ServerServiceError,
   deps: FeedRouteDeps,

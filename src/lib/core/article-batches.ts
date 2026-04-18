@@ -16,7 +16,12 @@ import {
 
 type DbMod = typeof import("@/lib/db");
 
-/** Maps the ranked article query rows back to their owning feed URLs. */
+/**
+ * Maps the ranked article query rows back to their owning feed URLs.
+ * @param rows
+ * @param feedByUrl
+ * @param allowedUrls
+ */
 export function mapRowsToArticleMap(
   rows: RankedRow[],
   feedByUrl: Map<string, FeedRecord>,
@@ -59,6 +64,12 @@ export function mapRowsToArticleMap(
  * The filter is applied before the global limit so unread, read, and starred
  * views page through the correct database result set instead of filtering a
  * smaller per-feed preview window after the fact.
+ * @param db
+ * @param userId
+ * @param feedIds
+ * @param articleFilter
+ * @param articleLimit
+ * @param searchTerm
  */
 export async function queryTopArticlesPerFeed(
   db: ReturnType<DbMod["getDb"]>,
@@ -122,6 +133,9 @@ export async function queryTopArticlesPerFeed(
     : [];
 }
 
+/**
+ * @param articleFilter
+ */
 function buildArticleFilterCondition(articleFilter: ArticleFilter) {
   switch (articleFilter) {
     case "read": {
@@ -142,6 +156,9 @@ function buildArticleFilterCondition(articleFilter: ArticleFilter) {
   }
 }
 
+/**
+ * @param searchPattern
+ */
 function buildArticleSearchCondition(searchPattern: string | undefined) {
   if (!searchPattern) {
     return sql`true`;
@@ -153,6 +170,10 @@ function buildArticleSearchCondition(searchPattern: string | undefined) {
   )`;
 }
 
+/**
+ * @param feedByUrl
+ * @param allowedUrls
+ */
 function buildFeedUrlIdMap(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
@@ -167,6 +188,9 @@ function buildFeedUrlIdMap(
   );
 }
 
+/**
+ * @param value
+ */
 function escapeLikePattern(value: string) {
   return value
     .replaceAll("\\", "\\\\")
@@ -174,14 +198,24 @@ function escapeLikePattern(value: string) {
     .replaceAll("_", "\\_");
 }
 
+/**
+ * @param value
+ */
 function readRowText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * @param value
+ */
 function stripPreviewSpanWrappers(value: string): string {
   return value.replace(/<\/?span\b[^>]*>/gi, "");
 }
 
+/**
+ * @param row
+ * @param feedId
+ */
 function toArticleRow(row: RankedRow, feedId: number): ArticleRow | null {
   const id = toFiniteNumber(row.id);
   const normalizedFeedId = toFiniteNumber(row.feedId);
@@ -203,6 +237,9 @@ function toArticleRow(row: RankedRow, feedId: number): ArticleRow | null {
   };
 }
 
+/**
+ * @param value
+ */
 function toFiniteNumber(value: unknown): null | number {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) ? numberValue : null;

@@ -21,6 +21,8 @@ interface DashboardScaffoldProps {
  *
  * Keeping the Radix viewport wrapper and inner feed frame
  * identical prevents the shell from handing off to a differently sized surface.
+ * @param root0
+ * @param root0.children
  */
 export function DashboardFeedViewport({
   children,
@@ -45,6 +47,11 @@ export function DashboardFeedViewport({
  *
  * Both the route shell and the hydrated dashboard render through this scaffold
  * so width, spacing, and desktop column sizing stay locked together.
+ * @param root0
+ * @param root0.feed
+ * @param root0.filterBar
+ * @param root0.mobileToolbarBottom
+ * @param root0.sidebar
  */
 export function DashboardScaffold({
   feed,

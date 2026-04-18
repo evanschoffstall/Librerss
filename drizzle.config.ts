@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from "node:fs";
 
 import { normalizePostgresConnectionString } from "./src/lib/db/connection-string";
 
+/**
+ * @param filePath
+ */
 function readDatabaseUrlFromEnvFile(filePath: string): null | string {
   if (!existsSync(filePath)) return null;
 
@@ -19,6 +22,9 @@ function readDatabaseUrlFromEnvFile(filePath: string): null | string {
   return rawValue.replace(/^['"]|['"]$/g, "");
 }
 
+/**
+ *
+ */
 function resolveDatabaseUrl(): string {
   const envUrl = process.env.DATABASE_URL?.trim();
   if (envUrl && !envUrl.includes("@host:")) {

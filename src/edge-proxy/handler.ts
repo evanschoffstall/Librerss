@@ -7,6 +7,9 @@ import {
   matchBlockedRequestPolicy,
 } from "./blocked-requests";
 
+/**
+ * @param request
+ */
 export function proxy(request: NextRequest) {
   if (shouldBypassProxy(request)) {
     return NextResponse.next();
@@ -37,6 +40,9 @@ export function proxy(request: NextRequest) {
   return applySecurityHeaders(NextResponse.next());
 }
 
+/**
+ * @param response
+ */
 function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -53,6 +59,9 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   return response;
 }
 
+/**
+ *
+ */
 function getProxyRateLimitConfig() {
   return {
     maxAttempts: Number(process.env.RATE_LIMIT_PROXY_MAX_REQUESTS ?? "100"),
@@ -60,6 +69,9 @@ function getProxyRateLimitConfig() {
   };
 }
 
+/**
+ * @param request
+ */
 function shouldBypassProxy(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;
   if (
@@ -76,6 +88,9 @@ function shouldBypassProxy(request: NextRequest): boolean {
   );
 }
 
+/**
+ *
+ */
 function shouldSkipRateLimit(): boolean {
   const isDevelopment = process.env.NODE_ENV === "development";
   const rateLimitDisabledInDev =

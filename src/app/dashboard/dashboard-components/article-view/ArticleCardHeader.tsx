@@ -55,6 +55,9 @@ type ArticleHeaderSourceProps = Pick<
   | "showFavicon"
 >;
 
+/**
+ * @param props
+ */
 export function ArticleCardHeader(props: ArticleCardHeaderProps) {
   return (
     <div
@@ -84,6 +87,10 @@ export function ArticleCardHeader(props: ArticleCardHeaderProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.publicationDate
+ */
 function ArticleHeaderDate({
   publicationDate,
 }: {
@@ -101,6 +108,15 @@ function ArticleHeaderDate({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.faviconCacheKey
+ * @param root0.faviconCandidates
+ * @param root0.faviconIndex
+ * @param root0.faviconTint
+ * @param root0.faviconUrl
+ * @param root0.setFaviconIndex
+ */
 function ArticleHeaderFavicon({
   faviconCacheKey,
   faviconCandidates,
@@ -153,6 +169,11 @@ function ArticleHeaderFavicon({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.gradientCls
+ * @param root0.headerGradientOverlayRef
+ */
 function ArticleHeaderGradient({
   gradientCls,
   headerGradientOverlayRef,
@@ -168,6 +189,9 @@ function ArticleHeaderGradient({
   );
 }
 
+/**
+ * @param props
+ */
 function ArticleHeaderMetaRow(props: ArticleCardHeaderProps) {
   return (
     <div
@@ -192,6 +216,17 @@ function ArticleHeaderMetaRow(props: ArticleCardHeaderProps) {
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.faviconCacheKey
+ * @param root0.faviconCandidates
+ * @param root0.faviconIndex
+ * @param root0.faviconTint
+ * @param root0.faviconUrl
+ * @param root0.setFaviconIndex
+ * @param root0.showFavicon
+ */
 function ArticleHeaderSource({
   article,
   faviconCacheKey,
@@ -219,6 +254,12 @@ function ArticleHeaderSource({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.collapsedTitleClassName
+ * @param root0.visuallyExpanded
+ */
 function ArticleHeaderTitle({
   article,
   collapsedTitleClassName,
@@ -241,6 +282,9 @@ function ArticleHeaderTitle({
   );
 }
 
+/**
+ * @param props
+ */
 function resolveArticleHeaderActionsProps(
   props: ArticleCardHeaderProps,
 ): ArticleHeaderActionsProps {
@@ -267,6 +311,9 @@ function resolveArticleHeaderActionsProps(
   };
 }
 
+/**
+ * @param visuallyExpanded
+ */
 function resolveArticleHeaderClassName(visuallyExpanded: boolean) {
   return visuallyExpanded
     ? "relative sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4"

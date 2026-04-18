@@ -43,6 +43,10 @@ type ProxyRoutingCheckFn = (options: {
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 export async function handleProxySettingsGet(
   request: NextRequest,
   depsOrContext: ProxyRouteDeps | serverApi.RouteHandlerContext = {},
@@ -81,6 +85,11 @@ export async function handleProxySettingsGet(
   });
 }
 
+/**
+ * @param request
+ * @param body
+ * @param depsOrContext
+ */
 export async function handleProxySettingsPut(
   request: NextRequest,
   body: ProxySettingsRequestBody,
@@ -129,6 +138,13 @@ export async function handleProxySettingsPut(
   });
 }
 
+/**
+ * @param options
+ * @param options.authorized
+ * @param options.persistedProxy
+ * @param options.proxyPassword
+ * @param options.proxyUrl
+ */
 function buildPersistedProxyProbeResponse(options: {
   authorized: AuthorizedProxyRequest;
   persistedProxy: PersistedProxyRow;
@@ -146,6 +162,12 @@ function buildPersistedProxyProbeResponse(options: {
   });
 }
 
+/**
+ * @param options
+ * @param options.auth
+ * @param options.proxyUrl
+ * @param options.submission
+ */
 async function persistAuthorizedProxySubmission(options: {
   auth: serverApi.AuthenticatedUser;
   proxyUrl: null | string;
@@ -172,6 +194,14 @@ async function persistAuthorizedProxySubmission(options: {
   return { effectiveProxyPassword, persistedProxy };
 }
 
+/**
+ * @param userId
+ * @param values
+ * @param values.allowInsecureTls
+ * @param values.proxyPassword
+ * @param values.proxyUrl
+ * @param values.proxyUsername
+ */
 async function persistProxySettings(
   userId: number,
   values: {
@@ -211,6 +241,16 @@ async function persistProxySettings(
   );
 }
 
+/**
+ * @param options
+ * @param options.allowInsecureTls
+ * @param options.getProxyRoutingCheckFn
+ * @param options.logLabel
+ * @param options.probe
+ * @param options.proxyPassword
+ * @param options.proxyUrl
+ * @param options.proxyUsername
+ */
 async function probeAndRespond(options: {
   allowInsecureTls?: boolean;
   getProxyRoutingCheckFn: ProxyRoutingCheckFn;
@@ -251,6 +291,9 @@ async function probeAndRespond(options: {
   });
 }
 
+/**
+ * @param userId
+ */
 async function readSavedProxyRecord(
   userId: number,
 ): Promise<null | SavedProxyRecord> {
@@ -268,6 +311,10 @@ async function readSavedProxyRecord(
   return rows[0] ?? null;
 }
 
+/**
+ * @param request
+ * @param depsOrContext
+ */
 async function resolveAuthorizedProxyRequest(
   request: NextRequest,
   depsOrContext: ProxyRouteDeps | serverApi.RouteHandlerContext,
@@ -286,6 +333,10 @@ async function resolveAuthorizedProxyRequest(
   };
 }
 
+/**
+ * @param submission
+ * @param authorized
+ */
 async function resolveNormalizedProxyUrl(
   submission: NormalizedProxySubmission,
   authorized: AuthorizedProxyRequest,
@@ -307,6 +358,12 @@ async function resolveNormalizedProxyUrl(
   );
 }
 
+/**
+ * @param options
+ * @param options.effectiveProxyPassword
+ * @param options.persistedProxyPassword
+ * @param options.userId
+ */
 async function resolveResponseProxyPassword(options: {
   effectiveProxyPassword: null | string | undefined;
   persistedProxyPassword: null | string;
@@ -322,6 +379,11 @@ async function resolveResponseProxyPassword(options: {
   );
 }
 
+/**
+ * @param getProxyRoutingCheckFn
+ * @param allowInsecureTls
+ * @param proxyUrl
+ */
 async function resolveRoutingCheck(
   getProxyRoutingCheckFn: ProxyRoutingCheckFn,
   allowInsecureTls: boolean,
@@ -347,6 +409,13 @@ async function resolveRoutingCheck(
   }
 }
 
+/**
+ * @param options
+ * @param options.allowInsecureTls
+ * @param options.hasProxyPassword
+ * @param options.proxyUrl
+ * @param options.proxyUsername
+ */
 function respondWithSavedPasswordReadError(options: {
   allowInsecureTls: boolean;
   hasProxyPassword: boolean;

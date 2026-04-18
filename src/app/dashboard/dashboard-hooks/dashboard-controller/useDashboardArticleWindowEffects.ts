@@ -75,6 +75,21 @@ interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.allowPartialArticleWindowGrowthRef
+ * @param root0.currentFeedLength
+ * @param root0.hasMoreServerArticles
+ * @param root0.hasStartedArticleWindowSettlementRef
+ * @param root0.isAwaitingArticleWindowSettlementRef
+ * @param root0.isLoading
+ * @param root0.isLoadingMoreArticlesRef
+ * @param root0.previousAwaitedFeedLengthRef
+ * @param root0.requestedArticleLimit
+ * @param root0.setHasMoreServerArticles
+ * @param root0.setIsLoadingMoreArticles
+ * @param root0.shouldUseArticleWindow
+ */
 export function useArticleWindowAvailability({
   allowPartialArticleWindowGrowthRef,
   currentFeedLength,
@@ -142,6 +157,24 @@ export function useArticleWindowAvailability({
   ]);
 }
 
+/**
+ * @param root0
+ * @param root0.allowPartialArticleWindowGrowthRef
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.hasStartedArticleWindowSettlementRef
+ * @param root0.inFlightPrefetchedLimitRef
+ * @param root0.isAwaitingArticleWindowSettlementRef
+ * @param root0.isLoadingMoreArticlesRef
+ * @param root0.isRefillingDepletedUnreadWindowRef
+ * @param root0.lastPrefetchedLimitRef
+ * @param root0.previousAwaitedFeedLengthRef
+ * @param root0.selectedCategory
+ * @param root0.setHasMoreServerArticles
+ * @param root0.setIsLoadingMoreArticles
+ * @param root0.setRequestedArticleLimit
+ * @param root0.shouldUseArticleWindow
+ */
 export function useResetArticleWindowOnSelectionChange({
   allowPartialArticleWindowGrowthRef,
   articleFilter,
@@ -200,6 +233,28 @@ export function useResetArticleWindowOnSelectionChange({
   ]);
 }
 
+/**
+ * @param root0
+ * @param root0.allowPartialArticleWindowGrowthRef
+ * @param root0.articleFilter
+ * @param root0.articlesPerPage
+ * @param root0.currentFeedLength
+ * @param root0.currentFilteredFeedLength
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.hasMoreServerArticles
+ * @param root0.hasStartedArticleWindowSettlementRef
+ * @param root0.isAwaitingArticleWindowSettlementRef
+ * @param root0.isLoading
+ * @param root0.isRefillingDepletedUnreadWindowRef
+ * @param root0.previousAwaitedFeedLengthRef
+ * @param root0.requestedArticleLimit
+ * @param root0.selectedCategory
+ * @param root0.selectedCategoryNode
+ * @param root0.selectedFeedUrl
+ * @param root0.shouldUseArticleWindow
+ */
 export function useUnreadWindowRefill({
   allowPartialArticleWindowGrowthRef,
   articleFilter,

@@ -24,7 +24,10 @@ type ProxyRoutingCheckFn = (options: {
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
 
-/** Maps route dependency overrides to the effective proxy route helper set. */
+/**
+ * Maps route dependency overrides to the effective proxy route helper set.
+ * @param deps
+ */
 export function resolveAuthorizedProxyDeps(
   deps: ProxyRouteDeps,
 ): AuthorizedProxyDependencies {
@@ -38,7 +41,10 @@ export function resolveAuthorizedProxyDeps(
   };
 }
 
-/** Resolves the effective username/password pair from dedicated fields or embedded URL credentials. */
+/**
+ * Resolves the effective username/password pair from dedicated fields or embedded URL credentials.
+ * @param submission
+ */
 export function resolveEffectiveProxyCredentials(
   submission: NormalizedProxySubmission,
 ) {
@@ -54,6 +60,9 @@ export function resolveEffectiveProxyCredentials(
   };
 }
 
+/**
+ * @param deps
+ */
 function resolveProxyRoutingCheckDependency(
   deps: ProxyRouteDeps,
 ): ProxyRoutingCheckFn {

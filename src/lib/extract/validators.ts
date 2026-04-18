@@ -12,10 +12,12 @@ interface ParseArticleUrlDeps {
  * Validates a raw article URL string for the extract pipeline:
  *  1. Blank → 400
  *  2. SSRF-blocked or non-public host → 400
- *  3. Strips fragment (RFC 3986 §3.5) before any outbound request
+ *  3. Strips fragment (RFC 3986 §3.5) before any outbound request.
  *
  * Takes the URL string directly so callers avoid re-serialising and
  * re-parsing an already-parsed request body.
+ * @param rawUrl
+ * @param deps
  */
 export async function parseAndValidateArticleUrl(
   rawUrl: string,

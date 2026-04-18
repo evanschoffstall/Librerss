@@ -14,7 +14,26 @@ import { useFeedLoadingTimeout } from "@/app/dashboard/dashboard-hooks/useFeedLo
  * controller focused on state composition while this module owns the mount,
  * timeout, initialization, and broadcast side effects.
  *
- * @param options Dashboard effect inputs sourced from controller state.
+ * @param options - Dashboard effect inputs sourced from controller state.
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.fetchFeed
+ * @param options.hasInitializedDashboardRef
+ * @param options.initialArticleLimit
+ * @param options.isSearchPending
+ * @param options.isShellLoading
+ * @param options.loadFeedSources
+ * @param options.loading
+ * @param options.loadingEpoch
+ * @param options.onTimeout
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ * @param options.selectedFeed
+ * @param options.setIsCategoriesLoading
+ * @param options.setIsSidebarVisible
+ * @param options.setLoading
+ * @param options.setSelectedCategory
+ * @param options.timeoutMs
  */
 export function useDashboardEffects({
   fetchAllFeeds,
@@ -93,7 +112,7 @@ export function useLockDocumentScroll() {
  * run after the initial DOM commit instead of being swallowed by mount-time
  * layout.
  *
- * @param setIsSidebarVisible Sidebar visibility state setter from the controller.
+ * @param setIsSidebarVisible - Sidebar visibility state setter from the controller.
  */
 export function useRevealSidebarOnMount(
   setIsSidebarVisible: Dispatch<SetStateAction<boolean>>,

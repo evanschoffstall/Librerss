@@ -13,6 +13,9 @@ export {
   toPlainText,
 } from "./text-cleaners";
 
+/**
+ * @param value
+ */
 export function escapeHtmlAttribute(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -21,6 +24,9 @@ export function escapeHtmlAttribute(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+/**
+ * @param html
+ */
 export function normalizeArticleHtmlSpacing(html: string): string {
   return stripEmptyTagBlocks(html)
     .replace(/\r\n?/g, "\n")
@@ -29,6 +35,9 @@ export function normalizeArticleHtmlSpacing(html: string): string {
     .trim();
 }
 
+/**
+ * @param html
+ */
 export function stripApJunkBlocks(html: string): string {
   const marked = html.replace(
     /<(div|section|aside|nav|ul|figure)\b[^>]*>/gi,
@@ -47,6 +56,7 @@ export function stripApJunkBlocks(html: string): string {
  * Strip anchor elements whose inner content contains no visible text and no
  * img child.  These are left behind when sanitize-html strips non-allowed
  * children (SVG icons, buttons) from inside a link.
+ * @param html
  */
 export function stripEmptyAnchors(html: string): string {
   return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
@@ -55,6 +65,9 @@ export function stripEmptyAnchors(html: string): string {
   });
 }
 
+/**
+ * @param raw
+ */
 export function toParagraphHtml(raw: string): string {
   return raw
     .split(/\n{2,}/)
@@ -64,6 +77,10 @@ export function toParagraphHtml(raw: string): string {
     .join("\n");
 }
 
+/**
+ * @param html
+ * @param openMatch
+ */
 function findElementRemovalEndIndex(
   html: string,
   openMatch: RegExpExecArray,
@@ -87,12 +104,18 @@ function findElementRemovalEndIndex(
   return endIdx;
 }
 
+/**
+ * @param content
+ */
 function hasOnlyEmptyListItems(content: string): boolean {
   const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
   if (listItems.length === 0) return isEmptyInlineHtml(content);
   return listItems.every((item) => isEmptyInlineHtml(item[1]));
 }
 
+/**
+ * @param content
+ */
 function isEmptyInlineHtml(content: string): boolean {
   const withoutFormattingTags = content.replace(
     /<\/?(?:strong|em|b|i|u|span)\b[^>]*>/gi,
@@ -106,6 +129,11 @@ function isEmptyInlineHtml(content: string): boolean {
   return withoutNbspEntities.trim().length === 0;
 }
 
+/**
+ * @param html
+ * @param attr
+ * @param pattern
+ */
 function removeElementsByAttrPattern(
   html: string,
   attr: string,
@@ -127,6 +155,9 @@ function removeElementsByAttrPattern(
   return result;
 }
 
+/**
+ * @param html
+ */
 function stripEmptyListItems(html: string): string {
   return html.replace(
     /<li\b[^>]*>([\s\S]*?)<\/li>\s*/gi,
@@ -134,6 +165,9 @@ function stripEmptyListItems(html: string): string {
   );
 }
 
+/**
+ * @param html
+ */
 function stripEmptyTagBlocks(html: string): string {
   return stripEmptyListItems(html).replace(
     /<(p|figure|ul|ol)\b[^>]*>([\s\S]*?)<\/\1>\s*/gi,
@@ -168,6 +202,7 @@ export const SOCIAL_SHARE_LINK_RE =
  * CRITICAL: This function receives raw HTML from upstream sources and MUST
  * call purifyRawHtml() as the VERY FIRST operation to strip XSS vectors
  * before any other processing.
+ * @param rawHtml
  */
 export function preCleanHtml(rawHtml: string): string {
   // MANDATORY: DOMPurify as first line of defense against XSS
@@ -187,6 +222,9 @@ export function preCleanHtml(rawHtml: string): string {
   );
 }
 
+/**
+ * @param html
+ */
 function stripBareLinkLists(html: string): string {
   return html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
     const items = [...ulBlock.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
@@ -206,6 +244,9 @@ function stripBareLinkLists(html: string): string {
   });
 }
 
+/**
+ * @param html
+ */
 function stripObviousNoiseBlocks(html: string): string {
   return html
     .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "")

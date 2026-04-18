@@ -10,7 +10,10 @@ interface SyncNormalViewportResetOptions {
   scrollViewport: HTMLElement;
 }
 
-/** Resolves the owning feed viewport from the mounted surface host node. */
+/**
+ * Resolves the owning feed viewport from the mounted surface host node.
+ * @param node
+ */
 export function resolveFeedScrollViewport(node: HTMLDivElement | null) {
   return (
     node?.closest<HTMLElement>(
@@ -19,7 +22,19 @@ export function resolveFeedScrollViewport(node: HTMLDivElement | null) {
   );
 }
 
-/** Decides whether normal mode should reset and temporarily top-lock the viewport. */
+/**
+ * Decides whether normal mode should reset and temporarily top-lock the viewport.
+ * @param root0
+ * @param root0.feedViewKey
+ * @param root0.hasResolvedInitialViewport
+ * @param root0.isCollapseScrollRestoreActive
+ * @param root0.isInvertedScroll
+ * @param root0.previousFeedViewKey
+ * @param root0.previousIsInvertedScroll
+ * @param root0.previousRefreshEpoch
+ * @param root0.refreshEpoch
+ * @param root0.scrollViewport
+ */
 export function syncNormalViewportReset({
   feedViewKey,
   hasResolvedInitialViewport,
@@ -61,6 +76,15 @@ export function syncNormalViewportReset({
   return true;
 }
 
+/**
+ * @param root0
+ * @param root0.feedViewKey
+ * @param root0.isInvertedScroll
+ * @param root0.previousFeedViewKey
+ * @param root0.previousIsInvertedScroll
+ * @param root0.previousRefreshEpoch
+ * @param root0.refreshEpoch
+ */
 function didViewportIntentChange({
   feedViewKey,
   isInvertedScroll,
@@ -81,6 +105,14 @@ function didViewportIntentChange({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.hasResolvedInitialViewport
+ * @param root0.isCollapseScrollRestoreActive
+ * @param root0.isInvertedScroll
+ * @param root0.scrollViewport
+ * @param root0.viewportIntentChanged
+ */
 function shouldSkipNormalViewportReset({
   hasResolvedInitialViewport,
   isCollapseScrollRestoreActive,

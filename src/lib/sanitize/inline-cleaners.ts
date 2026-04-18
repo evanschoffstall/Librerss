@@ -14,6 +14,9 @@ interface InlineBioSignals {
   remainingBlockCount: number;
 }
 
+/**
+ * @param html
+ */
 export function stripLeadingInlineBioBlock(html: string): string {
   const firstBlockIndex = html.search(LEADING_BLOCK_ELEMENT_RE);
   if (firstBlockIndex <= 0) return html;
@@ -37,6 +40,10 @@ export function stripLeadingInlineBioBlock(html: string): string {
   return shouldStripInlineBio(signals) ? remainingContent.trimStart() : html;
 }
 
+/**
+ * @param html
+ * @param maxTextLength
+ */
 export function stripOrphanedInlineContent(
   html: string,
   maxTextLength = 200,
@@ -63,6 +70,9 @@ export function stripOrphanedInlineContent(
   return stripOrphanedInlineParts(parts, html, maxTextLength);
 }
 
+/**
+ * @param html
+ */
 export function stripOrphanedRelatedBlocks(html: string): string {
   const withoutHeadingLists = html.replace(
     /<h[1-6]>([^<]*)<\/h[1-6]>\s*<(?:ul|ol)[\s\S]*?<\/(?:ul|ol)>/gi,
@@ -79,10 +89,18 @@ export function stripOrphanedRelatedBlocks(html: string): string {
   return collapseExcessNewlines(withoutLooseHeadings);
 }
 
+/**
+ * @param text
+ */
 function countBioMarkerHits(text: string): number {
   return [...text.matchAll(AUTHOR_BIO_MARKER_RE)].length;
 }
 
+/**
+ * @param leadingInline
+ * @param remainingContent
+ * @param linkedContent
+ */
 function readInlineBioSignals(
   leadingInline: string,
   remainingContent: string,
@@ -104,6 +122,9 @@ function readInlineBioSignals(
   };
 }
 
+/**
+ * @param signals
+ */
 function shouldStripInlineBio(signals: InlineBioSignals): boolean {
   const normalizedLabel = signals.linkedLabel.toLowerCase();
   const normalizedLeadingText = signals.leadingText.toLowerCase();
@@ -119,6 +140,11 @@ function shouldStripInlineBio(signals: InlineBioSignals): boolean {
   return looksLikeProfileBio && signals.remainingBlockCount >= 2;
 }
 
+/**
+ * @param parts
+ * @param originalHtml
+ * @param maxTextLength
+ */
 function stripOrphanedInlineParts(
   parts: { content: string; type: "gap" | "tag" }[],
   originalHtml: string,
@@ -150,6 +176,12 @@ function stripOrphanedInlineParts(
     .join("");
 }
 
+/**
+ * @param content
+ * @param depth
+ * @param maxTextLength
+ * @param prevTagIsImg
+ */
 function stripTopLevelInlineGap(
   content: string,
   depth: number,
@@ -183,6 +215,10 @@ function stripTopLevelInlineGap(
   return content;
 }
 
+/**
+ * @param tag
+ * @param depth
+ */
 function updateInlineGapState(
   tag: string,
   depth: number,

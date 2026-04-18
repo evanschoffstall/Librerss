@@ -7,6 +7,11 @@ interface UseBackgroundCanvasWindowEventsOptions {
   onResize: () => void;
 }
 
+/**
+ * @param root0
+ * @param root0.onMouseMove
+ * @param root0.onResize
+ */
 export function useBackgroundCanvasWindowEvents({
   onMouseMove,
   onResize,

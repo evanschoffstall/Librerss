@@ -9,6 +9,7 @@ export interface RouteHandlerContext {
 /**
  * Returns whether the provided route argument is the framework context object
  * rather than a test dependency bag.
+ * @param value
  */
 export function isRouteHandlerContext(
   value: unknown,
@@ -24,6 +25,7 @@ export function isRouteHandlerContext(
 /**
  * Preserves route dependency injection for tests while treating the framework
  * context object as an empty dependency bag at runtime.
+ * @param depsOrContext
  */
 export function resolveRouteHandlerDeps<T extends object>(
   depsOrContext: RouteHandlerContext | T | undefined,

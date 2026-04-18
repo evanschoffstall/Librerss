@@ -1,3 +1,6 @@
+/**
+ *
+ */
 export function LoginBackgroundDecoration() {
   return (
     <div

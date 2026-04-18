@@ -7,6 +7,8 @@ const VIEWPORT_ARTICLE_SELECTOR = "article[data-article-key]";
 
 /**
  * Resolves unread articles whose cards are completely visible inside the active viewport.
+ * @param feed
+ * @param viewport
  */
 export function collectFullyVisibleUnreadArticles(
   feed: Article[],
@@ -33,6 +35,7 @@ export function collectFullyVisibleUnreadArticles(
  * Articles whose row is still mid-entrance-animation (`data-article-entering="true"` on
  * an ancestor) are also excluded — they should not count as visible until the space-making
  * animation finishes and they are fully settled in their final position.
+ * @param viewport
  */
 function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
@@ -64,6 +67,7 @@ function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
  *
  * The dashboard can render several Radix scroll areas at once, so this helper
  * narrows the selection to the viewport that currently owns article cards.
+ * @param root
  */
 function findDashboardFeedViewport(root: ParentNode = document) {
   const viewports = root.querySelectorAll<HTMLElement>(FEED_VIEWPORT_SELECTOR);

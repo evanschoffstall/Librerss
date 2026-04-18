@@ -30,7 +30,10 @@ interface SettingsCategoryAccordionItemProps
   pendingCategoryRemovalLabel: null | string;
 }
 
-/** Renders one settings category accordion item, including its feeds and inline editors. */
+/**
+ * Renders one settings category accordion item, including its feeds and inline editors.
+ * @param props
+ */
 export function SettingsCategoryAccordionItem(
   props: SettingsCategoryAccordionItemProps,
 ) {
@@ -78,6 +81,10 @@ export function SettingsCategoryAccordionItem(
   );
 }
 
+/**
+ * @param props
+ * @param categorySurfaceState
+ */
 function buildBodyProps(
   props: SettingsCategoryAccordionItemProps,
   categorySurfaceState: ReturnType<typeof resolveCategorySurfaceState>,
@@ -120,6 +127,10 @@ function buildBodyProps(
   };
 }
 
+/**
+ * @param categoryDropIndex
+ * @param categoryIndex
+ */
 function resolveCategoryDropClassName(
   categoryDropIndex: null | number,
   categoryIndex: number,
@@ -129,6 +140,9 @@ function resolveCategoryDropClassName(
     : animTransitionColorsClass;
 }
 
+/**
+ * @param props
+ */
 function resolveCategorySurfaceState(
   props: SettingsCategoryAccordionItemProps,
 ) {
@@ -143,6 +157,10 @@ function resolveCategorySurfaceState(
   };
 }
 
+/**
+ * @param root0
+ * @param root0.bodyProps
+ */
 function SettingsCategoryAccordionContent({
   bodyProps,
 }: {

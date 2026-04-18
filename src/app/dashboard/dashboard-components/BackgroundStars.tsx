@@ -28,6 +28,15 @@ interface StarsProps {
   staticity?: number;
 }
 
+/**
+ * @param root0
+ * @param root0.className
+ * @param root0.color
+ * @param root0.ease
+ * @param root0.quantity
+ * @param root0.refresh
+ * @param root0.staticity
+ */
 export default function BackgroundStars({
   className = "",
   color = "light",
@@ -74,6 +83,13 @@ export default function BackgroundStars({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.contextRef
+ * @param root0.height
+ * @param root0.stars
+ * @param root0.width
+ */
 function drawBackgroundStars({
   contextRef,
   height,
@@ -96,6 +112,12 @@ function drawBackgroundStars({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.contextRef
+ * @param root0.initStars
+ */
 function initializeBackgroundStarCanvas({
   canvasRef,
   contextRef,
@@ -119,6 +141,17 @@ function initializeBackgroundStarCanvas({
   initStars();
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.contextRef
+ * @param root0.delta
+ * @param root0.drawStar
+ * @param root0.ease
+ * @param root0.mouseRef
+ * @param root0.starsRef
+ * @param root0.staticity
+ */
 function renderBackgroundStarsFrame({
   canvasSize,
   contextRef,
@@ -154,6 +187,12 @@ function renderBackgroundStarsFrame({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.resizeCanvas
+ * @param root0.starsRef
+ */
 function rescaleBackgroundStarPositions({
   canvasSize,
   resizeCanvas,
@@ -180,6 +219,13 @@ function rescaleBackgroundStarPositions({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.canvasContainerRef
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.contextRef
+ */
 function resizeBackgroundStarCanvas({
   canvasContainerRef,
   canvasRef,
@@ -209,6 +255,16 @@ function resizeBackgroundStarCanvas({
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+/**
+ * @param root0
+ * @param root0.buildStar
+ * @param root0.canvasContainerRef
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.contextRef
+ * @param root0.quantity
+ * @param root0.starsRef
+ */
 function useBackgroundStarCanvasSetup({
   buildStar,
   canvasContainerRef,
@@ -251,6 +307,12 @@ function useBackgroundStarCanvasSetup({
   return { initStars, onResize };
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.mouseRef
+ */
 function useBackgroundStarPointerHandler({
   canvasRef,
   canvasSize,
@@ -273,6 +335,16 @@ function useBackgroundStarPointerHandler({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.contextRef
+ * @param root0.drawStar
+ * @param root0.ease
+ * @param root0.mouseRef
+ * @param root0.starsRef
+ * @param root0.staticity
+ */
 function useBackgroundStarRenderer({
   canvasSize,
   contextRef,
@@ -307,6 +379,13 @@ function useBackgroundStarRenderer({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.color
+ * @param root0.ease
+ * @param root0.quantity
+ * @param root0.staticity
+ */
 function useBackgroundStarsRuntime({
   color,
   ease,
@@ -355,6 +434,11 @@ function useBackgroundStarsRuntime({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.color
+ */
 function useBuildBackgroundStar({
   canvasSize,
   color,

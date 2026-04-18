@@ -73,6 +73,22 @@ interface PreparedFeedBatchRequestOptions {
   usePlaceholderData: FeedBatchFetcherHookOptions["usePlaceholderData"];
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.feedRef
+ * @param root0.lastFetchedAtByUrlRef
+ * @param root0.loadBatchResults
+ * @param root0.logRefreshDiagnostics
+ * @param root0.onFeedBatchLoaded
+ * @param root0.onNewArticlesArrived
+ * @param root0.queryClient
+ * @param root0.requestHelpers
+ * @param root0.requestState
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
+ */
 export function useFeedBatchFetcher({
   articleFilter,
   feedRef,
@@ -125,6 +141,11 @@ export function useFeedBatchFetcher({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.cancelPendingRequest
+ * @param root0.logRefreshDiagnostics
+ */
 export function useFeedRequestCancellation({
   cancelPendingRequest,
   logRefreshDiagnostics,
@@ -143,6 +164,11 @@ export function useFeedRequestCancellation({
   }, [cancelPendingRequest, logRefreshDiagnostics]);
 }
 
+/**
+ * @param root0
+ * @param root0.categoriesRef
+ * @param root0.fetchFeedBatch
+ */
 export function useFeedSelectionFetchers({
   categoriesRef,
   fetchFeedBatch,
@@ -186,6 +212,11 @@ export function useFeedSelectionFetchers({
   return { fetchAllFeeds, fetchCategoryFeeds, fetchFeed };
 }
 
+/**
+ * @param root0
+ * @param root0.categoriesRef
+ * @param root0.prefetchFeedBatch
+ */
 export function useFeedSelectionPrefetchers({
   categoriesRef,
   prefetchFeedBatch,
@@ -226,6 +257,9 @@ export function useFeedSelectionPrefetchers({
   return { prefetchAllFeeds, prefetchCategoryFeeds, prefetchFeed };
 }
 
+/**
+ * @param options
+ */
 async function applyPreparedFeedBatchRequest(
   options: PreparedFeedBatchRequestOptions,
 ) {
@@ -286,6 +320,18 @@ async function applyPreparedFeedBatchRequest(
   }
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.logRefreshDiagnostics
+ * @param root0.options
+ * @param root0.queryClient
+ * @param root0.requestHelpers
+ * @param root0.requestState
+ * @param root0.setFeed
+ * @param root0.sources
+ * @param root0.usePlaceholderData
+ */
 function prepareFeedBatchExecution({
   articleFilter,
   logRefreshDiagnostics,
@@ -330,6 +376,16 @@ function prepareFeedBatchExecution({
   return context;
 }
 
+/**
+ * @param root0
+ * @param root0.batchResults
+ * @param root0.context
+ * @param root0.feedRef
+ * @param root0.logRefreshDiagnostics
+ * @param root0.preClearSnapshot
+ * @param root0.requestState
+ * @param root0.setFeed
+ */
 function restorePreparedFeedBatchSnapshotOnError({
   batchResults,
   context,
@@ -367,6 +423,24 @@ function restorePreparedFeedBatchSnapshotOnError({
   return true;
 }
 
+/**
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.feedRef
+ * @param root0.lastFetchedAtByUrlRef
+ * @param root0.loadBatchResults
+ * @param root0.logRefreshDiagnostics
+ * @param root0.onFeedBatchLoaded
+ * @param root0.onNewArticlesArrived
+ * @param root0.options
+ * @param root0.queryClient
+ * @param root0.requestHelpers
+ * @param root0.requestState
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.sources
+ * @param root0.usePlaceholderData
+ */
 async function runFeedBatchRequest({
   articleFilter,
   feedRef,
@@ -423,6 +497,11 @@ async function runFeedBatchRequest({
   });
 }
 
+/**
+ * @param batchResults
+ * @param requestId
+ * @param requestState
+ */
 function shouldSkipPreparedFeedBatchRequest(
   batchResults: Awaited<
     ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>

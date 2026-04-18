@@ -16,6 +16,22 @@ import { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashbo
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 
+/**
+ * @param root0
+ * @param root0.animationState
+ * @param root0.articleWindowState
+ * @param root0.backgroundMode
+ * @param root0.controllerResources
+ * @param root0.dashboardState
+ * @param root0.distillStrategy
+ * @param root0.loadingState
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.refreshState
+ * @param root0.runtimeState
+ * @param root0.usePlaceholderData
+ * @param root0.viewModelState
+ */
 export function useDashboardControllerOutput({
   animationState,
   articleWindowState,
@@ -77,6 +93,15 @@ export function useDashboardControllerOutput({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.animationState
+ * @param root0.articleWindowState
+ * @param root0.controllerResources
+ * @param root0.dashboardState
+ * @param root0.runtimeState
+ * @param root0.viewModelState
+ */
 function buildDashboardControllerArticleViewState({
   animationState,
   articleWindowState,
@@ -124,6 +149,18 @@ function buildDashboardControllerArticleViewState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.backgroundMode
+ * @param root0.controllerResources
+ * @param root0.dashboardState
+ * @param root0.loadingState
+ * @param root0.onBackgroundModeChange
+ * @param root0.onDistillStrategyChange
+ * @param root0.refreshState
+ * @param root0.sidebarContentProps
+ * @param root0.usePlaceholderData
+ */
 function buildDashboardControllerLayoutViewState({
   backgroundMode,
   controllerResources,
@@ -172,6 +209,12 @@ function buildDashboardControllerLayoutViewState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.dashboardState
+ * @param root0.runtimeState
+ * @param root0.sidebarCategories
+ */
 function useDashboardControllerChromeState({
   dashboardState,
   runtimeState,
@@ -198,6 +241,12 @@ function useDashboardControllerChromeState({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.dashboardState
+ * @param root0.runtimeState
+ * @param root0.sidebarCategories
+ */
 function useDashboardSidebarContentState({
   dashboardState,
   runtimeState,

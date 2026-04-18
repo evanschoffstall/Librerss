@@ -37,6 +37,10 @@ interface ReleaseStep {
 
 /** Keep CI/CD deterministic while still prompting for explicit operator consent. */
 class ReleaseWorkflowError extends Error {
+  /**
+   * @param message
+   * @param exitCode
+   */
   constructor(
     message: string,
     readonly exitCode = 1,
@@ -46,17 +50,30 @@ class ReleaseWorkflowError extends Error {
   }
 }
 
+/**
+ * @param arguments_
+ */
 const git = (...arguments_: [string, ...string[]]): Command => [
   "git",
   ...arguments_,
 ];
+/**
+ * @param message
+ */
 const logRelease = (message: string): void => console.info(`[cicd] ${message}`);
+/**
+ * @param message
+ */
 const failRelease = (message: string): never => {
   logRelease(message);
   throw new ReleaseWorkflowError(message);
 };
 
-/** Keep pre-release validation strict while allowing the published release commit to advance origin/main. */
+/**
+ * Keep pre-release validation strict while allowing the published release commit to advance origin/main.
+ * @param phase
+ * @param state
+ */
 export function determineMainBranchSyncAction(
   phase: MainBranchSyncPhase,
   state: MainBranchRevisionState,
@@ -65,7 +82,12 @@ export function determineMainBranchSyncAction(
   return phase === "post-release" ? "fast-forward" : "fail";
 }
 
-/** Run subprocesses in either streaming or captured mode without losing timing data. */
+/**
+ * Run subprocesses in either streaming or captured mode without losing timing data.
+ * @param command
+ * @param outputMode
+ * @param cwd
+ */
 async function runCommand(
   command: Command,
   outputMode: OutputMode = "inherit",
@@ -81,6 +103,9 @@ async function runCommand(
     stdin: shouldCaptureOutput ? "ignore" : "inherit",
     stdout: shouldCaptureOutput ? "pipe" : "inherit",
   });
+  /**
+   * @param stream
+   */
   const readStream = async (
     stream: null | ReadableStream<Uint8Array> | undefined,
   ): Promise<string> => (stream ? await new Response(stream).text() : "");
@@ -97,7 +122,11 @@ async function runCommand(
   };
 }
 
-/** Abort immediately on failing steps so later release stages never run on invalid state. */
+/**
+ * Abort immediately on failing steps so later release stages never run on invalid state.
+ * @param step
+ * @param cwd
+ */
 async function runStepOrExit(step: ReleaseStep, cwd?: string): Promise<void> {
   logRelease(`Starting: ${step.label}`);
   const result = await runCommand(step.command, "inherit", cwd);
@@ -110,6 +139,10 @@ async function runStepOrExit(step: ReleaseStep, cwd?: string): Promise<void> {
   logRelease(`Completed: ${step.label} (${result.durationInMilliseconds}ms)`);
 }
 
+/**
+ * @param command
+ * @param failureLabel
+ */
 const runCommandForStdout = async (
   command: Command,
   failureLabel: string,
@@ -124,7 +157,13 @@ const runCommandForStdout = async (
   );
 };
 
-/** Isolate staged and committed snapshots while reusing the main dependency tree. */
+/**
+ * Isolate staged and committed snapshots while reusing the main dependency tree.
+ * @param prefix
+ * @param materialize
+ * @param cleanup
+ * @param action
+ */
 async function withSnapshot<T>(
   prefix: string,
   materialize: (path: string) => Promise<void>,
@@ -154,6 +193,9 @@ async function withSnapshot<T>(
   }
 }
 
+/**
+ * @param question
+ */
 const askYesNo = async (question: string): Promise<boolean> => {
   const readline = createInterface({
     input: process.stdin,
@@ -168,13 +210,22 @@ const askYesNo = async (question: string): Promise<boolean> => {
   }
 };
 
+/**
+ * @param label
+ */
 const getHeadRevision = async (label: string): Promise<string> =>
   await runCommandForStdout(git("rev-parse", "HEAD"), label);
+/**
+ * @param label
+ */
 const getOriginMainRevision = async (label: string): Promise<string> =>
   await runCommandForStdout(
     git("rev-parse", `refs/remotes/origin/${MAIN_BRANCH}`),
     label,
   );
+/**
+ *
+ */
 const hasPendingChanges = async (): Promise<boolean> =>
   (
     await runCommandForStdout(
@@ -182,6 +233,9 @@ const hasPendingChanges = async (): Promise<boolean> =>
       "Unable to inspect the git worktree",
     )
   ).length > 0;
+/**
+ *
+ */
 const hasStagedChanges = async (): Promise<boolean> =>
   (
     await runCommandForStdout(
@@ -189,10 +243,16 @@ const hasStagedChanges = async (): Promise<boolean> =>
       "Unable to inspect staged release changes",
     )
   ).length > 0;
+/**
+ * @param label
+ */
 const fetchOriginMain = async (
   label = `Fetch origin/${MAIN_BRANCH}`,
 ): Promise<void> =>
   await runStepOrExit({ command: git("fetch", "origin", MAIN_BRANCH), label });
+/**
+ *
+ */
 const readMainBranchRevisionState =
   async (): Promise<MainBranchRevisionState> => {
     const [headRevision, remoteRevision] = await Promise.all([
@@ -201,9 +261,15 @@ const readMainBranchRevisionState =
     ]);
     return { headRevision, remoteRevision };
   };
+/**
+ * @param state
+ */
 const formatMainBranchMismatch = (state: MainBranchRevisionState): string =>
   `Local HEAD (${state.headRevision}) does not match origin/${MAIN_BRANCH} (${state.remoteRevision}). Push or reconcile before continuing.`;
 
+/**
+ *
+ */
 async function acquireReleaseLock(): Promise<() => Promise<void>> {
   const lockDirectoryPath = join(
     process.cwd(),
@@ -214,6 +280,9 @@ async function acquireReleaseLock(): Promise<() => Promise<void>> {
     CICD_LOCK_NAME,
   );
   const metadataPath = join(lockDirectoryPath, "metadata.json");
+  /**
+   *
+   */
   const writeMetadata = async (): Promise<void> =>
     await writeFile(
       metadataPath,
@@ -260,6 +329,9 @@ async function acquireReleaseLock(): Promise<() => Promise<void>> {
     await rm(lockDirectoryPath, { force: true, recursive: true });
 }
 
+/**
+ *
+ */
 async function commitPendingChangesIfRequested(): Promise<void> {
   if (!(await hasPendingChanges())) return;
   if (!(await hasStagedChanges()))
@@ -279,6 +351,9 @@ async function commitPendingChangesIfRequested(): Promise<void> {
   });
 }
 
+/**
+ * @param fetchLabel
+ */
 async function ensureHeadMatchesOriginMain(
   fetchLabel = `Fetch origin/${MAIN_BRANCH}`,
 ): Promise<string> {
@@ -304,6 +379,9 @@ async function ensureOnMainBranch(): Promise<void> {
     );
 }
 
+/**
+ *
+ */
 const ensureNoStagedChangesRemain = async (): Promise<void> => {
   if (await hasStagedChanges())
     failRelease(
@@ -311,6 +389,9 @@ const ensureNoStagedChangesRemain = async (): Promise<void> => {
     );
 };
 
+/**
+ *
+ */
 const runBunCheckAgainstIndexSnapshot = async (): Promise<void> =>
   await withSnapshot(
     "check-suite-cicd-",
@@ -332,6 +413,9 @@ const runBunCheckAgainstIndexSnapshot = async (): Promise<void> =>
     },
   );
 
+/**
+ * @param step
+ */
 const runStepAgainstHeadWorktree = async (step: ReleaseStep): Promise<void> =>
   await withSnapshot(
     "check-suite-cicd-head-",
@@ -389,6 +473,9 @@ async function main(): Promise<void> {
   }
 }
 
+/**
+ *
+ */
 async function syncLocalMainWithOrigin(): Promise<void> {
   await fetchOriginMain(`Fetch origin/${MAIN_BRANCH} after release`);
   const releaseState = await readMainBranchRevisionState();

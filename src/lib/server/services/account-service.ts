@@ -84,6 +84,9 @@ interface ExportedUser {
   userId: number;
 }
 
+/**
+ * @param userId
+ */
 export async function deleteAccount(userId: number) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     throw new ServerServiceError(
@@ -105,6 +108,10 @@ export async function deleteAccount(userId: number) {
   logger.warn("User deleted account", { userId });
 }
 
+/**
+ * @param userId
+ * @param deps
+ */
 export async function exportAccountData(
   userId: number,
   deps: AccountServiceDeps = {},
@@ -141,6 +148,10 @@ export async function exportAccountData(
   };
 }
 
+/**
+ * @param userId
+ * @param user
+ */
 function buildExportedUser(
   userId: number,
   user: ExportAccountBaseRecords["userRows"][number],
@@ -162,10 +173,17 @@ function buildExportedUser(
   };
 }
 
+/**
+ * @param proxyUrl
+ */
 function getEmbeddedProxyCredentials(proxyUrl: null | string) {
   return proxyUrl ? getUrlCredentials(proxyUrl) : null;
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 async function loadExportAccountBaseRecords(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -188,6 +206,11 @@ async function loadExportAccountBaseRecords(
   };
 }
 
+/**
+ * @param db
+ * @param userId
+ * @param hasFeedSources
+ */
 async function loadExportAccountRelations(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -227,6 +250,10 @@ async function loadExportAccountRelations(
   };
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 function selectCategoryOrderRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -241,6 +268,10 @@ function selectCategoryOrderRows(
     .limit(1);
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 function selectExportSessionRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -255,6 +286,10 @@ function selectExportSessionRows(
     .where(eq(sessions.userId, userId));
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 function selectExportSourceRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -272,6 +307,10 @@ function selectExportSourceRows(
     .where(eq(feedSources.userId, userId));
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 function selectStatusRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,
@@ -287,6 +326,10 @@ function selectStatusRows(
     .where(eq(articleStatuses.userId, userId));
 }
 
+/**
+ * @param db
+ * @param userId
+ */
 function selectUserExportRow(
   db: Pick<ReturnType<typeof getDb>, "select">,
   userId: number,

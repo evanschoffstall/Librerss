@@ -20,6 +20,10 @@ interface UseViewportRestoreResult {
   settle: () => void;
 }
 
+/**
+ * @param sessionKey
+ * @param scrollOffset
+ */
 export function useViewportRestore(
   sessionKey: string,
   scrollOffset = 0,

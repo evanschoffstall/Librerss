@@ -33,6 +33,19 @@ interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setFeed
+ * @param root0.setSelectedCategory
+ */
 export function useFeedSourceActions({
   categories,
   ensureCategoryLabelExists,
@@ -69,6 +82,18 @@ export function useFeedSourceActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setFeed
+ * @param root0.setSelectedCategory
+ */
 function useFeedSourceCategoryMutationActions({
   categories,
   ensureCategoryLabelExists,
@@ -121,6 +146,9 @@ function useFeedSourceCategoryMutationActions({
   };
 }
 
+/**
+ * @param options
+ */
 function useFeedSourceCrudActions(options: FeedSourceCategoryMutationOptions) {
   return {
     ...useFeedSourceImportActions({
@@ -134,6 +162,14 @@ function useFeedSourceCrudActions(options: FeedSourceCategoryMutationOptions) {
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setSelectedCategory
+ */
 function useFeedSourceImportActions({
   categories,
   fetchFeed,
@@ -192,6 +228,19 @@ function useFeedSourceImportActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.ensureCategoryLabelExists
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchCategoryFeeds
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCategories
+ * @param root0.setFeed
+ * @param root0.setSelectedCategory
+ */
 function useFeedSourceMutationActions({
   categories,
   ensureCategoryLabelExists,
@@ -227,6 +276,12 @@ function useFeedSourceMutationActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.fetchFeed
+ * @param root0.setSelectedCategory
+ */
 function useFeedSourceSelectionActions({
   categories,
   fetchFeed,
@@ -250,6 +305,15 @@ function useFeedSourceSelectionActions({
   };
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.fetchAllFeeds
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setSelectedCategory
+ */
 function useFeedSourceSettingsActions({
   categories,
   fetchAllFeeds,

@@ -24,6 +24,11 @@ export interface ArticleHydrationState {
   >;
 }
 
+/**
+ * @param setFeed
+ * @param link
+ * @param nextContent
+ */
 export function applyHydratedArticleContent(
   setFeed: UseArticleHydrationOptions["setFeed"],
   link: string,
@@ -38,6 +43,10 @@ export function applyHydratedArticleContent(
   );
 }
 
+/**
+ * @param setHydratedArticleLinks
+ * @param link
+ */
 export function clearHydratedArticleLink(
   setHydratedArticleLinks: ArticleHydrationState["setHydratedArticleLinks"],
   link: string,
@@ -49,6 +58,10 @@ export function clearHydratedArticleLink(
   });
 }
 
+/**
+ * @param setHydratingArticleLinks
+ * @param link
+ */
 export function clearHydratingArticleLink(
   setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"],
   link: string,
@@ -60,6 +73,10 @@ export function clearHydratingArticleLink(
   });
 }
 
+/**
+ * @param articleHydration
+ * @param setHydratedArticleLinks
+ */
 export function clearHydrationCacheOnEmptyContent(
   articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>,
   setHydratedArticleLinks: ArticleHydrationState["setHydratedArticleLinks"],
@@ -69,6 +86,13 @@ export function clearHydrationCacheOnEmptyContent(
   }
 }
 
+/**
+ * @param root0
+ * @param root0.articleHydrationInFlightRef
+ * @param root0.hydrationAbortRef
+ * @param root0.link
+ * @param root0.setHydratingArticleLinks
+ */
 export function finishArticleHydration({
   articleHydrationInFlightRef,
   hydrationAbortRef,
@@ -92,6 +116,13 @@ export function finishArticleHydration({
   articleHydrationInFlightRef.current.set(link, remainingInFlight);
 }
 
+/**
+ * @param root0
+ * @param root0.abortController
+ * @param root0.article
+ * @param root0.articleHydration
+ * @param root0.distillStrategy
+ */
 export async function loadHydratedArticleContent({
   abortController,
   article,
@@ -112,6 +143,10 @@ export async function loadHydratedArticleContent({
       });
 }
 
+/**
+ * @param articleHydration
+ * @param setHydratedArticleLinks
+ */
 export function markHydratedArticleLink(
   articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>,
   setHydratedArticleLinks: ArticleHydrationState["setHydratedArticleLinks"],
@@ -124,6 +159,13 @@ export function markHydratedArticleLink(
   }
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.forceHydration
+ * @param root0.getFeedSettings
+ * @param root0.hydrationState
+ */
 export function prepareArticleHydration({
   article,
   forceHydration,
@@ -160,6 +202,10 @@ export function prepareArticleHydration({
   return { inFlightCount, link, settings, shouldLoadStoredContent };
 }
 
+/**
+ * @param error
+ * @param shouldLoadStoredContent
+ */
 export function resolveHydrationFailureMessage(
   error: unknown,
   shouldLoadStoredContent: boolean,
@@ -185,6 +231,14 @@ export function resolveHydrationFailureMessage(
   return serverError ?? serverReason ?? fallbackMessage;
 }
 
+/**
+ * @param root0
+ * @param root0.article
+ * @param root0.forceHydration
+ * @param root0.hydratedArticleLinks
+ * @param root0.inFlightCount
+ * @param root0.link
+ */
 export function shouldHydrateArticle({
   article,
   forceHydration,
@@ -213,6 +267,14 @@ export function shouldHydrateArticle({
   return inFlightCount <= 0;
 }
 
+/**
+ * @param root0
+ * @param root0.articleHydrationInFlightRef
+ * @param root0.hydrationAbortRef
+ * @param root0.inFlightCount
+ * @param root0.link
+ * @param root0.setHydratingArticleLinks
+ */
 export function startArticleHydration({
   articleHydrationInFlightRef,
   hydrationAbortRef,
@@ -233,6 +295,10 @@ export function startArticleHydration({
   return abortController;
 }
 
+/**
+ * @param error
+ * @param shouldLoadStoredContent
+ */
 export function toastHydrationFailure(
   error: unknown,
   shouldLoadStoredContent: boolean,
@@ -240,11 +306,17 @@ export function toastHydrationFailure(
   toast.error(resolveHydrationFailureMessage(error, shouldLoadStoredContent));
 }
 
+/**
+ * @param value
+ */
 function normalizeHydrationFailureValue(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : undefined;
 }
+/**
+ * @param payload
+ */
 function parseHydrationFailurePayload(payload: HydrationFailurePayload) {
   return {
     serverError: normalizeHydrationFailureValue(payload.error),

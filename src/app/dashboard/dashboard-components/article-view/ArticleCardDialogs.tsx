@@ -30,6 +30,21 @@ interface ArticleCardDialogsProps {
   shareUrl: string;
 }
 
+/**
+ * @param root0
+ * @param root0.copyLinkInputRef
+ * @param root0.isCopyLinkOpen
+ * @param root0.isDevelopment
+ * @param root0.isMobile
+ * @param root0.isRawHtmlOpen
+ * @param root0.normalizedHtml
+ * @param root0.onCopyLinkOpenChange
+ * @param root0.onRawHtmlOpenChange
+ * @param root0.onSelectRawHtml
+ * @param root0.onSelectShareLink
+ * @param root0.rawHtmlTextAreaRef
+ * @param root0.shareUrl
+ */
 export function ArticleCardDialogs({
   copyLinkInputRef,
   isCopyLinkOpen,
@@ -67,6 +82,15 @@ export function ArticleCardDialogs({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.copyLinkInputRef
+ * @param root0.isCopyLinkOpen
+ * @param root0.isMobile
+ * @param root0.onCopyLinkOpenChange
+ * @param root0.onSelectShareLink
+ * @param root0.shareUrl
+ */
 function CopyLinkDialog({
   copyLinkInputRef,
   isCopyLinkOpen,
@@ -124,6 +148,11 @@ function CopyLinkDialog({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.copyLinkInputRef
+ * @param root0.shareUrl
+ */
 function CopyLinkInputBlock({
   copyLinkInputRef,
   shareUrl,
@@ -147,6 +176,10 @@ function CopyLinkInputBlock({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.onSelectShareLink
+ */
 function CopyLinkSelectAction({
   onSelectShareLink,
 }: Pick<ArticleCardDialogsProps, "onSelectShareLink">) {
@@ -164,6 +197,11 @@ function CopyLinkSelectAction({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.normalizedHtml
+ * @param root0.rawHtmlTextAreaRef
+ */
 function RawHtmlContent({
   normalizedHtml,
   rawHtmlTextAreaRef,
@@ -188,6 +226,16 @@ function RawHtmlContent({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.isDevelopment
+ * @param root0.isMobile
+ * @param root0.isRawHtmlOpen
+ * @param root0.normalizedHtml
+ * @param root0.onRawHtmlOpenChange
+ * @param root0.onSelectRawHtml
+ * @param root0.rawHtmlTextAreaRef
+ */
 function RawHtmlDialog({
   isDevelopment,
   isMobile,
@@ -234,6 +282,10 @@ function RawHtmlDialog({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.onSelectRawHtml
+ */
 function RawHtmlDialogHeader({
   onSelectRawHtml,
 }: Pick<ArticleCardDialogsProps, "onSelectRawHtml">) {
@@ -247,6 +299,10 @@ function RawHtmlDialogHeader({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.onSelectRawHtml
+ */
 function RawHtmlDrawerHeader({
   onSelectRawHtml,
 }: Pick<ArticleCardDialogsProps, "onSelectRawHtml">) {
@@ -260,6 +316,11 @@ function RawHtmlDrawerHeader({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.onSelectRawHtml
+ * @param root0.title
+ */
 function RawHtmlHeaderContent({
   onSelectRawHtml,
   title,
@@ -291,6 +352,9 @@ function RawHtmlHeaderContent({
   );
 }
 
+/**
+ * @param event
+ */
 function stopDialogPropagation(event: React.MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }

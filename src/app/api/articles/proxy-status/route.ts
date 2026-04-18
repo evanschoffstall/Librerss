@@ -6,6 +6,9 @@ import { serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * @param request
+ */
 export async function GET(request: NextRequest) {
   const authResult = await serverApi.requireAuthenticatedUser(request);
   if (authResult instanceof Response) return authResult;

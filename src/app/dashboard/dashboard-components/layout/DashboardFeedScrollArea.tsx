@@ -16,7 +16,10 @@ interface FeedScrollbarMetrics {
 
 const MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX = 32;
 
-/** Hides the overlay thumb while the shell feed skeleton owns the viewport. */
+/**
+ * Hides the overlay thumb while the shell feed skeleton owns the viewport.
+ * @param viewportElement
+ */
 function hasInitialFeedSkeleton(viewportElement: HTMLElement) {
   return (
     viewportElement.querySelector(
@@ -25,7 +28,10 @@ function hasInitialFeedSkeleton(viewportElement: HTMLElement) {
   );
 }
 
-/** Reads the current virtualized feed height when it is exposed. */
+/**
+ * Reads the current virtualized feed height when it is exposed.
+ * @param viewportElement
+ */
 function readFeedTotalListHeight(viewportElement: HTMLElement) {
   const feedSurface = viewportElement.querySelector<HTMLElement>(
     "[data-feed-total-list-height]",
@@ -54,7 +60,13 @@ function readFeedTotalListHeight(viewportElement: HTMLElement) {
 export const DashboardFeedScrollArea = React.forwardRef<
   HTMLDivElement,
   DashboardFeedScrollAreaProps
->(function DashboardFeedScrollArea(
+> /**
+ * @param root0
+ * @param root0.children
+ * @param root0.className
+ * @param root0.viewportClassName
+ * @param ref
+ */(function DashboardFeedScrollArea(
   { children, className, viewportClassName, ...props },
   ref,
 ) {
@@ -149,6 +161,9 @@ export const DashboardFeedScrollArea = React.forwardRef<
     let animationFrameId = 0;
     let resizeObserver: MutationObserver | null | ResizeObserver = null;
     let mutationObserver: MutationObserver | null = null;
+    /**
+     *
+     */
     const scheduleMetricsUpdate = () => {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = requestAnimationFrame(() => {

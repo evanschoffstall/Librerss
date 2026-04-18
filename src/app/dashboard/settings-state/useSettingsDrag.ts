@@ -10,6 +10,10 @@ import { useCallback, useRef, useState } from "react";
 const FEED_DRAG_DATA_KEY = "application/x-librerss-feed-key";
 const CATEGORY_DRAG_DATA_KEY = "application/x-librerss-category-label";
 
+/**
+ * @param event
+ * @param dragType
+ */
 const hasDragType = (event: React.DragEvent<HTMLElement>, dragType: string) =>
   Array.from(event.dataTransfer.types).includes(dragType);
 
@@ -24,6 +28,11 @@ interface UseSettingsDragOptions {
   ) => Promise<void>;
 }
 
+/**
+ * @param root0
+ * @param root0.onDropCategory
+ * @param root0.onDropFeed
+ */
 export function useSettingsDrag({
   onDropCategory,
   onDropFeed,
@@ -37,6 +46,9 @@ export function useSettingsDrag({
   };
 }
 
+/**
+ * @param onDropCategory
+ */
 function useCategorySettingsDrag(
   onDropCategory: UseSettingsDragOptions["onDropCategory"],
 ) {
@@ -105,6 +117,9 @@ function useCategorySettingsDrag(
   };
 }
 
+/**
+ * @param onDropFeed
+ */
 function useFeedSettingsDrag(onDropFeed: UseSettingsDragOptions["onDropFeed"]) {
   const [draggingFeedKey, setDraggingFeedKey] = useState<null | string>(null);
   const draggingFeedKeyRef = useRef<null | string>(null);

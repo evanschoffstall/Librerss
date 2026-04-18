@@ -5,6 +5,9 @@ import { markStreamRead, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * @param request
+ */
 export async function POST(request: NextRequest) {
   try {
     const parsedRequest =

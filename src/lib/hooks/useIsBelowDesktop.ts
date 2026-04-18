@@ -18,6 +18,9 @@ export function useIsBelowDesktop() {
     const mediaQueryList = window.matchMedia(
       `(max-width: ${BELOW_DESKTOP_BREAKPOINT - 1}px)`,
     );
+    /**
+     *
+     */
     const handleChange = () => {
       setIsBelowDesktop(mediaQueryList.matches);
     };

@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 /**
  * Global error boundary rendered for unrecoverable runtime errors.
  * Replaces the root layout, so it provides its own `<html>` and `<body>`.
+ * @param root0
+ * @param root0.error
+ * @param root0.reset
  */
 export default function GlobalError({
   reset,

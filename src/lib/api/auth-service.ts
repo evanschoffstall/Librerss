@@ -10,6 +10,9 @@ interface AuthSessionResponse {
 const authServiceBaseUrl = "/api/auth";
 
 export const AuthService = {
+  /**
+   *
+   */
   async getSession(): Promise<AuthSession> {
     const response = await getApiClient().get<AuthSession>(
       `${authServiceBaseUrl}/session`,
@@ -17,6 +20,10 @@ export const AuthService = {
     return response.data;
   },
 
+  /**
+   * @param email
+   * @param password
+   */
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/login`,
@@ -28,10 +35,17 @@ export const AuthService = {
     return response.data.user;
   },
 
+  /**
+   *
+   */
   async logout(): Promise<void> {
     await getApiClient().post(`${authServiceBaseUrl}/logout`);
   },
 
+  /**
+   * @param email
+   * @param password
+   */
   async signup(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/signup`,

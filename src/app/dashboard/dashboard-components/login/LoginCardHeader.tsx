@@ -4,6 +4,10 @@ interface LoginCardHeaderProps {
   mode: "login" | "signup";
 }
 
+/**
+ * @param root0
+ * @param root0.mode
+ */
 export function LoginCardHeader({ mode }: LoginCardHeaderProps) {
   return (
     <CardHeader className="items-center pb-2 text-center">

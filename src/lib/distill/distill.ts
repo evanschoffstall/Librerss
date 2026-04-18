@@ -13,7 +13,11 @@ import { readabilityDistill } from "./readability";
  *
  * - `librerss`    — built-in heuristic body selection (default)
  * - `readability` — Mozilla Readability via linkedom
- * - `defuddle`    — Defuddle via linkedom
+ * - `defuddle`    — Defuddle via linkedom.
+ * @param html
+ * @param url
+ * @param strategy
+ * @param options
  */
 export async function distillArticle(
   html: string,

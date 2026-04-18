@@ -1,4 +1,7 @@
 export class FeedSourceNotFoundError extends Error {
+  /**
+   * @param feedUrl
+   */
   constructor(feedUrl: string) {
     super(`Feed source not found for URL: ${feedUrl}`);
     this.name = "FeedSourceNotFoundError";
@@ -6,12 +9,19 @@ export class FeedSourceNotFoundError extends Error {
 }
 
 export class UpstreamFeedError extends Error {
+  /**
+   * @param feedUrl
+   * @param cause
+   */
   constructor(feedUrl: string, cause: string) {
     super(`Upstream feed fetch failed for ${feedUrl}: ${cause}`);
     this.name = "UpstreamFeedError";
   }
 }
 
+/**
+ * @param error
+ */
 export function isFeedSourceNotFoundError(
   error: unknown,
 ): error is FeedSourceNotFoundError {
@@ -21,6 +31,9 @@ export function isFeedSourceNotFoundError(
   );
 }
 
+/**
+ * @param error
+ */
 export function isUpstreamFeedError(
   error: unknown,
 ): error is UpstreamFeedError {

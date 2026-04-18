@@ -32,6 +32,7 @@ export interface DashboardControllerRuntimeStateOptions {
   selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
   selectedFeed: DashboardEffectsOptions["selectedFeed"];
   selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
   setIsCategoriesLoading: DashboardEffectsOptions["setIsCategoriesLoading"];
   setIsMobileSidebarOpen: DashboardHandlersOptions["setIsMobileSidebarOpen"];
   setIsSidebarVisible: DashboardEffectsOptions["setIsSidebarVisible"];
@@ -46,6 +47,20 @@ export type DashboardHandlersOptions = Parameters<
   typeof useDashboardHandlers
 >[0];
 
+/**
+ * @param options
+ * @param options.feed
+ * @param options.handleMarkArticlesRead
+ * @param options.handleRefreshSelection
+ * @param options.selectedCategory
+ * @param options.selectedCategoryNode
+ * @param options.selectedFeedUrl
+ * @param options.setFeed
+ * @param options.setIsMobileSidebarOpen
+ * @param options.setSearchTerm
+ * @param options.setShowSettingsModal
+ * @param options.usePlaceholderData
+ */
 export function useDashboardControllerEventBindings(options: {
   feed: Article[];
   handleMarkArticlesRead: (articles: Article[]) => Promise<void>;
@@ -93,6 +108,9 @@ export function useDashboardControllerEventBindings(options: {
   });
 }
 
+/**
+ * @param options
+ */
 export function useDashboardControllerRuntimeState(
   options: DashboardControllerRuntimeStateOptions,
 ) {
@@ -103,6 +121,9 @@ export function useDashboardControllerRuntimeState(
   return handlers;
 }
 
+/**
+ * @param options
+ */
 function createDashboardEffectOptions(
   options: DashboardControllerRuntimeStateOptions,
 ) {
@@ -125,6 +146,23 @@ function createDashboardEffectOptions(
   } satisfies DashboardEffectsOptions;
 }
 
+/**
+ * @param options
+ * @param options.articleLimit
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.fetchFeed
+ * @param options.prefetchAllFeeds
+ * @param options.prefetchCategoryFeeds
+ * @param options.prefetchFeed
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ * @param options.selectedCategoryNode
+ * @param options.selectedFeedUrl
+ * @param options.selectionArticleLimit
+ * @param options.setIsMobileSidebarOpen
+ * @param options.setSelectedCategory
+ */
 function createDashboardHandlerOptions(options: {
   articleLimit: DashboardHandlersOptions["articleLimit"];
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
@@ -137,6 +175,7 @@ function createDashboardHandlerOptions(options: {
   selectedCategory: DashboardHandlersOptions["selectedCategory"];
   selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
   selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
   setIsMobileSidebarOpen: DashboardHandlersOptions["setIsMobileSidebarOpen"];
   setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
 }) {
@@ -147,10 +186,22 @@ function createDashboardHandlerOptions(options: {
     prefetchCategoryFeeds: options.prefetchCategoryFeeds,
     prefetchFeed: options.prefetchFeed,
     searchTerm: options.searchTerm,
+    selectionArticleLimit: options.selectionArticleLimit,
     setIsMobileSidebarOpen: options.setIsMobileSidebarOpen,
   } satisfies DashboardHandlersOptions;
 }
 
+/**
+ * @param options
+ * @param options.fetchAllFeeds
+ * @param options.fetchCategoryFeeds
+ * @param options.fetchFeed
+ * @param options.searchTerm
+ * @param options.selectedCategory
+ * @param options.selectedCategoryNode
+ * @param options.selectedFeedUrl
+ * @param options.setSelectedCategory
+ */
 function createDashboardSharedFetchOptions(options: {
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
   fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];

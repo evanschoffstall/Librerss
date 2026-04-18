@@ -5,6 +5,17 @@ import type { InvertedExpansionScrollLockTransitionOptions } from "@/app/dashboa
 import { readPreparedArticleKey } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * @param root0
+ * @param root0.captureInvertedExpansionViewportSnapshot
+ * @param root0.invertedExpansionScrollLockRef
+ * @param root0.isInvertedScrollRef
+ * @param root0.onClaimInvertedScrollOwnership
+ * @param root0.scrollViewport
+ * @param root0.startInvertedExpansionScrollLock
+ * @param root0.syncInvertedExpansionScrollLock
+ * @param root0.viewportSnapshotRef
+ */
 export function useInvertedExpansionScrollLockTransitionEvents({
   captureInvertedExpansionViewportSnapshot,
   invertedExpansionScrollLockRef,
@@ -38,6 +49,9 @@ export function useInvertedExpansionScrollLockTransitionEvents({
   ]);
 }
 
+/**
+ * @param options
+ */
 function bindInvertedExpansionScrollLockTransitionEvents(
   options: InvertedExpansionScrollLockTransitionOptions,
 ) {
@@ -79,6 +93,9 @@ function bindInvertedExpansionScrollLockTransitionEvents(
   };
 }
 
+/**
+ * @param options
+ */
 function createCollapseSettledHandler(
   options: InvertedExpansionScrollLockTransitionOptions,
 ) {
@@ -93,6 +110,9 @@ function createCollapseSettledHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createExpandPreparedHandler(
   options: InvertedExpansionScrollLockTransitionOptions,
 ) {
@@ -119,6 +139,9 @@ function createExpandPreparedHandler(
   };
 }
 
+/**
+ * @param options
+ */
 function createExpandSettledHandler(
   options: InvertedExpansionScrollLockTransitionOptions,
 ) {

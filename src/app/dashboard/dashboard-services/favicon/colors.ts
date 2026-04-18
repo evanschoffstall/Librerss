@@ -1,6 +1,9 @@
 const FNV_OFFSET_BASIS = 2166136261;
 const FNV_PRIME = 16777619;
 
+/**
+ * @param value
+ */
 const hashStringToUint32 = (value: string) => {
   let hash = FNV_OFFSET_BASIS;
 
@@ -12,6 +15,9 @@ const hashStringToUint32 = (value: string) => {
   return hash >>> 0;
 };
 
+/**
+ * @param urls
+ */
 export function getFaviconTintColors(...urls: (string | undefined)[]) {
   const seedSource =
     urls.find((url) => Boolean(url?.trim())) ??

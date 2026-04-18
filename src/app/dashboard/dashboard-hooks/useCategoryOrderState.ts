@@ -8,6 +8,10 @@ interface UseCategoryOrderStateOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * @param root0
+ * @param root0.usePlaceholderData
+ */
 export function useCategoryOrderState({
   usePlaceholderData,
 }: UseCategoryOrderStateOptions) {

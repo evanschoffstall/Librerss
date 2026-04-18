@@ -15,6 +15,9 @@ import {
 
 const STORAGE_KEY = "theme-notice-dismissed";
 
+/**
+ *
+ */
 export function ThemeNoticeDialog() {
   const [open, setOpen] = useState(false);
 
@@ -38,6 +41,9 @@ export function ThemeNoticeDialog() {
     };
   }, []);
 
+  /**
+   *
+   */
   const handleDismiss = () => {
     localStorage.setItem(STORAGE_KEY, "true");
     setOpen(false);
@@ -97,7 +103,7 @@ export function ThemeNoticeDialog() {
 }
 
 /**
- * Detects if Dark Reader or similar visual adjustment extensions are active
+ * Detects if Dark Reader or similar visual adjustment extensions are active.
  */
 function detectVisualAdjustmentExtensions(): boolean {
   // Check for Dark Reader

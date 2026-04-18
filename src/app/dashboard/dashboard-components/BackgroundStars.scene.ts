@@ -20,6 +20,12 @@ export interface Star {
   y: number;
 }
 
+/**
+ * @param canvasSize
+ * @param canvasSize.h
+ * @param canvasSize.w
+ * @param color
+ */
 export function buildBackgroundStar(
   canvasSize: { h: number; w: number },
   color: "dark" | "light",
@@ -47,6 +53,10 @@ export function buildBackgroundStar(
   };
 }
 
+/**
+ * @param context
+ * @param star
+ */
 export function drawBackgroundStar(
   context: CanvasRenderingContext2D,
   star: Star,
@@ -78,6 +88,15 @@ export function drawBackgroundStar(
   context.restore();
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.event
+ * @param root0.fallback
+ * @param root0.fallback.x
+ * @param root0.fallback.y
+ */
 export function resolveBackgroundStarPointerOffset({
   canvasRef,
   canvasSize,
@@ -105,6 +124,14 @@ export function resolveBackgroundStarPointerOffset({
   return fallback;
 }
 
+/**
+ * @param star
+ * @param lerpFactor
+ * @param mouse
+ * @param mouse.x
+ * @param mouse.y
+ * @param staticity
+ */
 export function updateBackgroundStar(
   star: Star,
   lerpFactor: number,
@@ -128,6 +155,10 @@ export function updateBackgroundStar(
   star.translateY += (targetY - star.translateY) * lerpFactor;
 }
 
+/**
+ * @param color
+ * @param isBrightStar
+ */
 function resolveBackgroundStarColor(
   color: "dark" | "light",
   isBrightStar: boolean,
@@ -144,6 +175,9 @@ function resolveBackgroundStarColor(
   return colorRoll < 0.85 ? "236, 242, 255" : "255, 245, 224";
 }
 
+/**
+ *
+ */
 function resolveBackgroundStarMode(): Star["mode"] {
   const modeRoll = Math.random();
   if (modeRoll < 0.55) {
@@ -153,6 +187,10 @@ function resolveBackgroundStarMode(): Star["mode"] {
   return modeRoll < 0.85 ? "twinkle" : "fade";
 }
 
+/**
+ * @param mode
+ * @param brightnessRoll
+ */
 function resolveBackgroundStarProfile(
   mode: Star["mode"],
   brightnessRoll: number,
@@ -169,6 +207,10 @@ function resolveBackgroundStarProfile(
   };
 }
 
+/**
+ * @param isBrightStar
+ * @param isDimStar
+ */
 function resolveBackgroundStarSize(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
     return Math.random() * 0.8 + 0.12;
@@ -177,6 +219,9 @@ function resolveBackgroundStarSize(isBrightStar: boolean, isDimStar: boolean) {
   return isBrightStar ? Math.random() * 1.4 + 1.1 : Math.random() * 1 + 0.45;
 }
 
+/**
+ * @param mode
+ */
 function resolveBackgroundStarSpeed(mode: Star["mode"]) {
   if (mode === "twinkle") {
     return (
@@ -190,6 +235,10 @@ function resolveBackgroundStarSpeed(mode: Star["mode"]) {
     : 0;
 }
 
+/**
+ * @param isBrightStar
+ * @param isDimStar
+ */
 function resolveMaxAlpha(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
     return toFixedAlpha(Math.random() * 0.2 + 0.18);
@@ -200,6 +249,10 @@ function resolveMaxAlpha(isBrightStar: boolean, isDimStar: boolean) {
     : toFixedAlpha(Math.random() * 0.22 + 0.36);
 }
 
+/**
+ * @param isBrightStar
+ * @param isDimStar
+ */
 function resolveMinAlpha(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
     return toFixedAlpha(Math.random() * 0.08 + 0.02);
@@ -210,10 +263,17 @@ function resolveMinAlpha(isBrightStar: boolean, isDimStar: boolean) {
     : toFixedAlpha(Math.random() * 0.1 + 0.07);
 }
 
+/**
+ * @param minAlpha
+ * @param maxAlpha
+ */
 function resolveRandomAlpha(minAlpha: number, maxAlpha: number) {
   return toFixedAlpha(Math.random() * (maxAlpha - minAlpha) + minAlpha);
 }
 
+/**
+ * @param value
+ */
 function toFixedAlpha(value: number) {
   return parseFloat(value.toFixed(2));
 }

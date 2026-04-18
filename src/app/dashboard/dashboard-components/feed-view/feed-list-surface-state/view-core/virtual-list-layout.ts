@@ -23,7 +23,13 @@ const INTERACTIVE_INVERTED_VIEWPORT_INCREASE = {
 const STANDARD_MINIMUM_OVERSCAN_COUNT = 5;
 const INVERTED_MINIMUM_OVERSCAN_COUNT = 4;
 
-/** Builds the virtual entry list for the current scroll mode. */
+/**
+ * Builds the virtual entry list for the current scroll mode.
+ * @param articles
+ * @param feedViewKey
+ * @param scrollMode
+ * @param showLoadMoreBoundary
+ */
 export function buildFeedVirtualListEntries(
   articles: Article[],
   feedViewKey: string,
@@ -50,7 +56,13 @@ export function buildFeedVirtualListEntries(
     : [...articleEntries, boundaryEntry];
 }
 
-/** Converts the existing viewport padding contract into a TanStack overscan row count. */
+/**
+ * Converts the existing viewport padding contract into a TanStack overscan row count.
+ * @param estimatedItemHeight
+ * @param scrollMode
+ * @param expandedArticleKey
+ * @param isCollapseScrollRestoreActive
+ */
 export function resolveFeedVirtualListOverscanCount(
   estimatedItemHeight: number,
   scrollMode: FeedScrollMode,
@@ -77,6 +89,11 @@ export function resolveFeedVirtualListOverscanCount(
   );
 }
 
+/**
+ * @param scrollMode
+ * @param expandedArticleKey
+ * @param isCollapseScrollRestoreActive
+ */
 function resolveViewportIncrease(
   scrollMode: FeedScrollMode,
   expandedArticleKey: null | string,

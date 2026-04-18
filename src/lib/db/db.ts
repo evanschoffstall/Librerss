@@ -33,6 +33,10 @@ type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
 
 const defaultDbDependencies: DbDependencies = {
   createDatabaseProvider: createRuntimeDatabaseProvider,
+  /**
+   * @param message
+   * @param context
+   */
   warn: (message, context) => {
     logger.warn(message, context);
   },
@@ -58,10 +62,16 @@ export function getDb() {
   return db;
 }
 
+/**
+ * @param error
+ */
 export function isForeignKeyError(error: unknown): boolean {
   return hasDbErrorCode(error, "23503");
 }
 
+/**
+ * @param error
+ */
 export function isUniqueConstraintError(error: unknown): boolean {
   return hasDbErrorCode(error, "23505");
 }
@@ -72,7 +82,10 @@ export function resetDbDependenciesForTesting(): void {
   clearDbSingletonState();
 }
 
-/** Overrides DB seams for an isolated test module instance. */
+/**
+ * Overrides DB seams for an isolated test module instance.
+ * @param dependencies
+ */
 export function setDbDependenciesForTesting(
   dependencies: Partial<DbDependencies>,
 ): void {
@@ -84,6 +97,9 @@ export function setDbDependenciesForTesting(
 
 // ─── DB error utilities ─────────────────────────────────────────────────────
 
+/**
+ *
+ */
 function clearDbSingletonState(): void {
   delete globalForDb.pool;
   delete globalForDb.db;
@@ -108,10 +124,17 @@ function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   return createNodePostgresDatabase(options);
 }
 
+/**
+ * @param error
+ */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/**
+ * @param error
+ * @param code
+ */
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -120,6 +143,9 @@ function hasDbErrorCode(error: unknown, code: string): boolean {
   return (error as { code?: unknown }).code === code;
 }
 
+/**
+ * @param pool
+ */
 function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   if (globalForDb.hasRunInitialDbConnectivityCheck) {
     return;
@@ -142,6 +168,9 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   });
 }
 
+/**
+ * @param pool
+ */
 function toConnectivityCheckPool(pool: DatabasePool): ConnectivityCheckPool {
   return pool as unknown as ConnectivityCheckPool;
 }

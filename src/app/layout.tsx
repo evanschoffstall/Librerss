@@ -30,6 +30,10 @@ export const viewport: Viewport = {
   width: "device-width",
 };
 
+/**
+ * @param root0
+ * @param root0.children
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

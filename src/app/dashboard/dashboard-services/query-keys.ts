@@ -11,6 +11,8 @@ const DASHBOARD_FEED_BATCH_QUERY_KEY = ["dashboard", "feed-batch"] as const;
 
 /**
  * Builds the feed-batch query key used to dedupe and cache selection fetches.
+ * @param requestSignature
+ * @param options
  */
 export function getFeedBatchQueryKey(
   requestSignature: string,
@@ -34,7 +36,10 @@ export function getFeedBatchQueryKey(
   ] as const;
 }
 
-/** Builds the source-tree query key for live or placeholder dashboard mode. */
+/**
+ * Builds the source-tree query key for live or placeholder dashboard mode.
+ * @param usePlaceholderData
+ */
 export function getFeedSourceTreeQueryKey(usePlaceholderData: boolean) {
   return [
     ...DASHBOARD_FEED_SOURCE_TREE_QUERY_KEY,
@@ -42,7 +47,10 @@ export function getFeedSourceTreeQueryKey(usePlaceholderData: boolean) {
   ] as const;
 }
 
-/** Serializes the known last-fetched map into a stable query-key fragment. */
+/**
+ * Serializes the known last-fetched map into a stable query-key fragment.
+ * @param lastFetchedAtByUrl
+ */
 function serializeKnownLastFetchedAt(
   lastFetchedAtByUrl?: ReadonlyMap<string, Date>,
 ) {

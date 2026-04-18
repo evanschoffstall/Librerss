@@ -13,6 +13,9 @@ interface SanitizedContentContext {
   recoveredImageHtml: string;
 }
 
+/**
+ * @param rawContent
+ */
 export function sanitizeRawContent(rawContent: string): string {
   const context = createSanitizedContentContext(rawContent);
   if (!context) return "";
@@ -36,6 +39,9 @@ export function sanitizeRawContent(rawContent: string): string {
   );
 }
 
+/**
+ * @param rawContent
+ */
 function createSanitizedContentContext(
   rawContent: string,
 ): null | SanitizedContentContext {
@@ -62,6 +68,10 @@ function createSanitizedContentContext(
   };
 }
 
+/**
+ * @param sanitizedHtml
+ * @param context
+ */
 function mergeRecoveredImagesIfNeeded(
   sanitizedHtml: string,
   context: SanitizedContentContext,
@@ -79,6 +89,9 @@ function mergeRecoveredImagesIfNeeded(
   );
 }
 
+/**
+ * @param rawHtml
+ */
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];
   if (imgTags.length === 0) return "";

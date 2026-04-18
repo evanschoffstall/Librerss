@@ -14,6 +14,9 @@ interface ArticleStatusDeps {
   warn?: (message: string) => void;
 }
 
+/**
+ * @param deps
+ */
 export async function canUseArticleStatusesTable(
   deps?: ArticleStatusDeps,
 ): Promise<boolean> {
@@ -51,11 +54,22 @@ export async function canUseArticleStatusesTable(
   }
 }
 
+/**
+ *
+ */
 export function resetArticleStatusTableStateForTests(): void {
   articleStatusesTableState = "unknown";
   warnedMissingArticleStatusesTable = false;
 }
 
+/**
+ * @param userId
+ * @param articleIds
+ * @param changes
+ * @param changes.isRead
+ * @param changes.isStarred
+ * @param deps
+ */
 export async function upsertArticleStatuses(
   userId: number,
   articleIds: number[],
@@ -111,6 +125,9 @@ export async function upsertArticleStatuses(
   });
 }
 
+/**
+ * @param error
+ */
 function isMissingArticleStatusesTableError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -136,6 +153,9 @@ function isMissingArticleStatusesTableError(error: unknown): boolean {
 
 // ── Batch upsert ──────────────────────────────────────────────────────────────
 
+/**
+ *
+ */
 function warnMissingArticleStatusesTable(): void {
   if (warnedMissingArticleStatusesTable) {
     return;

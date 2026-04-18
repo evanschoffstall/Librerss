@@ -8,7 +8,13 @@ interface LoginLegalConsentProps {
   onAcceptedChange: (checked: boolean) => void;
 }
 
-/** Renders the signup-only legal consent copy and checkbox. */
+/**
+ * Renders the signup-only legal consent copy and checkbox.
+ * @param root0
+ * @param root0.errorMessage
+ * @param root0.hasAcceptedLegalTerms
+ * @param root0.onAcceptedChange
+ */
 export function LoginLegalConsent({
   errorMessage,
   hasAcceptedLegalTerms,

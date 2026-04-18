@@ -22,6 +22,19 @@ type BatchResults = Awaited<
   ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>
 >;
 
+/**
+ * @param root0
+ * @param root0.batchResults
+ * @param root0.context
+ * @param root0.feedRef
+ * @param root0.lastFetchedAtByUrlRef
+ * @param root0.logRefreshDiagnostics
+ * @param root0.onFeedBatchLoaded
+ * @param root0.onNewArticlesArrived
+ * @param root0.setExpandedArticleKey
+ * @param root0.setFeed
+ * @param root0.usePlaceholderData
+ */
 export function applyFeedBatchResults({
   batchResults,
   context,
@@ -86,6 +99,16 @@ export function applyFeedBatchResults({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.batchResults
+ * @param root0.capturedOutcome
+ * @param root0.context
+ * @param root0.lastFetchedAtByUrlRef
+ * @param root0.logRefreshDiagnostics
+ * @param root0.onFeedBatchLoaded
+ * @param root0.setExpandedArticleKey
+ */
 function applyFeedBatchOutcomeMetadata({
   batchResults,
   capturedOutcome,
@@ -139,6 +162,12 @@ function applyFeedBatchOutcomeMetadata({
   });
 }
 
+/**
+ * @param batchResults
+ * @param context
+ * @param feedRef
+ * @param usePlaceholderData
+ */
 function captureFeedBatchOutcome(
   batchResults: NonNullable<BatchResults>,
   context: FeedBatchRequestContext,
@@ -154,6 +183,12 @@ function captureFeedBatchOutcome(
   );
 }
 
+/**
+ * @param articles
+ * @param keepExistingFeed
+ * @param feedRef
+ * @param onNewArticlesArrived
+ */
 function notifyNewlyArrivedArticles(
   articles: Article[],
   keepExistingFeed: boolean,
@@ -179,6 +214,10 @@ function notifyNewlyArrivedArticles(
   }
 }
 
+/**
+ * @param lastFetchedAtByUrlRef
+ * @param batchResults
+ */
 function syncLastFetchedAtByUrl(
   lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>,
   batchResults: NonNullable<BatchResults>,

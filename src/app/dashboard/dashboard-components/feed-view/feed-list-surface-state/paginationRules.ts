@@ -45,6 +45,10 @@ export interface ShouldAutoFillViewportOptions {
 /**
  * Preserves boundary-departure evidence when the browser coalesces one scroll
  * interaction from an away position back onto the active boundary.
+ * @param root0
+ * @param root0.isInvertedScroll
+ * @param root0.previousScrollTop
+ * @param root0.scrollViewport
  */
 export function hasMovedAwayFromBoundarySincePreviousScroll({
   isInvertedScroll,
@@ -77,6 +81,12 @@ export function hasMovedAwayFromBoundarySincePreviousScroll({
   }).hasMovedAwayFromBoundary;
 }
 
+/**
+ * @param root0
+ * @param root0.anchorViewportOffsetTop
+ * @param root0.currentAnchorOffsetTop
+ * @param root0.currentScrollTop
+ */
 export function resolveInvertedPaginationAnchorScrollTop({
   anchorViewportOffsetTop,
   currentAnchorOffsetTop,
@@ -88,6 +98,12 @@ export function resolveInvertedPaginationAnchorScrollTop({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.articlesPerPage
+ * @param root0.currentVisibleCount
+ * @param root0.filteredFeedLength
+ */
 export function resolveNextVisibleCount({
   articlesPerPage,
   currentVisibleCount,
@@ -100,6 +116,11 @@ export function resolveNextVisibleCount({
   return Math.min(currentVisibleCount + articlesPerPage, filteredFeedLength);
 }
 
+/**
+ * @param root0
+ * @param root0.isInvertedScroll
+ * @param root0.scrollViewport
+ */
 export function resolvePaginationBoundaryState({
   isInvertedScroll,
   scrollViewport,
@@ -109,6 +130,15 @@ export function resolvePaginationBoundaryState({
     : resolveStandardBoundaryState(scrollViewport);
 }
 
+/**
+ * @param root0
+ * @param root0.clientHeight
+ * @param root0.committedListHeight
+ * @param root0.currentVisibleCount
+ * @param root0.filteredFeedLength
+ * @param root0.hasUserScrolled
+ * @param root0.isInitialLoading
+ */
 export function shouldAutoFillViewport({
   clientHeight,
   committedListHeight,
@@ -135,6 +165,9 @@ export function shouldAutoFillViewport({
   );
 }
 
+/**
+ * @param scrollViewport
+ */
 function readStandardRemainingDistance(scrollViewport: HTMLElement) {
   return (
     scrollViewport.scrollHeight -
@@ -142,6 +175,9 @@ function readStandardRemainingDistance(scrollViewport: HTMLElement) {
   );
 }
 
+/**
+ * @param scrollViewport
+ */
 function resolveInvertedBoundaryState(
   scrollViewport: HTMLElement,
 ): PaginationBoundaryState {
@@ -156,6 +192,9 @@ function resolveInvertedBoundaryState(
   };
 }
 
+/**
+ * @param scrollViewport
+ */
 function resolveStandardBoundaryState(
   scrollViewport: HTMLElement,
 ): PaginationBoundaryState {

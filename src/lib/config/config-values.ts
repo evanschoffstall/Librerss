@@ -31,6 +31,8 @@ export function isDevelopment(): boolean {
 /**
  * Reads an optional boolean env variable, returning `defaultValue` when the
  * key is missing or empty.
+ * @param key
+ * @param defaultValue
  */
 export const envBooleanOptional = (
   key: string,
@@ -44,6 +46,7 @@ export const envBooleanOptional = (
 /**
  * Reads an optional string env variable, returning `undefined` when the key is
  * missing or empty after trimming.
+ * @param key
  */
 export const envStringOptional = (key: string): string | undefined => {
   const raw = getEnv(key);
@@ -60,6 +63,9 @@ const LOG_LEVEL_VALUES = ["none", "error", "warn", "info", "verbose"] as const;
 
 type LogLevel = (typeof LOG_LEVEL_VALUES)[number];
 
+/**
+ *
+ */
 export const clientFeedCacheTtlMinutes = (): number => {
   const key = "NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES";
   return parseEnvNumber(
@@ -68,6 +74,9 @@ export const clientFeedCacheTtlMinutes = (): number => {
   );
 };
 
+/**
+ *
+ */
 export const clientFeedRefreshDiagnosticsEnabled = (): boolean => {
   const key = "NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED";
   return parseEnvBoolean(
@@ -100,6 +109,9 @@ export const clientFeedBatchMaxUrls = (): number =>
 export const clientFeedRequestTimeoutMs = (): number =>
   envNumber("FEED_REQUEST_TIMEOUT_MS");
 
+/**
+ *
+ */
 export const maxArticleConsecutiveBlankLines = (): number => {
   const clientKey = "NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES";
   const clientValue =
@@ -155,6 +167,9 @@ interface ConfigKeys {
   SESSION_DURATION_DAYS: number;
 }
 
+/**
+ * @param key
+ */
 const resolveConfigValue = (key: string): unknown => {
   if (key === "LOG_LEVEL") {
     return envEnum("LOG_LEVEL", LOG_LEVEL_VALUES);
@@ -176,6 +191,10 @@ const resolveConfigValue = (key: string): unknown => {
  * call time through the Proxy getter — no values are captured at module load.
  */
 export const CONFIG = new Proxy({} as ConfigKeys & Record<string, unknown>, {
+  /**
+   * @param _target
+   * @param property
+   */
   get: (_target, property) => {
     if (typeof property !== "string") {
       return undefined;

@@ -29,6 +29,14 @@ export interface UseInvertedExpansionScrollLockOptions {
  * The feed surface relies on a transient scroll lock during layout-changing row
  * transitions so the active article does not visually jump when the underlying
  * Radix viewport recalculates its height.
+ * @param root0
+ * @param root0.articleFilter
+ * @param root0.collapsingArticles
+ * @param root0.expandedArticleKey
+ * @param root0.getPreExpandViewportSnapshot
+ * @param root0.isInvertedScroll
+ * @param root0.onClaimInvertedScrollOwnership
+ * @param root0.scrollViewport
  */
 export function useInvertedExpansionScrollLock({
   articleFilter,

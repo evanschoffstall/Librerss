@@ -26,6 +26,16 @@ interface ImportOpmlFeedsOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * @param root0
+ * @param root0.categories
+ * @param root0.entries
+ * @param root0.fetchFeed
+ * @param root0.loadFeedSources
+ * @param root0.selectedCategory
+ * @param root0.setCustomCategoryLabels
+ * @param root0.setSelectedCategory
+ */
 export async function importOpmlFeedsAndRefresh({
   categories,
   entries,
@@ -100,6 +110,12 @@ export async function importOpmlFeedsAndRefresh({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.importedCategoryLabels
+ * @param root0.importResults
+ * @param root0.successfulUrls
+ */
 function collectImportedFeedResults({
   importedCategoryLabels,
   importResults,
@@ -127,6 +143,14 @@ function collectImportedFeedResults({
   return { failedCount, importedCount };
 }
 
+/**
+ * @param root0
+ * @param root0.fetchFeed
+ * @param root0.nextCategories
+ * @param root0.previousSelectedSourceUrl
+ * @param root0.setSelectedCategory
+ * @param root0.successfulUrls
+ */
 async function refreshImportedSelection({
   fetchFeed,
   nextCategories,

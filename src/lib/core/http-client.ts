@@ -23,6 +23,9 @@ interface FeedHttpDeps {
 /**
  * Fetch feed XML through HTTPCloak only, validating each redirect hop before
  * following it and rejecting non-success upstream responses directly.
+ * @param url
+ * @param deps
+ * @param transport
  */
 export async function fetchFeedXml(
   url: string,
@@ -39,6 +42,9 @@ export async function fetchFeedXml(
         proxyUrl: transport?.proxyUrl,
         timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
         url,
+        /**
+         * @param candidateUrl
+         */
         validateUrl: async (candidateUrl) => {
           await assertUrl(candidateUrl);
         },
@@ -64,6 +70,15 @@ export async function fetchFeedXml(
   }
 }
 
+/**
+ * @param response
+ * @param response.headers
+ * @param response.redirectHop
+ * @param response.requestHeaders
+ * @param response.statusCode
+ * @param responseBody
+ * @param transport
+ */
 function createFeedStageError(
   response: {
     headers: Record<string, string | string[] | undefined>;
@@ -97,6 +112,9 @@ function createFeedStageError(
   );
 }
 
+/**
+ * @param error
+ */
 function isUrlValidationError(error: unknown): boolean {
   return (
     error instanceof Error &&

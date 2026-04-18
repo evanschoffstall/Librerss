@@ -4,6 +4,12 @@ import { type Article, ARTICLE_FILTERS, type ArticleFilter } from "@/lib/core";
 export const ARTICLE_FILTER_OPTIONS = ARTICLE_FILTERS;
 export type { ArticleFilter };
 
+/**
+ * @param articles
+ * @param articleFilter
+ * @param expandedArticleKey
+ * @param collapsingArticleKeys
+ */
 export function filterArticlesByState(
   articles: Article[],
   articleFilter: ArticleFilter,

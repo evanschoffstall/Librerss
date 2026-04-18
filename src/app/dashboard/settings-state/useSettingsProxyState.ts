@@ -66,6 +66,7 @@ interface UseSettingsProxyStateOptions {
 /**
  * Owns dashboard proxy settings state and rejects stale async completions when
  * newer user intent supersedes an older load, save, clear, or check request.
+ * @param options
  */
 export function useSettingsProxyState(
   options: UseSettingsProxyStateOptions = {},
@@ -113,6 +114,17 @@ export function useSettingsProxyState(
   });
 }
 
+/**
+ * @param root0
+ * @param root0.handleClear
+ * @param root0.handleRunCompatibilityCheck
+ * @param root0.handleSave
+ * @param root0.hasProxy
+ * @param root0.isRunningCompatibilityCheck
+ * @param root0.proxyState
+ * @param root0.saving
+ * @param root0.syncAllowInsecureTls
+ */
 function buildUseSettingsProxyStateResult({
   handleClear,
   handleRunCompatibilityCheck,
@@ -163,6 +175,9 @@ function buildUseSettingsProxyStateResult({
   };
 }
 
+/**
+ * @param requestState
+ */
 function resolveProxyRequestStatuses(
   requestState: ReturnType<typeof useSettingsProxyRequestState>,
 ) {
@@ -173,6 +188,9 @@ function resolveProxyRequestStatuses(
   };
 }
 
+/**
+ * @param proxyState
+ */
 function useApplyProxySettings(
   proxyState: ReturnType<typeof useSettingsProxyWritableState>,
 ) {

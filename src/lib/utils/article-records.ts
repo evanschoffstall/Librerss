@@ -11,6 +11,8 @@ export interface ArticleRecordLike {
 /**
  * Deduplicate article-like records by their normalized link with a caller-owned
  * replacement policy.
+ * @param records
+ * @param shouldReplace
  */
 export function dedupeArticleRecords<T extends ArticleRecordLike>(
   records: T[],
@@ -41,6 +43,7 @@ export function dedupeArticleRecords<T extends ArticleRecordLike>(
 
 /**
  * Normalize article-like links so every caller deduplicates the same key space.
+ * @param record
  */
 export function getNormalizedArticleRecordKey(
   record: Pick<ArticleRecordLike, "link">,
@@ -50,6 +53,8 @@ export function getNormalizedArticleRecordKey(
 
 /**
  * Prefer newer records first, then prefer richer content for identical dates.
+ * @param candidate
+ * @param current
  */
 export function preferNewerArticleRecord<T extends ArticleRecordLike>(
   candidate: T,
@@ -67,6 +72,8 @@ export function preferNewerArticleRecord<T extends ArticleRecordLike>(
 
 /**
  * Prefer richer records first, then prefer newer timestamps as the tiebreaker.
+ * @param candidate
+ * @param current
  */
 export function preferRicherArticleRecord<T extends ArticleRecordLike>(
   candidate: T,
@@ -84,6 +91,8 @@ export function preferRicherArticleRecord<T extends ArticleRecordLike>(
 /**
  * Sort article-like records newest-first so callers share one publication-date
  * ordering rule after deduplication.
+ * @param a
+ * @param b
  */
 export function sortArticleRecordsByPublicationDateDesc<
   T extends Pick<ArticleRecordLike, "publicationDate">,
@@ -91,6 +100,9 @@ export function sortArticleRecordsByPublicationDateDesc<
   return getArticleRecordTimestamp(b) - getArticleRecordTimestamp(a);
 }
 
+/**
+ * @param record
+ */
 function getArticleRecordTimestamp(
   record: Pick<ArticleRecordLike, "publicationDate">,
 ): number {

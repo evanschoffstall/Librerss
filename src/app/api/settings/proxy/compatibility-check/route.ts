@@ -101,6 +101,8 @@ interface ResolvedUserProxyConfig {
 /**
  * Runs vendor-sample compatibility checks for the authenticated user's current
  * network path and optional proxy settings.
+ * @param request
+ * @param depsOrContext
  */
 export async function POST(
   request: NextRequest,
@@ -147,6 +149,13 @@ export async function POST(
   return NextResponse.json({ results });
 }
 
+/**
+ * @param result
+ * @param site
+ * @param error
+ * @param executionContext
+ * @param deps
+ */
 function buildFailedCompatibilityCheckResult(
   result: CompatibilityCheckResult,
   site: (typeof COMPATIBILITY_CHECK_SITES)[number],
@@ -198,6 +207,14 @@ function buildFailedCompatibilityCheckResult(
   return result;
 }
 
+/**
+ * @param result
+ * @param site
+ * @param html
+ * @param requestHeaders
+ * @param executionContext
+ * @param deps
+ */
 function buildSuccessfulCompatibilityCheckResult(
   result: CompatibilityCheckResult,
   site: (typeof COMPATIBILITY_CHECK_SITES)[number],
@@ -233,12 +250,19 @@ function buildSuccessfulCompatibilityCheckResult(
   return result;
 }
 
+/**
+ * @param vendor
+ * @param bodyLower
+ */
 function hasCompatibilitySignal(vendor: string, bodyLower: string) {
   const signals = COMPATIBILITY_SIGNAL_BY_VENDOR[vendor];
 
   return signals ? signals.some((signal) => bodyLower.includes(signal)) : false;
 }
 
+/**
+ * @param value
+ */
 function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
   if (!value || typeof value !== "object") {
     return { allowInsecureTls: false };
@@ -258,6 +282,9 @@ function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
   };
 }
 
+/**
+ * @param request
+ */
 async function parseCompatibilityCheckBody(
   request: NextRequest,
 ): Promise<CompatibilityCheckRequest | Response> {
@@ -275,6 +302,9 @@ async function parseCompatibilityCheckBody(
   }
 }
 
+/**
+ * @param deps
+ */
 function resolveCompatibilityCheckDeps(
   deps: CompatibilityCheckDeps,
 ): ResolvedCompatibilityCheckDeps {
@@ -300,6 +330,11 @@ function resolveCompatibilityCheckDeps(
   };
 }
 
+/**
+ * @param userId
+ * @param useProxy
+ * @param deps
+ */
 async function resolveCompatibilityExecutionContext(
   userId: number,
   useProxy: boolean,
@@ -350,6 +385,11 @@ async function resolveCompatibilityExecutionContext(
   }
 }
 
+/**
+ * @param site
+ * @param executionContext
+ * @param deps
+ */
 async function runCompatibilityCheck(
   site: (typeof COMPATIBILITY_CHECK_SITES)[number],
   executionContext: CompatibilityCheckExecutionContext,
@@ -392,6 +432,10 @@ async function runCompatibilityCheck(
   }
 }
 
+/**
+ * @param executionContext
+ * @param deps
+ */
 async function runCompatibilityChecks(
   executionContext: CompatibilityCheckExecutionContext,
   deps: ResolvedCompatibilityCheckDeps,

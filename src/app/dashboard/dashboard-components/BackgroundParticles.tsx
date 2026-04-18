@@ -33,6 +33,15 @@ interface ParticlesProps {
   staticity?: number;
 }
 
+/**
+ * @param root0
+ * @param root0.className
+ * @param root0.color
+ * @param root0.ease
+ * @param root0.quantity
+ * @param root0.refresh
+ * @param root0.staticity
+ */
 export default function BackgroundParticles({
   className = "",
   color = "light",
@@ -86,6 +95,12 @@ export default function BackgroundParticles({
   );
 }
 
+/**
+ * @param ctx
+ * @param circle
+ * @param particleRgb
+ * @param alpha
+ */
 function drawBackgroundParticleCircle(
   ctx: CanvasRenderingContext2D,
   circle: Circle,
@@ -104,6 +119,13 @@ function drawBackgroundParticleCircle(
   ctx.fill();
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.ctxRef
+ * @param root0.initParticles
+ * @param root0.startedAtRef
+ */
 function initializeBackgroundParticleCanvas({
   canvasRef,
   ctxRef,
@@ -130,6 +152,20 @@ function initializeBackgroundParticleCanvas({
   initParticles();
 }
 
+/**
+ * @param root0
+ * @param root0.circles
+ * @param root0.ctx
+ * @param root0.elapsed
+ * @param root0.height
+ * @param root0.lerpFactor
+ * @param root0.particleRgb
+ * @param root0.pointerOffset
+ * @param root0.pointerOffset.x
+ * @param root0.pointerOffset.y
+ * @param root0.staticity
+ * @param root0.width
+ */
 function renderBackgroundParticleCircles({
   circles,
   ctx,
@@ -165,6 +201,19 @@ function renderBackgroundParticleCircles({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.circles
+ * @param root0.ctxRef
+ * @param root0.delta
+ * @param root0.ease
+ * @param root0.now
+ * @param root0.particleRgb
+ * @param root0.pointerOffsetRef
+ * @param root0.startedAtRef
+ * @param root0.staticity
+ */
 function renderBackgroundParticleFrame({
   canvasSize,
   circles,
@@ -213,6 +262,12 @@ function renderBackgroundParticleFrame({
   });
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.circles
+ * @param root0.resizeCanvas
+ */
 function rescaleBackgroundParticleOrigins({
   canvasSize,
   circles,
@@ -237,6 +292,13 @@ function rescaleBackgroundParticleOrigins({
   }
 }
 
+/**
+ * @param root0
+ * @param root0.canvasContainerRef
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.ctxRef
+ */
 function resizeBackgroundParticleCanvas({
   canvasContainerRef,
   canvasRef,
@@ -264,6 +326,12 @@ function resizeBackgroundParticleCanvas({
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.event
+ */
 function resolveBackgroundParticlePointerOffset({
   canvasRef,
   canvasSize,
@@ -288,6 +356,18 @@ function resolveBackgroundParticlePointerOffset({
   return inside ? { x: localX, y: localY } : { x: 0, y: 0 };
 }
 
+/**
+ * @param root0
+ * @param root0.circle
+ * @param root0.elapsed
+ * @param root0.height
+ * @param root0.lerpFactor
+ * @param root0.pointerOffset
+ * @param root0.pointerOffset.x
+ * @param root0.pointerOffset.y
+ * @param root0.staticity
+ * @param root0.width
+ */
 function updateBackgroundParticleCircle({
   circle,
   elapsed,
@@ -317,6 +397,17 @@ function updateBackgroundParticleCircle({
   return Math.max(0.02, Math.min(0.75, circle.alphaBase + wave * 0.08));
 }
 
+/**
+ * @param root0
+ * @param root0.canvasContainerRef
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.circles
+ * @param root0.ctxRef
+ * @param root0.quantity
+ * @param root0.seedParticles
+ * @param root0.startedAtRef
+ */
 function useBackgroundParticleCanvasSetup({
   canvasContainerRef,
   canvasRef,
@@ -367,6 +458,12 @@ function useBackgroundParticleCanvasSetup({
   return { initParticles, onResize };
 }
 
+/**
+ * @param root0
+ * @param root0.canvasRef
+ * @param root0.canvasSize
+ * @param root0.pointerOffsetRef
+ */
 function useBackgroundParticlePointerHandler({
   canvasRef,
   canvasSize,
@@ -388,6 +485,17 @@ function useBackgroundParticlePointerHandler({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.canvasSize
+ * @param root0.circles
+ * @param root0.ctxRef
+ * @param root0.ease
+ * @param root0.particleRgb
+ * @param root0.pointerOffsetRef
+ * @param root0.startedAtRef
+ * @param root0.staticity
+ */
 function useBackgroundParticleRenderer({
   canvasSize,
   circles,
@@ -435,6 +543,13 @@ function useBackgroundParticleRenderer({
   );
 }
 
+/**
+ * @param root0
+ * @param root0.color
+ * @param root0.ease
+ * @param root0.quantity
+ * @param root0.staticity
+ */
 function useBackgroundParticlesRuntime({
   color,
   ease,
@@ -493,6 +608,9 @@ function useBackgroundParticlesRuntime({
   };
 }
 
+/**
+ *
+ */
 function useSeedParticles() {
   return useCallback(
     (count: number, width: number, height: number): Circle[] =>

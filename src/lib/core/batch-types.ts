@@ -46,6 +46,7 @@ export interface RefreshDecision {
  *
  * The batch pipeline revalidates these fields before coercion so malformed or
  * partial query results never leak NaN or invalid dates into the dashboard.
+ * @param row
  */
 export function isValidRankedRow(row: RankedRow): boolean {
   const isValid = [
@@ -69,20 +70,32 @@ export function isValidRankedRow(row: RankedRow): boolean {
   return isValid;
 }
 
+/**
+ * @param value
+ */
 function isDateLike(value: unknown) {
   return typeof value === "string" || value instanceof Date;
 }
 
+/**
+ * @param value
+ */
 function isNullableBooleanLike(value: unknown) {
   return (
     value === null || typeof value === "boolean" || typeof value === "number"
   );
 }
 
+/**
+ * @param value
+ */
 function isNullableString(value: unknown) {
   return value === null || typeof value === "string";
 }
 
+/**
+ * @param value
+ */
 function isStringOrNumber(value: unknown) {
   return typeof value === "number" || typeof value === "string";
 }
