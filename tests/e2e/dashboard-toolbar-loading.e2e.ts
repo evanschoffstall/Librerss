@@ -1,4 +1,8 @@
-import { firstArticleCard, waitForPreviewDashboardHydration } from "./helpers";
+import {
+  firstArticleCard,
+  gotoPreviewDashboard,
+  waitForPreviewDashboardHydration,
+} from "./helpers";
 import { expect, test } from "./test";
 
 test.describe("dashboard toolbar loading", () => {

@@ -656,8 +656,17 @@ describe("useDashboardEvents", () => {
 
   test("marks fully visible unread articles through the viewport command", async () => {
     const dispatchedEvents: string[] = [];
+    // Capture when the handler is called relative to the lifecycle events. The
+    // handler is intentionally async to verify that END fires before the server
+    // round-trip completes (i.e. the toolbar does not block on persistence).
+    let resolveHandler!: () => void;
+    const handlerSettled = new Promise<void>((resolve) => {
+      resolveHandler = resolve;
+    });
     const onMarkViewportRead = mock(async () => {
+      await Promise.resolve(); // simulate micro-task / server tick
       dispatchedEvents.push("handler");
+      resolveHandler();
     });
     const eventTarget = {
       dispatchEvent(event: Event) {
@@ -666,12 +675,20 @@ describe("useDashboardEvents", () => {
       },
     } satisfies Pick<Window, "dispatchEvent">;
 
-    await runDashboardViewportReadCommand(eventTarget, onMarkViewportRead);
+    runDashboardViewportReadCommand(eventTarget, onMarkViewportRead);
 
+    // START and END must fire synchronously before the async handler resolves.
     expect(dispatchedEvents).toEqual([
       DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
-      "handler",
       DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+    ]);
+
+    // Handler still completes in the background (server persistence).
+    await handlerSettled;
+    expect(dispatchedEvents).toEqual([
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+      "handler",
     ]);
   });
 });

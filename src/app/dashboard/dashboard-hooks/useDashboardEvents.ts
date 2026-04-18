@@ -103,21 +103,30 @@ export async function runDashboardRefreshCommand(
   }
 }
 
-/** Runs the viewport-read command and emits the matching toolbar lifecycle events. */
-export async function runDashboardViewportReadCommand(
+/**
+ * Runs the viewport-read command and emits the matching toolbar lifecycle events.
+ *
+ * The toolbar loading indicator is cleared immediately after the optimistic UI
+ * update is enqueued. Server persistence continues in the background; the
+ * mutation pipeline owns its own error-recovery path (restoring failed article
+ * read states via `setFeed`) so no additional error handling is needed here.
+ */
+export function runDashboardViewportReadCommand(
   target: Pick<Window, "dispatchEvent">,
   onMarkViewportRead: () => Promise<void>,
 ) {
   target.dispatchEvent(
     new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
   );
-  try {
-    await onMarkViewportRead();
-  } finally {
-    target.dispatchEvent(
-      new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
-    );
-  }
+  // Fire the mutation without awaiting. The optimistic setFeed update inside
+  // runOptimisticArticleStatusMutation is enqueued synchronously before the
+  // server request, so the UI is already correct when END fires.
+  onMarkViewportRead().catch((error: unknown) => {
+    console.error("Mark viewport read error:", error);
+  });
+  target.dispatchEvent(
+    new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
+  );
 }
 
 /**
@@ -326,10 +335,7 @@ function useDashboardRefreshEvents(options: {
     };
 
     const handleMarkViewportRead = () => {
-      void runDashboardViewportReadCommand(
-        window,
-        onMarkViewportReadRef.current,
-      );
+      runDashboardViewportReadCommand(window, onMarkViewportReadRef.current);
     };
 
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);
