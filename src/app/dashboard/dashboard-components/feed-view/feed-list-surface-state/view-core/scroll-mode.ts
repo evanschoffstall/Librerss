@@ -3,17 +3,19 @@ import type { Article } from "@/lib/core";
 export type FeedScrollMode = "inverted" | "standard";
 
 /**
- * Convenience predicate for branches that only care about the inverted mode.
- * @param scrollMode
+ * Return whether is inverted feed scroll mode.
+ * @param scrollMode - The scroll mode.
+ * @returns Whether is inverted feed scroll mode.
  */
 export function isInvertedFeedScrollMode(scrollMode: FeedScrollMode) {
   return scrollMode === "inverted";
 }
 
 /**
- * Resolves whether the current viewport should use the inverted feed mode.
- * @param isMobile
- * @param mobileInvertedScroll
+ * Resolve the feed scroll mode.
+ * @param isMobile - Whether is mobile.
+ * @param mobileInvertedScroll - The mobile inverted scroll.
+ * @returns The feed scroll mode.
  */
 export function resolveFeedScrollMode(
   isMobile: boolean,
@@ -23,9 +25,10 @@ export function resolveFeedScrollMode(
 }
 
 /**
- * Returns the currently visible articles in the order expected by the active scroll mode.
- * @param visibleArticles
- * @param scrollMode
+ * Resolve the feed scroll mode articles.
+ * @param visibleArticles - The visible articles.
+ * @param scrollMode - The scroll mode.
+ * @returns The feed scroll mode articles.
  */
 export function resolveFeedScrollModeArticles(
   visibleArticles: Article[],

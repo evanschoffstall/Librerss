@@ -294,7 +294,11 @@ describe("useArticleActions - State Management", () => {
         }),
     ) as unknown as typeof ArticleService.updateArticleStatus;
 
-    const article = createMockArticle({ id: 6, isRead: false, isStarred: false });
+    const article = createMockArticle({
+      id: 6,
+      isRead: false,
+      isStarred: false,
+    });
     let feedState = [article];
     const setFeed = mock((updater: any) => {
       feedState = typeof updater === "function" ? updater(feedState) : updater;

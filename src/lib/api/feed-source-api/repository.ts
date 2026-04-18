@@ -34,10 +34,17 @@ const feedSourceFields = {
   url: feedSources.url,
 };
 
+interface FeedSettingsForUserSettings {
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
+}
+
 /**
- * @param tx
- * @param userId
- * @param payload
+ * Create the or update feed source.
+ * @param tx - The tx.
+ * @param userId - The r id.
+ * @param payload - The payload.
+ * @returns The or update feed source.
  */
 export async function createOrUpdateFeedSource(
   tx: FeedTransaction,
@@ -57,8 +64,10 @@ export async function createOrUpdateFeedSource(
 }
 
 /**
- * @param userId
- * @param sourceId
+ * Process the delete feed source for user.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @returns The delete feed source for user.
  */
 export async function deleteFeedSourceForUser(
   userId: number,
@@ -102,7 +111,9 @@ export async function deleteFeedSourceForUser(
 }
 
 /**
- * @param userId
+ * Process the list feed sources for user.
+ * @param userId - The r id.
+ * @returns The list feed sources for user.
  */
 export async function listFeedSourcesForUser(
   userId: number,
@@ -133,10 +144,12 @@ export async function listFeedSourcesForUser(
 }
 
 /**
- * @param userId
- * @param sourceId
- * @param name
- * @param url
+ * Process the rename feed source for user.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param name - The name.
+ * @param url - The url.
+ * @returns The rename feed source for user.
  */
 export async function renameFeedSourceForUser(
   userId: number,
@@ -213,9 +226,11 @@ export async function renameFeedSourceForUser(
 }
 
 /**
- * @param userId
- * @param sourceId
- * @param enabled
+ * Process the set feed source enabled for user.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param enabled - The enabled.
+ * @returns The set feed source enabled for user.
  */
 export async function setFeedSourceEnabledForUser(
   userId: number,
@@ -232,9 +247,10 @@ export async function setFeedSourceEnabledForUser(
 
   return updatedSources[0] ?? null;
 }
-
 /**
- * @param row
+ * Process the to feed source response.
+ * @param row - The row.
+ * @returns The to feed source response.
  */
 export function toFeedSourceResponse(
   row: FeedSourceListRow,
@@ -246,16 +262,16 @@ export function toFeedSourceResponse(
 }
 
 /**
- * @param userId
- * @param sourceId
- * @param settings
- * @param settings.extractionDisabled
- * @param settings.proxyEnabled
+ * Update the feed settings for user.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param settings - The settings.
+ * @returns The feed settings for user.
  */
 export async function updateFeedSettingsForUser(
   userId: number,
   sourceId: number,
-  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  settings: FeedSettingsForUserSettings,
 ): Promise<FeedSourceRecord | null> {
   const db = getDb();
   const setClause: {
@@ -283,9 +299,11 @@ export async function updateFeedSettingsForUser(
 }
 
 /**
- * @param tx
- * @param userId
- * @param normalizedUrl
+ * Process the find existing feed source.
+ * @param tx - The tx.
+ * @param userId - The r id.
+ * @param normalizedUrl - The d url.
+ * @returns The find existing feed source.
  */
 async function findExistingFeedSource(
   tx: FeedTransaction,
@@ -304,10 +322,12 @@ async function findExistingFeedSource(
 }
 
 /**
- * @param tx
- * @param userId
- * @param name
- * @param normalizedUrl
+ * Process the upsert feed source.
+ * @param tx - The tx.
+ * @param userId - The r id.
+ * @param name - The name.
+ * @param normalizedUrl - The d url.
+ * @returns The upsert feed source.
  */
 async function upsertFeedSource(
   tx: FeedTransaction,

@@ -9,10 +9,10 @@ export interface ArticleRecordLike {
 }
 
 /**
- * Deduplicate article-like records by their normalized link with a caller-owned
- * replacement policy.
- * @param records
- * @param shouldReplace
+ * Process the dedupe article records.
+ * @param records - The records.
+ * @param shouldReplace - Whether should replace.
+ * @returns The dedupe article records.
  */
 export function dedupeArticleRecords<T extends ArticleRecordLike>(
   records: T[],
@@ -42,8 +42,9 @@ export function dedupeArticleRecords<T extends ArticleRecordLike>(
 }
 
 /**
- * Normalize article-like links so every caller deduplicates the same key space.
- * @param record
+ * Return the normalized article record key.
+ * @param record - The record.
+ * @returns The normalized article record key.
  */
 export function getNormalizedArticleRecordKey(
   record: Pick<ArticleRecordLike, "link">,
@@ -52,9 +53,10 @@ export function getNormalizedArticleRecordKey(
 }
 
 /**
- * Prefer newer records first, then prefer richer content for identical dates.
- * @param candidate
- * @param current
+ * Process the prefer newer article record.
+ * @param candidate - The candidate.
+ * @param current - The current.
+ * @returns Whether prefer newer article record.
  */
 export function preferNewerArticleRecord<T extends ArticleRecordLike>(
   candidate: T,
@@ -71,9 +73,10 @@ export function preferNewerArticleRecord<T extends ArticleRecordLike>(
 }
 
 /**
- * Prefer richer records first, then prefer newer timestamps as the tiebreaker.
- * @param candidate
- * @param current
+ * Process the prefer richer article record.
+ * @param candidate - The candidate.
+ * @param current - The current.
+ * @returns Whether prefer richer article record.
  */
 export function preferRicherArticleRecord<T extends ArticleRecordLike>(
   candidate: T,
@@ -89,10 +92,10 @@ export function preferRicherArticleRecord<T extends ArticleRecordLike>(
 }
 
 /**
- * Sort article-like records newest-first so callers share one publication-date
- * ordering rule after deduplication.
- * @param a
- * @param b
+ * Process the sort article records by publication date desc.
+ * @param a - The a.
+ * @param b - The b.
+ * @returns The sort article records by publication date desc.
  */
 export function sortArticleRecordsByPublicationDateDesc<
   T extends Pick<ArticleRecordLike, "publicationDate">,
@@ -101,7 +104,9 @@ export function sortArticleRecordsByPublicationDateDesc<
 }
 
 /**
- * @param record
+ * Return the article record timestamp.
+ * @param record - The record.
+ * @returns The article record timestamp.
  */
 function getArticleRecordTimestamp(
   record: Pick<ArticleRecordLike, "publicationDate">,

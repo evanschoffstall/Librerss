@@ -17,15 +17,11 @@ export type { ArticleRow, RankedRow } from "./batch-types";
 export { buildRefreshPlan, executeParallelRefreshes } from "./refresh-plans";
 
 /**
- * Verifies ownership of the requested URLs, loads (or creates) their Feed
- * records, and returns the allowed URL list with the feed-by-URL map.
- * Returns null when no URLs are owned by the user.
- *
- * Uses a single JOIN query to resolve both ownership and feed records in one
- * DB round-trip (previously two separate queries).
- * @param db
- * @param userId
- * @param feedUrls
+ * Resolve the authorized feed records.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedUrls - The feed urls.
+ * @returns The authorized feed records.
  */
 export async function resolveAuthorizedFeedRecords(
   db: ReturnType<DbMod["getDb"]>,
@@ -40,10 +36,11 @@ export async function resolveAuthorizedFeedRecords(
 }
 
 /**
- * @param db
- * @param joinedRows
- * @param missingUrls
- * @param feedByUrl
+ * Process the insert missing feed records.
+ * @param db - The db.
+ * @param joinedRows - The joined rows.
+ * @param missingUrls - The missing urls.
+ * @param feedByUrl - The feed by url.
  */
 async function insertMissingFeedRecords(
   db: ReturnType<DbMod["getDb"]>,
@@ -77,9 +74,11 @@ async function insertMissingFeedRecords(
 }
 
 /**
- * @param db
- * @param userId
- * @param feedUrls
+ * Process the list authorized feed rows.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedUrls - The feed urls.
+ * @returns The list authorized feed rows.
  */
 async function listAuthorizedFeedRows(
   db: ReturnType<DbMod["getDb"]>,
@@ -108,8 +107,10 @@ async function listAuthorizedFeedRows(
 }
 
 /**
- * @param feedUrls
- * @param joinedRows
+ * Resolve the allowed urls.
+ * @param feedUrls - The feed urls.
+ * @param joinedRows - The joined rows.
+ * @returns The allowed urls.
  */
 function resolveAllowedUrls(
   feedUrls: string[],
@@ -120,9 +121,11 @@ function resolveAllowedUrls(
 }
 
 /**
- * @param db
- * @param feedUrls
- * @param joinedRows
+ * Resolve the authorized feed record result.
+ * @param db - The db.
+ * @param feedUrls - The feed urls.
+ * @param joinedRows - The joined rows.
+ * @returns The authorized feed record result.
  */
 async function resolveAuthorizedFeedRecordResult(
   db: ReturnType<DbMod["getDb"]>,
@@ -155,8 +158,9 @@ async function resolveAuthorizedFeedRecordResult(
 // ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
 
 /**
- * @param joinedRows
- * @param feedByUrl
+ * Process the set existing feed records.
+ * @param joinedRows - The joined rows.
+ * @param feedByUrl - The feed by url.
  */
 function setExistingFeedRecords(
   joinedRows: {

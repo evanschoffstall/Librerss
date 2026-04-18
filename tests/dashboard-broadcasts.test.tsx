@@ -10,22 +10,22 @@ function collectDashboardBroadcasts() {
   const titles: string[] = [];
   const target = {
     dispatchEvent(event: Event) {
-    if (event.type === DASHBOARD_EVENTS.SHELL_LOADING) {
-      shellLoadingStates.push(
-        (event as CustomEvent<{ loading: boolean }>).detail.loading,
-      );
-    }
-    if (event.type === DASHBOARD_EVENTS.TITLE_CHANGE) {
-      titles.push((event as CustomEvent<{ title: string }>).detail.title);
-    }
-    if (event.type === DASHBOARD_EVENTS.SEARCH_SYNC) {
-      terms.push((event as CustomEvent<{ term: string }>).detail.term);
-    }
-    if (event.type === DASHBOARD_EVENTS.SEARCH_PENDING) {
-      pendingStates.push(
-        (event as CustomEvent<{ pending: boolean }>).detail.pending,
-      );
-    }
+      if (event.type === DASHBOARD_EVENTS.SHELL_LOADING) {
+        shellLoadingStates.push(
+          (event as CustomEvent<{ loading: boolean }>).detail.loading,
+        );
+      }
+      if (event.type === DASHBOARD_EVENTS.TITLE_CHANGE) {
+        titles.push((event as CustomEvent<{ title: string }>).detail.title);
+      }
+      if (event.type === DASHBOARD_EVENTS.SEARCH_SYNC) {
+        terms.push((event as CustomEvent<{ term: string }>).detail.term);
+      }
+      if (event.type === DASHBOARD_EVENTS.SEARCH_PENDING) {
+        pendingStates.push(
+          (event as CustomEvent<{ pending: boolean }>).detail.pending,
+        );
+      }
 
       return true;
     },

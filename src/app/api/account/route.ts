@@ -7,7 +7,9 @@ import { deleteAccount, serverApi } from "@/lib/server";
 export const dynamic = "force-dynamic";
 
 /**
- * @param request
+ * Render the delete component.
+ * @param request - The request.
+ * @returns The rendered delete component.
  */
 export async function DELETE(request: NextRequest) {
   try {

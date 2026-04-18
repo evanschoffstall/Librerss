@@ -33,24 +33,20 @@ const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 
 export const FeedListRow = memo(
   /**
-   * @param root0
-   * @param root0.articleKey
-   * @param root0.children
-   * @param root0.hasTrailingGap
-   * @param root0.isEntering
-   * @param root0.isExpanded
-   * @param root0.onEnteringDone
-   * @param root0.removalAnimationMode
+   * Render the feed list row component.
+   * @param props - The component props.
+   * @returns The rendered feed list row component.
    */
-  function FeedListRow({
-    articleKey,
-    children,
-    hasTrailingGap,
-    isEntering = false,
-    isExpanded = false,
-    onEnteringDone,
-    removalAnimationMode,
-  }: FeedListRowProps) {
+  function FeedListRow(props: FeedListRowProps) {
+    const {
+      articleKey,
+      children,
+      hasTrailingGap,
+      isEntering = false,
+      isExpanded = false,
+      onEnteringDone,
+      removalAnimationMode,
+    } = props;
     const outerRef = useRef<HTMLDivElement | null>(null);
     const innerRef = useRef<HTMLDivElement | null>(null);
     const bodyRef = useRef<HTMLDivElement | null>(null);

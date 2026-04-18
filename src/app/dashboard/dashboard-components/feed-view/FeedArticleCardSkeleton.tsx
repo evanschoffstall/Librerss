@@ -4,16 +4,17 @@ import { type FeedArticleSkeletonDescriptor } from "@/app/dashboard/dashboard-co
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-/**
- * Collapsed article-card shell that preserves the real row footprint during loading.
- * @param root0
- * @param root0.descriptor
- */
-export function FeedArticleCardSkeleton({
-  descriptor,
-}: {
+interface FeedArticleCardSkeletonProps {
   descriptor: FeedArticleSkeletonDescriptor;
-}) {
+}
+
+/**
+ * Render the feed article card skeleton component.
+ * @param props - The component props.
+ * @returns The rendered feed article card skeleton component.
+ */
+export function FeedArticleCardSkeleton(props: FeedArticleCardSkeletonProps) {
+  const { descriptor } = props;
   return (
     <div
       className="relative overflow-hidden rounded-xl"

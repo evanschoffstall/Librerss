@@ -45,7 +45,8 @@ import { FeedListSkeleton, FeedLoadMoreSkeletonRows } from "./FeedListSkeleton";
 
 const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
 /**
- *
+ * Process the empty pre expand viewport snapshot.
+ * @returns The empty pre expand viewport snapshot.
  */
 const EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT = () => null;
 
@@ -73,8 +74,9 @@ const isInvertedScrollFeatureEnabledInRuntime =
   process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
 /**
- * @param viewport
- * @param top
+ * Process the sync viewport scroll top.
+ * @param viewport - The viewport.
+ * @param top - The top.
  */
 function syncViewportScrollTop(viewport: HTMLElement, top: number) {
   if (typeof viewport.scrollTo === "function") {
@@ -91,68 +93,42 @@ function syncViewportScrollTop(viewport: HTMLElement, top: number) {
 
 export const FeedList = memo(
   /**
-   * @param root0
-   * @param root0.animatingInArticleKeys
-   * @param root0.articleFilter
-   * @param root0.articlesPerPage
-   * @param root0.canLoadMoreFromServer
-   * @param root0.collapsingArticles
-   * @param root0.expandedArticleKey
-   * @param root0.feedViewKey
-   * @param root0.filteredFeed
-   * @param root0.getPreExpandViewportSnapshot
-   * @param root0.hasConfiguredFeeds
-   * @param root0.hydratedArticleLinks
-   * @param root0.hydratingArticleLinks
-   * @param root0.isCollapseScrollRestoreActive
-   * @param root0.isInitialLoading
-   * @param root0.isLoadingMore
-   * @param root0.isRefreshing
-   * @param root0.loadingMoreArticleCount
-   * @param root0.onEnteringDone
-   * @param root0.onExpandedSwipeRead
-   * @param root0.onLoadMore
-   * @param root0.onPrepareExpand
-   * @param root0.onSwipeRead
-   * @param root0.onToggle
-   * @param root0.onToggleRead
-   * @param root0.onToggleStarred
-   * @param root0.refreshEpoch
-   * @param root0.searchTerm
-   * @param root0.showFavicons
-   * @param root0.updatingArticleState
+   * Render the feed list component.
+   * @param props - The component props.
+   * @returns The rendered feed list component.
    */
-  function FeedList({
-    animatingInArticleKeys,
-    articleFilter,
-    articlesPerPage,
-    canLoadMoreFromServer: canLoadMoreFromServerProp,
-    collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
-    expandedArticleKey,
-    feedViewKey,
-    filteredFeed,
-    getPreExpandViewportSnapshot,
-    hasConfiguredFeeds,
-    hydratedArticleLinks,
-    hydratingArticleLinks,
-    isCollapseScrollRestoreActive = false,
-    isInitialLoading,
-    isLoadingMore = false,
-    isRefreshing: _isRefreshing,
-    loadingMoreArticleCount,
-    onEnteringDone,
-    onExpandedSwipeRead,
-    onLoadMore,
-    onPrepareExpand,
-    onSwipeRead,
-    onToggle,
-    onToggleRead,
-    onToggleStarred,
-    refreshEpoch = 0,
-    searchTerm,
-    showFavicons,
-    updatingArticleState,
-  }: FeedListProps) {
+  function FeedList(props: FeedListProps) {
+    const {
+      animatingInArticleKeys,
+      articleFilter,
+      articlesPerPage,
+      canLoadMoreFromServer: canLoadMoreFromServerProp,
+      collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
+      expandedArticleKey,
+      feedViewKey,
+      filteredFeed,
+      getPreExpandViewportSnapshot,
+      hasConfiguredFeeds,
+      hydratedArticleLinks,
+      hydratingArticleLinks,
+      isCollapseScrollRestoreActive = false,
+      isInitialLoading,
+      isLoadingMore = false,
+      isRefreshing: _isRefreshing,
+      loadingMoreArticleCount,
+      onEnteringDone,
+      onExpandedSwipeRead,
+      onLoadMore,
+      onPrepareExpand,
+      onSwipeRead,
+      onToggle,
+      onToggleRead,
+      onToggleStarred,
+      refreshEpoch = 0,
+      searchTerm,
+      showFavicons,
+      updatingArticleState,
+    } = props;
     const isBelowDesktop = useIsBelowDesktop();
     const [mobileInvertedScroll] = useLocalStorage(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
@@ -223,7 +199,7 @@ export const FeedList = memo(
     const showLoadMoreSkeletons =
       isServerLoadSkeletonActive || isCachedPageRevealing;
     const loadMoreSkeletonCount = showLoadMoreSkeletons
-      ? loadingMoreArticleCount || articlesPerPage
+      ? (loadingMoreArticleCount ?? articlesPerPage)
       : 0;
 
     const feedData = useMemo(

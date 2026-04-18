@@ -30,7 +30,9 @@ interface CollapsingArticleState {
 }
 
 /**
- * @param mode
+ * Return the article removal animation duration.
+ * @param mode - The mode.
+ * @returns The article removal animation duration.
  */
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,

@@ -39,7 +39,9 @@ const LANDING_GLOW_TRANSITION = {
 };
 
 /**
- * @param delay
+ * Return the landing reveal transition.
+ * @param delay - The delay.
+ * @returns The landing reveal transition.
  */
 function getLandingRevealTransition(delay: number) {
   return {
@@ -49,7 +51,8 @@ function getLandingRevealTransition(delay: number) {
 }
 
 /**
- *
+ * Render the landing view component.
+ * @returns The rendered landing view component.
  */
 const LandingView = () => {
   return (
@@ -72,8 +75,16 @@ const LandingView = () => {
   );
 };
 
+interface LandingFeatureCardProps {
+  delay: number;
+  desc: string;
+  icon: (typeof features)[number]["icon"];
+  label: string;
+}
+
 /**
- * Renders the public marketing landing page and legal footer links.
+ * Render the landing component.
+ * @returns The rendered landing component.
  */
 export default function Landing() {
   return (
@@ -155,9 +166,9 @@ export default function Landing() {
     </main>
   );
 }
-
 /**
- *
+ * Render the landing background component.
+ * @returns The rendered landing background component.
  */
 function LandingBackground() {
   return (
@@ -210,23 +221,12 @@ function LandingBackground() {
 }
 
 /**
- * @param root0
- * @param root0.delay
- * @param root0.desc
- * @param root0.icon
- * @param root0.label
+ * Render the landing feature card component.
+ * @param props - The component props.
+ * @returns The rendered landing feature card component.
  */
-function LandingFeatureCard({
-  delay,
-  desc,
-  icon: Icon,
-  label,
-}: {
-  delay: number;
-  desc: string;
-  icon: (typeof features)[number]["icon"];
-  label: string;
-}) {
+function LandingFeatureCard(props: LandingFeatureCardProps) {
+  const { delay, desc, icon: Icon, label } = props;
   return (
     <motion.div
       animate="visible"
@@ -290,7 +290,8 @@ function LandingFeatureCard({
 }
 
 /**
- *
+ * Render the landing feature grid component.
+ * @returns The rendered landing feature grid component.
  */
 function LandingFeatureGrid() {
   return (
@@ -314,7 +315,8 @@ function LandingFeatureGrid() {
 }
 
 /**
- *
+ * Render the landing hero component.
+ * @returns The rendered landing hero component.
  */
 function LandingHero() {
   return (
@@ -364,7 +366,8 @@ function LandingHero() {
 }
 
 /**
- *
+ * Render the landing hero call to action component.
+ * @returns The rendered landing hero call to action component.
  */
 function LandingHeroCallToAction() {
   return (

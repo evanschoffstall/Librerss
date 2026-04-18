@@ -12,30 +12,24 @@ interface UseInvertedExpansionScrollLockEventsOptions extends InvertedExpansionS
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.captureInvertedExpansionViewportSnapshot
- * @param root0.invertedExpansionScrollLockRef
- * @param root0.isInvertedScrollRef
- * @param root0.onClaimInvertedScrollOwnership
- * @param root0.prepareInvertedUnreadRemovalScrollLock
- * @param root0.scrollViewport
- * @param root0.startInvertedExpansionScrollLock
- * @param root0.syncInvertedExpansionScrollLock
- * @param root0.viewportSnapshotRef
+ * Manage the inverted expansion scroll lock events.
+ * @param options - The options used to manage the inverted expansion scroll lock events.
  */
-export function useInvertedExpansionScrollLockEvents({
-  articleFilter,
-  captureInvertedExpansionViewportSnapshot,
-  invertedExpansionScrollLockRef,
-  isInvertedScrollRef,
-  onClaimInvertedScrollOwnership,
-  prepareInvertedUnreadRemovalScrollLock,
-  scrollViewport,
-  startInvertedExpansionScrollLock,
-  syncInvertedExpansionScrollLock,
-  viewportSnapshotRef,
-}: UseInvertedExpansionScrollLockEventsOptions) {
+export function useInvertedExpansionScrollLockEvents(
+  options: UseInvertedExpansionScrollLockEventsOptions,
+) {
+  const {
+    articleFilter,
+    captureInvertedExpansionViewportSnapshot,
+    invertedExpansionScrollLockRef,
+    isInvertedScrollRef,
+    onClaimInvertedScrollOwnership,
+    prepareInvertedUnreadRemovalScrollLock,
+    scrollViewport,
+    startInvertedExpansionScrollLock,
+    syncInvertedExpansionScrollLock,
+    viewportSnapshotRef,
+  } = options;
   useInvertedExpansionScrollLockReadEvents({
     articleFilter,
     isInvertedScrollRef,

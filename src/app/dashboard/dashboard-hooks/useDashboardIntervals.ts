@@ -40,22 +40,16 @@ interface UseDashboardIntervalsOptions {
 }
 
 /**
- * Owns the dashboard's periodic relative-time updates and background refresh cadence.
- *
- * React 19 effect events let the intervals read the latest refresh callback
- * without rebuilding timers whenever the selected feed context changes.
- * @param root0
- * @param root0.autoRefreshFeedList
- * @param root0.autoRefreshIntervalMinutes
- * @param root0.onStaleTabResume
- * @param root0.setRelativeRefreshTick
+ * Manage the dashboard intervals.
+ * @param options - The options used to manage the dashboard intervals.
  */
-export function useDashboardIntervals({
-  autoRefreshFeedList,
-  autoRefreshIntervalMinutes,
-  onStaleTabResume,
-  setRelativeRefreshTick,
-}: UseDashboardIntervalsOptions) {
+export function useDashboardIntervals(options: UseDashboardIntervalsOptions) {
+  const {
+    autoRefreshFeedList,
+    autoRefreshIntervalMinutes,
+    onStaleTabResume,
+    setRelativeRefreshTick,
+  } = options;
   useRelativeRefreshTicker(setRelativeRefreshTick);
 
   const lastFiredAtRef = useRef(Date.now());
@@ -86,7 +80,7 @@ export function useDashboardIntervals({
     let resumeTimerId: ReturnType<typeof setTimeout> | undefined;
 
     /**
-     *
+     * Process the handle visibility change.
      */
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -132,7 +126,8 @@ export function useDashboardIntervals({
 }
 
 /**
- * @param setRelativeRefreshTick
+ * Manage the relative refresh ticker.
+ * @param setRelativeRefreshTick - The set relative refresh tick.
  */
 function useRelativeRefreshTicker(
   setRelativeRefreshTick: Dispatch<SetStateAction<number>>,

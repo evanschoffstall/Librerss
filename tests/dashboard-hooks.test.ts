@@ -492,7 +492,8 @@ describe("useFeedLoader", () => {
       feedRef.current = feedState;
     });
 
-    queryClient.cancelQueries = cancelQueriesMock as typeof queryClient.cancelQueries;
+    queryClient.cancelQueries =
+      cancelQueriesMock as typeof queryClient.cancelQueries;
 
     FeedService.getFeedsBatch = mock(async (urls: string[]) => {
       await new Promise((resolve) => setTimeout(resolve, 5));
@@ -597,10 +598,13 @@ describe("useFeedLoader", () => {
     });
 
     // Simulate a 504 Gateway Timeout: the API call rejects with a non-cancellation error.
-    const gatewayTimeoutError = Object.assign(new Error("Request failed with status code 504"), {
-      name: "ApiError",
-      status: 504,
-    });
+    const gatewayTimeoutError = Object.assign(
+      new Error("Request failed with status code 504"),
+      {
+        name: "ApiError",
+        status: 504,
+      },
+    );
     FeedService.getFeedsBatch = mock(async () => {
       throw gatewayTimeoutError;
     }) as typeof FeedService.getFeedsBatch;

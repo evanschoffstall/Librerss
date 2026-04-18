@@ -79,11 +79,11 @@ interface StageOptionsBase {
 }
 
 /**
- * Fetch article HTML through the HTTPCloak transport only, with SSRF-aware
- * redirect validation and bounded retry semantics for retryable responses.
- * @param url
- * @param deps
- * @param options
+ * Process the fetch html.
+ * @param url - The url.
+ * @param deps - The deps.
+ * @param options - The options used to process the fetch html.
+ * @returns The fetch html.
  */
 export async function fetchHtml(
   url: string,
@@ -120,8 +120,10 @@ export async function fetchHtml(
 }
 
 /**
- * @param error
- * @param fallbackMessage
+ * Return the as error.
+ * @param error - The error.
+ * @param fallbackMessage - The fallback message.
+ * @returns The as error.
  */
 function asError(error: unknown, fallbackMessage: string): Error {
   if (error instanceof Error) {
@@ -136,9 +138,11 @@ function asError(error: unknown, fallbackMessage: string): Error {
 }
 
 /**
- * @param options
- * @param attempt
- * @param extra
+ * Build the stage log context.
+ * @param options - The options used to build the stage log context.
+ * @param attempt - The attempt.
+ * @param extra - The extra.
+ * @returns The stage log context.
  */
 function buildStageLogContext(
   options: StageOptionsBase,
@@ -159,8 +163,10 @@ function buildStageLogContext(
 }
 
 /**
- * @param provider
- * @param statusCode
+ * Create the compatibility error.
+ * @param provider - The provider.
+ * @param statusCode - The status code.
+ * @returns The compatibility error.
  */
 function createCompatibilityError(provider: string, statusCode: number): Error {
   return new Error(
@@ -169,9 +175,11 @@ function createCompatibilityError(provider: string, statusCode: number): Error {
 }
 
 /**
- * @param options
- * @param attempt
- * @param result
+ * Process the finish stage success.
+ * @param options - The options used to process the finish stage success.
+ * @param attempt - The attempt.
+ * @param result - The result.
+ * @returns The finish stage success.
  */
 function finishStageSuccess(
   options: StageOptionsBase,
@@ -193,11 +201,13 @@ function finishStageSuccess(
 }
 
 /**
- * @param options
- * @param attempt
- * @param retryable
- * @param error
- * @param extra
+ * Process the handle stage failure.
+ * @param options - The options used to process the handle stage failure.
+ * @param attempt - The attempt.
+ * @param retryable - The retryable.
+ * @param error - The error.
+ * @param extra - The extra.
+ * @returns Whether handle stage failure.
  */
 function handleStageFailure(
   options: StageOptionsBase,
@@ -221,7 +231,9 @@ function handleStageFailure(
 }
 
 /**
- * @param error
+ * Return whether is url validation error.
+ * @param error - The error.
+ * @returns Whether is url validation error.
  */
 function isUrlValidationError(error: unknown): boolean {
   return (
@@ -232,9 +244,10 @@ function isUrlValidationError(error: unknown): boolean {
 }
 
 /**
- * @param label
- * @param willRetry
- * @param context
+ * Process the log stage failure.
+ * @param label - The label.
+ * @param willRetry - The will retry.
+ * @param context - The context used to process the log stage failure.
  */
 function logStageFailure(
   label: string,
@@ -248,8 +261,9 @@ function logStageFailure(
 }
 
 /**
- * @param label
- * @param context
+ * Process the log stage success.
+ * @param label - The label.
+ * @param context - The context used to process the log stage success.
  */
 function logStageSuccess(label: string, context: StageLogContext): void {
   logger.info(
@@ -259,7 +273,9 @@ function logStageSuccess(label: string, context: StageLogContext): void {
 }
 
 /**
- * @param error
+ * Resolve the compatibility outcome.
+ * @param error - The error.
+ * @returns The compatibility outcome.
  */
 function resolveCompatibilityOutcome(error: unknown): {
   httpCloakUpstreamError: HttpCloakUpstreamError | null;
@@ -297,8 +313,10 @@ function resolveCompatibilityOutcome(error: unknown): {
 }
 
 /**
- * @param deps
- * @param options
+ * Resolve the fetch html options.
+ * @param deps - The deps.
+ * @param options - The options used to resolve the fetch html options.
+ * @returns The fetch html options.
  */
 function resolveFetchHtmlOptions(
   deps: FetchHtmlDeps | undefined,
@@ -317,7 +335,9 @@ function resolveFetchHtmlOptions(
   };
 }
 /**
- * @param proxyUrl
+ * Resolve the proxy mode.
+ * @param proxyUrl - The proxy url.
+ * @returns The proxy mode.
  */
 function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
   if (proxyUrl) {
@@ -328,8 +348,10 @@ function resolveProxyMode(proxyUrl: string | undefined): ProxyMode {
 }
 
 /**
- * @param options
- * @param compatibility
+ * Resolve the stage failure extras.
+ * @param options - The options used to resolve the stage failure extras.
+ * @param compatibility - The compatibility.
+ * @returns The stage failure extras.
  */
 function resolveStageFailureExtras(
   options: HttpCloakStageOptions,
@@ -356,9 +378,9 @@ function resolveStageFailureExtras(
 }
 
 /**
- * Execute the shared HTTPCloak transport with bounded retries for retryable
- * upstream responses.
- * @param options
+ * Process the run http cloak stage.
+ * @param options - The options used to process the run http cloak stage.
+ * @returns The run http cloak stage.
  */
 async function runHttpCloakStage(
   options: HttpCloakStageOptions,
@@ -366,7 +388,9 @@ async function runHttpCloakStage(
   let lastError: unknown;
   let preferredError: Error | undefined;
   /**
-   * @param attempt
+   * Return the delay ms.
+   * @param attempt - The attempt.
+   * @returns The delay ms.
    */
   const getDelayMs = (attempt: number) =>
     800 * attempt + Math.floor(Math.random() * 400);

@@ -23,13 +23,9 @@ export interface ResolvedStoredProxyPassword {
 }
 
 /**
- * Encrypts a proxy password for at-rest storage in the user record.
- *
- * The encryption key is derived from `PROXY_CREDENTIAL_ENCRYPTION_KEY` when it
- * is configured, otherwise from `DATABASE_URL`. That keeps local and hosted
- * deployments working immediately while still allowing operators to provide a
- * dedicated secret for credential storage.
- * @param password
+ * Process the encrypt stored proxy password.
+ * @param password - The password.
+ * @returns The encrypt stored proxy password.
  */
 export function encryptStoredProxyPassword(password: string): string {
   const iv = randomBytes(CIPHER_IV_BYTES);
@@ -56,10 +52,10 @@ export function encryptStoredProxyPassword(password: string): string {
 }
 
 /**
- * Materializes the stored proxy password and optionally persists an encrypted
- * replacement when the existing value is still plaintext.
- * @param storedPassword
- * @param persistNormalizedPassword
+ * Process the materialize stored proxy password.
+ * @param storedPassword - The stored password.
+ * @param persistNormalizedPassword - The callback that persist normalized password.
+ * @returns The materialize stored proxy password.
  */
 export async function materializeStoredProxyPassword(
   storedPassword: null | string,
@@ -77,11 +73,9 @@ export async function materializeStoredProxyPassword(
 }
 
 /**
- * Normalizes the stored proxy password into a usable plaintext value.
- *
- * Existing plaintext rows are upgraded to encrypted storage on first use by
- * returning `needsWriteback = true` along with the normalized ciphertext.
- * @param storedPassword
+ * Resolve the stored proxy password.
+ * @param storedPassword - The stored password.
+ * @returns The stored proxy password.
  */
 export function resolveStoredProxyPassword(
   storedPassword: null | string,
@@ -119,9 +113,9 @@ export function resolveStoredProxyPassword(
 }
 
 /**
- * Decrypts an encrypted proxy password envelope previously produced by
- * {@link encryptStoredProxyPassword}.
- * @param encryptedPassword
+ * Process the decrypt stored proxy password.
+ * @param encryptedPassword - The encrypted password.
+ * @returns The decrypt stored proxy password.
  */
 function decryptStoredProxyPassword(encryptedPassword: string): string {
   const [version, ivToken, authTagToken, cipherTextToken, ...rest] =
@@ -154,7 +148,8 @@ function decryptStoredProxyPassword(encryptedPassword: string): string {
 }
 
 /**
- * Resolves the secret used to derive the AES key for proxy password storage.
+ * Return the proxy password encryption key.
+ * @returns The proxy password encryption key.
  */
 function getProxyPasswordEncryptionKey(): Buffer {
   const rawConfiguredSecret =

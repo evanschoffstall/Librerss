@@ -6,26 +6,22 @@ import { readPreparedArticleKey } from "@/app/dashboard/dashboard-components/fee
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
 /**
- * @param root0
- * @param root0.captureInvertedExpansionViewportSnapshot
- * @param root0.invertedExpansionScrollLockRef
- * @param root0.isInvertedScrollRef
- * @param root0.onClaimInvertedScrollOwnership
- * @param root0.scrollViewport
- * @param root0.startInvertedExpansionScrollLock
- * @param root0.syncInvertedExpansionScrollLock
- * @param root0.viewportSnapshotRef
+ * Manage the inverted expansion scroll lock transition events.
+ * @param options - The options used to manage the inverted expansion scroll lock transition events.
  */
-export function useInvertedExpansionScrollLockTransitionEvents({
-  captureInvertedExpansionViewportSnapshot,
-  invertedExpansionScrollLockRef,
-  isInvertedScrollRef,
-  onClaimInvertedScrollOwnership,
-  scrollViewport,
-  startInvertedExpansionScrollLock,
-  syncInvertedExpansionScrollLock,
-  viewportSnapshotRef,
-}: InvertedExpansionScrollLockTransitionOptions) {
+export function useInvertedExpansionScrollLockTransitionEvents(
+  options: InvertedExpansionScrollLockTransitionOptions,
+) {
+  const {
+    captureInvertedExpansionViewportSnapshot,
+    invertedExpansionScrollLockRef,
+    isInvertedScrollRef,
+    onClaimInvertedScrollOwnership,
+    scrollViewport,
+    startInvertedExpansionScrollLock,
+    syncInvertedExpansionScrollLock,
+    viewportSnapshotRef,
+  } = options;
   useEffect(() => {
     return bindInvertedExpansionScrollLockTransitionEvents({
       captureInvertedExpansionViewportSnapshot,
@@ -50,7 +46,9 @@ export function useInvertedExpansionScrollLockTransitionEvents({
 }
 
 /**
- * @param options
+ * Process the bind inverted expansion scroll lock transition events.
+ * @param options - The options used to process the bind inverted expansion scroll lock transition events.
+ * @returns The bind inverted expansion scroll lock transition events.
  */
 function bindInvertedExpansionScrollLockTransitionEvents(
   options: InvertedExpansionScrollLockTransitionOptions,
@@ -94,7 +92,9 @@ function bindInvertedExpansionScrollLockTransitionEvents(
 }
 
 /**
- * @param options
+ * Create the collapse settled handler.
+ * @param options - The options used to create the collapse settled handler.
+ * @returns The collapse settled handler.
  */
 function createCollapseSettledHandler(
   options: InvertedExpansionScrollLockTransitionOptions,
@@ -111,7 +111,9 @@ function createCollapseSettledHandler(
 }
 
 /**
- * @param options
+ * Create the expand prepared handler.
+ * @param options - The options used to create the expand prepared handler.
+ * @returns The expand prepared handler.
  */
 function createExpandPreparedHandler(
   options: InvertedExpansionScrollLockTransitionOptions,
@@ -140,7 +142,9 @@ function createExpandPreparedHandler(
 }
 
 /**
- * @param options
+ * Create the expand settled handler.
+ * @param options - The options used to create the expand settled handler.
+ * @returns The expand settled handler.
  */
 function createExpandSettledHandler(
   options: InvertedExpansionScrollLockTransitionOptions,

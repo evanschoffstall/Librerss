@@ -27,8 +27,10 @@ interface ArticlesRouteDeps {
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
  */
 export async function GET(
   request: NextRequest,
@@ -57,8 +59,10 @@ export async function GET(
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -95,7 +99,9 @@ export async function POST(
 }
 
 /**
- * @param payload
+ * Parse the create article dates.
+ * @param payload - The payload.
+ * @returns The create article dates.
  */
 function parseCreateArticleDates(
   payload: Record<string, unknown>,
@@ -118,7 +124,9 @@ function parseCreateArticleDates(
 }
 
 /**
- * @param payload
+ * Parse the create article payload.
+ * @param payload - The payload.
+ * @returns The create article payload.
  */
 function parseCreateArticlePayload(
   payload: Record<string, unknown>,

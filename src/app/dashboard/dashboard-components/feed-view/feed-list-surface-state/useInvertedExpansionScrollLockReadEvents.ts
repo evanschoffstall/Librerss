@@ -18,20 +18,19 @@ interface UseInvertedExpansionScrollLockReadEventsOptions {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.isInvertedScrollRef
- * @param root0.onClaimInvertedScrollOwnership
- * @param root0.prepareInvertedUnreadRemovalScrollLock
- * @param root0.scrollViewport
+ * Manage the inverted expansion scroll lock read events.
+ * @param options - The options used to manage the inverted expansion scroll lock read events.
  */
-export function useInvertedExpansionScrollLockReadEvents({
-  articleFilter,
-  isInvertedScrollRef,
-  onClaimInvertedScrollOwnership,
-  prepareInvertedUnreadRemovalScrollLock,
-  scrollViewport,
-}: UseInvertedExpansionScrollLockReadEventsOptions) {
+export function useInvertedExpansionScrollLockReadEvents(
+  options: UseInvertedExpansionScrollLockReadEventsOptions,
+) {
+  const {
+    articleFilter,
+    isInvertedScrollRef,
+    onClaimInvertedScrollOwnership,
+    prepareInvertedUnreadRemovalScrollLock,
+    scrollViewport,
+  } = options;
   useEffect(() => {
     return bindInvertedExpansionScrollLockReadEvents({
       articleFilter,
@@ -50,7 +49,9 @@ export function useInvertedExpansionScrollLockReadEvents({
 }
 
 /**
- * @param options
+ * Process the bind inverted expansion scroll lock read events.
+ * @param options - The options used to process the bind inverted expansion scroll lock read events.
+ * @returns The bind inverted expansion scroll lock read events.
  */
 function bindInvertedExpansionScrollLockReadEvents(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
@@ -105,7 +106,9 @@ function bindInvertedExpansionScrollLockReadEvents(
 }
 
 /**
- * @param options
+ * Create the article read toggle start handler.
+ * @param options - The options used to create the article read toggle start handler.
+ * @returns The article read toggle start handler.
  */
 function createArticleReadToggleStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
@@ -131,7 +134,9 @@ function createArticleReadToggleStartHandler(
 }
 
 /**
- * @param options
+ * Create the mark all read start handler.
+ * @param options - The options used to create the mark all read start handler.
+ * @returns The mark all read start handler.
  */
 function createMarkAllReadStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
@@ -144,7 +149,9 @@ function createMarkAllReadStartHandler(
 }
 
 /**
- * @param options
+ * Create the read toggle intent handler.
+ * @param options - The options used to create the read toggle intent handler.
+ * @returns The read toggle intent handler.
  */
 function createReadToggleIntentHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,
@@ -175,7 +182,9 @@ function createReadToggleIntentHandler(
 }
 
 /**
- * @param options
+ * Create the viewport read start handler.
+ * @param options - The options used to create the viewport read start handler.
+ * @returns The viewport read start handler.
  */
 function createViewportReadStartHandler(
   options: UseInvertedExpansionScrollLockReadEventsOptions,

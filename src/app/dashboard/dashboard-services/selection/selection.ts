@@ -69,7 +69,8 @@ type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
 };
 
 /**
- * @param options
+ * Initialize the dashboard selection.
+ * @param options - The options used to initialize the dashboard selection.
  */
 export async function initializeDashboardSelection(
   options: InitializeDashboardSelectionOptions,
@@ -128,7 +129,8 @@ export async function initializeDashboardSelection(
 }
 
 /**
- * @param options
+ * Process the refresh current selection.
+ * @param options - The options used to process the refresh current selection.
  */
 export async function refreshCurrentSelection(
   options: RefreshCurrentSelectionOptions,

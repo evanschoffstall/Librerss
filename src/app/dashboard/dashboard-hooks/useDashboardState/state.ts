@@ -26,7 +26,8 @@ import { clientFeedCacheTtlMinutes } from "@/lib/config";
 import { useLocalStorage } from "@/lib/hooks";
 
 /**
- *
+ * Manage the dashboard state.
+ * @returns The dashboard state state and callbacks.
  */
 export function useDashboardState() {
   const persistentState = useDashboardPersistentState();
@@ -39,7 +40,9 @@ export function useDashboardState() {
 }
 
 /**
- * @param defaultAutoRefreshIntervalMinutes
+ * Manage the dashboard auto refresh state.
+ * @param defaultAutoRefreshIntervalMinutes - The default auto refresh interval minutes.
+ * @returns The dashboard auto refresh state state and callbacks.
  */
 function useDashboardAutoRefreshState(
   defaultAutoRefreshIntervalMinutes: number,
@@ -87,7 +90,8 @@ function useDashboardAutoRefreshState(
 }
 
 /**
- *
+ * Manage the dashboard persisted preferences.
+ * @returns The dashboard persisted preferences state and callbacks.
  */
 function useDashboardPersistedPreferences() {
   const [selectedCategory, setSelectedCategory] = useLocalStorage(
@@ -131,7 +135,8 @@ function useDashboardPersistedPreferences() {
 }
 
 /**
- *
+ * Manage the dashboard persistent state.
+ * @returns The dashboard persistent state state and callbacks.
  */
 function useDashboardPersistentState() {
   const defaultAutoRefreshIntervalMinutes =
@@ -148,7 +153,8 @@ function useDashboardPersistentState() {
 }
 
 /**
- *
+ * Manage the dashboard transient state.
+ * @returns The dashboard transient state state and callbacks.
  */
 function useDashboardTransientState() {
   const [feed, setFeed] = useState<Article[]>([]);

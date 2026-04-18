@@ -22,37 +22,49 @@ const ARTICLE_SURFACE_EASING_ARRAY: [number, number, number, number] = [
   0.25, 1, 0.5, 1,
 ];
 
+interface ArticleBodyMotionProps {
+  bodyInteractionProps: Pick<
+    React.ComponentProps<typeof motion.div>,
+    "onClick" | "onMouseDown" | "onPointerDown"
+  >;
+  bodyMeasureRef: ArticleCardContentProps["bodyMeasureRef"];
+  bodyTransitionMs: number;
+  collapsedPreview: string;
+  collapsedPreviewClassName: string;
+  expandedBodyContent: React.ReactNode;
+  phase: ArticleCardContentProps["phase"];
+  resolvedBodyHeight: number;
+  showPreviewLayer: boolean;
+  visuallyExpanded: boolean;
+}
+interface ArticleCollapsedPreviewProps {
+  bodyTransitionMs: number;
+  collapsedPreview: string;
+  collapsedPreviewClassName: string;
+  showPreviewLayer: boolean;
+}
+
 /**
- * @param root0
- * @param root0.bodyMeasureRef
- * @param root0.bodyTransitionMs
- * @param root0.collapsedPreview
- * @param root0.collapsedPreviewClassName
- * @param root0.contentGradientOverlayRef
- * @param root0.contentZoneRef
- * @param root0.expandedBodyContent
- * @param root0.gradientCls
- * @param root0.phase
- * @param root0.resolvedBodyHeight
- * @param root0.showPreviewLayer
- * @param root0.stopExpandedContentPropagation
- * @param root0.visuallyExpanded
+ * Render the article card content component.
+ * @param props - The component props.
+ * @returns The rendered article card content component.
  */
-export function ArticleCardContent({
-  bodyMeasureRef,
-  bodyTransitionMs,
-  collapsedPreview,
-  collapsedPreviewClassName,
-  contentGradientOverlayRef,
-  contentZoneRef,
-  expandedBodyContent,
-  gradientCls,
-  phase,
-  resolvedBodyHeight,
-  showPreviewLayer,
-  stopExpandedContentPropagation,
-  visuallyExpanded,
-}: ArticleCardContentProps) {
+export function ArticleCardContent(props: ArticleCardContentProps) {
+  const {
+    bodyMeasureRef,
+    bodyTransitionMs,
+    collapsedPreview,
+    collapsedPreviewClassName,
+    contentGradientOverlayRef,
+    contentZoneRef,
+    expandedBodyContent,
+    gradientCls,
+    phase,
+    resolvedBodyHeight,
+    showPreviewLayer,
+    stopExpandedContentPropagation,
+    visuallyExpanded,
+  } = props;
   const bodyInteractionProps = getExpandedBodyInteractionProps(
     visuallyExpanded,
     stopExpandedContentPropagation,
@@ -104,46 +116,24 @@ export function ArticleCardContent({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.bodyInteractionProps
- * @param root0.bodyMeasureRef
- * @param root0.bodyTransitionMs
- * @param root0.collapsedPreview
- * @param root0.collapsedPreviewClassName
- * @param root0.expandedBodyContent
- * @param root0.phase
- * @param root0.resolvedBodyHeight
- * @param root0.showPreviewLayer
- * @param root0.visuallyExpanded
+ * Render the article body motion component.
+ * @param props - The component props.
+ * @returns The rendered article body motion component.
  */
-function ArticleBodyMotion({
-  bodyInteractionProps,
-  bodyMeasureRef,
-  bodyTransitionMs,
-  collapsedPreview,
-  collapsedPreviewClassName,
-  expandedBodyContent,
-  phase,
-  resolvedBodyHeight,
-  showPreviewLayer,
-  visuallyExpanded,
-}: {
-  bodyInteractionProps: Pick<
-    React.ComponentProps<typeof motion.div>,
-    "onClick" | "onMouseDown" | "onPointerDown"
-  >;
-  bodyMeasureRef: ArticleCardContentProps["bodyMeasureRef"];
-  bodyTransitionMs: number;
-  collapsedPreview: string;
-  collapsedPreviewClassName: string;
-  expandedBodyContent: React.ReactNode;
-  phase: ArticleCardContentProps["phase"];
-  resolvedBodyHeight: number;
-  showPreviewLayer: boolean;
-  visuallyExpanded: boolean;
-}) {
+function ArticleBodyMotion(props: ArticleBodyMotionProps) {
+  const {
+    bodyInteractionProps,
+    bodyMeasureRef,
+    bodyTransitionMs,
+    collapsedPreview,
+    collapsedPreviewClassName,
+    expandedBodyContent,
+    phase,
+    resolvedBodyHeight,
+    showPreviewLayer,
+    visuallyExpanded,
+  } = props;
   return (
     <motion.div
       animate={{ height: resolvedBodyHeight }}
@@ -187,23 +177,17 @@ function ArticleBodyMotion({
 }
 
 /**
- * @param root0
- * @param root0.bodyTransitionMs
- * @param root0.collapsedPreview
- * @param root0.collapsedPreviewClassName
- * @param root0.showPreviewLayer
+ * Render the article collapsed preview component.
+ * @param props - The component props.
+ * @returns The rendered article collapsed preview component.
  */
-function ArticleCollapsedPreview({
-  bodyTransitionMs,
-  collapsedPreview,
-  collapsedPreviewClassName,
-  showPreviewLayer,
-}: {
-  bodyTransitionMs: number;
-  collapsedPreview: string;
-  collapsedPreviewClassName: string;
-  showPreviewLayer: boolean;
-}) {
+function ArticleCollapsedPreview(props: ArticleCollapsedPreviewProps) {
+  const {
+    bodyTransitionMs,
+    collapsedPreview,
+    collapsedPreviewClassName,
+    showPreviewLayer,
+  } = props;
   return (
     <AnimatePresence>
       {showPreviewLayer ? (
@@ -228,8 +212,10 @@ function ArticleCollapsedPreview({
 }
 
 /**
- * @param visuallyExpanded
- * @param stopExpandedContentPropagation
+ * Return the expanded body interaction props.
+ * @param visuallyExpanded - The visually expanded.
+ * @param stopExpandedContentPropagation - The callback that stop expanded content propagation.
+ * @returns The expanded body interaction props.
  */
 function getExpandedBodyInteractionProps(
   visuallyExpanded: boolean,
@@ -251,8 +237,10 @@ function getExpandedBodyInteractionProps(
 }
 
 /**
- * @param phase
- * @param visuallyExpanded
+ * Return the expanded body motion style.
+ * @param phase - The phase.
+ * @param visuallyExpanded - The visually expanded.
+ * @returns The expanded body motion style.
  */
 function getExpandedBodyMotionStyle(
   phase: ArticleCardContentProps["phase"],

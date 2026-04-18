@@ -2,9 +2,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
-import {
-  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-} from "@/app/dashboard/constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/constants";
 
 async function loadDashboardToolbar() {
   return import(
@@ -103,7 +101,9 @@ function mockDashboardToolbarState() {
         ).onClick;
 
         return React.cloneElement(
-          children as React.ReactElement<{ onClick?: (event: React.MouseEvent) => void }>,
+          children as React.ReactElement<{
+            onClick?: (event: React.MouseEvent) => void;
+          }>,
           {
             onClick: (event: React.MouseEvent) => {
               existingOnClick?.(event);
@@ -120,11 +120,7 @@ function mockDashboardToolbarState() {
       );
     }
 
-    function DropdownMenuContent({
-      children,
-    }: {
-      children: React.ReactNode;
-    }) {
+    function DropdownMenuContent({ children }: { children: React.ReactNode }) {
       const context = React.useContext(DropdownMenuContext);
       return context?.open ? <div role="menu">{children}</div> : null;
     }
@@ -139,7 +135,12 @@ function mockDashboardToolbarState() {
       onSelect?: () => void;
     }) {
       return (
-        <button disabled={disabled} onClick={onSelect} role="menuitem" type="button">
+        <button
+          disabled={disabled}
+          onClick={onSelect}
+          role="menuitem"
+          type="button"
+        >
           {children}
         </button>
       );

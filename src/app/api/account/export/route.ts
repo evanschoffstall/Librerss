@@ -21,8 +21,10 @@ interface AccountExportRouteDeps {
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
  */
 export async function GET(
   request: NextRequest,
@@ -65,11 +67,9 @@ export async function GET(
 }
 
 /**
- * Distinguishes test dependency bags from the framework's route context.
- *
- * Keeping this resolver local lets the route tests inject a stable export
- * function without depending on the globally mocked server barrel.
- * @param depsOrContext
+ * Resolve the account export route deps.
+ * @param depsOrContext - The deps or context.
+ * @returns The account export route deps.
  */
 export function resolveAccountExportRouteDeps(
   depsOrContext:

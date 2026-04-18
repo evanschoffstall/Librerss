@@ -29,8 +29,27 @@ export interface ViewportScrollBindingOptions {
   suppressImmediateNormalScrollIntent: () => void;
 }
 
+interface ViewportScrollHandlerOptions {
+  capturePendingInvertedPaginationAnchorSnapshot: () => void;
+  clearInitialNormalScrollLock: () => void;
+  hasActiveInvertedExpansionScrollLock: () => boolean;
+  hasUserScrolledRef: { current: boolean };
+  isInvertedScroll: boolean;
+  maybeLoadNextPage: (_trigger: "scroll" | "sentinel") => void;
+  normalScrollIntentSuppressionFrameRef: { current: null | number };
+  onClaimInvertedScrollOwnership: () => void;
+  onSyncInvertedExpansionScrollLock: () => void;
+  rearmInvertedBoundaryFromScrollPosition: () => void;
+  rearmStandardBoundaryFromScrollPosition: () => void;
+  releaseInvertedPaginationAnchor: () => void;
+  scrollViewport: HTMLElement;
+  shouldLockInitialNormalScroll: () => boolean;
+  suppressImmediateNormalScrollIntent: () => void;
+}
 /**
- * @param options
+ * Create the viewport boundary handlers.
+ * @param options - The options used to create the viewport boundary handlers.
+ * @returns The viewport boundary handlers.
  */
 export function createViewportBoundaryHandlers(
   options: PaginationBoundaryRearmRefs & {
@@ -73,42 +92,13 @@ export function createViewportBoundaryHandlers(
 }
 
 /**
- * @param options
- * @param options.capturePendingInvertedPaginationAnchorSnapshot
- * @param options.clearInitialNormalScrollLock
- * @param options.hasActiveInvertedExpansionScrollLock
- * @param options.hasUserScrolledRef
- * @param options.hasUserScrolledRef.current
- * @param options.isInvertedScroll
- * @param options.maybeLoadNextPage
- * @param options.normalScrollIntentSuppressionFrameRef
- * @param options.normalScrollIntentSuppressionFrameRef.current
- * @param options.onClaimInvertedScrollOwnership
- * @param options.onSyncInvertedExpansionScrollLock
- * @param options.rearmInvertedBoundaryFromScrollPosition
- * @param options.rearmStandardBoundaryFromScrollPosition
- * @param options.releaseInvertedPaginationAnchor
- * @param options.scrollViewport
- * @param options.shouldLockInitialNormalScroll
- * @param options.suppressImmediateNormalScrollIntent
+ * Create the viewport scroll handler.
+ * @param options - The options used to create the viewport scroll handler.
+ * @returns The viewport scroll handler.
  */
-export function createViewportScrollHandler(options: {
-  capturePendingInvertedPaginationAnchorSnapshot: () => void;
-  clearInitialNormalScrollLock: () => void;
-  hasActiveInvertedExpansionScrollLock: () => boolean;
-  hasUserScrolledRef: { current: boolean };
-  isInvertedScroll: boolean;
-  maybeLoadNextPage: (_trigger: "scroll" | "sentinel") => void;
-  normalScrollIntentSuppressionFrameRef: { current: null | number };
-  onClaimInvertedScrollOwnership: () => void;
-  onSyncInvertedExpansionScrollLock: () => void;
-  rearmInvertedBoundaryFromScrollPosition: () => void;
-  rearmStandardBoundaryFromScrollPosition: () => void;
-  releaseInvertedPaginationAnchor: () => void;
-  scrollViewport: HTMLElement;
-  shouldLockInitialNormalScroll: () => boolean;
-  suppressImmediateNormalScrollIntent: () => void;
-}) {
+export function createViewportScrollHandler(
+  options: ViewportScrollHandlerOptions,
+) {
   return () => {
     if (options.isInvertedScroll) {
       const maxScrollTop = Math.max(
@@ -171,7 +161,9 @@ export function createViewportScrollHandler(options: {
 }
 
 /**
- * @param options
+ * Create the rearm inverted boundary handler.
+ * @param options - The options used to create the rearm inverted boundary handler.
+ * @returns The rearm inverted boundary handler.
  */
 function createRearmInvertedBoundaryHandler(
   options: PaginationBoundaryRearmRefs & {
@@ -219,7 +211,9 @@ function createRearmInvertedBoundaryHandler(
 }
 
 /**
- * @param options
+ * Create the rearm standard boundary handler.
+ * @param options - The options used to create the rearm standard boundary handler.
+ * @returns The rearm standard boundary handler.
  */
 function createRearmStandardBoundaryHandler(
   options: PaginationBoundaryRearmRefs & {

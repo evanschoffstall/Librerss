@@ -10,13 +10,8 @@ export interface CachedRevealCompletionOptions {
 }
 
 /**
- * Detects the `isCachedPageRevealing` true → false transition (a cached
- * reveal just completed) and proactively re-arms the load boundary and
- * schedules a follow-up pagination check. Without this, if the user stops
- * scrolling at the boundary the IntersectionObserver sentinel will not
- * re-fire and scroll events will not arrive, permanently deadlocking
- * pagination.
- * @param options
+ * Manage the cached reveal completion effect.
+ * @param options - The options used to manage the cached reveal completion effect.
  */
 export function useCachedRevealCompletionEffect(
   options: CachedRevealCompletionOptions,

@@ -16,7 +16,7 @@ import { execSync } from "node:child_process";
 import { createSqlQueryExecutor } from "../src/lib/db/query-executor";
 
 /**
- *
+ * Process the ensure database url.
  */
 function ensureDatabaseUrl(): void {
   if (process.env.DATABASE_URL?.trim()) {
@@ -32,7 +32,7 @@ function ensureDatabaseUrl(): void {
 }
 
 /**
- *
+ * Process the main.
  */
 async function main(): Promise<void> {
   ensureDatabaseUrl();

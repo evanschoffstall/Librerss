@@ -13,9 +13,9 @@ export const ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH =
   ARTICLE_CONTENT_PREVIEW_LENGTH * 8;
 
 /**
- * Truncates preview text at a word boundary when possible while preserving
- * whether the original source overflowed the preview budget.
- * @param text
+ * Process the truncate article preview text.
+ * @param text - The text.
+ * @returns The truncate article preview text.
  */
 export function truncateArticlePreviewText(text: string): {
   hasOverflow: boolean;
@@ -38,9 +38,9 @@ export function truncateArticlePreviewText(text: string): {
 }
 
 /**
- * Normalizes stored article HTML before it is rendered or serialized so both
- * preview and full-article surfaces share the same cleanup behavior.
- * @param article
+ * Process the with normalized article content.
+ * @param article - The article.
+ * @returns The with normalized article content.
  */
 export function withNormalizedArticleContent<
   T extends { content: null | string },

@@ -59,7 +59,9 @@ export interface FeedPaginationRuntimeOptions extends FeedPaginationEffectsOptio
 }
 
 /**
- * @param options
+ * Manage the feed pagination controllers.
+ * @param options - The options used to manage the feed pagination controllers.
+ * @returns The feed pagination controllers state and callbacks.
  */
 export function useFeedPaginationControllers(
   options: FeedPaginationControllerOptions,
@@ -112,7 +114,8 @@ export function useFeedPaginationControllers(
 }
 
 /**
- * @param options
+ * Manage the feed pagination effects.
+ * @param options - The options used to manage the feed pagination effects.
  */
 export function useFeedPaginationEffects(
   options: FeedPaginationEffectsOptions,
@@ -154,7 +157,9 @@ export function useFeedPaginationEffects(
 }
 
 /**
- * @param options
+ * Manage the feed pagination runtime.
+ * @param options - The options used to manage the feed pagination runtime.
+ * @returns The feed pagination runtime state and callbacks.
  */
 export function useFeedPaginationRuntime(
   options: FeedPaginationRuntimeOptions,
@@ -200,10 +205,12 @@ export function useFeedPaginationRuntime(
 }
 
 /**
- * @param options
- * @param localState
- * @param serverLoadState
- * @param anchorState
+ * Manage the feed pagination boundary controllers.
+ * @param options - The options used to manage the feed pagination boundary controllers.
+ * @param localState - The callback that local state.
+ * @param serverLoadState - The callback that server load state.
+ * @param anchorState - The callback that anchor state.
+ * @returns The feed pagination boundary controllers state and callbacks.
  */
 function useFeedPaginationBoundaryControllers(
   options: FeedPaginationControllerOptions,
@@ -244,10 +251,12 @@ function useFeedPaginationBoundaryControllers(
 }
 
 /**
- * @param options
- * @param localState
- * @param serverLoadState
- * @param anchorState
+ * Manage the feed pagination reset controllers.
+ * @param options - The options used to manage the feed pagination reset controllers.
+ * @param localState - The callback that local state.
+ * @param serverLoadState - The callback that server load state.
+ * @param anchorState - The callback that anchor state.
+ * @returns The feed pagination reset controllers state and callbacks.
  */
 function useFeedPaginationResetControllers(
   options: FeedPaginationControllerOptions,
@@ -286,10 +295,11 @@ function useFeedPaginationResetControllers(
 }
 
 /**
- * @param options
- * @param anchorState
- * @param localState
- * @param serverLoadState
+ * Manage the feed pagination reveal effects.
+ * @param options - The options used to manage the feed pagination reveal effects.
+ * @param anchorState - The callback that anchor state.
+ * @param localState - The callback that local state.
+ * @param serverLoadState - The callback that server load state.
  */
 function useFeedPaginationRevealEffects(
   options: FeedPaginationEffectsOptions,

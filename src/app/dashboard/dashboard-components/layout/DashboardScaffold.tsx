@@ -17,16 +17,12 @@ interface DashboardScaffoldProps {
 }
 
 /**
- * Shared feed viewport chrome for both the live dashboard and route shell.
- *
- * Keeping the Radix viewport wrapper and inner feed frame
- * identical prevents the shell from handing off to a differently sized surface.
- * @param root0
- * @param root0.children
+ * Render the dashboard feed viewport component.
+ * @param props - The component props.
+ * @returns The rendered dashboard feed viewport component.
  */
-export function DashboardFeedViewport({
-  children,
-}: DashboardFeedViewportProps) {
+export function DashboardFeedViewport(props: DashboardFeedViewportProps) {
+  const { children } = props;
   return (
     <DashboardFeedScrollArea className="h-full">
       <div
@@ -43,22 +39,12 @@ export function DashboardFeedViewport({
 }
 
 /**
- * Shared dashboard scaffold for the filter bar, sidebar rail, and feed surface.
- *
- * Both the route shell and the hydrated dashboard render through this scaffold
- * so width, spacing, and desktop column sizing stay locked together.
- * @param root0
- * @param root0.feed
- * @param root0.filterBar
- * @param root0.mobileToolbarBottom
- * @param root0.sidebar
+ * Render the dashboard scaffold component.
+ * @param props - The component props.
+ * @returns The rendered dashboard scaffold component.
  */
-export function DashboardScaffold({
-  feed,
-  filterBar,
-  mobileToolbarBottom = true,
-  sidebar,
-}: DashboardScaffoldProps) {
+export function DashboardScaffold(props: DashboardScaffoldProps) {
+  const { feed, filterBar, mobileToolbarBottom = true, sidebar } = props;
   return (
     <div
       className={

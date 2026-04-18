@@ -33,9 +33,17 @@ interface HydrateArticleContentOptions {
   force?: boolean;
 }
 
+interface HydrateArticleContentOptions2 {
+  distillStrategy: UseArticleHydrationOptions["distillStrategy"];
+  getFeedSettings: UseArticleHydrationOptions["getFeedSettings"];
+  hydrationState: ArticleHydrationState;
+  setFeed: UseArticleHydrationOptions["setFeed"];
+}
+
 /**
- * Safely escape an article key for use in a CSS attribute selector.
- * @param articleKey
+ * Process the escape article key.
+ * @param articleKey - The article key.
+ * @returns The escape article key.
  */
 export function escapeArticleKey(articleKey: string): string {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
@@ -44,18 +52,12 @@ export function escapeArticleKey(articleKey: string): string {
 }
 
 /**
- * Hydrate article bodies on demand while preventing overlapping requests for
- * the same article link from committing stale state.
- * @param root0
- * @param root0.distillStrategy
- * @param root0.getFeedSettings
- * @param root0.setFeed
+ * Manage the article hydration.
+ * @param options - The options used to manage the article hydration.
+ * @returns The article hydration state and callbacks.
  */
-export function useArticleHydration({
-  distillStrategy,
-  getFeedSettings,
-  setFeed,
-}: UseArticleHydrationOptions) {
+export function useArticleHydration(options: UseArticleHydrationOptions) {
+  const { distillStrategy, getFeedSettings, setFeed } = options;
   const hydrationState = useArticleHydrationState();
   const scrollArticleIntoView = useScrollArticleIntoView();
   const hydrateArticleContent = useHydrateArticleContent({
@@ -76,7 +78,8 @@ export function useArticleHydration({
 }
 
 /**
- *
+ * Manage the article hydration state.
+ * @returns The article hydration state state and callbacks.
  */
 function useArticleHydrationState() {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<
@@ -97,9 +100,10 @@ function useArticleHydrationState() {
     setHydratingArticleLinks,
   } satisfies ArticleHydrationState;
 }
-
 /**
- * @param hydrationState
+ * Manage the cancel hydration.
+ * @param hydrationState - The hydration state.
+ * @returns The cancel hydration state and callbacks.
  */
 function useCancelHydration(hydrationState: ArticleHydrationState) {
   return useCallback(
@@ -116,23 +120,12 @@ function useCancelHydration(hydrationState: ArticleHydrationState) {
 }
 
 /**
- * @param root0
- * @param root0.distillStrategy
- * @param root0.getFeedSettings
- * @param root0.hydrationState
- * @param root0.setFeed
+ * Manage the hydrate article content.
+ * @param options - The options used to manage the hydrate article content.
+ * @returns The hydrate article content state and callbacks.
  */
-function useHydrateArticleContent({
-  distillStrategy,
-  getFeedSettings,
-  hydrationState,
-  setFeed,
-}: {
-  distillStrategy: UseArticleHydrationOptions["distillStrategy"];
-  getFeedSettings: UseArticleHydrationOptions["getFeedSettings"];
-  hydrationState: ArticleHydrationState;
-  setFeed: UseArticleHydrationOptions["setFeed"];
-}) {
+function useHydrateArticleContent(options: HydrateArticleContentOptions2) {
+  const { distillStrategy, getFeedSettings, hydrationState, setFeed } = options;
   return useCallback(
     async (article: Article, options?: HydrateArticleContentOptions) => {
       const articleHydration = prepareArticleHydration({
@@ -199,7 +192,8 @@ function useHydrateArticleContent({
 }
 
 /**
- *
+ * Manage the scroll article into view.
+ * @returns The scroll article into view state and callbacks.
  */
 function useScrollArticleIntoView() {
   return useCallback((articleKey: string) => {

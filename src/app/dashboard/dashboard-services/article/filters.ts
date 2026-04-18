@@ -5,10 +5,12 @@ export const ARTICLE_FILTER_OPTIONS = ARTICLE_FILTERS;
 export type { ArticleFilter };
 
 /**
- * @param articles
- * @param articleFilter
- * @param expandedArticleKey
- * @param collapsingArticleKeys
+ * Process the filter articles by state.
+ * @param articles - The articles.
+ * @param articleFilter - The article filter.
+ * @param expandedArticleKey - The expanded article key.
+ * @param collapsingArticleKeys - The collapsing article keys.
+ * @returns The filter articles by state.
  */
 export function filterArticlesByState(
   articles: Article[],

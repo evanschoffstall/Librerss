@@ -99,10 +99,10 @@ interface ResolvedUserProxyConfig {
 }
 
 /**
- * Runs vendor-sample compatibility checks for the authenticated user's current
- * network path and optional proxy settings.
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -150,11 +150,13 @@ export async function POST(
 }
 
 /**
- * @param result
- * @param site
- * @param error
- * @param executionContext
- * @param deps
+ * Build the failed compatibility check result.
+ * @param result - The result.
+ * @param site - The site.
+ * @param error - The error.
+ * @param executionContext - The execution context.
+ * @param deps - The deps.
+ * @returns The failed compatibility check result.
  */
 function buildFailedCompatibilityCheckResult(
   result: CompatibilityCheckResult,
@@ -208,12 +210,14 @@ function buildFailedCompatibilityCheckResult(
 }
 
 /**
- * @param result
- * @param site
- * @param html
- * @param requestHeaders
- * @param executionContext
- * @param deps
+ * Build the successful compatibility check result.
+ * @param result - The result.
+ * @param site - The site.
+ * @param html - The html.
+ * @param requestHeaders - The request headers.
+ * @param executionContext - The execution context.
+ * @param deps - The deps.
+ * @returns The successful compatibility check result.
  */
 function buildSuccessfulCompatibilityCheckResult(
   result: CompatibilityCheckResult,
@@ -251,8 +255,10 @@ function buildSuccessfulCompatibilityCheckResult(
 }
 
 /**
- * @param vendor
- * @param bodyLower
+ * Return whether has compatibility signal.
+ * @param vendor - The vendor.
+ * @param bodyLower - The body lower.
+ * @returns Whether has compatibility signal.
  */
 function hasCompatibilitySignal(vendor: string, bodyLower: string) {
   const signals = COMPATIBILITY_SIGNAL_BY_VENDOR[vendor];
@@ -261,7 +267,9 @@ function hasCompatibilitySignal(vendor: string, bodyLower: string) {
 }
 
 /**
- * @param value
+ * Normalize the resolved user proxy.
+ * @param value - The value.
+ * @returns The resolved user proxy.
  */
 function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
   if (!value || typeof value !== "object") {
@@ -283,7 +291,9 @@ function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
 }
 
 /**
- * @param request
+ * Parse the compatibility check body.
+ * @param request - The request.
+ * @returns The compatibility check body.
  */
 async function parseCompatibilityCheckBody(
   request: NextRequest,
@@ -303,7 +313,9 @@ async function parseCompatibilityCheckBody(
 }
 
 /**
- * @param deps
+ * Resolve the compatibility check deps.
+ * @param deps - The deps.
+ * @returns The compatibility check deps.
  */
 function resolveCompatibilityCheckDeps(
   deps: CompatibilityCheckDeps,
@@ -331,9 +343,11 @@ function resolveCompatibilityCheckDeps(
 }
 
 /**
- * @param userId
- * @param useProxy
- * @param deps
+ * Resolve the compatibility execution context.
+ * @param userId - The r id.
+ * @param useProxy - The proxy.
+ * @param deps - The deps.
+ * @returns The compatibility execution context.
  */
 async function resolveCompatibilityExecutionContext(
   userId: number,
@@ -386,9 +400,11 @@ async function resolveCompatibilityExecutionContext(
 }
 
 /**
- * @param site
- * @param executionContext
- * @param deps
+ * Process the run compatibility check.
+ * @param site - The site.
+ * @param executionContext - The execution context.
+ * @param deps - The deps.
+ * @returns The run compatibility check.
  */
 async function runCompatibilityCheck(
   site: (typeof COMPATIBILITY_CHECK_SITES)[number],
@@ -433,8 +449,10 @@ async function runCompatibilityCheck(
 }
 
 /**
- * @param executionContext
- * @param deps
+ * Process the run compatibility checks.
+ * @param executionContext - The execution context.
+ * @param deps - The deps.
+ * @returns The run compatibility checks.
  */
 async function runCompatibilityChecks(
   executionContext: CompatibilityCheckExecutionContext,

@@ -56,7 +56,10 @@ async function installLoadMoreSkeletonObserver(page: Page) {
 /** Returns the number of times skeletons have been added since the observer was installed. */
 async function readSkeletonAdditionCount(page: Page): Promise<number> {
   return await page.evaluate(
-    () => ((window as unknown as Record<string, unknown>)["__skeletonAdditions"] as number) ?? 0,
+    () =>
+      ((window as unknown as Record<string, unknown>)[
+        "__skeletonAdditions"
+      ] as number) ?? 0,
   );
 }
 
@@ -118,9 +121,7 @@ test.describe("pagination skeleton contract", () => {
         .toBeLessThan(LARGE_PAGE_SIZE * 2);
 
       // The load-more sentinel must still be present so infinite scroll works.
-      await expect
-        .poll(async () => hasLoadMoreSentinel(page))
-        .toBe(true);
+      await expect.poll(async () => hasLoadMoreSentinel(page)).toBe(true);
     });
 
     test(`sentinel is present after initial hydration on ${viewportCase.name}`, async ({
@@ -139,9 +140,7 @@ test.describe("pagination skeleton contract", () => {
 
       // Sentinel must be in the DOM from the very first render because the
       // server always has more articles than the initial page.
-      await expect
-        .poll(async () => hasLoadMoreSentinel(page))
-        .toBe(true);
+      await expect.poll(async () => hasLoadMoreSentinel(page)).toBe(true);
     });
 
     test(`skeletons appear on every additional load during multi-page scroll on ${viewportCase.name}`, async ({

@@ -12,14 +12,21 @@ import { useIsMobile, useLocalStorage } from "@/lib/hooks";
 
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
 const trueTopToastOffset = { left: 16, right: 16, top: 16 };
+interface AppThemeProviderProps {
+  children: ReactNode;
+}
 
+interface ToastPlacementOptions {
+  isMobileGroupedLayout: boolean;
+  isMobileViewport: boolean;
+}
 /**
- * Provides the app-wide theme context along with shared floating UI such as
- * the theme toggle and the global toast mount.
- * @param root0
- * @param root0.children
+ * Render the app theme provider component.
+ * @param props - The component props.
+ * @returns The rendered app theme provider component.
  */
-export function AppThemeProvider({ children }: { children: ReactNode }) {
+export function AppThemeProvider(props: AppThemeProviderProps) {
+  const { children } = props;
   return (
     <ThemeProvider
       attribute="class"
@@ -40,19 +47,12 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Resolves the global toast anchor and offset from the grouped mobile UI
- * setting. When grouped layout is enabled, mobile toasts pin to the top edge.
- * @param root0
- * @param root0.isMobileGroupedLayout
- * @param root0.isMobileViewport
+ * Return the toast placement.
+ * @param options - The options used to return the toast placement.
+ * @returns The toast placement.
  */
-export function getToastPlacement({
-  isMobileGroupedLayout,
-  isMobileViewport,
-}: {
-  isMobileGroupedLayout: boolean;
-  isMobileViewport: boolean;
-}) {
+export function getToastPlacement(options: ToastPlacementOptions) {
+  const { isMobileGroupedLayout, isMobileViewport } = options;
   if (isMobileGroupedLayout && isMobileViewport) {
     return {
       mobileOffset: trueTopToastOffset,
@@ -69,8 +69,8 @@ export function getToastPlacement({
 }
 
 /**
- * Mirrors the resolved app theme onto the Next.js dev-tools portal host so the
- * shadow-DOM error overlay follows the active light or dark mode in development.
+ * Render the next dev tools theme bridge component.
+ * @returns The rendered next dev tools theme bridge component.
  */
 function NextDevToolsThemeBridge() {
   const { resolvedTheme } = useTheme();
@@ -91,7 +91,7 @@ function NextDevToolsThemeBridge() {
       pathname === "/dashboard" && isMobileViewport && isMobileGroupedLayout;
 
     /**
-     *
+     * Process the sync portal theme.
      */
     const syncPortalTheme = () => {
       for (const portal of document.querySelectorAll<HTMLElement>(
@@ -146,7 +146,8 @@ function NextDevToolsThemeBridge() {
 }
 
 /**
- * Mounts the global Sonner toaster with the active light or dark theme.
+ * Render the themed toaster component.
+ * @returns The rendered themed toaster component.
  */
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
@@ -165,7 +166,8 @@ function ThemedToaster() {
 
   useEffect(() => {
     /**
-     * @param event
+     * Process the handle toast click to dismiss.
+     * @param event - The incoming event.
      */
     const handleToastClickToDismiss = (event: MouseEvent) => {
       const target = event.target;
@@ -226,8 +228,8 @@ function ThemedToaster() {
 }
 
 /**
- * Renders either the full dashboard toolbar or a standalone theme toggle,
- * depending on the current route.
+ * Render the theme mode toggle component.
+ * @returns The rendered theme mode toggle component.
  */
 function ThemeModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();

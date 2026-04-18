@@ -9,29 +9,23 @@ export const toolbarButtonClassName =
 /** Shared layout footprint for icon-only toolbar buttons across breakpoints. */
 export const toolbarIconButtonLayoutClassName =
   "inline-flex shrink-0 items-center justify-center";
-
-/**
- * Renders a dashboard toolbar icon button without a condensed circular wrapper.
- * @param root0
- * @param root0.ariaLabel
- * @param root0.className
- * @param root0.disabled
- * @param root0.icon
- * @param root0.onClick
- */
-export function DashboardToolbarIconButton({
-  ariaLabel,
-  className,
-  disabled,
-  icon: Icon,
-  onClick,
-}: {
+interface DashboardToolbarIconButtonProps {
   ariaLabel: string;
   className?: string;
   disabled?: boolean;
   icon: typeof Menu;
   onClick: () => void;
-}) {
+}
+
+/**
+ * Render the dashboard toolbar icon button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar icon button component.
+ */
+export function DashboardToolbarIconButton(
+  props: DashboardToolbarIconButtonProps,
+) {
+  const { ariaLabel, className, disabled, icon: Icon, onClick } = props;
   return (
     <button
       aria-label={ariaLabel}

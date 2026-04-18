@@ -24,6 +24,13 @@ const VALID_PROTOCOLS = new Set(["http:", "https:", ...SOCKS_PROTOCOLS]);
 const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
 const PROBE_TIMEOUT_MS = 4000;
 
+interface EnsureProxyHostAllowedOptions {
+  dnsCheckFn?: (host: string) => Promise<boolean>;
+  host: string;
+  raw: string;
+  scope: "SOCKS" | null;
+}
+
 interface ProxyProbeTarget {
   host: string;
   port: number;
@@ -31,10 +38,10 @@ interface ProxyProbeTarget {
 }
 
 /**
- * Detect whether a proxy speaks SOCKS by sending a SOCKS5 greeting.
- * Returns "socks5" if the server replies with 0x05, otherwise "http".
- * @param host
- * @param port
+ * Process the detect proxy protocol.
+ * @param host - The host.
+ * @param port - The port.
+ * @returns The detect proxy protocol.
  */
 export async function detectProxyProtocol(
   host: string,
@@ -63,8 +70,9 @@ export async function detectProxyProtocol(
     socket.setTimeout(PROBE_TIMEOUT_MS);
     let response = Buffer.alloc(0);
     /**
-     * @param proto
-     * @param reason
+     * Process the finish.
+     * @param proto - The proto.
+     * @param reason - The reason.
      */
     const finish = (proto: "http" | "socks5", reason: string) => {
       socket.removeAllListeners();
@@ -113,12 +121,11 @@ export async function detectProxyProtocol(
 }
 
 /**
- * Normalize a proxy URL string. Bare host:port is prefixed with http://.
- * If the scheme is http/https (or was bare), probes the port to detect SOCKS.
- * Explicit socks schemes are accepted as-is.
- * @param raw
- * @param probeFn
- * @param dnsCheckFn
+ * Normalize the proxy url.
+ * @param raw - The raw.
+ * @param probeFn - The callback that probe fn.
+ * @param dnsCheckFn - The callback that dns check fn.
+ * @returns The proxy url.
  */
 export async function normalizeProxyUrl(
   raw: string,
@@ -146,13 +153,12 @@ export async function normalizeProxyUrl(
 
   return normalizeDetectedProxyUrl(raw, input.value, probeFn, dnsCheckFn);
 }
-
-/** TCP connect probe — resolves true if port is open, false on timeout/error.
- *  For SOCKS5 URLs with embedded credentials, performs a full auth handshake
- *  to verify the credentials are accepted before reporting reachable.
- * @param proxyUrl
- * @param dnsCheckFn
- *  Includes both static and DNS-rebinding SSRF guards. */
+/**
+ * Process the probe proxy.
+ * @param proxyUrl - The proxy url.
+ * @param dnsCheckFn - The callback that dns check fn.
+ * @returns The probe proxy.
+ */
 export async function probeProxy(
   proxyUrl: string,
   dnsCheckFn?: (host: string) => Promise<boolean>,
@@ -174,23 +180,12 @@ export async function probeProxy(
 }
 
 /**
- * @param root0
- * @param root0.dnsCheckFn
- * @param root0.host
- * @param root0.raw
- * @param root0.scope
+ * Process the ensure proxy host allowed.
+ * @param options - The options used to process the ensure proxy host allowed.
+ * @returns The ensure proxy host allowed.
  */
-async function ensureProxyHostAllowed({
-  dnsCheckFn,
-  host,
-  raw,
-  scope,
-}: {
-  dnsCheckFn?: (host: string) => Promise<boolean>;
-  host: string;
-  raw: string;
-  scope: "SOCKS" | null;
-}) {
+async function ensureProxyHostAllowed(options: EnsureProxyHostAllowedOptions) {
+  const { dnsCheckFn, host, raw, scope } = options;
   const scopeSuffix = scope ? ` (${scope})` : "";
   if (isBlockedHost(host)) {
     logger.error(`Proxy URL rejected: internal hostname${scopeSuffix}`, {
@@ -216,10 +211,12 @@ async function ensureProxyHostAllowed({
 }
 
 /**
- * @param raw
- * @param inputValue
- * @param probeFn
- * @param dnsCheckFn
+ * Normalize the detected proxy url.
+ * @param raw - The raw.
+ * @param inputValue - The input value.
+ * @param probeFn - The callback that probe fn.
+ * @param dnsCheckFn - The callback that dns check fn.
+ * @returns The detected proxy url.
  */
 async function normalizeDetectedProxyUrl(
   raw: string,
@@ -257,10 +254,12 @@ async function normalizeDetectedProxyUrl(
 }
 
 /**
- * @param inputValue
- * @param raw
- * @param parsed
- * @param dnsCheckFn
+ * Normalize the explicit socks proxy url.
+ * @param inputValue - The input value.
+ * @param raw - The raw.
+ * @param parsed - The d.
+ * @param dnsCheckFn - The callback that dns check fn.
+ * @returns The explicit socks proxy url.
  */
 async function normalizeExplicitSocksProxyUrl(
   inputValue: string,
@@ -287,7 +286,9 @@ async function normalizeExplicitSocksProxyUrl(
 }
 
 /**
- * @param proxyUrl
+ * Parse the credentialed socks url.
+ * @param proxyUrl - The proxy url.
+ * @returns The credentialed socks url.
  */
 function parseCredentialedSocksUrl(proxyUrl: string): null | {
   password?: string;
@@ -311,7 +312,9 @@ function parseCredentialedSocksUrl(proxyUrl: string): null | {
 }
 
 /**
- * @param proxyUrl
+ * Parse the host port.
+ * @param proxyUrl - The proxy url.
+ * @returns The host port.
  */
 function parseHostPort(
   proxyUrl: string,
@@ -339,8 +342,10 @@ function parseHostPort(
 }
 
 /**
- * @param input
- * @param raw
+ * Parse the proxy url.
+ * @param input - The input used to parse the proxy url.
+ * @param raw - The raw.
+ * @returns The proxy url.
  */
 function parseProxyUrl(input: string, raw: string): null | URL {
   let parsed: URL;
@@ -366,7 +371,9 @@ function parseProxyUrl(input: string, raw: string): null | URL {
 }
 
 /**
- * @param raw
+ * Process the prepare proxy input.
+ * @param raw - The raw.
+ * @returns The prepare proxy input.
  */
 function prepareProxyInput(
   raw: string,
@@ -392,8 +399,10 @@ function prepareProxyInput(
 }
 
 /**
- * @param proxyUrl
- * @param probeTarget
+ * Process the probe credentialed socks proxy.
+ * @param proxyUrl - The proxy url.
+ * @param probeTarget - The probe target.
+ * @returns The probe credentialed socks proxy.
  */
 async function probeCredentialedSocksProxy(
   proxyUrl: string,
@@ -427,7 +436,9 @@ async function probeCredentialedSocksProxy(
 }
 
 /**
- * @param probeTarget
+ * Process the probe tcp proxy.
+ * @param probeTarget - The probe target.
+ * @returns The probe tcp proxy.
  */
 function probeTcpProxy(probeTarget: ProxyProbeTarget): Promise<boolean> {
   logger.info(`Proxy probe started. (proxyUrl=${probeTarget.safeProxyUrl})`);
@@ -460,8 +471,10 @@ function probeTcpProxy(probeTarget: ProxyProbeTarget): Promise<boolean> {
 }
 
 /**
- * @param proxyUrl
- * @param dnsCheckFn
+ * Resolve the proxy probe target.
+ * @param proxyUrl - The proxy url.
+ * @param dnsCheckFn - The callback that dns check fn.
+ * @returns The proxy probe target.
  */
 async function resolveProxyProbeTarget(
   proxyUrl: string,
@@ -499,14 +512,12 @@ async function resolveProxyProbeTarget(
 }
 
 /**
- * Perform a SOCKS5 auth probe: send greeting + auth sub-negotiation without
- * issuing a CONNECT to any destination. Returns true if the server accepts
- * auth (or no-auth). This validates credentials without touching any external
- * host.
- * @param host
- * @param port
- * @param username
- * @param password
+ * Process the socks5 auth probe.
+ * @param host - The host.
+ * @param port - The port.
+ * @param username - The rname.
+ * @param password - The password.
+ * @returns The socks5 auth probe.
  */
 async function socks5AuthProbe(
   host: string,
@@ -526,7 +537,8 @@ async function socks5AuthProbe(
     socket.setTimeout(PROBE_TIMEOUT_MS);
     let stage: "auth" | "greeting" = "greeting";
     /**
-     * @param ok
+     * Process the finish.
+     * @param ok - The ok.
      */
     const finish = (ok: boolean) => {
       socket.removeAllListeners();

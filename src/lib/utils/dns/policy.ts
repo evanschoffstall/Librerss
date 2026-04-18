@@ -19,7 +19,9 @@ const BLOCKED_HOST_PATTERNS = [
 ] as const;
 
 /**
- * @param hostname
+ * Return whether is blocked host.
+ * @param hostname - The hostname.
+ * @returns Whether is blocked host.
  */
 export function isBlockedHost(hostname: string): boolean {
   const normalized = normalizeHostname(hostname);
@@ -35,7 +37,9 @@ export function isBlockedHost(hostname: string): boolean {
 }
 
 /**
- * @param address
+ * Return whether is blocked resolved address.
+ * @param address - The address.
+ * @returns Whether is blocked resolved address.
  */
 export function isBlockedResolvedAddress(address: string): boolean {
   const normalized = address.trim().toLowerCase();
@@ -48,7 +52,9 @@ export function isBlockedResolvedAddress(address: string): boolean {
 }
 
 /**
- * @param hostname
+ * Normalize the hostname.
+ * @param hostname - The hostname.
+ * @returns The hostname.
  */
 export function normalizeHostname(hostname: string): string {
   const normalized = hostname.trim().toLowerCase().replace(/\.$/, "");
@@ -61,7 +67,9 @@ export function normalizeHostname(hostname: string): string {
 }
 
 /**
- * @param raw
+ * Process the expand ipv6 to hextets.
+ * @param raw - The raw.
+ * @returns The expand ipv6 to hextets.
  */
 function expandIpv6ToHextets(raw: string): null | number[] {
   const normalized = raw.trim().toLowerCase();
@@ -102,7 +110,9 @@ function expandIpv6ToHextets(raw: string): null | number[] {
 }
 
 /**
- * @param address
+ * Process the extract mapped ipv4 from ipv6.
+ * @param address - The address.
+ * @returns The extract mapped ipv4 from ipv6.
  */
 function extractMappedIpv4FromIpv6(address: string): null | string {
   const hextets = expandIpv6ToHextets(address);
@@ -131,7 +141,9 @@ function extractMappedIpv4FromIpv6(address: string): null | string {
 }
 
 /**
- * @param raw
+ * Parse the ipv4 dotted quad.
+ * @param raw - The raw.
+ * @returns The ipv4 dotted quad.
  */
 function parseIpv4DottedQuad(
   raw: string,
@@ -150,7 +162,9 @@ function parseIpv4DottedQuad(
 }
 
 /**
- * @param part
+ * Parse the ipv6 hextet.
+ * @param part - The part.
+ * @returns The ipv6 hextet.
  */
 function parseIpv6Hextet(part: string): null | number[] {
   if (!part) {
@@ -174,7 +188,9 @@ function parseIpv6Hextet(part: string): null | number[] {
 }
 
 /**
- * @param value
+ * Parse the ipv6 hextet sequence.
+ * @param value - The value.
+ * @returns The ipv6 hextet sequence.
  */
 function parseIpv6HextetSequence(value: string): number[] {
   if (!value) {

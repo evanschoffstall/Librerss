@@ -2,9 +2,10 @@ import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 /**
- * Merges Tailwind-aware class name inputs into one normalized string.
- * @param inputs
+ * Process the cn.
+ * @param inputs - The inputs.
+ * @returns The cn.
  */
-export function cn(...inputs: ClassValue[]) {
+export function cn(inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

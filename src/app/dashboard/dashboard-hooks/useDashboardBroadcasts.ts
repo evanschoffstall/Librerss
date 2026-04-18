@@ -6,23 +6,15 @@ import { type UseDashboardBroadcastsOptions } from "@/app/dashboard/dashboard-ho
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
 /**
- * Emits the dashboard shell, title, and search events to the provided target.
- * @param target
- * @param root0
- * @param root0.isSearchPending
- * @param root0.isShellLoading
- * @param root0.searchTerm
- * @param root0.selectedFeed
+ * Process the dispatch dashboard broadcasts.
+ * @param target - The target.
+ * @param options - The options used to process the dispatch dashboard broadcasts.
  */
 export function dispatchDashboardBroadcasts(
   target: Pick<Window, "dispatchEvent">,
-  {
-    isSearchPending,
-    isShellLoading,
-    searchTerm,
-    selectedFeed,
-  }: UseDashboardBroadcastsOptions,
+  options: UseDashboardBroadcastsOptions,
 ) {
+  const { isSearchPending, isShellLoading, searchTerm, selectedFeed } = options;
   target.dispatchEvent(
     new CustomEvent(DASHBOARD_EVENTS.SHELL_LOADING, {
       detail: { loading: isShellLoading },
@@ -46,19 +38,11 @@ export function dispatchDashboardBroadcasts(
 }
 
 /**
- * Emits dashboard shell, title, and search state changes to shell-level listeners.
- * @param root0
- * @param root0.isSearchPending
- * @param root0.isShellLoading
- * @param root0.searchTerm
- * @param root0.selectedFeed
+ * Manage the dashboard broadcasts.
+ * @param options - The options used to manage the dashboard broadcasts.
  */
-export function useDashboardBroadcasts({
-  isSearchPending,
-  isShellLoading,
-  searchTerm,
-  selectedFeed,
-}: UseDashboardBroadcastsOptions) {
+export function useDashboardBroadcasts(options: UseDashboardBroadcastsOptions) {
+  const { isSearchPending, isShellLoading, searchTerm, selectedFeed } = options;
   useLayoutEffect(() => {
     document.documentElement.dataset.dashboardShellLoading = isShellLoading
       ? "true"

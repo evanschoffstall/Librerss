@@ -10,18 +10,20 @@ interface UseSettingsOpmlImportStateOptions {
 }
 
 /**
- * Owns OPML file parsing and import lifecycle state for the settings surface.
- * @param root0
- * @param root0.onImportOpml
+ * Manage the settings opml import state.
+ * @param options - The options used to manage the settings opml import state.
+ * @returns The settings opml import state state and callbacks.
  */
-export function useSettingsOpmlImportState({
-  onImportOpml,
-}: UseSettingsOpmlImportStateOptions) {
+export function useSettingsOpmlImportState(
+  options: UseSettingsOpmlImportStateOptions,
+) {
+  const { onImportOpml } = options;
   const [isImportingOpml, setIsImportingOpml] = useState(false);
   const opmlInputRef = useRef<HTMLInputElement | null>(null);
 
   /**
-   * @param event
+   * Process the handle opml file change.
+   * @param event - The event.
    */
   const handleOpmlFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

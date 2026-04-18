@@ -85,7 +85,8 @@ interface ExportedUser {
 }
 
 /**
- * @param userId
+ * Process the delete account.
+ * @param userId - The r id.
  */
 export async function deleteAccount(userId: number) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
@@ -109,8 +110,10 @@ export async function deleteAccount(userId: number) {
 }
 
 /**
- * @param userId
- * @param deps
+ * Process the export account data.
+ * @param userId - The r id.
+ * @param deps - The deps.
+ * @returns The export account data.
  */
 export async function exportAccountData(
   userId: number,
@@ -149,8 +152,10 @@ export async function exportAccountData(
 }
 
 /**
- * @param userId
- * @param user
+ * Build the exported user.
+ * @param userId - The r id.
+ * @param user - The r.
+ * @returns The exported user.
  */
 function buildExportedUser(
   userId: number,
@@ -174,15 +179,19 @@ function buildExportedUser(
 }
 
 /**
- * @param proxyUrl
+ * Return the embedded proxy credentials.
+ * @param proxyUrl - The proxy url.
+ * @returns The embedded proxy credentials.
  */
 function getEmbeddedProxyCredentials(proxyUrl: null | string) {
   return proxyUrl ? getUrlCredentials(proxyUrl) : null;
 }
 
 /**
- * @param db
- * @param userId
+ * Process the load export account base records.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The load export account base records.
  */
 async function loadExportAccountBaseRecords(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -207,9 +216,11 @@ async function loadExportAccountBaseRecords(
 }
 
 /**
- * @param db
- * @param userId
- * @param hasFeedSources
+ * Process the load export account relations.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param hasFeedSources - Whether has feed sources.
+ * @returns The load export account relations.
  */
 async function loadExportAccountRelations(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -251,8 +262,10 @@ async function loadExportAccountRelations(
 }
 
 /**
- * @param db
- * @param userId
+ * Process the select category order rows.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The select category order rows.
  */
 function selectCategoryOrderRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -269,8 +282,10 @@ function selectCategoryOrderRows(
 }
 
 /**
- * @param db
- * @param userId
+ * Process the select export session rows.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The select export session rows.
  */
 function selectExportSessionRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -287,8 +302,10 @@ function selectExportSessionRows(
 }
 
 /**
- * @param db
- * @param userId
+ * Process the select export source rows.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The select export source rows.
  */
 function selectExportSourceRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -308,8 +325,10 @@ function selectExportSourceRows(
 }
 
 /**
- * @param db
- * @param userId
+ * Process the select status rows.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The select status rows.
  */
 function selectStatusRows(
   db: Pick<ReturnType<typeof getDb>, "select">,
@@ -327,8 +346,10 @@ function selectStatusRows(
 }
 
 /**
- * @param db
- * @param userId
+ * Process the select user export row.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @returns The select user export row.
  */
 function selectUserExportRow(
   db: Pick<ReturnType<typeof getDb>, "select">,

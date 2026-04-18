@@ -80,7 +80,10 @@ describe("useExpandedArticleCollapse", () => {
         setArticleReadState,
         setExpandedArticleKey,
         startRemovalAnimation: mock(
-          (_article: Article, _mode: "collapse" | "de-expanding" | "swipe-read") => {},
+          (
+            _article: Article,
+            _mode: "collapse" | "de-expanding" | "swipe-read",
+          ) => {},
         ),
         updatingArticleState: {},
       }),
@@ -136,7 +139,10 @@ describe("useExpandedArticleCollapse", () => {
           ),
           setExpandedArticleKey,
           startRemovalAnimation: mock(
-            (_article: Article, _mode: "collapse" | "de-expanding" | "swipe-read") => {},
+            (
+              _article: Article,
+              _mode: "collapse" | "de-expanding" | "swipe-read",
+            ) => {},
           ),
           updatingArticleState: {},
         }),

@@ -4,7 +4,9 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const ALLOWED_FETCH_SITES = new Set(["same-origin", "same-site"]);
 
 /**
- * @param request
+ * Process the require same origin.
+ * @param request - The request.
+ * @returns The require same origin.
  */
 export function requireSameOrigin(request: Request): null | Response {
   const method = request.method.toUpperCase();
@@ -45,9 +47,11 @@ export function requireSameOrigin(request: Request): null | Response {
 }
 
 /**
- * @param origin
- * @param referer
- * @param secFetchSite
+ * Process the allows same site fallback.
+ * @param origin - The origin.
+ * @param referer - The referer.
+ * @param secFetchSite - The sec fetch site.
+ * @returns Whether allows same site fallback.
  */
 function allowsSameSiteFallback(
   origin: null | string,
@@ -63,7 +67,9 @@ function allowsSameSiteFallback(
 }
 
 /**
- * @param request
+ * Return the expected origin.
+ * @param request - The request.
+ * @returns The expected origin.
  */
 function getExpectedOrigin(request: Request): null | string {
   const host = request.headers.get("host");
@@ -76,8 +82,10 @@ function getExpectedOrigin(request: Request): null | string {
 }
 
 /**
- * @param origin
- * @param referer
+ * Return the origin candidate.
+ * @param origin - The origin.
+ * @param referer - The referer.
+ * @returns The origin candidate.
  */
 function getOriginCandidate(
   origin: null | string,
@@ -87,8 +95,10 @@ function getOriginCandidate(
 }
 
 /**
- * @param value
- * @param expectedOrigin
+ * Return whether is same origin.
+ * @param value - The value.
+ * @param expectedOrigin - The expected origin.
+ * @returns Whether is same origin.
  */
 function isSameOrigin(value: string, expectedOrigin: string): boolean {
   return new URL(value).origin.toLowerCase() === expectedOrigin;

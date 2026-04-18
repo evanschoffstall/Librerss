@@ -8,7 +8,9 @@ import {
 } from "./blocked-requests";
 
 /**
- * @param request
+ * Process the proxy.
+ * @param request - The request.
+ * @returns The proxy.
  */
 export function proxy(request: NextRequest) {
   if (shouldBypassProxy(request)) {
@@ -41,7 +43,9 @@ export function proxy(request: NextRequest) {
 }
 
 /**
- * @param response
+ * Process the apply security headers.
+ * @param response - The response.
+ * @returns The apply security headers.
  */
 function applySecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("X-Frame-Options", "DENY");
@@ -60,7 +64,8 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 }
 
 /**
- *
+ * Return the proxy rate limit config.
+ * @returns The proxy rate limit config.
  */
 function getProxyRateLimitConfig() {
   return {
@@ -70,7 +75,9 @@ function getProxyRateLimitConfig() {
 }
 
 /**
- * @param request
+ * Return whether should bypass proxy.
+ * @param request - The request.
+ * @returns Whether should bypass proxy.
  */
 function shouldBypassProxy(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;
@@ -89,7 +96,8 @@ function shouldBypassProxy(request: NextRequest): boolean {
 }
 
 /**
- *
+ * Return whether should skip rate limit.
+ * @returns Whether should skip rate limit.
  */
 function shouldSkipRateLimit(): boolean {
   const isDevelopment = process.env.NODE_ENV === "development";

@@ -37,14 +37,14 @@ interface FeedPaginationRuntimeViewportOptions extends FeedPaginationRuntimeSupp
 }
 
 /**
- * @param root0
- * @param root0.controllers
- * @param root0.options
+ * Manage the feed pagination runtime actions.
+ * @param runtimeSupportOptions - Runtime controllers and feed options used to create pagination actions.
+ * @returns The feed pagination runtime actions state and callbacks.
  */
-export function useFeedPaginationRuntimeActions({
-  controllers,
-  options,
-}: FeedPaginationRuntimeSupportOptions) {
+export function useFeedPaginationRuntimeActions(
+  runtimeSupportOptions: FeedPaginationRuntimeSupportOptions,
+) {
+  const { controllers, options } = runtimeSupportOptions;
   const { anchorState, localState, serverLoadState } = controllers;
 
   const expandVisibleWindow = useExpandVisibleWindow({
@@ -82,18 +82,18 @@ export function useFeedPaginationRuntimeActions({
 }
 
 /**
- * @param root0
- * @param root0.controllers
- * @param root0.maybeLoadNextPage
- * @param root0.options
- * @param root0.shouldObserveLoadMoreBoundary
+ * Manage the feed pagination runtime bindings.
+ * @param runtimeBindingOptions - Runtime binding inputs used to connect observers and intent handlers.
  */
-export function useFeedPaginationRuntimeBindings({
-  controllers,
-  maybeLoadNextPage,
-  options,
-  shouldObserveLoadMoreBoundary,
-}: FeedPaginationRuntimeBindingOptions) {
+export function useFeedPaginationRuntimeBindings(
+  runtimeBindingOptions: FeedPaginationRuntimeBindingOptions,
+) {
+  const {
+    controllers,
+    maybeLoadNextPage,
+    options,
+    shouldObserveLoadMoreBoundary,
+  } = runtimeBindingOptions;
   useFeedPaginationIntentBindingsOnly(controllers, maybeLoadNextPage, options);
   useFeedPaginationViewportBindingsOnly(
     controllers,
@@ -109,16 +109,15 @@ export function useFeedPaginationRuntimeBindings({
 }
 
 /**
- * @param root0
- * @param root0.controllers
- * @param root0.maybeAutoFillViewport
- * @param root0.options
+ * Manage the feed pagination runtime viewport effects.
+ * @param runtimeViewportOptions - Runtime viewport inputs used to coordinate auto-fill and observer state.
+ * @returns The feed pagination runtime viewport effects state and callbacks.
  */
-export function useFeedPaginationRuntimeViewportEffects({
-  controllers,
-  maybeAutoFillViewport,
-  options,
-}: FeedPaginationRuntimeViewportOptions) {
+export function useFeedPaginationRuntimeViewportEffects(
+  runtimeViewportOptions: FeedPaginationRuntimeViewportOptions,
+) {
+  const { controllers, maybeAutoFillViewport, options } =
+    runtimeViewportOptions;
   const { anchorState, localState, serverLoadState } = controllers;
 
   useBackfillDepletedRevealedPageEffect({
@@ -166,10 +165,12 @@ export function useFeedPaginationRuntimeViewportEffects({
 }
 
 /**
- * @param options
- * @param localState
- * @param serverLoadState
- * @param expandVisibleWindow
+ * Resolve the auto fill viewport options.
+ * @param options - The options used to resolve the auto fill viewport options.
+ * @param localState - The callback that local state.
+ * @param serverLoadState - The callback that server load state.
+ * @param expandVisibleWindow - The callback that expand visible window.
+ * @returns The auto fill viewport options.
  */
 function resolveAutoFillViewportOptions(
   options: FeedPaginationRuntimeOptions,
@@ -197,12 +198,14 @@ function resolveAutoFillViewportOptions(
 }
 
 /**
- * @param options
- * @param localState
- * @param serverLoadState
- * @param anchorState
- * @param expandVisibleWindow
- * @param hasReachedStandardLoadBoundary
+ * Resolve the maybe load next page options.
+ * @param options - The options used to resolve the maybe load next page options.
+ * @param localState - The callback that local state.
+ * @param serverLoadState - The callback that server load state.
+ * @param anchorState - The callback that anchor state.
+ * @param expandVisibleWindow - The callback that expand visible window.
+ * @param hasReachedStandardLoadBoundary - Whether has reached standard load boundary.
+ * @returns The maybe load next page options.
  */
 function resolveMaybeLoadNextPageOptions(
   options: FeedPaginationRuntimeOptions,
@@ -231,9 +234,10 @@ function resolveMaybeLoadNextPageOptions(
 }
 
 /**
- * @param controllers
- * @param maybeLoadNextPage
- * @param options
+ * Manage the feed pagination intent bindings only.
+ * @param controllers - The callback that controllers.
+ * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param options - The options used to manage the feed pagination intent bindings only.
  */
 function useFeedPaginationIntentBindingsOnly(
   controllers: FeedPaginationControllers,
@@ -270,10 +274,11 @@ function useFeedPaginationIntentBindingsOnly(
 }
 
 /**
- * @param controllers
- * @param maybeLoadNextPage
- * @param options
- * @param shouldObserveLoadMoreBoundary
+ * Manage the feed pagination observer and cleanup bindings.
+ * @param controllers - The callback that controllers.
+ * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param options - The options used to manage the feed pagination observer and cleanup bindings.
+ * @param shouldObserveLoadMoreBoundary - Whether should observe load more boundary.
  */
 function useFeedPaginationObserverAndCleanupBindings(
   controllers: FeedPaginationControllers,
@@ -314,9 +319,10 @@ function useFeedPaginationObserverAndCleanupBindings(
 }
 
 /**
- * @param controllers
- * @param maybeLoadNextPage
- * @param options
+ * Manage the feed pagination viewport bindings only.
+ * @param controllers - The callback that controllers.
+ * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param options - The options used to manage the feed pagination viewport bindings only.
  */
 function useFeedPaginationViewportBindingsOnly(
   controllers: FeedPaginationControllers,

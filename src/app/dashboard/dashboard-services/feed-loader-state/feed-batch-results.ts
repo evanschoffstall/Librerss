@@ -7,16 +7,21 @@ import {
   retainMissingPreviousFeedArticles,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+interface MergeHydratedContentOptions {
+  preserveLocalFeedState?: boolean;
+}
+
 /**
- * @param previousFeed
- * @param freshArticles
- * @param options
- * @param options.preserveLocalFeedState
+ * Process the merge hydrated content.
+ * @param previousFeed - The previous feed.
+ * @param freshArticles - The fresh articles.
+ * @param options - The options used to process the merge hydrated content.
+ * @returns The merge hydrated content.
  */
 export function mergeHydratedContent(
   previousFeed: Article[],
   freshArticles: Article[],
-  options?: { preserveLocalFeedState?: boolean },
+  options?: MergeHydratedContentOptions,
 ): Article[] {
   if (previousFeed.length === 0) return freshArticles;
 
@@ -56,8 +61,10 @@ export function mergeHydratedContent(
 }
 
 /**
- * @param currentKey
- * @param articles
+ * Resolve the expanded article key.
+ * @param currentKey - The current key.
+ * @param articles - The articles.
+ * @returns The expanded article key.
  */
 export function resolveExpandedArticleKey(
   currentKey: null | string,
@@ -73,7 +80,9 @@ export function resolveExpandedArticleKey(
 }
 
 /**
- * @param batchResults
+ * Process the summarize batch results.
+ * @param batchResults - The batch results.
+ * @returns The summarize batch results.
  */
 export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
   let okCount = 0;
@@ -111,8 +120,10 @@ export function summarizeBatchResults(batchResults: BatchFeedResponseItem[]) {
 export type { BatchFeedResponseItem as FeedBatchResult };
 
 /**
- * @param prev
- * @param next
+ * Process the are articles display equal.
+ * @param prev - The prev.
+ * @param next - The next.
+ * @returns Whether are articles display equal.
  */
 function areArticlesDisplayEqual(prev: Article, next: Article): boolean {
   return (

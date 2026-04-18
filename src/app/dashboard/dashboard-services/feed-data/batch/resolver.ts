@@ -33,19 +33,23 @@ interface PlaceholderArticleCandidate {
 
 const defaultDependencies: FeedBatchResolverDependencies = {
   /**
-   * @param urls
-   * @param options
+   * Process the fetch feeds batch.
+   * @param urls - The urls.
+   * @param options - The options used to process the fetch feeds batch.
+   * @returns The fetch feeds batch.
    */
   fetchFeedsBatch: (urls, options) => FeedService.getFeedsBatch(urls, options),
   getPlaceholderArticles: getPlaceholderArticlesForSource,
 };
 
 /**
- * @param normalizedSources
- * @param usePlaceholderData
- * @param options
- * @param signal
- * @param dependencies
+ * Resolve the feed batch results.
+ * @param normalizedSources - The d sources.
+ * @param usePlaceholderData - The placeholder data.
+ * @param options - The options used to resolve the feed batch results.
+ * @param signal - The signal.
+ * @param dependencies - The dependencies.
+ * @returns The feed batch results.
  */
 export async function resolveFeedBatchResults(
   normalizedSources: FeedBatchSource[],
@@ -81,9 +85,11 @@ export async function resolveFeedBatchResults(
 }
 
 /**
- * @param normalizedSources
- * @param getPlaceholderArticles
- * @param options
+ * Resolve the limited placeholder candidates.
+ * @param normalizedSources - The d sources.
+ * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param options - The options used to resolve the limited placeholder candidates.
+ * @returns The limited placeholder candidates.
  */
 function resolveLimitedPlaceholderCandidates(
   normalizedSources: FeedBatchSource[],
@@ -146,9 +152,11 @@ function resolveLimitedPlaceholderCandidates(
 }
 
 /**
- * @param normalizedSources
- * @param getPlaceholderArticles
- * @param options
+ * Resolve the placeholder batch results.
+ * @param normalizedSources - The d sources.
+ * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param options - The options used to resolve the placeholder batch results.
+ * @returns The placeholder batch results.
  */
 function resolvePlaceholderBatchResults(
   normalizedSources: FeedBatchSource[],

@@ -21,6 +21,17 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 
+interface FeedBatchPrefetchOptions {
+  articleFilter: FeedFetchOptions["articleFilter"];
+  buildFeedBatchQueryOptions: ReturnType<
+    typeof useFeedBatchQueryOptionsBuilder
+  >;
+  buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
+  getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
+  queryClient: QueryClient;
+  usePlaceholderData: boolean;
+}
+
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
 interface FeedBatchQueryState {
@@ -36,6 +47,17 @@ interface FeedBatchQueryState {
   ) => Promise<void>;
 }
 
+interface PrefetchBatchRequestOptions {
+  articleFilter: FeedFetchOptions["articleFilter"];
+  buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
+  getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
+  normalizedSources: FeedBatchSource[];
+  requestOptions?: FeedFetchOptions;
+}
+
+interface QueryFnOptions {
+  signal: AbortSignal;
+}
 interface UseFeedBatchQueryOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
   buildRequestSignature: FeedBatchRequestHelpers["buildRequestSignature"];
@@ -45,24 +67,20 @@ interface UseFeedBatchQueryOptions {
 }
 
 /**
- * Builds and executes TanStack queries for dashboard feed batches.
- *
- * The feed loader owns batch semantics, while this hook owns query option
- * construction, prefetch reuse, stale times, and normalized toast handling.
- * @param root0
- * @param root0.articleFilter
- * @param root0.buildRequestSignature
- * @param root0.getKnownLastFetchedAtByUrl
- * @param root0.queryClient
- * @param root0.usePlaceholderData
+ * Manage the feed batch query.
+ * @param options - The options used to manage the feed batch query.
+ * @returns The feed batch query state and callbacks.
  */
-export function useFeedBatchQuery({
-  articleFilter,
-  buildRequestSignature,
-  getKnownLastFetchedAtByUrl,
-  queryClient,
-  usePlaceholderData,
-}: UseFeedBatchQueryOptions): FeedBatchQueryState {
+export function useFeedBatchQuery(
+  options: UseFeedBatchQueryOptions,
+): FeedBatchQueryState {
+  const {
+    articleFilter,
+    buildRequestSignature,
+    getKnownLastFetchedAtByUrl,
+    queryClient,
+    usePlaceholderData,
+  } = options;
   const buildFeedBatchQueryOptions = useFeedBatchQueryOptionsBuilder({
     articleFilter,
     usePlaceholderData,
@@ -110,69 +128,47 @@ export function useFeedBatchQuery({
 
   return { loadBatchResults, prefetchFeedBatch };
 }
-
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.buildRequestSignature
- * @param root0.getKnownLastFetchedAtByUrl
- * @param root0.normalizedSources
- * @param root0.options
+ * Build the prefetch batch request.
+ * @param options - The options used to build the prefetch batch request.
+ * @returns The prefetch batch request.
  */
-function buildPrefetchBatchRequest({
-  articleFilter,
-  buildRequestSignature,
-  getKnownLastFetchedAtByUrl,
-  normalizedSources,
-  options,
-}: {
-  articleFilter: FeedFetchOptions["articleFilter"];
-  buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
-  getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
-  normalizedSources: FeedBatchSource[];
-  options?: FeedFetchOptions;
-}) {
+function buildPrefetchBatchRequest(options: PrefetchBatchRequestOptions) {
+  const {
+    articleFilter,
+    buildRequestSignature,
+    getKnownLastFetchedAtByUrl,
+    normalizedSources,
+    requestOptions,
+  } = options;
   const knownLastFetchedAtByUrl = getKnownLastFetchedAtByUrl(
     normalizedSources,
-    options?.keepExistingFeed === true,
+    requestOptions?.keepExistingFeed === true,
   );
   const requestSignature = buildRequestSignature(
     normalizedSources,
-    options?.articleLimit,
-    options?.searchTerm,
+    requestOptions?.articleLimit,
+    requestOptions?.searchTerm,
   );
 
   return {
     knownLastFetchedAtByUrl,
     queryKey: getFeedBatchQueryKey(requestSignature, {
       articleFilter,
-      articleLimit: options?.articleLimit,
+      articleLimit: requestOptions?.articleLimit,
       knownLastFetchedAtByUrl,
-      searchTerm: options?.searchTerm,
-      skipRefresh: options?.skipRefresh,
+      searchTerm: requestOptions?.searchTerm,
+      skipRefresh: requestOptions?.skipRefresh,
     }),
   };
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.buildFeedBatchQueryOptions
- * @param options.buildRequestSignature
- * @param options.getKnownLastFetchedAtByUrl
- * @param options.queryClient
- * @param options.usePlaceholderData
+ * Manage the feed batch prefetch.
+ * @param options - The options used to manage the feed batch prefetch.
+ * @returns The feed batch prefetch state and callbacks.
  */
-function useFeedBatchPrefetch(options: {
-  articleFilter: FeedFetchOptions["articleFilter"];
-  buildFeedBatchQueryOptions: ReturnType<
-    typeof useFeedBatchQueryOptionsBuilder
-  >;
-  buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
-  getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
-  queryClient: QueryClient;
-  usePlaceholderData: boolean;
-}) {
+function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
   const {
     articleFilter,
     buildFeedBatchQueryOptions,
@@ -194,7 +190,7 @@ function useFeedBatchPrefetch(options: {
         buildRequestSignature,
         getKnownLastFetchedAtByUrl,
         normalizedSources,
-        options: requestOptions,
+        requestOptions,
       });
 
       await queryClient.prefetchQuery(
@@ -223,36 +219,42 @@ function useFeedBatchPrefetch(options: {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.usePlaceholderData
+ * Manage the feed batch query options builder.
+ * @param options - The options used to manage the feed batch query options builder.
+ * @returns The feed batch query options builder state and callbacks.
  */
-function useFeedBatchQueryOptionsBuilder({
-  articleFilter,
-  usePlaceholderData,
-}: Pick<UseFeedBatchQueryOptions, "articleFilter" | "usePlaceholderData">) {
+function useFeedBatchQueryOptionsBuilder(
+  options: Pick<
+    UseFeedBatchQueryOptions,
+    "articleFilter" | "usePlaceholderData"
+  >,
+) {
+  const { articleFilter, usePlaceholderData } = options;
   return useCallback(
     (
       normalizedSources: FeedBatchSource[],
       queryKey: FeedBatchQueryKey,
-      options?: FeedFetchOptions,
+      requestOptions?: FeedFetchOptions,
     ) => ({
       /**
-       * @param root0
-       * @param root0.signal
+       * Process the query fn.
+       * @param queryFnOptions - Query execution options supplied by TanStack Query.
+       * @returns The query fn.
        */
-      queryFn: ({ signal }: { signal: AbortSignal }) =>
-        resolveFeedBatchResults(
+      queryFn: (queryFnOptions: QueryFnOptions) => {
+        const { signal } = queryFnOptions;
+        return resolveFeedBatchResults(
           normalizedSources,
           usePlaceholderData,
           {
-            ...options,
+            ...requestOptions,
             articleFilter,
           },
           signal,
-        ),
+        );
+      },
       queryKey,
-      staleTime: resolveFeedBatchStaleTime(options),
+      staleTime: resolveFeedBatchStaleTime(requestOptions),
     }),
     [articleFilter, usePlaceholderData],
   );

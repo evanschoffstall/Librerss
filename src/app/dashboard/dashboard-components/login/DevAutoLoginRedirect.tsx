@@ -9,14 +9,12 @@ interface DevAutoLoginRedirectProps {
 }
 
 /**
- * Performs a hard navigation to the dev auto-login route so the browser, not
- * the App Router RSC fetch layer, owns the cookie-setting redirect chain.
- * @param root0
- * @param root0.autoLoginPath
+ * Render the dev auto login redirect component.
+ * @param props - The component props.
+ * @returns The rendered dev auto login redirect component.
  */
-export function DevAutoLoginRedirect({
-  autoLoginPath,
-}: DevAutoLoginRedirectProps) {
+export function DevAutoLoginRedirect(props: DevAutoLoginRedirectProps) {
+  const { autoLoginPath } = props;
   useEffect(() => {
     window.location.replace(autoLoginPath);
   }, [autoLoginPath]);

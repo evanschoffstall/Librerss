@@ -27,30 +27,23 @@ interface DashboardViewModelInput {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.categories
- * @param root0.collapsingArticleKeys
- * @param root0.customCategoryLabels
- * @param root0.expandedArticleKey
- * @param root0.feed
- * @param root0.orderedCategoryLabels
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.useLocalSearch
+ * Build the dashboard view model.
+ * @param options - The options used to build the dashboard view model.
+ * @returns The dashboard view model.
  */
-export function buildDashboardViewModel({
-  articleFilter,
-  categories,
-  collapsingArticleKeys,
-  customCategoryLabels,
-  expandedArticleKey,
-  feed,
-  orderedCategoryLabels,
-  searchTerm,
-  selectedCategory,
-  useLocalSearch,
-}: DashboardViewModelInput) {
+export function buildDashboardViewModel(options: DashboardViewModelInput) {
+  const {
+    articleFilter,
+    categories,
+    collapsingArticleKeys,
+    customCategoryLabels,
+    expandedArticleKey,
+    feed,
+    orderedCategoryLabels,
+    searchTerm,
+    selectedCategory,
+    useLocalSearch,
+  } = options;
   const feedByState = filterArticlesByState(
     feed,
     articleFilter,
@@ -103,8 +96,10 @@ export function buildDashboardViewModel({
 }
 
 /**
- * @param articles
- * @param searchTerm
+ * Process the filter articles by search term.
+ * @param articles - The articles.
+ * @param searchTerm - The search term.
+ * @returns The filter articles by search term.
  */
 export function filterArticlesBySearchTerm(
   articles: Article[],
@@ -121,7 +116,9 @@ export function filterArticlesBySearchTerm(
 }
 
 /**
- * @param article
+ * Return the article content search text.
+ * @param article - The article.
+ * @returns The article content search text.
  */
 function getArticleContentSearchText(article: Article) {
   const cached = articleContentSearchTextCache.get(article);
@@ -135,7 +132,9 @@ function getArticleContentSearchText(article: Article) {
 }
 
 /**
- * @param article
+ * Return the article title search text.
+ * @param article - The article.
+ * @returns The article title search text.
  */
 function getArticleTitleSearchText(article: Article) {
   const cached = articleTitleSearchTextCache.get(article);
@@ -149,8 +148,10 @@ function getArticleTitleSearchText(article: Article) {
 }
 
 /**
- * @param article
- * @param normalizedSearchTerm
+ * Return whether is article search match.
+ * @param article - The article.
+ * @param normalizedSearchTerm - The d search term.
+ * @returns Whether is article search match.
  */
 function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {
   if (getArticleTitleSearchText(article).includes(normalizedSearchTerm)) {

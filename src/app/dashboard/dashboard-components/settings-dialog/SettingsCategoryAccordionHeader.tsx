@@ -14,6 +14,30 @@ import {
 import { AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 
+interface CategoryDragHandleProps {
+  categoryLabel: string;
+  isEditing: boolean;
+  onCategoryDragEnd: () => void;
+  onCategoryDragStart: (
+    event: React.DragEvent<HTMLButtonElement>,
+    label: string,
+  ) => void;
+}
+
+interface CategoryRenameFieldsProps {
+  categoryLabel: string;
+  editingCategoryName: string;
+  onCancelCategoryEdit: () => void;
+  onEditingCategoryNameChange: (name: string) => void;
+  onSaveCategoryRename: (label: string) => void;
+  savingCategoryLabel: null | string;
+}
+
+interface CategorySummaryTriggerProps {
+  categoryFeeds: CategoryTreeNode[];
+  categoryLabel: string;
+  onStartCategoryEdit: (label: string) => void;
+}
 interface SettingsCategoryAccordionHeaderProps extends SettingsCategoryHeaderCallbacks {
   categoryFeeds: CategoryTreeNode[];
   categoryNode: CategoryTreeNode;
@@ -24,7 +48,9 @@ interface SettingsCategoryAccordionHeaderProps extends SettingsCategoryHeaderCal
 }
 
 /**
- * @param props
+ * Render the settings category accordion header component.
+ * @param props - The component props.
+ * @returns The rendered settings category accordion header component.
  */
 export function SettingsCategoryAccordionHeader(
   props: SettingsCategoryAccordionHeaderProps,
@@ -44,27 +70,27 @@ export function SettingsCategoryAccordionHeader(
 }
 
 /**
- * @param root0
- * @param root0.categoryNode
- * @param root0.isAddingFeed
- * @param root0.isPendingRemoval
- * @param root0.onRemoveCategory
- * @param root0.onToggleAddFeed
+ * Render the category action buttons component.
+ * @param props - The component props.
+ * @returns The rendered category action buttons component.
  */
-function CategoryActionButtons({
-  categoryNode,
-  isAddingFeed,
-  isPendingRemoval,
-  onRemoveCategory,
-  onToggleAddFeed,
-}: Pick<
-  SettingsCategoryAccordionHeaderProps,
-  | "categoryNode"
-  | "isAddingFeed"
-  | "isPendingRemoval"
-  | "onRemoveCategory"
-  | "onToggleAddFeed"
->) {
+function CategoryActionButtons(
+  props: Pick<
+    SettingsCategoryAccordionHeaderProps,
+    | "categoryNode"
+    | "isAddingFeed"
+    | "isPendingRemoval"
+    | "onRemoveCategory"
+    | "onToggleAddFeed"
+  >,
+) {
+  const {
+    categoryNode,
+    isAddingFeed,
+    isPendingRemoval,
+    onRemoveCategory,
+    onToggleAddFeed,
+  } = props;
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <SettingsIconButton
@@ -98,28 +124,14 @@ function CategoryActionButtons({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.categoryLabel
- * @param root0.isEditing
- * @param root0.onCategoryDragEnd
- * @param root0.onCategoryDragStart
+ * Render the category drag handle component.
+ * @param props - The component props.
+ * @returns The rendered category drag handle component.
  */
-function CategoryDragHandle({
-  categoryLabel,
-  isEditing,
-  onCategoryDragEnd,
-  onCategoryDragStart,
-}: {
-  categoryLabel: string;
-  isEditing: boolean;
-  onCategoryDragEnd: () => void;
-  onCategoryDragStart: (
-    event: React.DragEvent<HTMLButtonElement>,
-    label: string,
-  ) => void;
-}) {
+function CategoryDragHandle(props: CategoryDragHandleProps) {
+  const { categoryLabel, isEditing, onCategoryDragEnd, onCategoryDragStart } =
+    props;
   if (isEditing) {
     return null;
   }
@@ -141,39 +153,35 @@ function CategoryDragHandle({
 }
 
 /**
- * @param root0
- * @param root0.categoryFeeds
- * @param root0.categoryNode
- * @param root0.editingCategoryName
- * @param root0.isEditing
- * @param root0.onCancelCategoryEdit
- * @param root0.onEditingCategoryNameChange
- * @param root0.onSaveCategoryRename
- * @param root0.onStartCategoryEdit
- * @param root0.savingCategoryLabel
+ * Render the category header content component.
+ * @param props - The component props.
+ * @returns The rendered category header content component.
  */
-function CategoryHeaderContent({
-  categoryFeeds,
-  categoryNode,
-  editingCategoryName,
-  isEditing,
-  onCancelCategoryEdit,
-  onEditingCategoryNameChange,
-  onSaveCategoryRename,
-  onStartCategoryEdit,
-  savingCategoryLabel,
-}: Pick<
-  SettingsCategoryAccordionHeaderProps,
-  | "categoryFeeds"
-  | "categoryNode"
-  | "editingCategoryName"
-  | "isEditing"
-  | "onCancelCategoryEdit"
-  | "onEditingCategoryNameChange"
-  | "onSaveCategoryRename"
-  | "onStartCategoryEdit"
-  | "savingCategoryLabel"
->) {
+function CategoryHeaderContent(
+  props: Pick<
+    SettingsCategoryAccordionHeaderProps,
+    | "categoryFeeds"
+    | "categoryNode"
+    | "editingCategoryName"
+    | "isEditing"
+    | "onCancelCategoryEdit"
+    | "onEditingCategoryNameChange"
+    | "onSaveCategoryRename"
+    | "onStartCategoryEdit"
+    | "savingCategoryLabel"
+  >,
+) {
+  const {
+    categoryFeeds,
+    categoryNode,
+    editingCategoryName,
+    isEditing,
+    onCancelCategoryEdit,
+    onEditingCategoryNameChange,
+    onSaveCategoryRename,
+    onStartCategoryEdit,
+    savingCategoryLabel,
+  } = props;
   return isEditing ? (
     <CategoryRenameFields
       categoryLabel={categoryNode.label}
@@ -191,31 +199,20 @@ function CategoryHeaderContent({
     />
   );
 }
-
 /**
- * @param root0
- * @param root0.categoryLabel
- * @param root0.editingCategoryName
- * @param root0.onCancelCategoryEdit
- * @param root0.onEditingCategoryNameChange
- * @param root0.onSaveCategoryRename
- * @param root0.savingCategoryLabel
+ * Render the category rename fields component.
+ * @param props - The component props.
+ * @returns The rendered category rename fields component.
  */
-function CategoryRenameFields({
-  categoryLabel,
-  editingCategoryName,
-  onCancelCategoryEdit,
-  onEditingCategoryNameChange,
-  onSaveCategoryRename,
-  savingCategoryLabel,
-}: {
-  categoryLabel: string;
-  editingCategoryName: string;
-  onCancelCategoryEdit: () => void;
-  onEditingCategoryNameChange: (name: string) => void;
-  onSaveCategoryRename: (label: string) => void;
-  savingCategoryLabel: null | string;
-}) {
+function CategoryRenameFields(props: CategoryRenameFieldsProps) {
+  const {
+    categoryLabel,
+    editingCategoryName,
+    onCancelCategoryEdit,
+    onEditingCategoryNameChange,
+    onSaveCategoryRename,
+    savingCategoryLabel,
+  } = props;
   const isSaving = savingCategoryLabel === categoryLabel;
 
   return (
@@ -250,20 +247,12 @@ function CategoryRenameFields({
 }
 
 /**
- * @param root0
- * @param root0.categoryFeeds
- * @param root0.categoryLabel
- * @param root0.onStartCategoryEdit
+ * Render the category summary trigger component.
+ * @param props - The component props.
+ * @returns The rendered category summary trigger component.
  */
-function CategorySummaryTrigger({
-  categoryFeeds,
-  categoryLabel,
-  onStartCategoryEdit,
-}: {
-  categoryFeeds: CategoryTreeNode[];
-  categoryLabel: string;
-  onStartCategoryEdit: (label: string) => void;
-}) {
+function CategorySummaryTrigger(props: CategorySummaryTriggerProps) {
+  const { categoryFeeds, categoryLabel, onStartCategoryEdit } = props;
   return (
     <AccordionTrigger
       className="

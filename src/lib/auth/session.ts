@@ -32,7 +32,8 @@ export interface SessionUser {
 }
 
 /**
- *
+ * Return the base cookie options.
+ * @returns The base cookie options.
  */
 function getBaseCookieOptions() {
   return {
@@ -43,13 +44,18 @@ function getBaseCookieOptions() {
   };
 }
 
-/** Lazily resolved so the env read happens at call time, not at module load. */
+/**
+ * Return the session duration ms.
+ * @returns The session duration ms.
+ */
 function getSessionDurationMs() {
   return 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 }
 
 /**
- * @param token
+ * Process the hash session token.
+ * @param token - The token.
+ * @returns The hash session token.
  */
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
@@ -72,7 +78,8 @@ const SCRYPT_V1 = { N: 16384, p: 1, r: 8 } as const; // legacy (read-only)
 const SCRYPT_V2 = { N: 16384, p: 1, r: 8 } as const; // current — bump N when runtime allows
 
 /**
- * @param response
+ * Process the clear session cookie.
+ * @param response - The response.
  */
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE_NAME, "", {
@@ -82,7 +89,9 @@ export function clearSessionCookie(response: NextResponse): void {
 }
 
 /**
- * @param userId
+ * Create the session.
+ * @param userId - The r id.
+ * @returns The session.
  */
 export async function createSession(userId: number): Promise<string> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
@@ -141,7 +150,8 @@ export async function createSession(userId: number): Promise<string> {
 }
 
 /**
- * @param token
+ * Process the delete session by token.
+ * @param token - The token.
  */
 export async function deleteSessionByToken(token: string): Promise<void> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
@@ -155,7 +165,9 @@ export async function deleteSessionByToken(token: string): Promise<void> {
 }
 
 /**
- * @param request
+ * Return the user from request.
+ * @param request - The request.
+ * @returns The user from request.
  */
 export async function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -167,7 +179,9 @@ export async function getUserFromRequest(request: NextRequest) {
 }
 
 /**
- * @param token
+ * Return the user from session token.
+ * @param token - The token.
+ * @returns The user from session token.
  */
 export async function getUserFromSessionToken(
   token: string,
@@ -214,7 +228,9 @@ export async function getUserFromSessionToken(
 }
 
 /**
- * @param password
+ * Process the hash password.
+ * @param password - The password.
+ * @returns The hash password.
  */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
@@ -223,8 +239,9 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * @param response
- * @param token
+ * Process the set session cookie.
+ * @param response - The response.
+ * @param token - The token.
  */
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
@@ -234,8 +251,10 @@ export function setSessionCookie(response: NextResponse, token: string): void {
 }
 
 /**
- * @param password
- * @param storedHash
+ * Process the verify password.
+ * @param password - The password.
+ * @param storedHash - The stored hash.
+ * @returns The verify password.
  */
 export async function verifyPassword(
   password: string,
@@ -270,8 +289,10 @@ const DUMMY_HASH =
   "v2:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
 /**
- * @param email
- * @param password
+ * Process the authenticate credentials.
+ * @param email - The email.
+ * @param password - The password.
+ * @returns The authenticate credentials.
  */
 export async function authenticateCredentials(
   email: string,
@@ -313,8 +334,10 @@ export async function authenticateCredentials(
 }
 
 /**
- * @param email
- * @param password
+ * Process the authenticate placeholder credentials.
+ * @param email - The email.
+ * @param password - The password.
+ * @returns The authenticate placeholder credentials.
  */
 async function authenticatePlaceholderCredentials(
   email: string,

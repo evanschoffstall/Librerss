@@ -14,30 +14,67 @@ import {
 } from "@/app/dashboard/dashboard-services/category";
 import { includesCategoryLabel } from "@/lib/utils";
 
+interface AddCategoryActionOptions {
+  categories: CategoryTreeNode[];
+  customCategoryLabels: string[];
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+interface EnsureCategoryLabelExistsOptions {
+  categories: CategoryTreeNode[];
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+interface MoveCategoryByDropActionOptions {
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
+interface RemoveCategoryActionOptions {
+  categories: CategoryTreeNode[];
+  customCategoryLabels: string[];
+  ensureCategoryLabelExists: (label: string) => void;
+  loadFeedSources: FeedSourceActionState["loadFeedSources"];
+  pendingCategoryRemovalLabel: null | string;
+  selectedCategory: FeedSourceActionState["selectedCategory"];
+  setCategories: FeedSourceActionState["setCategories"];
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setPendingCategoryRemovalLabel: React.Dispatch<
+    React.SetStateAction<null | string>
+  >;
+  setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
+}
+interface RenameCategoryActionOptions {
+  categories: CategoryTreeNode[];
+  customCategoryLabels: string[];
+  loadFeedSources: FeedSourceActionState["loadFeedSources"];
+  selectedCategory: FeedSourceActionState["selectedCategory"];
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
+}
+
 interface UseCategoryCrudActionsOptions extends Omit<
   FeedSourceActionState,
   "fetchAllFeeds" | "fetchCategoryFeeds" | "fetchFeed" | "setFeed"
 > {
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setOrderedCategoryLabels
- * @param root0.setSelectedCategory
+ * Manage the category crud actions.
+ * @param options - The options used to manage the category crud actions.
+ * @returns The category crud actions state and callbacks.
  */
-export function useCategoryCrudActions({
-  categories,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setOrderedCategoryLabels,
-  setSelectedCategory,
-}: UseCategoryCrudActionsOptions) {
+export function useCategoryCrudActions(options: UseCategoryCrudActionsOptions) {
+  const {
+    categories,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setOrderedCategoryLabels,
+    setSelectedCategory,
+  } = options;
   const [customCategoryLabels, setCustomCategoryLabels] = useState<string[]>(
     [],
   );
@@ -91,9 +128,11 @@ export function useCategoryCrudActions({
 }
 
 /**
- * @param current
- * @param label
- * @param categories
+ * Process the ensure category label in list.
+ * @param current - The current.
+ * @param label - The label.
+ * @param categories - The categories.
+ * @returns The ensure category label in list.
  */
 function ensureCategoryLabelInList(
   current: string[],
@@ -109,10 +148,11 @@ function ensureCategoryLabelInList(
 
   return [...current, label];
 }
-
 /**
- * @param current
- * @param label
+ * Process the ensure label in collection.
+ * @param current - The current.
+ * @param label - The label.
+ * @returns The ensure label in collection.
  */
 function ensureLabelInCollection(current: string[], label: string) {
   if (includesCategoryLabel(current, label)) {
@@ -123,20 +163,12 @@ function ensureLabelInCollection(current: string[], label: string) {
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.setCustomCategoryLabels
+ * Manage the add category action.
+ * @param options - The options used to manage the add category action.
+ * @returns The add category action state and callbacks.
  */
-function useAddCategoryAction({
-  categories,
-  customCategoryLabels,
-  setCustomCategoryLabels,
-}: {
-  categories: CategoryTreeNode[];
-  customCategoryLabels: string[];
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-}) {
+function useAddCategoryAction(options: AddCategoryActionOptions) {
+  const { categories, customCategoryLabels, setCustomCategoryLabels } = options;
   return useCallback(
     (label: string) =>
       addCategoryLabel({
@@ -148,22 +180,16 @@ function useAddCategoryAction({
     [categories, customCategoryLabels, setCustomCategoryLabels],
   );
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
+ * Manage the ensure category label exists.
+ * @param options - The options used to manage the ensure category label exists.
+ * @returns The ensure category label exists state and callbacks.
  */
-function useEnsureCategoryLabelExists({
-  categories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-}: {
-  categories: CategoryTreeNode[];
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-}) {
+function useEnsureCategoryLabelExists(
+  options: EnsureCategoryLabelExistsOptions,
+) {
+  const { categories, setCustomCategoryLabels, setOrderedCategoryLabels } =
+    options;
   return useCallback(
     (label: string) => {
       setCustomCategoryLabels((current) =>
@@ -178,14 +204,12 @@ function useEnsureCategoryLabelExists({
 }
 
 /**
- * @param root0
- * @param root0.setOrderedCategoryLabels
+ * Manage the move category by drop action.
+ * @param options - The options used to manage the move category by drop action.
+ * @returns The move category by drop action state and callbacks.
  */
-function useMoveCategoryByDropAction({
-  setOrderedCategoryLabels,
-}: {
-  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-}) {
+function useMoveCategoryByDropAction(options: MoveCategoryByDropActionOptions) {
+  const { setOrderedCategoryLabels } = options;
   return useCallback(
     (label: string, targetIndex: number) => {
       setOrderedCategoryLabels((current) =>
@@ -195,48 +219,25 @@ function useMoveCategoryByDropAction({
     [setOrderedCategoryLabels],
   );
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.ensureCategoryLabelExists
- * @param root0.loadFeedSources
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setPendingCategoryRemovalLabel
- * @param root0.setSelectedCategory
+ * Manage the remove category action.
+ * @param options - The options used to manage the remove category action.
+ * @returns The remove category action state and callbacks.
  */
-function useRemoveCategoryAction({
-  categories,
-  customCategoryLabels,
-  ensureCategoryLabelExists,
-  loadFeedSources,
-  pendingCategoryRemovalLabel,
-  selectedCategory,
-  setCategories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setPendingCategoryRemovalLabel,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  customCategoryLabels: string[];
-  ensureCategoryLabelExists: (label: string) => void;
-  loadFeedSources: FeedSourceActionState["loadFeedSources"];
-  pendingCategoryRemovalLabel: null | string;
-  selectedCategory: FeedSourceActionState["selectedCategory"];
-  setCategories: FeedSourceActionState["setCategories"];
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setPendingCategoryRemovalLabel: React.Dispatch<
-    React.SetStateAction<null | string>
-  >;
-  setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
-}) {
+function useRemoveCategoryAction(options: RemoveCategoryActionOptions) {
+  const {
+    categories,
+    customCategoryLabels,
+    ensureCategoryLabelExists,
+    loadFeedSources,
+    pendingCategoryRemovalLabel,
+    selectedCategory,
+    setCategories,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setPendingCategoryRemovalLabel,
+    setSelectedCategory,
+  } = options;
   return useCallback(
     async (label: string) =>
       removeCategoryAndRefresh({
@@ -270,32 +271,20 @@ function useRemoveCategoryAction({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setSelectedCategory
+ * Manage the rename category action.
+ * @param options - The options used to manage the rename category action.
+ * @returns The rename category action state and callbacks.
  */
-function useRenameCategoryAction({
-  categories,
-  customCategoryLabels,
-  loadFeedSources,
-  selectedCategory,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  customCategoryLabels: string[];
-  loadFeedSources: FeedSourceActionState["loadFeedSources"];
-  selectedCategory: FeedSourceActionState["selectedCategory"];
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
-}) {
+function useRenameCategoryAction(options: RenameCategoryActionOptions) {
+  const {
+    categories,
+    customCategoryLabels,
+    loadFeedSources,
+    selectedCategory,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setSelectedCategory,
+  } = options;
   return useCallback(
     (currentLabel: string, nextLabel: string) =>
       renameCategoryAndRefresh({

@@ -3,13 +3,9 @@ const IPV6_SEGMENT_RE = /^[\da-f]{1,4}$/i;
 const IP_TOKEN_RE = /^[\da-f:.]{1,64}$/i;
 
 /**
- * Edge-safe, conservative IP token validation.
- *
- * The rate limiter only needs a stable bucket key, not full RFC-perfect IP
- * parsing. False negatives degrade to the shared "unknown" bucket; false
- * positives would let attackers manufacture buckets, so this validator stays
- * intentionally strict.
- * @param value
+ * Return whether is likely ip address.
+ * @param value - The value.
+ * @returns Whether is likely ip address.
  */
 export function isLikelyIpAddress(value: string): boolean {
   const candidate = value.trim();
@@ -29,7 +25,9 @@ export function isLikelyIpAddress(value: string): boolean {
 }
 
 /**
- * @param value
+ * Return whether is valid ipv4 address.
+ * @param value - The value.
+ * @returns Whether is valid ipv4 address.
  */
 function isValidIpv4Address(value: string): boolean {
   const segments = value.split(".");
@@ -48,7 +46,9 @@ function isValidIpv4Address(value: string): boolean {
 }
 
 /**
- * @param value
+ * Return whether is valid ipv6 address.
+ * @param value - The value.
+ * @returns Whether is valid ipv6 address.
  */
 function isValidIpv6Address(value: string): boolean {
   const normalized = value.trim();

@@ -35,41 +35,47 @@ type DashboardToolbarDesktopActionsProps = Pick<
   | "themeToggleLabel"
 > & { isToolbarActionPending: boolean };
 
-/**
- * @param root0
- * @param root0.handleMarkAllRead
- * @param root0.handleMarkViewportRead
- * @param root0.handleOpenSettings
- * @param root0.handleRefresh
- * @param root0.handleRefreshFromUpstream
- * @param root0.handleReset
- * @param root0.handleSignOut
- * @param root0.handleToggleTheme
- * @param root0.isDark
- * @param root0.isDevelopmentMode
- * @param root0.isResetting
- * @param root0.isSigningOut
- * @param root0.isToolbarActionPending
- * @param root0.mounted
- * @param root0.themeToggleLabel
+interface DashboardToolbarResetIconButtonProps {
+  handleReset: () => Promise<void>;
+  isDevelopmentMode: boolean;
+  isResetting: boolean;
+}
+interface DashboardToolbarThemeButtonProps {
+  handleToggleTheme: () => void;
+  isDark: boolean;
+  mounted: boolean;
+  themeToggleLabel: string;
+}
+
+interface DashboardToolbarUpstreamRefreshButtonProps {
+  handleRefreshFromUpstream: () => void;
+  isDevelopmentMode: boolean;
+  isToolbarActionPending: boolean;
+} /**
+ * Render the dashboard toolbar desktop actions component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar desktop actions component.
  */
-export function DashboardToolbarDesktopActions({
-  handleMarkAllRead,
-  handleMarkViewportRead,
-  handleOpenSettings,
-  handleRefresh,
-  handleRefreshFromUpstream,
-  handleReset,
-  handleSignOut,
-  handleToggleTheme,
-  isDark,
-  isDevelopmentMode,
-  isResetting,
-  isSigningOut,
-  isToolbarActionPending,
-  mounted,
-  themeToggleLabel,
-}: DashboardToolbarDesktopActionsProps) {
+export function DashboardToolbarDesktopActions(
+  props: DashboardToolbarDesktopActionsProps,
+) {
+  const {
+    handleMarkAllRead,
+    handleMarkViewportRead,
+    handleOpenSettings,
+    handleRefresh,
+    handleRefreshFromUpstream,
+    handleReset,
+    handleSignOut,
+    handleToggleTheme,
+    isDark,
+    isDevelopmentMode,
+    isResetting,
+    isSigningOut,
+    isToolbarActionPending,
+    mounted,
+    themeToggleLabel,
+  } = props;
   return (
     <div
       className="
@@ -128,20 +134,14 @@ export function DashboardToolbarDesktopActions({
 }
 
 /**
- * @param root0
- * @param root0.handleReset
- * @param root0.isDevelopmentMode
- * @param root0.isResetting
+ * Render the dashboard toolbar reset icon button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar reset icon button component.
  */
-function DashboardToolbarResetIconButton({
-  handleReset,
-  isDevelopmentMode,
-  isResetting,
-}: {
-  handleReset: () => Promise<void>;
-  isDevelopmentMode: boolean;
-  isResetting: boolean;
-}) {
+function DashboardToolbarResetIconButton(
+  props: DashboardToolbarResetIconButtonProps,
+) {
+  const { handleReset, isDevelopmentMode, isResetting } = props;
   return isDevelopmentMode ? (
     <DashboardToolbarIconButton
       ariaLabel="Reset app state"
@@ -150,26 +150,13 @@ function DashboardToolbarResetIconButton({
       onClick={() => void handleReset()}
     />
   ) : null;
-}
-
-/**
- * @param root0
- * @param root0.handleToggleTheme
- * @param root0.isDark
- * @param root0.mounted
- * @param root0.themeToggleLabel
+} /**
+ * Render the dashboard toolbar theme button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar theme button component.
  */
-function DashboardToolbarThemeButton({
-  handleToggleTheme,
-  isDark,
-  mounted,
-  themeToggleLabel,
-}: {
-  handleToggleTheme: () => void;
-  isDark: boolean;
-  mounted: boolean;
-  themeToggleLabel: string;
-}) {
+function DashboardToolbarThemeButton(props: DashboardToolbarThemeButtonProps) {
+  const { handleToggleTheme, isDark, mounted, themeToggleLabel } = props;
   return mounted ? (
     <DashboardToolbarIconButton
       ariaLabel={themeToggleLabel}
@@ -182,20 +169,18 @@ function DashboardToolbarThemeButton({
 }
 
 /**
- * @param root0
- * @param root0.handleRefreshFromUpstream
- * @param root0.isDevelopmentMode
- * @param root0.isToolbarActionPending
+ * Render the dashboard toolbar upstream refresh button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar upstream refresh button component.
  */
-function DashboardToolbarUpstreamRefreshButton({
-  handleRefreshFromUpstream,
-  isDevelopmentMode,
-  isToolbarActionPending,
-}: {
-  handleRefreshFromUpstream: () => void;
-  isDevelopmentMode: boolean;
-  isToolbarActionPending: boolean;
-}) {
+function DashboardToolbarUpstreamRefreshButton(
+  props: DashboardToolbarUpstreamRefreshButtonProps,
+) {
+  const {
+    handleRefreshFromUpstream,
+    isDevelopmentMode,
+    isToolbarActionPending,
+  } = props;
   return isDevelopmentMode ? (
     <DashboardToolbarActionButton
       ariaLabel="Refresh selected feed from upstream"

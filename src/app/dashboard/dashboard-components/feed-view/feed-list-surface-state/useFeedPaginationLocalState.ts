@@ -2,23 +2,48 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
-/**
- * @param options
- * @param options.articlesPerPage
- * @param options.filteredFeedLength
- * @param options.hasCollapsingArticles
- * @param options.isLoadingMore
- * @param options.isRefreshing
- * @param options.refreshEpoch
- */
-export function useFeedPaginationLocalState(options: {
+interface CachedPageRevealStateIsMountedRef {
+  current: boolean;
+}
+
+interface CachedPageRevealStateVisibleArticleCountRef {
+  current: number;
+}
+interface CancelPendingCachedRevealFramePendingCachedRevealFrameRef {
+  current: null | number;
+}
+
+interface CancelPendingCachedRevealPendingCachedRevealFrameRef {
+  current: null | number;
+}
+
+interface CancelPendingCachedRevealPendingCachedRevealTimeoutRef {
+  current: null | ReturnType<typeof setTimeout>;
+}
+interface FeedPaginationHistoryRefsOptions {
+  articlesPerPage: number;
+  filteredFeedLength: number;
+  hasCollapsingArticles: boolean;
+  isLoadingMore: boolean;
+  refreshEpoch: number;
+}
+
+interface FeedPaginationLocalStateOptions {
   articlesPerPage: number;
   filteredFeedLength: number;
   hasCollapsingArticles: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
   refreshEpoch: number;
-}) {
+}
+/**
+ * Manage the feed pagination local state.
+ * @param options - The options used to manage the feed pagination local state.
+ * @returns The feed pagination local state state and callbacks.
+ */
+export function useFeedPaginationLocalState(
+  options: FeedPaginationLocalStateOptions,
+) {
   const boundaryRefs = useFeedPaginationBoundaryRefs();
   const historyRefs = useFeedPaginationHistoryRefs(options);
   const previousRefreshEpochForRenderRef = useRef(options.refreshEpoch);
@@ -74,17 +99,13 @@ export function useFeedPaginationLocalState(options: {
 }
 
 /**
- * Cancels both the rAF and the hold timeout for a pending cached reveal.
- * @param pendingCachedRevealFrameRef
- * @param pendingCachedRevealFrameRef.current
- * @param pendingCachedRevealTimeoutRef
- * @param pendingCachedRevealTimeoutRef.current
+ * Process the cancel pending cached reveal.
+ * @param pendingCachedRevealFrameRef - The ref that stores the pending cached reveal frame ref.
+ * @param pendingCachedRevealTimeoutRef - The ref that stores the pending cached reveal timeout ref.
  */
 function cancelPendingCachedReveal(
-  pendingCachedRevealFrameRef: { current: null | number },
-  pendingCachedRevealTimeoutRef: {
-    current: null | ReturnType<typeof setTimeout>;
-  },
+  pendingCachedRevealFrameRef: CancelPendingCachedRevealPendingCachedRevealFrameRef,
+  pendingCachedRevealTimeoutRef: CancelPendingCachedRevealPendingCachedRevealTimeoutRef,
 ) {
   cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef);
 
@@ -95,12 +116,12 @@ function cancelPendingCachedReveal(
 }
 
 /**
- * @param pendingCachedRevealFrameRef
- * @param pendingCachedRevealFrameRef.current
+ * Process the cancel pending cached reveal frame.
+ * @param pendingCachedRevealFrameRef - The ref that stores the pending cached reveal frame ref.
  */
-function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
-  current: null | number;
-}) {
+function cancelPendingCachedRevealFrame(
+  pendingCachedRevealFrameRef: CancelPendingCachedRevealFramePendingCachedRevealFrameRef,
+) {
   if (pendingCachedRevealFrameRef.current === null) {
     return;
   }
@@ -110,15 +131,15 @@ function cancelPendingCachedRevealFrame(pendingCachedRevealFrameRef: {
 }
 
 /**
- * @param isMountedRef
- * @param isMountedRef.current
- * @param visibleArticleCountRef
- * @param visibleArticleCountRef.current
- * @param setVisibleArticleCount
+ * Manage the cached page reveal state.
+ * @param isMountedRef - The ref that stores the is mounted ref.
+ * @param visibleArticleCountRef - The ref that stores the visible article count ref.
+ * @param setVisibleArticleCount - The callback that set visible article count.
+ * @returns The cached page reveal state state and callbacks.
  */
 function useCachedPageRevealState(
-  isMountedRef: { current: boolean },
-  visibleArticleCountRef: { current: number },
+  isMountedRef: CachedPageRevealStateIsMountedRef,
+  visibleArticleCountRef: CachedPageRevealStateVisibleArticleCountRef,
   setVisibleArticleCount: (n: number) => void,
 ) {
   const [isCachedPageRevealing, setIsCachedPageRevealing] = useState(false);
@@ -193,9 +214,9 @@ function useCachedPageRevealState(
     scheduleCachedPageReveal,
   };
 }
-
 /**
- *
+ * Manage the feed pagination boundary refs.
+ * @returns The feed pagination boundary refs state and callbacks.
  */
 function useFeedPaginationBoundaryRefs() {
   const isInvertedLoadBoundaryArmedRef = useRef(true);
@@ -216,20 +237,13 @@ function useFeedPaginationBoundaryRefs() {
 }
 
 /**
- * @param options
- * @param options.articlesPerPage
- * @param options.filteredFeedLength
- * @param options.hasCollapsingArticles
- * @param options.isLoadingMore
- * @param options.refreshEpoch
+ * Manage the feed pagination history refs.
+ * @param options - The options used to manage the feed pagination history refs.
+ * @returns The feed pagination history refs state and callbacks.
  */
-function useFeedPaginationHistoryRefs(options: {
-  articlesPerPage: number;
-  filteredFeedLength: number;
-  hasCollapsingArticles: boolean;
-  isLoadingMore: boolean;
-  refreshEpoch: number;
-}) {
+function useFeedPaginationHistoryRefs(
+  options: FeedPaginationHistoryRefsOptions,
+) {
   const hasCollapsingArticlesRef = useRef(options.hasCollapsingArticles);
   const isMountedRef = useRef(true);
   const filteredFeedLengthRef = useRef(options.filteredFeedLength);

@@ -15,11 +15,13 @@ export {
 export type { SwipePhase, SwipeState } from "./swipeGestureController";
 
 /**
- * @param direction
- * @param onCommit
- * @param disabled
- * @param shouldIgnoreTarget
- * @param reattachKey
+ * Manage the swipe gesture.
+ * @param direction - The direction.
+ * @param onCommit - The callback that on commit.
+ * @param disabled - The disabled.
+ * @param shouldIgnoreTarget - Whether should ignore target.
+ * @param reattachKey - The reattach key.
+ * @returns The swipe gesture state and callbacks.
  */
 export function useSwipeGesture(
   direction: "left" | "right",
@@ -53,11 +55,13 @@ export function useSwipeGesture(
 }
 
 /**
- * @param direction
- * @param onCommit
- * @param disabled
- * @param setState
- * @param shouldIgnoreTarget
+ * Manage the swipe gesture context.
+ * @param direction - The direction.
+ * @param onCommit - The callback that on commit.
+ * @param disabled - The disabled.
+ * @param setState - The set state.
+ * @param shouldIgnoreTarget - Whether should ignore target.
+ * @returns The swipe gesture context state and callbacks.
  */
 function useSwipeGestureContext(
   direction: "left" | "right",

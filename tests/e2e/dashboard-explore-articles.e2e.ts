@@ -21,7 +21,9 @@ function feedScrollViewport(article: ReturnType<typeof articleCard>) {
 }
 
 /** Toggles the currently visible article surface without recentering it first. */
-async function toggleVisibleArticleSurface(article: ReturnType<typeof articleCard>) {
+async function toggleVisibleArticleSurface(
+  article: ReturnType<typeof articleCard>,
+) {
   const previousExpandedState = await article.getAttribute("aria-expanded");
 
   await article.evaluate((node) => {
@@ -150,13 +152,17 @@ test.describe("dashboard explore article interactions", () => {
 
     const deepScrollTop = await article.evaluate((node) => {
       if (!(node instanceof HTMLElement)) {
-        throw new Error("Expected the article surface to resolve to an element.");
+        throw new Error(
+          "Expected the article surface to resolve to an element.",
+        );
       }
 
       const viewport = node.closest("[data-radix-scroll-area-viewport]");
 
       if (!(viewport instanceof HTMLElement)) {
-        throw new Error("Expected the expanded article to stay inside a feed viewport.");
+        throw new Error(
+          "Expected the expanded article to stay inside a feed viewport.",
+        );
       }
 
       const articleRect = node.getBoundingClientRect();

@@ -19,25 +19,22 @@ interface FeedVirtualListBoundaryRowProps {
 }
 
 /**
- * Shared article row used by both runtime and non-virtualized test surfaces.
- * @param root0
- * @param root0.article
- * @param root0.estimatedItemHeight
- * @param root0.index
- * @param root0.itemKey
- * @param root0.measureElement
- * @param root0.offsetTop
- * @param root0.renderArticle
+ * Render the feed virtual list article row component.
+ * @param props - The component props.
+ * @returns The rendered feed virtual list article row component.
  */
-export function FeedVirtualListArticleRow({
-  article,
-  estimatedItemHeight,
-  index,
-  itemKey,
-  measureElement,
-  offsetTop,
-  renderArticle,
-}: FeedVirtualListArticleRowProps) {
+export function FeedVirtualListArticleRow(
+  props: FeedVirtualListArticleRowProps,
+) {
+  const {
+    article,
+    estimatedItemHeight,
+    index,
+    itemKey,
+    measureElement,
+    offsetTop,
+    renderArticle,
+  } = props;
   const rowStyle =
     typeof offsetTop === "number"
       ? {
@@ -64,21 +61,20 @@ export function FeedVirtualListArticleRow({
 }
 
 /**
- * Shared virtualized boundary row used by both runtime and test surfaces.
- * @param root0
- * @param root0.index
- * @param root0.itemKey
- * @param root0.loadMoreSentinelRef
- * @param root0.measureElement
- * @param root0.offsetTop
+ * Render the feed virtual list boundary row component.
+ * @param props - The component props.
+ * @returns The rendered feed virtual list boundary row component.
  */
-export function FeedVirtualListBoundaryRow({
-  index: _index,
-  itemKey,
-  loadMoreSentinelRef,
-  measureElement,
-  offsetTop,
-}: FeedVirtualListBoundaryRowProps) {
+export function FeedVirtualListBoundaryRow(
+  props: FeedVirtualListBoundaryRowProps,
+) {
+  const {
+    index: _index,
+    itemKey,
+    loadMoreSentinelRef,
+    measureElement,
+    offsetTop,
+  } = props;
   const rowStyle = buildAbsoluteRowStyle(offsetTop);
 
   return (
@@ -100,7 +96,9 @@ export function FeedVirtualListBoundaryRow({
 }
 
 /**
- * @param offsetTop
+ * Build the absolute row style.
+ * @param offsetTop - The offset top.
+ * @returns The absolute row style.
  */
 function buildAbsoluteRowStyle(offsetTop: null | number | undefined) {
   if (typeof offsetTop !== "number") {

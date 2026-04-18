@@ -1,13 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Loading skeleton shown while OPML feeds are being imported.
- *
- * Matches the SettingsCategoryList/SettingsCategoryAccordionItem/SettingsFeedRow
- * DOM structure — category header row (drag handle + label + count badge +
- * two action buttons) and feed rows (drag handle + name/url stack + three
- * action buttons + separator + delete button) — so the layout does not shift
- * when the import resolves and the real list mounts.
+ * Render the settings import skeleton component.
+ * @returns The rendered settings import skeleton component.
  */
 export function SettingsImportSkeleton() {
   return (

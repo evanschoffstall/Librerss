@@ -17,6 +17,36 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+interface CompatibilityErrorRowProps {
+  compatibilityError: string;
+}
+
+interface CompatibilityPanelBodyProps {
+  compatibilityError: null | string;
+  compatibilityResults: CompatibilityResult[] | null;
+  resultsRef: React.RefObject<HTMLDivElement | null>;
+  showLoadingSkeleton: boolean;
+}
+interface CompatibilityPanelHeaderProps {
+  compatibilityCheckedAt: null | number;
+  hasProxy: boolean;
+  isRunningCompatibilityCheck: boolean;
+  nowTs: number;
+  onRunCompatibilityCheck: () => Promise<void>;
+  saving: boolean;
+  showLoadingSkeleton: boolean;
+}
+
+interface CompatibilityResultsListProps {
+  compatibilityResults: CompatibilityResult[];
+  resultsRef: React.RefObject<HTMLDivElement | null>;
+}
+interface CompatibilityRunButtonProps {
+  isRunningCompatibilityCheck: boolean;
+  onRunCompatibilityCheck: () => Promise<void>;
+  saving: boolean;
+}
+
 interface SettingsProxyCompatibilityPanelProps {
   compatibilityCheckedAt: null | number;
   compatibilityError: null | string;
@@ -29,33 +59,26 @@ interface SettingsProxyCompatibilityPanelProps {
   resultsRef: React.RefObject<HTMLDivElement | null>;
   saving: boolean;
 }
-
 /**
- * Renders the proxy compatibility section and its loading-safe shell.
- * @param root0
- * @param root0.compatibilityCheckedAt
- * @param root0.compatibilityError
- * @param root0.compatibilityResults
- * @param root0.hasProxy
- * @param root0.isLoading
- * @param root0.isRunningCompatibilityCheck
- * @param root0.nowTs
- * @param root0.onRunCompatibilityCheck
- * @param root0.resultsRef
- * @param root0.saving
+ * Render the settings proxy compatibility panel component.
+ * @param props - The component props.
+ * @returns The rendered settings proxy compatibility panel component.
  */
-export function SettingsProxyCompatibilityPanel({
-  compatibilityCheckedAt,
-  compatibilityError,
-  compatibilityResults,
-  hasProxy,
-  isLoading = false,
-  isRunningCompatibilityCheck,
-  nowTs,
-  onRunCompatibilityCheck,
-  resultsRef,
-  saving,
-}: SettingsProxyCompatibilityPanelProps) {
+export function SettingsProxyCompatibilityPanel(
+  props: SettingsProxyCompatibilityPanelProps,
+) {
+  const {
+    compatibilityCheckedAt,
+    compatibilityError,
+    compatibilityResults,
+    hasProxy,
+    isLoading = false,
+    isRunningCompatibilityCheck,
+    nowTs,
+    onRunCompatibilityCheck,
+    resultsRef,
+    saving,
+  } = props;
   const showLoadingSkeleton =
     isLoading &&
     !hasProxy &&
@@ -85,14 +108,12 @@ export function SettingsProxyCompatibilityPanel({
 }
 
 /**
- * @param root0
- * @param root0.compatibilityError
+ * Render the compatibility error row component.
+ * @param props - The component props.
+ * @returns The rendered compatibility error row component.
  */
-function CompatibilityErrorRow({
-  compatibilityError,
-}: {
-  compatibilityError: string;
-}) {
+function CompatibilityErrorRow(props: CompatibilityErrorRowProps) {
+  const { compatibilityError } = props;
   return (
     <div className="flex min-w-0 items-center gap-1.5 text-xs text-destructive">
       <XCircle className="size-3.5 shrink-0" />
@@ -109,25 +130,18 @@ function CompatibilityErrorRow({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.compatibilityError
- * @param root0.compatibilityResults
- * @param root0.resultsRef
- * @param root0.showLoadingSkeleton
+ * Render the compatibility panel body component.
+ * @param props - The component props.
+ * @returns The rendered compatibility panel body component.
  */
-function CompatibilityPanelBody({
-  compatibilityError,
-  compatibilityResults,
-  resultsRef,
-  showLoadingSkeleton,
-}: {
-  compatibilityError: null | string;
-  compatibilityResults: CompatibilityResult[] | null;
-  resultsRef: React.RefObject<HTMLDivElement | null>;
-  showLoadingSkeleton: boolean;
-}) {
+function CompatibilityPanelBody(props: CompatibilityPanelBodyProps) {
+  const {
+    compatibilityError,
+    compatibilityResults,
+    resultsRef,
+    showLoadingSkeleton,
+  } = props;
   if (showLoadingSkeleton) {
     return null;
   }
@@ -148,32 +162,20 @@ function CompatibilityPanelBody({
 }
 
 /**
- * @param root0
- * @param root0.compatibilityCheckedAt
- * @param root0.hasProxy
- * @param root0.isRunningCompatibilityCheck
- * @param root0.nowTs
- * @param root0.onRunCompatibilityCheck
- * @param root0.saving
- * @param root0.showLoadingSkeleton
+ * Render the compatibility panel header component.
+ * @param props - The component props.
+ * @returns The rendered compatibility panel header component.
  */
-function CompatibilityPanelHeader({
-  compatibilityCheckedAt,
-  hasProxy,
-  isRunningCompatibilityCheck,
-  nowTs,
-  onRunCompatibilityCheck,
-  saving,
-  showLoadingSkeleton,
-}: {
-  compatibilityCheckedAt: null | number;
-  hasProxy: boolean;
-  isRunningCompatibilityCheck: boolean;
-  nowTs: number;
-  onRunCompatibilityCheck: () => Promise<void>;
-  saving: boolean;
-  showLoadingSkeleton: boolean;
-}) {
+function CompatibilityPanelHeader(props: CompatibilityPanelHeaderProps) {
+  const {
+    compatibilityCheckedAt,
+    hasProxy,
+    isRunningCompatibilityCheck,
+    nowTs,
+    onRunCompatibilityCheck,
+    saving,
+    showLoadingSkeleton,
+  } = props;
   return (
     <div className="row-between">
       <div>
@@ -200,19 +202,13 @@ function CompatibilityPanelHeader({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.compatibilityResults
- * @param root0.resultsRef
+ * Render the compatibility results list component.
+ * @param props - The component props.
+ * @returns The rendered compatibility results list component.
  */
-function CompatibilityResultsList({
-  compatibilityResults,
-  resultsRef,
-}: {
-  compatibilityResults: CompatibilityResult[];
-  resultsRef: React.RefObject<HTMLDivElement | null>;
-}) {
+function CompatibilityResultsList(props: CompatibilityResultsListProps) {
+  const { compatibilityResults, resultsRef } = props;
   return (
     <div
       className="divide-y divide-border rounded-lg border bg-muted/30"
@@ -260,20 +256,13 @@ function CompatibilityResultsList({
 }
 
 /**
- * @param root0
- * @param root0.isRunningCompatibilityCheck
- * @param root0.onRunCompatibilityCheck
- * @param root0.saving
+ * Render the compatibility run button component.
+ * @param props - The component props.
+ * @returns The rendered compatibility run button component.
  */
-function CompatibilityRunButton({
-  isRunningCompatibilityCheck,
-  onRunCompatibilityCheck,
-  saving,
-}: {
-  isRunningCompatibilityCheck: boolean;
-  onRunCompatibilityCheck: () => Promise<void>;
-  saving: boolean;
-}) {
+function CompatibilityRunButton(props: CompatibilityRunButtonProps) {
+  const { isRunningCompatibilityCheck, onRunCompatibilityCheck, saving } =
+    props;
   return (
     <Button
       className="h-8 shrink-0 gap-1.5"

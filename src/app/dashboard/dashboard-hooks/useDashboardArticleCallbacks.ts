@@ -18,30 +18,23 @@ interface UseDashboardArticleCallbacksOptions {
 }
 
 /**
- * Stabilizes the article-interaction callbacks consumed by the feed surface.
- *
- * Keeping these wrappers in a focused hook trims controller noise while
- * preserving a single place that defines the feed view key contract.
- * @param root0
- * @param root0.articleFilter
- * @param root0.capturePreExpandSnapshot
- * @param root0.handleArticleToggle
- * @param root0.handleExpandedSwipeRead
- * @param root0.handleSwipeRead
- * @param root0.handleToggleReadState
- * @param root0.handleToggleStarredState
- * @param root0.selectedCategory
+ * Manage the dashboard article callbacks.
+ * @param options - The options used to manage the dashboard article callbacks.
+ * @returns The dashboard article callbacks state and callbacks.
  */
-export function useDashboardArticleCallbacks({
-  articleFilter,
-  capturePreExpandSnapshot,
-  handleArticleToggle,
-  handleExpandedSwipeRead,
-  handleSwipeRead,
-  handleToggleReadState,
-  handleToggleStarredState,
-  selectedCategory,
-}: UseDashboardArticleCallbacksOptions) {
+export function useDashboardArticleCallbacks(
+  options: UseDashboardArticleCallbacksOptions,
+) {
+  const {
+    articleFilter,
+    capturePreExpandSnapshot,
+    handleArticleToggle,
+    handleExpandedSwipeRead,
+    handleSwipeRead,
+    handleToggleReadState,
+    handleToggleStarredState,
+    selectedCategory,
+  } = options;
   const onArticleToggle = useCallback(
     (article: Article) => {
       handleArticleToggle(article);

@@ -93,9 +93,15 @@ const SETTINGS_TAB_VALUES = new Set<SettingsTabValue>(
   SETTINGS_TABS.map((tab) => tab.value),
 );
 
+interface SettingsTabTriggersOptions {
+  isPreviewMode: boolean;
+  mobile?: boolean;
+}
+
 /**
- * Tabbed settings panel replacing the old monolithic scrolling modal.
- * @param props
+ * Render the settings panel component.
+ * @param props - The component props.
+ * @returns The rendered settings panel component.
  */
 export function SettingsPanel(props: SettingsPanelProps) {
   const isMobile = useIsMobile();
@@ -119,7 +125,9 @@ export function SettingsPanel(props: SettingsPanelProps) {
 }
 
 /**
- * @param props
+ * Build the settings panel runtime options.
+ * @param props - The component props.
+ * @returns The settings panel runtime options.
  */
 function buildSettingsPanelRuntimeOptions(props: SettingsPanelProps) {
   return {
@@ -129,17 +137,19 @@ function buildSettingsPanelRuntimeOptions(props: SettingsPanelProps) {
 }
 
 /**
- * Returns true for tabs that should be hidden entirely in preview/demo mode.
- * @param value
+ * Return whether is preview only tab.
+ * @param value - The value.
+ * @returns Whether is preview only tab.
  */
 function isPreviewOnlyTab(value: SettingsTabValue): boolean {
   return value === "account";
 }
 
 /**
- * Validates persisted tab state and strips preview-incompatible tabs.
- * @param value
- * @param isPreviewMode
+ * Normalize the settings tab value.
+ * @param value - The value.
+ * @param isPreviewMode - Whether is preview mode.
+ * @returns The settings tab value.
  */
 function normalizeSettingsTabValue(
   value: string,
@@ -153,7 +163,9 @@ function normalizeSettingsTabValue(
 }
 
 /**
- * @param options
+ * Render the settings panel desktop shell component.
+ * @param options - The options used to render the settings panel desktop shell component.
+ * @returns The rendered settings panel desktop shell component.
  */
 function SettingsPanelDesktopShell(options: SettingsPanelShellOptions) {
   return (
@@ -200,7 +212,9 @@ function SettingsPanelDesktopShell(options: SettingsPanelShellOptions) {
 }
 
 /**
- * @param options
+ * Render the settings panel mobile shell component.
+ * @param options - The options used to render the settings panel mobile shell component.
+ * @returns The rendered settings panel mobile shell component.
  */
 function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
   return (
@@ -260,55 +274,39 @@ function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
     </TooltipProvider>
   );
 }
-
 /**
- * Renders the content pane for each settings tab.
- *
- * Using TabsContent ensures only the active tab's DOM is reachable, giving
- * focused keyboard navigation and eliminating the old monolithic scroll.
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.autoRefreshIntervalMinutes
- * @param root0.backgroundMode
- * @param root0.categories
- * @param root0.distillStrategy
- * @param root0.isPreviewMode
- * @param root0.onAccountDeleted
- * @param root0.onArticlesPerPageChange
- * @param root0.onAutoRefreshIntervalMinutesChange
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.onRemoveCategory
- * @param root0.onShowFaviconsChange
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.showFavicons
- * @param root0.state
+ * Render the settings tab content component.
+ * @param props - The component props.
+ * @returns The rendered settings tab content component.
  */
-function SettingsTabContent({
-  articlesPerPage,
-  autoRefreshIntervalMinutes,
-  backgroundMode,
-  categories,
-  distillStrategy,
-  isPreviewMode,
-  onAccountDeleted,
-  onArticlesPerPageChange,
-  onAutoRefreshIntervalMinutesChange,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  onRemoveCategory,
-  onShowFaviconsChange,
-  pendingCategoryRemovalLabel,
-  showFavicons,
-  state,
-}: SettingsDisplaySectionProps & {
-  categories: CategoryTreeNode[];
-  isPreviewMode: boolean;
-  onAccountDeleted: () => void;
-  onRemoveCategory: (label: string) => Promise<boolean>;
-  pendingCategoryRemovalLabel: null | string;
-  state: ReturnType<typeof useSettingsModalState>;
-}) {
+function SettingsTabContent(
+  props: SettingsDisplaySectionProps & {
+    categories: CategoryTreeNode[];
+    isPreviewMode: boolean;
+    onAccountDeleted: () => void;
+    onRemoveCategory: (label: string) => Promise<boolean>;
+    pendingCategoryRemovalLabel: null | string;
+    state: ReturnType<typeof useSettingsModalState>;
+  },
+) {
+  const {
+    articlesPerPage,
+    autoRefreshIntervalMinutes,
+    backgroundMode,
+    categories,
+    distillStrategy,
+    isPreviewMode,
+    onAccountDeleted,
+    onArticlesPerPageChange,
+    onAutoRefreshIntervalMinutesChange,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    onRemoveCategory,
+    onShowFaviconsChange,
+    pendingCategoryRemovalLabel,
+    showFavicons,
+    state,
+  } = props;
   return (
     <>
       <TabsContent className="mt-0" value="display">
@@ -354,14 +352,11 @@ function SettingsTabContent({
 }
 
 /**
- * @param options
- * @param options.isPreviewMode
- * @param options.mobile
+ * Render the settings tab triggers component.
+ * @param options - The options used to render the settings tab triggers component.
+ * @returns The rendered settings tab triggers component.
  */
-function SettingsTabTriggers(options: {
-  isPreviewMode: boolean;
-  mobile?: boolean;
-}) {
+function SettingsTabTriggers(options: SettingsTabTriggersOptions) {
   return SETTINGS_TABS.map(({ icon: Icon, label, value }) => {
     if (options.isPreviewMode && isPreviewOnlyTab(value)) return null;
     return (
@@ -387,7 +382,9 @@ function SettingsTabTriggers(options: {
 }
 
 /**
- * @param options
+ * Manage the settings panel runtime.
+ * @param options - The options used to manage the settings panel runtime.
+ * @returns The settings panel runtime state and callbacks.
  */
 function useSettingsPanelRuntime(
   options: Omit<SettingsPanelProps, "isPreviewMode"> & {
@@ -424,7 +421,8 @@ function useSettingsPanelRuntime(
   }, [activeTab, persistedTab, setPersistedTab]);
 
   /**
-   * @param open
+   * Process the handle open change.
+   * @param open - The open.
    */
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -432,7 +430,8 @@ function useSettingsPanelRuntime(
     }
   };
   /**
-   * @param nextValue
+   * Process the handle tab change.
+   * @param nextValue - The next value.
    */
   const handleTabChange = (nextValue: string) => {
     setPersistedTab(

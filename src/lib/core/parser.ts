@@ -30,7 +30,9 @@ export interface PendingArticle {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * @param items
+ * Process the dedupe pending articles.
+ * @param items - The items.
+ * @returns The dedupe pending articles.
  */
 export function dedupePendingArticles(
   items: PendingArticle[],
@@ -39,7 +41,9 @@ export function dedupePendingArticles(
 }
 
 /**
- * @param items
+ * Return the publication date range.
+ * @param items - The items.
+ * @returns The publication date range.
  */
 export function getPublicationDateRange(items: PendingArticle[]): {
   newestPublicationDate: null | string;
@@ -57,8 +61,10 @@ export function getPublicationDateRange(items: PendingArticle[]): {
 }
 
 /**
- * @param value
- * @param fallback
+ * Parse the feed item date.
+ * @param value - The value.
+ * @param fallback - The fallback.
+ * @returns The feed item date.
  */
 export function parseFeedItemDate(
   value: string | undefined,
@@ -68,9 +74,11 @@ export function parseFeedItemDate(
 }
 
 /**
- * @param item
- * @param feedId
- * @param now
+ * Process the to pending article.
+ * @param item - The item.
+ * @param feedId - The feed id.
+ * @param now - The now.
+ * @returns The to pending article.
  */
 export function toPendingArticle(
   item: Parser.Item & { contentEncoded?: string },

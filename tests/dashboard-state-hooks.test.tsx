@@ -107,7 +107,11 @@ afterEach(() => {
     );
   }
   if (originalWindowLocalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalWindowLocalStorageDescriptor,
+    );
   }
   if (originalGlobalSessionStorageDescriptor) {
     Object.defineProperty(
@@ -142,7 +146,9 @@ describe("useDashboardState", () => {
       result.current.categories,
     );
     expect(result.current.feedRef.current).toEqual(result.current.feed);
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(
+      30,
+    );
   });
 
   test("normalizes auto-refresh updates from both values and updater functions", async () => {
@@ -153,7 +159,9 @@ describe("useDashboardState", () => {
       result.current.setAutoRefreshIntervalMinutes(1);
     });
 
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(
+      30,
+    );
 
     act(() => {
       result.current.setAutoRefreshIntervalMinutes(
@@ -161,7 +169,9 @@ describe("useDashboardState", () => {
       );
     });
 
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(43);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(
+      43,
+    );
     expect(result.current.categoriesRef.current).toEqual(
       result.current.categories,
     );
@@ -206,7 +216,10 @@ describe("useDashboardState", () => {
       "librerss:autoRefreshIntervalMinutes",
       JSON.stringify(90),
     );
-    window.sessionStorage.setItem("librerss:searchTerm", JSON.stringify("mars"));
+    window.sessionStorage.setItem(
+      "librerss:searchTerm",
+      JSON.stringify("mars"),
+    );
     globalThis.sessionStorage?.setItem(
       "librerss:searchTerm",
       JSON.stringify("mars"),
@@ -232,7 +245,9 @@ describe("useDashboardState", () => {
     expect(result.current.expandedArticleKey).toBeNull();
     expect(result.current.showFavicons).toBe(true);
     expect(result.current.articlesPerPage).toBe(4);
-    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(30);
+    expect(result.current.autoRefreshIntervalMinutes).toBeGreaterThanOrEqual(
+      30,
+    );
   });
 
   test("uses the article window in preview mode when search is empty", () => {
@@ -278,13 +293,7 @@ describe("useDashboardState", () => {
     // = loading && feedLength === 0 is false, and isShellLoading must stay false
     // once the initial settle has completed.
     const { rerender, result } = renderHook(
-      ({
-        feedLength,
-        loading,
-      }: {
-        feedLength: number;
-        loading: boolean;
-      }) =>
+      ({ feedLength, loading }: { feedLength: number; loading: boolean }) =>
         useDashboardFeedLoadingState({
           articleFilter: "unread",
           feedLength,
@@ -559,7 +568,9 @@ describe("useDashboardEvents", () => {
     });
 
     await waitFor(() => {
-      expect(markAllRead).toHaveBeenCalledWith("feed/https://example.com/feed.xml");
+      expect(markAllRead).toHaveBeenCalledWith(
+        "feed/https://example.com/feed.xml",
+      );
       expect(onRefresh).toHaveBeenCalled();
     });
   });

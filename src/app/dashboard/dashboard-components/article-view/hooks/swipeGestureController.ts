@@ -46,8 +46,10 @@ export const SWIPE_IDLE: SwipeState = {
 };
 
 /**
- * @param element
- * @param context
+ * Create the swipe gesture runtime.
+ * @param element - The element.
+ * @param context - The context used to create the swipe gesture runtime.
+ * @returns The swipe gesture runtime.
  */
 export function createSwipeGestureRuntime(
   element: HTMLElement,
@@ -58,7 +60,7 @@ export function createSwipeGestureRuntime(
 
   return {
     /**
-     *
+     * Process the attach.
      */
     attach: () => {
       element.addEventListener("pointerdown", handlers.handlePointerDown, true);
@@ -78,7 +80,7 @@ export function createSwipeGestureRuntime(
       );
     },
     /**
-     *
+     * Process the detach.
      */
     detach: () => {
       controls.clearReleaseTimer();
@@ -109,15 +111,18 @@ export function createSwipeGestureRuntime(
 }
 
 /**
- * @param offsetX
+ * Process the apply elastic damping.
+ * @param offsetX - The offset x.
+ * @returns The apply elastic damping.
  */
 function applyElasticDamping(offsetX: number) {
   return offsetX < 0 ? 0 : offsetX * ELASTIC_DAMPING;
 }
 
 /**
- * @param event
- * @param context
+ * Process the apply swipe pointer move state.
+ * @param event - The incoming event.
+ * @param context - The context used to process the apply swipe pointer move state.
  */
 function applySwipePointerMoveState(
   event: PointerEvent,
@@ -140,8 +145,10 @@ function applySwipePointerMoveState(
 }
 
 /**
- * @param isRight
- * @param width
+ * Create the committed swipe state.
+ * @param isRight - Whether is right.
+ * @param width - The width.
+ * @returns The committed swipe state.
  */
 function createCommittedSwipeState(
   isRight: boolean,
@@ -156,15 +163,17 @@ function createCommittedSwipeState(
 }
 
 /**
- * @param element
- * @param context
+ * Create the swipe gesture controls.
+ * @param element - The element.
+ * @param context - The context used to create the swipe gesture controls.
+ * @returns The swipe gesture controls.
  */
 function createSwipeGestureControls(
   element: HTMLElement,
   context: SwipeGestureContext,
 ) {
   /**
-   *
+   * Process the clear release timer.
    */
   const clearReleaseTimer = () => {
     if (context.releaseTimerRef.current !== null) {
@@ -174,7 +183,7 @@ function createSwipeGestureControls(
   };
 
   /**
-   *
+   * Process the restore touch action.
    */
   const restoreTouchAction = () => {
     if (element.style.touchAction === "none") {
@@ -183,7 +192,7 @@ function createSwipeGestureControls(
   };
 
   /**
-   *
+   * Process the release capture.
    */
   const releaseCapture = () => {
     const pointerId = context.activePointerIdRef.current;
@@ -201,7 +210,7 @@ function createSwipeGestureControls(
   };
 
   /**
-   *
+   * Process the reset pointer state.
    */
   const resetPointerState = () => {
     restoreTouchAction();
@@ -215,7 +224,7 @@ function createSwipeGestureControls(
 
   return {
     /**
-     *
+     * Process the animate release.
      */
     animateRelease: () => {
       context.setState({
@@ -235,13 +244,14 @@ function createSwipeGestureControls(
     resetPointerState,
     restoreTouchAction,
     /**
-     *
+     * Process the set touch action none.
      */
     setTouchActionNone: () => {
       element.style.touchAction = "none";
     },
     /**
-     * @param pointerId
+     * Process the try set pointer capture.
+     * @param pointerId - The pointer id.
      */
     trySetPointerCapture: (pointerId: number) => {
       try {
@@ -255,9 +265,11 @@ function createSwipeGestureControls(
 }
 
 /**
- * @param element
- * @param context
- * @param controls
+ * Create the swipe gesture handlers.
+ * @param element - The element.
+ * @param context - The context used to create the swipe gesture handlers.
+ * @param controls - The callback that controls.
+ * @returns The swipe gesture handlers.
  */
 function createSwipeGestureHandlers(
   element: HTMLElement,
@@ -266,7 +278,8 @@ function createSwipeGestureHandlers(
 ) {
   return {
     /**
-     * @param event
+     * Process the handle lost pointer capture.
+     * @param event - The incoming event.
      */
     handleLostPointerCapture: (event: PointerEvent) => {
       if (context.activePointerIdRef.current === null) {
@@ -282,7 +295,8 @@ function createSwipeGestureHandlers(
       controls.resetPointerState();
     },
     /**
-     * @param event
+     * Process the handle pointer cancel.
+     * @param event - The incoming event.
      */
     handlePointerCancel: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
@@ -291,7 +305,8 @@ function createSwipeGestureHandlers(
       controls.resetPointerState();
     },
     /**
-     * @param event
+     * Process the handle pointer down.
+     * @param event - The incoming event.
      */
     handlePointerDown: (event: PointerEvent) => {
       if (context.disabledRef.current || event.pointerType === "mouse") return;
@@ -309,7 +324,8 @@ function createSwipeGestureHandlers(
       ];
     },
     /**
-     * @param event
+     * Process the handle pointer end.
+     * @param event - The incoming event.
      */
     handlePointerEnd: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
@@ -337,7 +353,8 @@ function createSwipeGestureHandlers(
       controls.resetPointerState();
     },
     /**
-     * @param event
+     * Process the handle pointer move.
+     * @param event - The incoming event.
      */
     handlePointerMove: (event: PointerEvent) => {
       if (context.activePointerIdRef.current !== event.pointerId) return;
@@ -348,8 +365,10 @@ function createSwipeGestureHandlers(
 }
 
 /**
- * @param event
- * @param context
+ * Resolve the should commit.
+ * @param event - The incoming event.
+ * @param context - The context used to resolve the should commit.
+ * @returns Whether should commit.
  */
 function resolveShouldCommit(
   event: PointerEvent,
@@ -382,8 +401,10 @@ function resolveShouldCommit(
 }
 
 /**
- * @param clientX
- * @param context
+ * Resolve the signed swipe offset x.
+ * @param clientX - The client x.
+ * @param context - The context used to resolve the signed swipe offset x.
+ * @returns The signed swipe offset x.
  */
 function resolveSignedSwipeOffsetX(
   clientX: number,
@@ -404,9 +425,11 @@ function resolveSignedSwipeOffsetX(
 }
 
 /**
- * @param event
- * @param context
- * @param controls
+ * Return whether should track swipe move.
+ * @param event - The incoming event.
+ * @param context - The context used to return whether should track swipe move.
+ * @param controls - The callback that controls.
+ * @returns Whether should track swipe move.
  */
 function shouldTrackSwipeMove(
   event: PointerEvent,

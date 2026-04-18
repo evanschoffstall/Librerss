@@ -2,7 +2,8 @@ import { LegalDocumentPage } from "@/app/app-components";
 import { getPrivacyPageContent } from "@/app/app-components/legal";
 
 /**
- * Renders the deployment-aware privacy policy page.
+ * Render the privacy page component.
+ * @returns The rendered privacy page component.
  */
 export default function PrivacyPage() {
   return <LegalDocumentPage {...getPrivacyPageContent()} />;

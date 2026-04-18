@@ -3,12 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
 /**
- * Extends a boolean loading signal so it stays true for at least
- * {@link SKELETON_MIN_VISIBLE_MS} after the source goes false.
- *
- * This prevents load-more skeletons from appearing and vanishing within
- * a single frame when server data resolves instantly from the prefetch cache.
- * @param isLoadingMore
+ * Manage the server load skeleton hold.
+ * @param isLoadingMore - Whether is loading more.
+ * @returns Whether server load skeleton hold.
  */
 export function useServerLoadSkeletonHold(isLoadingMore: boolean): boolean {
   const [isHeld, setIsHeld] = useState(false);

@@ -22,30 +22,103 @@ import {
   normalizeCategory,
 } from "@/lib/utils";
 
-/**
- * @param root0
- * @param root0.category
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.name
- * @param root0.setSelectedCategory
- * @param root0.url
- */
-export async function addFeedSourceAndRefresh({
-  category,
-  fetchFeed,
-  loadFeedSources,
-  name,
-  setSelectedCategory,
-  url,
-}: {
+interface AddFeedSourceAndRefreshOptions {
   category: string;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   name: string;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   url: string;
-}): Promise<boolean> {
+}
+
+interface ApplyPostEnabledSelectionOptions {
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  nextCategories: CategoryTreeNode[];
+  nextSelection: ReturnType<typeof resolvePostEnabledToggleSelection>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+interface ApplyPostRemovalSelectionOptions {
+  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+  fetchFeed: (url: string) => Promise<void>;
+  nextSelection: ReturnType<typeof resolvePostRemovalSelection>;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+
+interface FeedSettingsAndRefreshOptions {
+  categories: CategoryTreeNode[];
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
+}
+interface MoveFeedByDropAndPersistOptions {
+  categories: CategoryTreeNode[];
+  ensureCategoryLabelExists: (label: string) => void;
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
+  targetCategory: string;
+  targetIndex: number;
+}
+
+interface RefreshAddedFeedSelectionOptions {
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  nextCategories: CategoryTreeNode[];
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+  url: string;
+}
+interface RemoveFeedSourceAndRefreshOptions {
+  categories: CategoryTreeNode[];
+  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
+  fetchFeed: (url: string) => Promise<void>;
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  selectedCategory: string;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+
+interface RenameFeedSourceAndRefreshOptions {
+  categories: CategoryTreeNode[];
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  nextName: string;
+  nextUrl: string;
+}
+
+interface SetFeedSourceEnabledAndRefreshOptions {
+  categories: CategoryTreeNode[];
+  enabled: boolean;
+  fetchAllFeeds: (
+    categories?: CategoryTreeNode[],
+    options?: FeedFetchOptions,
+  ) => Promise<void>;
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  key: string;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  selectedCategory: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+/**
+ * Process the add feed source and refresh.
+ * @param options - The options used to process the add feed source and refresh.
+ * @returns The add feed source and refresh.
+ */
+export async function addFeedSourceAndRefresh(
+  options: AddFeedSourceAndRefreshOptions,
+): Promise<boolean> {
+  const {
+    category,
+    fetchFeed,
+    loadFeedSources,
+    name,
+    setSelectedCategory,
+    url,
+  } = options;
   const normalizedInput = normalizeFeedSourceInput(name, url);
 
   if (!normalizedInput.name || !normalizedInput.url) {
@@ -81,32 +154,21 @@ export async function addFeedSourceAndRefresh({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.ensureCategoryLabelExists
- * @param root0.key
- * @param root0.loadFeedSources
- * @param root0.setCategories
- * @param root0.targetCategory
- * @param root0.targetIndex
+ * Process the move feed by drop and persist.
+ * @param options - The options used to process the move feed by drop and persist.
  */
-export async function moveFeedByDropAndPersist({
-  categories,
-  ensureCategoryLabelExists,
-  key,
-  loadFeedSources,
-  setCategories,
-  targetCategory,
-  targetIndex,
-}: {
-  categories: CategoryTreeNode[];
-  ensureCategoryLabelExists: (label: string) => void;
-  key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  targetCategory: string;
-  targetIndex: number;
-}) {
+export async function moveFeedByDropAndPersist(
+  options: MoveFeedByDropAndPersistOptions,
+) {
+  const {
+    categories,
+    ensureCategoryLabelExists,
+    key,
+    loadFeedSources,
+    setCategories,
+    targetCategory,
+    targetIndex,
+  } = options;
   const normalizedTargetCategory = normalizeCategory(targetCategory);
   if (!normalizedTargetCategory) return;
 
@@ -140,37 +202,23 @@ export async function moveFeedByDropAndPersist({
     await loadFeedSources();
   }
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.key
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setFeed
- * @param root0.setSelectedCategory
+ * Process the remove feed source and refresh.
+ * @param options - The options used to process the remove feed source and refresh.
  */
-export async function removeFeedSourceAndRefresh({
-  categories,
-  fetchCategoryFeeds,
-  fetchFeed,
-  key,
-  loadFeedSources,
-  selectedCategory,
-  setFeed,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
-  key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  selectedCategory: string;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}) {
+export async function removeFeedSourceAndRefresh(
+  options: RemoveFeedSourceAndRefreshOptions,
+) {
+  const {
+    categories,
+    fetchCategoryFeeds,
+    fetchFeed,
+    key,
+    loadFeedSources,
+    selectedCategory,
+    setFeed,
+    setSelectedCategory,
+  } = options;
   const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
 
@@ -199,26 +247,14 @@ export async function removeFeedSourceAndRefresh({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.key
- * @param root0.loadFeedSources
- * @param root0.nextName
- * @param root0.nextUrl
+ * Process the rename feed source and refresh.
+ * @param options - The options used to process the rename feed source and refresh.
+ * @returns The rename feed source and refresh.
  */
-export async function renameFeedSourceAndRefresh({
-  categories,
-  key,
-  loadFeedSources,
-  nextName,
-  nextUrl,
-}: {
-  categories: CategoryTreeNode[];
-  key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  nextName: string;
-  nextUrl: string;
-}): Promise<boolean> {
+export async function renameFeedSourceAndRefresh(
+  options: RenameFeedSourceAndRefreshOptions,
+): Promise<boolean> {
+  const { categories, key, loadFeedSources, nextName, nextUrl } = options;
   const selectedNode = findFeedNodeByKey(categories, key);
   const sourceId = selectedNode?.data?.sourceId;
   const normalizedName = nextName.trim();
@@ -255,12 +291,12 @@ export async function renameFeedSourceAndRefresh({
     return false;
   }
 }
-
 /**
- * @param categories
- * @param feedKey
- * @param setSelectedCategory
- * @param fetchFeed
+ * Process the select feed by key from categories.
+ * @param categories - The categories.
+ * @param feedKey - The feed key.
+ * @param setSelectedCategory - The set selected category.
+ * @param fetchFeed - The callback that fetch feed.
  */
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],
@@ -276,38 +312,23 @@ export function selectFeedByKeyFromCategories(
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.enabled
- * @param root0.fetchAllFeeds
- * @param root0.fetchFeed
- * @param root0.key
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setSelectedCategory
+ * Process the set feed source enabled and refresh.
+ * @param options - The options used to process the set feed source enabled and refresh.
+ * @returns The set feed source enabled and refresh.
  */
-export async function setFeedSourceEnabledAndRefresh({
-  categories,
-  enabled,
-  fetchAllFeeds,
-  fetchFeed,
-  key,
-  loadFeedSources,
-  selectedCategory,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  enabled: boolean;
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  selectedCategory: string;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}): Promise<boolean> {
+export async function setFeedSourceEnabledAndRefresh(
+  options: SetFeedSourceEnabledAndRefreshOptions,
+): Promise<boolean> {
+  const {
+    categories,
+    enabled,
+    fetchAllFeeds,
+    fetchFeed,
+    key,
+    loadFeedSources,
+    selectedCategory,
+    setSelectedCategory,
+  } = options;
   const sourceReference = getFeedSourceReference(categories, key);
   const sourceId = sourceReference.sourceId;
 
@@ -341,27 +362,15 @@ export async function setFeedSourceEnabledAndRefresh({
     return false;
   }
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.key
- * @param root0.loadFeedSources
- * @param root0.settings
- * @param root0.settings.extractionDisabled
- * @param root0.settings.proxyEnabled
+ * Update the feed settings and refresh.
+ * @param options - The options used to update the feed settings and refresh.
+ * @returns The feed settings and refresh.
  */
-export async function updateFeedSettingsAndRefresh({
-  categories,
-  key,
-  loadFeedSources,
-  settings,
-}: {
-  categories: CategoryTreeNode[];
-  key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
-}): Promise<boolean> {
+export async function updateFeedSettingsAndRefresh(
+  options: FeedSettingsAndRefreshOptions,
+): Promise<boolean> {
+  const { categories, key, loadFeedSources, settings } = options;
   const sourceId = getFeedSourceReference(categories, key).sourceId;
 
   if (!isSafePositiveItemId(sourceId)) {
@@ -381,29 +390,19 @@ export async function updateFeedSettingsAndRefresh({
 }
 
 /**
- * @param root0
- * @param root0.fetchAllFeeds
- * @param root0.fetchFeed
- * @param root0.nextCategories
- * @param root0.nextSelection
- * @param root0.setSelectedCategory
+ * Process the apply post enabled selection.
+ * @param options - The options used to process the apply post enabled selection.
  */
-async function applyPostEnabledSelection({
-  fetchAllFeeds,
-  fetchFeed,
-  nextCategories,
-  nextSelection,
-  setSelectedCategory,
-}: {
-  fetchAllFeeds: (
-    categories?: CategoryTreeNode[],
-    options?: FeedFetchOptions,
-  ) => Promise<void>;
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  nextCategories: CategoryTreeNode[];
-  nextSelection: ReturnType<typeof resolvePostEnabledToggleSelection>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}) {
+async function applyPostEnabledSelection(
+  options: ApplyPostEnabledSelectionOptions,
+) {
+  const {
+    fetchAllFeeds,
+    fetchFeed,
+    nextCategories,
+    nextSelection,
+    setSelectedCategory,
+  } = options;
   if (nextSelection.type === "all-feeds") {
     setSelectedCategory(ALL_FEEDS_NODE_KEY);
     await fetchAllFeeds(nextCategories, {
@@ -421,26 +420,19 @@ async function applyPostEnabledSelection({
 }
 
 /**
- * @param root0
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.nextSelection
- * @param root0.setFeed
- * @param root0.setSelectedCategory
+ * Process the apply post removal selection.
+ * @param options - The options used to process the apply post removal selection.
  */
-async function applyPostRemovalSelection({
-  fetchCategoryFeeds,
-  fetchFeed,
-  nextSelection,
-  setFeed,
-  setSelectedCategory,
-}: {
-  fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
-  fetchFeed: (url: string) => Promise<void>;
-  nextSelection: ReturnType<typeof resolvePostRemovalSelection>;
-  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}) {
+async function applyPostRemovalSelection(
+  options: ApplyPostRemovalSelectionOptions,
+) {
+  const {
+    fetchCategoryFeeds,
+    fetchFeed,
+    nextSelection,
+    setFeed,
+    setSelectedCategory,
+  } = options;
   if (nextSelection.type === "clear") {
     setSelectedCategory("");
     setFeed([]);
@@ -460,10 +452,11 @@ async function applyPostRemovalSelection({
     await fetchCategoryFeeds(nextSelection.categoryNode);
   }
 }
-
 /**
- * @param categories
- * @param key
+ * Return the feed source reference.
+ * @param categories - The categories.
+ * @param key - The key.
+ * @returns The feed source reference.
  */
 function getFeedSourceReference(categories: CategoryTreeNode[], key: string) {
   const sourceNode = findFeedNodeByKey(categories, key);
@@ -475,23 +468,13 @@ function getFeedSourceReference(categories: CategoryTreeNode[], key: string) {
 }
 
 /**
- * @param root0
- * @param root0.fetchFeed
- * @param root0.nextCategories
- * @param root0.setSelectedCategory
- * @param root0.url
+ * Process the refresh added feed selection.
+ * @param options - The options used to process the refresh added feed selection.
  */
-async function refreshAddedFeedSelection({
-  fetchFeed,
-  nextCategories,
-  setSelectedCategory,
-  url,
-}: {
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  nextCategories: CategoryTreeNode[];
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  url: string;
-}) {
+async function refreshAddedFeedSelection(
+  options: RefreshAddedFeedSelectionOptions,
+) {
+  const { fetchFeed, nextCategories, setSelectedCategory, url } = options;
   const latestNode = findFeedNodeByUrl(nextCategories, url);
 
   if (!latestNode?.data?.url) {

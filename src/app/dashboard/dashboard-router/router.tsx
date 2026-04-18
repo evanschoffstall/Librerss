@@ -21,6 +21,41 @@ import {
   DashboardSkeletonView,
 } from "./surfaces";
 
+interface DashboardRouterDerivedStateOptions {
+  backgroundMode: BackgroundMode;
+  currentUser: AuthSession["user"] | null;
+  distillStrategy: string;
+  hasHydratedClientState: boolean;
+  initialAutoLoginPath?: string;
+  initialPreviewMode: boolean;
+  isPreviewMode: boolean;
+  resolvedTheme?: string;
+}
+
+interface DashboardRouterEffectsOptions {
+  hasHydratedClientState: boolean;
+  hasPreviewQuery: boolean;
+  initialPreviewMode: boolean;
+  resolvedPreviewMode: boolean;
+  setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
+  setCurrentUser: React.Dispatch<
+    React.SetStateAction<AuthSession["user"] | null>
+  >;
+  setHasHydratedClientState: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSessionLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setUsePlaceholderData: React.Dispatch<React.SetStateAction<boolean>>;
+  shouldAutoLogin: boolean;
+}
+interface DashboardRouterHydrationEffectsOptions {
+  hasHydratedClientState: boolean;
+  hasPreviewQuery: boolean;
+  initialPreviewMode: boolean;
+  resolvedPreviewMode: boolean;
+  setHasHydratedClientState: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
   initialAutoLoginPath?: string;
@@ -28,10 +63,30 @@ interface DashboardRouterProps {
   initialPreviewMode: boolean;
   initialSession?: AuthSession;
 }
+interface DashboardRouterSessionEffectOptions {
+  hasHydratedClientState: boolean;
+  hasPreviewQuery: boolean;
+  resolvedPreviewMode: boolean;
+  setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
+  setCurrentUser: React.Dispatch<
+    React.SetStateAction<AuthSession["user"] | null>
+  >;
+  setIsSessionLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  setUsePlaceholderData: React.Dispatch<React.SetStateAction<boolean>>;
+  shouldAutoLogin: boolean;
+}
+
+interface DashboardRouterStateOptions {
+  handleEnterPreview: () => void;
+  routerDerivedState: ReturnType<typeof resolveDashboardRouterDerivedState>;
+  routerPreferenceState: ReturnType<typeof useDashboardRouterPreferenceState>;
+  routerSessionState: ReturnType<typeof useDashboardRouterSessionState>;
+}
 
 /**
- * Routes between dashboard loading, login, and the hydrated app surface.
- * @param props
+ * Render the dashboard router component.
+ * @param props - The component props.
+ * @returns The rendered dashboard router component.
  */
 export function DashboardRouter(props: DashboardRouterProps) {
   const routerState = useDashboardRouterState(props);
@@ -75,23 +130,17 @@ export function DashboardRouter(props: DashboardRouterProps) {
 }
 
 /**
- * @param root0
- * @param root0.handleEnterPreview
- * @param root0.routerDerivedState
- * @param root0.routerPreferenceState
- * @param root0.routerSessionState
+ * Build the dashboard router state.
+ * @param options - The options used to build the dashboard router state.
+ * @returns The dashboard router state.
  */
-function buildDashboardRouterState({
-  handleEnterPreview,
-  routerDerivedState,
-  routerPreferenceState,
-  routerSessionState,
-}: {
-  handleEnterPreview: () => void;
-  routerDerivedState: ReturnType<typeof resolveDashboardRouterDerivedState>;
-  routerPreferenceState: ReturnType<typeof useDashboardRouterPreferenceState>;
-  routerSessionState: ReturnType<typeof useDashboardRouterSessionState>;
-}) {
+function buildDashboardRouterState(options: DashboardRouterStateOptions) {
+  const {
+    handleEnterPreview,
+    routerDerivedState,
+    routerPreferenceState,
+    routerSessionState,
+  } = options;
   return {
     allowSignup: routerSessionState.allowSignup,
     currentUser: routerSessionState.currentUser,
@@ -108,37 +157,24 @@ function buildDashboardRouterState({
     usePlaceholderData: routerSessionState.usePlaceholderData,
   };
 }
-
 /**
- * @param root0
- * @param root0.backgroundMode
- * @param root0.currentUser
- * @param root0.distillStrategy
- * @param root0.hasHydratedClientState
- * @param root0.initialAutoLoginPath
- * @param root0.initialPreviewMode
- * @param root0.isPreviewMode
- * @param root0.resolvedTheme
+ * Resolve the dashboard router derived state.
+ * @param options - The options used to resolve the dashboard router derived state.
+ * @returns The dashboard router derived state.
  */
-function resolveDashboardRouterDerivedState({
-  backgroundMode,
-  currentUser,
-  distillStrategy,
-  hasHydratedClientState,
-  initialAutoLoginPath,
-  initialPreviewMode,
-  isPreviewMode,
-  resolvedTheme,
-}: {
-  backgroundMode: BackgroundMode;
-  currentUser: AuthSession["user"] | null;
-  distillStrategy: string;
-  hasHydratedClientState: boolean;
-  initialAutoLoginPath?: string;
-  initialPreviewMode: boolean;
-  isPreviewMode: boolean;
-  resolvedTheme?: string;
-}) {
+function resolveDashboardRouterDerivedState(
+  options: DashboardRouterDerivedStateOptions,
+) {
+  const {
+    backgroundMode,
+    currentUser,
+    distillStrategy,
+    hasHydratedClientState,
+    initialAutoLoginPath,
+    initialPreviewMode,
+    isPreviewMode,
+    resolvedTheme,
+  } = options;
   const resolvedPreviewMode = hasHydratedClientState
     ? isPreviewMode
     : initialPreviewMode;
@@ -158,9 +194,11 @@ function resolveDashboardRouterDerivedState({
 }
 
 /**
- * @param isSessionLoading
- * @param currentUser
- * @param resolvedPreviewMode
+ * Resolve the dashboard router view key.
+ * @param isSessionLoading - Whether is session loading.
+ * @param currentUser - The current user.
+ * @param resolvedPreviewMode - The d preview mode.
+ * @returns The dashboard router view key.
  */
 function resolveDashboardRouterViewKey(
   isSessionLoading: boolean,
@@ -173,9 +211,10 @@ function resolveDashboardRouterViewKey(
 
   return !currentUser && !resolvedPreviewMode ? "login" : "dashboard";
 }
-
 /**
- * @param setIsPreviewMode
+ * Manage the dashboard enter preview.
+ * @param setIsPreviewMode - The set is preview mode.
+ * @returns The dashboard enter preview state and callbacks.
  */
 function useDashboardEnterPreview(
   setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>,
@@ -188,46 +227,23 @@ function useDashboardEnterPreview(
 }
 
 /**
- * @param root0
- * @param root0.hasHydratedClientState
- * @param root0.hasPreviewQuery
- * @param root0.initialPreviewMode
- * @param root0.resolvedPreviewMode
- * @param root0.setAllowSignup
- * @param root0.setCurrentUser
- * @param root0.setHasHydratedClientState
- * @param root0.setIsPreviewMode
- * @param root0.setIsSessionLoading
- * @param root0.setUsePlaceholderData
- * @param root0.shouldAutoLogin
+ * Manage the dashboard router effects.
+ * @param options - The options used to manage the dashboard router effects.
  */
-function useDashboardRouterEffects({
-  hasHydratedClientState,
-  hasPreviewQuery,
-  initialPreviewMode,
-  resolvedPreviewMode,
-  setAllowSignup,
-  setCurrentUser,
-  setHasHydratedClientState,
-  setIsPreviewMode,
-  setIsSessionLoading,
-  setUsePlaceholderData,
-  shouldAutoLogin,
-}: {
-  hasHydratedClientState: boolean;
-  hasPreviewQuery: boolean;
-  initialPreviewMode: boolean;
-  resolvedPreviewMode: boolean;
-  setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
-  setCurrentUser: React.Dispatch<
-    React.SetStateAction<AuthSession["user"] | null>
-  >;
-  setHasHydratedClientState: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSessionLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setUsePlaceholderData: React.Dispatch<React.SetStateAction<boolean>>;
-  shouldAutoLogin: boolean;
-}) {
+function useDashboardRouterEffects(options: DashboardRouterEffectsOptions) {
+  const {
+    hasHydratedClientState,
+    hasPreviewQuery,
+    initialPreviewMode,
+    resolvedPreviewMode,
+    setAllowSignup,
+    setCurrentUser,
+    setHasHydratedClientState,
+    setIsPreviewMode,
+    setIsSessionLoading,
+    setUsePlaceholderData,
+    shouldAutoLogin,
+  } = options;
   useDashboardRouterHydrationEffects({
     hasHydratedClientState,
     hasPreviewQuery,
@@ -249,29 +265,20 @@ function useDashboardRouterEffects({
 }
 
 /**
- * @param root0
- * @param root0.hasHydratedClientState
- * @param root0.hasPreviewQuery
- * @param root0.initialPreviewMode
- * @param root0.resolvedPreviewMode
- * @param root0.setHasHydratedClientState
- * @param root0.setIsPreviewMode
+ * Manage the dashboard router hydration effects.
+ * @param options - The options used to manage the dashboard router hydration effects.
  */
-function useDashboardRouterHydrationEffects({
-  hasHydratedClientState,
-  hasPreviewQuery,
-  initialPreviewMode,
-  resolvedPreviewMode,
-  setHasHydratedClientState,
-  setIsPreviewMode,
-}: {
-  hasHydratedClientState: boolean;
-  hasPreviewQuery: boolean;
-  initialPreviewMode: boolean;
-  resolvedPreviewMode: boolean;
-  setHasHydratedClientState: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+function useDashboardRouterHydrationEffects(
+  options: DashboardRouterHydrationEffectsOptions,
+) {
+  const {
+    hasHydratedClientState,
+    hasPreviewQuery,
+    initialPreviewMode,
+    resolvedPreviewMode,
+    setHasHydratedClientState,
+    setIsPreviewMode,
+  } = options;
   useEffect(() => {
     setHasHydratedClientState(true);
   }, [setHasHydratedClientState]);
@@ -299,9 +306,10 @@ function useDashboardRouterHydrationEffects({
     setIsPreviewMode,
   ]);
 }
-
 /**
- * @param initialPreviewMode
+ * Manage the dashboard router preference state.
+ * @param initialPreviewMode - The initial preview mode.
+ * @returns The dashboard router preference state state and callbacks.
  */
 function useDashboardRouterPreferenceState(initialPreviewMode: boolean) {
   const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
@@ -330,37 +338,22 @@ function useDashboardRouterPreferenceState(initialPreviewMode: boolean) {
 }
 
 /**
- * @param root0
- * @param root0.hasHydratedClientState
- * @param root0.hasPreviewQuery
- * @param root0.resolvedPreviewMode
- * @param root0.setAllowSignup
- * @param root0.setCurrentUser
- * @param root0.setIsSessionLoading
- * @param root0.setUsePlaceholderData
- * @param root0.shouldAutoLogin
+ * Manage the dashboard router session effect.
+ * @param options - The options used to manage the dashboard router session effect.
  */
-function useDashboardRouterSessionEffect({
-  hasHydratedClientState,
-  hasPreviewQuery,
-  resolvedPreviewMode,
-  setAllowSignup,
-  setCurrentUser,
-  setIsSessionLoading,
-  setUsePlaceholderData,
-  shouldAutoLogin,
-}: {
-  hasHydratedClientState: boolean;
-  hasPreviewQuery: boolean;
-  resolvedPreviewMode: boolean;
-  setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
-  setCurrentUser: React.Dispatch<
-    React.SetStateAction<AuthSession["user"] | null>
-  >;
-  setIsSessionLoading: React.Dispatch<React.SetStateAction<boolean>>;
-  setUsePlaceholderData: React.Dispatch<React.SetStateAction<boolean>>;
-  shouldAutoLogin: boolean;
-}) {
+function useDashboardRouterSessionEffect(
+  options: DashboardRouterSessionEffectOptions,
+) {
+  const {
+    hasHydratedClientState,
+    hasPreviewQuery,
+    resolvedPreviewMode,
+    setAllowSignup,
+    setCurrentUser,
+    setIsSessionLoading,
+    setUsePlaceholderData,
+    shouldAutoLogin,
+  } = options;
   useEffect(() => {
     if (!hasHydratedClientState) {
       return;
@@ -380,7 +373,7 @@ function useDashboardRouterSessionEffect({
     let isCanceled = false;
 
     /**
-     *
+     * Process the load session.
      */
     const loadSession = async () => {
       try {
@@ -424,8 +417,10 @@ function useDashboardRouterSessionEffect({
 }
 
 /**
- * @param initialSession
- * @param initialPreviewMode
+ * Manage the dashboard router session state.
+ * @param initialSession - The initial session.
+ * @param initialPreviewMode - The initial preview mode.
+ * @returns The dashboard router session state state and callbacks.
  */
 function useDashboardRouterSessionState(
   initialSession: AuthSession | undefined,
@@ -457,24 +452,25 @@ function useDashboardRouterSessionState(
 }
 
 /**
- * @param root0
- * @param root0.hasPreviewQuery
- * @param root0.initialAutoLoginPath
- * @param root0.initialPreviewMode
- * @param root0.initialSession
+ * Manage the dashboard router state.
+ * @param options - The options used to manage the dashboard router state.
+ * @returns The dashboard router state state and callbacks.
  */
-function useDashboardRouterState({
-  hasPreviewQuery,
-  initialAutoLoginPath,
-  initialPreviewMode,
-  initialSession,
-}: Pick<
-  DashboardRouterProps,
-  | "hasPreviewQuery"
-  | "initialAutoLoginPath"
-  | "initialPreviewMode"
-  | "initialSession"
->) {
+function useDashboardRouterState(
+  options: Pick<
+    DashboardRouterProps,
+    | "hasPreviewQuery"
+    | "initialAutoLoginPath"
+    | "initialPreviewMode"
+    | "initialSession"
+  >,
+) {
+  const {
+    hasPreviewQuery,
+    initialAutoLoginPath,
+    initialPreviewMode,
+    initialSession,
+  } = options;
   const routerSessionState = useDashboardRouterSessionState(
     initialSession,
     initialPreviewMode,

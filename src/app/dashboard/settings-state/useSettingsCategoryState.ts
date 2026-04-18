@@ -13,20 +13,14 @@ interface UseSettingsCategoryStateOptions {
 }
 
 /**
- * Owns category creation and rename state for the settings surface.
- *
- * The modal's category controls only need local draft values plus persistence
- * handlers, so this hook isolates that workflow from feed editing concerns.
- * @param root0
- * @param root0.categories
- * @param root0.onAddCategory
- * @param root0.onRenameCategory
+ * Manage the settings category state.
+ * @param options - The options used to manage the settings category state.
+ * @returns The settings category state state and callbacks.
  */
-export function useSettingsCategoryState({
-  categories,
-  onAddCategory,
-  onRenameCategory,
-}: UseSettingsCategoryStateOptions) {
+export function useSettingsCategoryState(
+  options: UseSettingsCategoryStateOptions,
+) {
+  const { categories, onAddCategory, onRenameCategory } = options;
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategory, setEditingCategory] = useState<null | string>(null);
   const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -47,7 +41,7 @@ export function useSettingsCategoryState({
   }, [categories, editingCategory]);
 
   /**
-   *
+   * Process the clear category edit.
    */
   const clearCategoryEdit = () => {
     setEditingCategory(null);
@@ -55,7 +49,7 @@ export function useSettingsCategoryState({
   };
 
   /**
-   *
+   * Process the handle add category.
    */
   const handleAddCategory = () => {
     const didAdd = onAddCategory(newCategoryName.trim());
@@ -67,7 +61,8 @@ export function useSettingsCategoryState({
   };
 
   /**
-   * @param currentLabel
+   * Process the handle save category rename.
+   * @param currentLabel - The current label.
    */
   const handleSaveCategoryRename = async (currentLabel: string) => {
     setSavingCategoryLabel(currentLabel);
@@ -94,7 +89,8 @@ export function useSettingsCategoryState({
     newCategoryName,
     onCancelCategoryEdit: clearCategoryEdit,
     /**
-     * @param label
+     * Starts editing a category using its current label as the draft value.
+     * @param label - Category label to open in edit mode.
      */
     onStartCategoryEdit: (label: string) => {
       setEditingCategory(label);

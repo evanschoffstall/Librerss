@@ -22,11 +22,13 @@ export interface DnsResolveDeps {
 }
 
 /**
- * @param cache
- * @param hostname
- * @param blocked
- * @param expiresAt
- * @param maxEntries
+ * Process the cache lookup result.
+ * @param cache - The cache.
+ * @param hostname - The hostname.
+ * @param blocked - The blocked.
+ * @param expiresAt - The expires at.
+ * @param maxEntries - The max entries.
+ * @returns Whether cache lookup result.
  */
 export function cacheLookupResult(
   cache: Map<string, DnsCacheEntry>,
@@ -40,11 +42,13 @@ export function cacheLookupResult(
 }
 
 /**
- * @param hostname
- * @param timeoutMs
- * @param lookupFn
- * @param setTimeoutFn
- * @param clearTimeoutFn
+ * Process the lookup with timeout.
+ * @param hostname - The hostname.
+ * @param timeoutMs - The timeout ms value.
+ * @param lookupFn - The lookup fn.
+ * @param setTimeoutFn - The set timeout fn.
+ * @param clearTimeoutFn - The clear timeout fn.
+ * @returns The lookup with timeout.
  */
 export async function lookupWithTimeout(
   hostname: string,
@@ -72,9 +76,11 @@ export async function lookupWithTimeout(
 }
 
 /**
- * @param cache
- * @param hostname
- * @param nowFn
+ * Process the read cached dns result.
+ * @param cache - The cache.
+ * @param hostname - The hostname.
+ * @param nowFn - The callback that now fn.
+ * @returns The read cached dns result.
  */
 export function readCachedDnsResult(
   cache: Map<string, DnsCacheEntry>,
@@ -86,8 +92,10 @@ export function readCachedDnsResult(
 }
 
 /**
- * @param deps
- * @param defaults
+ * Resolve the dns deps.
+ * @param deps - The deps.
+ * @param defaults - The defaults.
+ * @returns The dns deps.
  */
 export function resolveDnsDeps(
   deps: Partial<DnsResolveDeps> | undefined,
@@ -113,8 +121,10 @@ export function resolveDnsDeps(
 }
 
 /**
- * @param deps
- * @param defaults
+ * Resolve the dns deps with runtime defaults.
+ * @param deps - The deps.
+ * @param defaults - The defaults.
+ * @returns The dns deps with runtime defaults.
  */
 export function resolveDnsDepsWithRuntimeDefaults(
   deps: Partial<DnsResolveDeps> | undefined,
@@ -134,10 +144,11 @@ export function resolveDnsDepsWithRuntimeDefaults(
 }
 
 /**
- * @param cache
- * @param key
- * @param value
- * @param maxEntries
+ * Process the set cache safe.
+ * @param cache - The cache.
+ * @param key - The key.
+ * @param value - The value.
+ * @param maxEntries - The max entries.
  */
 function setCacheSafe(
   cache: Map<string, DnsCacheEntry>,

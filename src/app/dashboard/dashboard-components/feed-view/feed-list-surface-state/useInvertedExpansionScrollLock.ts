@@ -24,29 +24,22 @@ export interface UseInvertedExpansionScrollLockOptions {
 }
 
 /**
- * Preserves article position while inverted feeds expand, collapse, or remove rows.
- *
- * The feed surface relies on a transient scroll lock during layout-changing row
- * transitions so the active article does not visually jump when the underlying
- * Radix viewport recalculates its height.
- * @param root0
- * @param root0.articleFilter
- * @param root0.collapsingArticles
- * @param root0.expandedArticleKey
- * @param root0.getPreExpandViewportSnapshot
- * @param root0.isInvertedScroll
- * @param root0.onClaimInvertedScrollOwnership
- * @param root0.scrollViewport
+ * Manage the inverted expansion scroll lock.
+ * @param options - The options used to manage the inverted expansion scroll lock.
+ * @returns The inverted expansion scroll lock state and callbacks.
  */
-export function useInvertedExpansionScrollLock({
-  articleFilter,
-  collapsingArticles,
-  expandedArticleKey,
-  getPreExpandViewportSnapshot,
-  isInvertedScroll,
-  onClaimInvertedScrollOwnership,
-  scrollViewport,
-}: UseInvertedExpansionScrollLockOptions) {
+export function useInvertedExpansionScrollLock(
+  options: UseInvertedExpansionScrollLockOptions,
+) {
+  const {
+    articleFilter,
+    collapsingArticles,
+    expandedArticleKey,
+    getPreExpandViewportSnapshot,
+    isInvertedScroll,
+    onClaimInvertedScrollOwnership,
+    scrollViewport,
+  } = options;
   const {
     invertedExpansionScrollLockRef,
     invertedExpansionViewportSnapshotRef,

@@ -20,22 +20,28 @@ type UserScopedIndexSpec = readonly [
 ];
 
 /**
- * @param name
- * @param columns
+ * Process the define index.
+ * @param name - The name.
+ * @param columns - The columns.
+ * @returns The define index.
  */
-const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
+const defineIndex = (name: string, columns: CompositeIndexColumns) =>
   index(name).on(...columns);
 
 /**
- * @param name
- * @param columns
+ * Process the define unique index.
+ * @param name - The name.
+ * @param columns - The columns.
+ * @returns The define unique index.
  */
-const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
+const defineUniqueIndex = (name: string, columns: CompositeIndexColumns) =>
   uniqueIndex(name).on(...columns);
 
 /**
- * @param userId
- * @param indexes
+ * Process the define user scoped indexes.
+ * @param userId - The r id.
+ * @param indexes - The indexes.
+ * @returns The define user scoped indexes.
  */
 const defineUserScopedIndexes = (
   userId: CompositeIndexColumns[number],
@@ -48,14 +54,17 @@ const defineUserScopedIndexes = (
   );
 
 /**
- * @param indexConfig
+ * Process the define single unique index.
+ * @param indexConfig - The index config.
+ * @returns The define single unique index.
  */
 const defineSingleUniqueIndex = (
   indexConfig: ReturnType<typeof defineUniqueIndex>,
 ) => [indexConfig];
 
 /**
- *
+ * Process the define user owned audit columns.
+ * @returns The define user owned audit columns.
  */
 const defineUserOwnedAuditColumns = () => ({
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })

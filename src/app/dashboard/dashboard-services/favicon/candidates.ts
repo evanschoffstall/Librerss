@@ -1,7 +1,9 @@
 import { tryGetUrlHostname } from "@/lib/utils";
 
 /**
- * @param hostname
+ * Return whether is i pv4.
+ * @param hostname - The hostname.
+ * @returns Whether is i pv4.
  */
 const isIPv4 = (hostname: string) => {
   const octets = hostname.split(".");
@@ -21,7 +23,9 @@ const isIPv4 = (hostname: string) => {
 };
 
 /**
- * @param raw
+ * Parse the url.
+ * @param raw - The raw.
+ * @returns The url.
  */
 const parseUrl = (raw: string) => {
   try {
@@ -32,7 +36,9 @@ const parseUrl = (raw: string) => {
 };
 
 /**
- * @param hostname
+ * Return the host candidates.
+ * @param hostname - The hostname.
+ * @returns The host candidates.
  */
 const getHostCandidates = (hostname: string) => {
   const candidates = new Set<string>([hostname]);
@@ -55,7 +61,9 @@ const getHostCandidates = (hostname: string) => {
 };
 
 /**
- * @param url
+ * Return the origin candidates.
+ * @param url - The url.
+ * @returns The origin candidates.
  */
 const getOriginCandidates = (url?: string) => {
   if (!url) {
@@ -67,7 +75,9 @@ const getOriginCandidates = (url?: string) => {
 };
 
 /**
- * @param origin
+ * Return the direct icon candidates.
+ * @param origin - The origin.
+ * @returns The direct icon candidates.
  */
 const getDirectIconCandidates = (origin: string) => {
   const staticPaths = [
@@ -82,7 +92,9 @@ const getDirectIconCandidates = (origin: string) => {
 };
 
 /**
- * @param hostname
+ * Return the provider candidates.
+ * @param hostname - The hostname.
+ * @returns The provider candidates.
  */
 const getProviderCandidates = (hostname: string) => [
   `https://icon.horse/icon/${hostname}`,
@@ -90,7 +102,9 @@ const getProviderCandidates = (hostname: string) => [
 ];
 
 /**
- * @param url
+ * Return the favicon candidates.
+ * @param url - The url.
+ * @returns The favicon candidates.
  */
 const getFaviconCandidates = (url?: string) => {
   const hostname = tryGetUrlHostname(url);
@@ -119,9 +133,11 @@ const getFaviconCandidates = (url?: string) => {
 };
 
 /**
- * @param urls
+ * Return the favicon cache key.
+ * @param urls - The urls.
+ * @returns The favicon cache key.
  */
-export function getFaviconCacheKey(...urls: (string | undefined)[]) {
+export function getFaviconCacheKey(urls: (string | undefined)[]) {
   for (const url of urls) {
     const hostname = tryGetUrlHostname(url);
 
@@ -134,8 +150,10 @@ export function getFaviconCacheKey(...urls: (string | undefined)[]) {
 }
 
 /**
- * @param urls
+ * Return the merged favicon candidates.
+ * @param urls - The urls.
+ * @returns The merged favicon candidates.
  */
-export function getMergedFaviconCandidates(...urls: (string | undefined)[]) {
+export function getMergedFaviconCandidates(urls: (string | undefined)[]) {
   return [...new Set(urls.flatMap((url) => getFaviconCandidates(url)))];
 }

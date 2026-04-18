@@ -67,15 +67,18 @@ export const COMPATIBILITY_RESULTS_CACHE_KEY =
   "librerss:settings:proxy:compatibility-results:v1";
 
 /**
- * @param storage
+ * Process the clear compatibility results cache.
+ * @param storage - The storage.
  */
 export function clearCompatibilityResultsCache(storage: StorageWriter) {
   storage.removeItem(COMPATIBILITY_RESULTS_CACHE_KEY);
 }
 
 /**
- * @param checkedAt
- * @param now
+ * Process the format elapsed.
+ * @param checkedAt - The checked at.
+ * @param now - The now.
+ * @returns The format elapsed.
  */
 export function formatElapsed(checkedAt: number, now: number) {
   const elapsedSec = Math.max(0, Math.floor((now - checkedAt) / 1000));
@@ -89,7 +92,9 @@ export function formatElapsed(checkedAt: number, now: number) {
 }
 
 /**
- * @param status
+ * Return whether has configured proxy status.
+ * @param status - The status.
+ * @returns Whether has configured proxy status.
  */
 export function hasConfiguredProxyStatus(status: ProxyUIStatus) {
   return (
@@ -98,7 +103,9 @@ export function hasConfiguredProxyStatus(status: ProxyUIStatus) {
 }
 
 /**
- * @param value
+ * Return whether is compatibility results cache.
+ * @param value - The value.
+ * @returns Whether is compatibility results cache.
  */
 export function isCompatibilityResultsCache(
   value: unknown,
@@ -124,7 +131,9 @@ export function isCompatibilityResultsCache(
 }
 
 /**
- * @param results
+ * Normalize the compatibility results.
+ * @param results - The results.
+ * @returns The compatibility results.
  */
 export function normalizeCompatibilityResults(
   results: ProxyCompatibilityCheckResult[],
@@ -141,8 +150,10 @@ export function normalizeCompatibilityResults(
 }
 
 /**
- * @param text
- * @param maxChars
+ * Process the preview text.
+ * @param text - The text.
+ * @param maxChars - The max chars.
+ * @returns The preview text.
  */
 export function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
   if (text.length <= maxChars) return text;
@@ -150,7 +161,9 @@ export function previewText(text: string, maxChars = ERROR_PREVIEW_CHARS) {
 }
 
 /**
- * @param storage
+ * Process the read compatibility results cache.
+ * @param storage - The storage.
+ * @returns The read compatibility results cache.
  */
 export function readCompatibilityResultsCache(
   storage: StorageReader,
@@ -169,7 +182,9 @@ export function readCompatibilityResultsCache(
 }
 
 /**
- * @param settings
+ * Process the to proxy settings snapshot.
+ * @param settings - The settings.
+ * @returns The to proxy settings snapshot.
  */
 export function toProxySettingsSnapshot(
   settings: PersistedProxySettings,
@@ -186,8 +201,9 @@ export function toProxySettingsSnapshot(
 }
 
 /**
- * @param storage
- * @param cache
+ * Process the write compatibility results cache.
+ * @param storage - The storage.
+ * @param cache - The cache.
  */
 export function writeCompatibilityResultsCache(
   storage: StorageWriter,
@@ -197,8 +213,10 @@ export function writeCompatibilityResultsCache(
 }
 
 /**
- * @param value
- * @param key
+ * Return whether has optional number.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns Whether has optional number.
  */
 function hasOptionalNumber(value: Record<string, unknown>, key: "statusCode") {
   return !(
@@ -209,8 +227,10 @@ function hasOptionalNumber(value: Record<string, unknown>, key: "statusCode") {
 }
 
 /**
- * @param value
- * @param key
+ * Return whether has optional string.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns Whether has optional string.
  */
 function hasOptionalString(value: Record<string, unknown>, key: "error") {
   return !(
@@ -221,7 +241,9 @@ function hasOptionalString(value: Record<string, unknown>, key: "error") {
 }
 
 /**
- * @param value
+ * Return whether is compatibility result.
+ * @param value - The value.
+ * @returns Whether is compatibility result.
  */
 function isCompatibilityResult(value: unknown): value is CompatibilityResult {
   if (typeof value !== "object" || value === null) {

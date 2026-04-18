@@ -27,8 +27,7 @@ async function readFeedScrollbarState(
         thumb.style.transform.match(/translateY\(([-\d.]+)px\)/u)?.[1] ?? "0",
       ),
       totalListHeight: Number.parseFloat(
-        viewport
-          .querySelector<HTMLElement>("[data-feed-total-list-height]")
+        viewport.querySelector<HTMLElement>("[data-feed-total-list-height]")
           ?.dataset.feedTotalListHeight ?? "0",
       ),
       viewportClientHeight: viewport.clientHeight,

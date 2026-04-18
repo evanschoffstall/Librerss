@@ -29,11 +29,66 @@ export {
   resolveDashboardShellLoadingState,
 };
 
+interface DashboardThemeStateOptions {
+  mounted: boolean;
+  resolvedTheme: string | undefined;
+  setTheme: (theme: string) => void;
+}
+interface DashboardToolbarActionsOptions {
+  isPreviewMode: boolean;
+  isRefreshing: boolean;
+  isResetting: boolean;
+  isSigningOut: boolean;
+  setIsPreviewMode: (value: boolean) => void;
+  setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
+  setSearch: (term: string) => void;
+}
+
+interface DashboardToolbarEventActionsOptions {
+  isRefreshing: boolean;
+  setSearch: (term: string) => void;
+}
+
+interface DashboardToolbarSessionActionsOptions {
+  isPreviewMode: boolean;
+  isResetting: boolean;
+  isSigningOut: boolean;
+  setIsPreviewMode: (value: boolean) => void;
+  setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
+}
+interface DashboardToolbarStateState {
+  handleMarkAllRead: () => void;
+  handleMarkViewportRead: () => void;
+  handleOpenFeedsSidebar: () => void;
+  handleOpenSettings: () => void;
+  handleRefresh: () => void;
+  handleRefreshFromUpstream: () => void;
+  handleReset: () => Promise<void>;
+  handleSearchChange: (term: string) => void;
+  handleSignOut: () => Promise<void>;
+  handleToggleTheme: () => void;
+  isDark: boolean;
+  isDevelopmentMode: boolean;
+  isMarkingAllRead: boolean;
+  isMarkingViewportRead: boolean;
+  isRefreshing: boolean;
+  isResetting: boolean;
+  isSearchPending: boolean;
+  isShellLoading: boolean;
+  isSigningOut: boolean;
+  mounted: boolean;
+  search: string;
+  themeToggleLabel: string;
+  title: string;
+}
+
 /**
- * @param startInShellLoading  - Optimistic initial state for the event-based path.
- * @param controlledIsShellLoading  - When provided by a parent controller the toolbar
- *   skips the event bus entirely and uses this value directly, guaranteeing it
- *   hydrates in the same React render as the article list and filter bar.
+ * Manage the dashboard toolbar state.
+ * @param startInShellLoading - The start in shell loading.
+ * @param controlledIsShellLoading - The controlled is shell loading.
+ * @returns The dashboard toolbar state state and callbacks.
  */
 export function useDashboardToolbarState(
   startInShellLoading = false,
@@ -91,63 +146,18 @@ export function useDashboardToolbarState(
     title,
   });
 }
-
 /**
- * @param state
- * @param state.handleMarkAllRead
- * @param state.handleMarkViewportRead
- * @param state.handleOpenFeedsSidebar
- * @param state.handleOpenSettings
- * @param state.handleRefresh
- * @param state.handleRefreshFromUpstream
- * @param state.handleReset
- * @param state.handleSearchChange
- * @param state.handleSignOut
- * @param state.handleToggleTheme
- * @param state.isDark
- * @param state.isDevelopmentMode
- * @param state.isMarkingAllRead
- * @param state.isMarkingViewportRead
- * @param state.isRefreshing
- * @param state.isResetting
- * @param state.isSearchPending
- * @param state.isShellLoading
- * @param state.isSigningOut
- * @param state.mounted
- * @param state.search
- * @param state.themeToggleLabel
- * @param state.title
+ * Build the dashboard toolbar state.
+ * @param state - The state.
+ * @returns The dashboard toolbar state.
  */
-function buildDashboardToolbarState(state: {
-  handleMarkAllRead: () => void;
-  handleMarkViewportRead: () => void;
-  handleOpenFeedsSidebar: () => void;
-  handleOpenSettings: () => void;
-  handleRefresh: () => void;
-  handleRefreshFromUpstream: () => void;
-  handleReset: () => Promise<void>;
-  handleSearchChange: (term: string) => void;
-  handleSignOut: () => Promise<void>;
-  handleToggleTheme: () => void;
-  isDark: boolean;
-  isDevelopmentMode: boolean;
-  isMarkingAllRead: boolean;
-  isMarkingViewportRead: boolean;
-  isRefreshing: boolean;
-  isResetting: boolean;
-  isSearchPending: boolean;
-  isShellLoading: boolean;
-  isSigningOut: boolean;
-  mounted: boolean;
-  search: string;
-  themeToggleLabel: string;
-  title: string;
-}) {
+function buildDashboardToolbarState(state: DashboardToolbarStateState) {
   return state;
 }
 
 /**
- * @param enabled
+ * Process the set dashboard preview persistence.
+ * @param enabled - The enabled.
  */
 function setDashboardPreviewPersistence(enabled: boolean): void {
   if (typeof document === "undefined") {
@@ -158,28 +168,19 @@ function setDashboardPreviewPersistence(enabled: boolean): void {
     ? "librerss_dashboard_preview=1; Path=/; Max-Age=2592000; SameSite=Lax"
     : "librerss_dashboard_preview=; Path=/; Max-Age=0; SameSite=Lax";
 }
-
 /**
- * @param root0
- * @param root0.mounted
- * @param root0.resolvedTheme
- * @param root0.setTheme
+ * Manage the dashboard theme state.
+ * @param options - The options used to manage the dashboard theme state.
+ * @returns The dashboard theme state state and callbacks.
  */
-function useDashboardThemeState({
-  mounted,
-  resolvedTheme,
-  setTheme,
-}: {
-  mounted: boolean;
-  resolvedTheme: string | undefined;
-  setTheme: (theme: string) => void;
-}) {
+function useDashboardThemeState(options: DashboardThemeStateOptions) {
+  const { mounted, resolvedTheme, setTheme } = options;
   const isDark = mounted && (resolvedTheme ?? "dark") === "dark";
   const nextTheme = isDark ? "light" : "dark";
 
   return {
     /**
-     *
+     * Process the handle toggle theme.
      */
     handleToggleTheme: () => {
       setTheme(nextTheme);
@@ -190,26 +191,11 @@ function useDashboardThemeState({
 }
 
 /**
- * @param options
- * @param options.isPreviewMode
- * @param options.isRefreshing
- * @param options.isResetting
- * @param options.isSigningOut
- * @param options.setIsPreviewMode
- * @param options.setIsResetting
- * @param options.setIsSigningOut
- * @param options.setSearch
+ * Manage the dashboard toolbar actions.
+ * @param options - The options used to manage the dashboard toolbar actions.
+ * @returns The dashboard toolbar actions state and callbacks.
  */
-function useDashboardToolbarActions(options: {
-  isPreviewMode: boolean;
-  isRefreshing: boolean;
-  isResetting: boolean;
-  isSigningOut: boolean;
-  setIsPreviewMode: (value: boolean) => void;
-  setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
-  setSearch: (term: string) => void;
-}) {
+function useDashboardToolbarActions(options: DashboardToolbarActionsOptions) {
   return {
     ...useDashboardToolbarEventActions({
       isRefreshing: options.isRefreshing,
@@ -227,44 +213,41 @@ function useDashboardToolbarActions(options: {
 }
 
 /**
- * @param root0
- * @param root0.isRefreshing
- * @param root0.setSearch
+ * Manage the dashboard toolbar event actions.
+ * @param options - The options used to manage the dashboard toolbar event actions.
+ * @returns The dashboard toolbar event actions state and callbacks.
  */
-function useDashboardToolbarEventActions({
-  isRefreshing,
-  setSearch,
-}: {
-  isRefreshing: boolean;
-  setSearch: (term: string) => void;
-}) {
+function useDashboardToolbarEventActions(
+  options: DashboardToolbarEventActionsOptions,
+) {
+  const { isRefreshing, setSearch } = options;
   return {
     /**
-     *
+     * Process the handle mark all read.
      */
     handleMarkAllRead: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_ALL_READ);
     },
     /**
-     *
+     * Process the handle mark viewport read.
      */
     handleMarkViewportRead: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ);
     },
     /**
-     *
+     * Process the handle open feeds sidebar.
      */
     handleOpenFeedsSidebar: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_FEEDS_SIDEBAR);
     },
     /**
-     *
+     * Process the handle open settings.
      */
     handleOpenSettings: () => {
       dispatchDashboardWindowEvent(DASHBOARD_EVENTS.OPEN_SETTINGS);
     },
     /**
-     *
+     * Process the handle refresh.
      */
     handleRefresh: () => {
       if (!isRefreshing) {
@@ -272,7 +255,7 @@ function useDashboardToolbarEventActions({
       }
     },
     /**
-     *
+     * Process the handle refresh from upstream.
      */
     handleRefreshFromUpstream: () => {
       if (!isRefreshing) {
@@ -282,7 +265,8 @@ function useDashboardToolbarEventActions({
       }
     },
     /**
-     * @param term
+     * Process the handle search change.
+     * @param term - The term.
      */
     handleSearchChange: (term: string) => {
       setSearch(term);
@@ -290,10 +274,11 @@ function useDashboardToolbarEventActions({
     },
   };
 }
-
 /**
- * @param startInShellLoading
- * @param controlledIsShellLoading
+ * Manage the dashboard toolbar runtime state.
+ * @param startInShellLoading - The start in shell loading.
+ * @param controlledIsShellLoading - The controlled is shell loading.
+ * @returns The dashboard toolbar runtime state state and callbacks.
  */
 function useDashboardToolbarRuntimeState(
   startInShellLoading: boolean,
@@ -318,31 +303,23 @@ function useDashboardToolbarRuntimeState(
 }
 
 /**
- * @param root0
- * @param root0.isPreviewMode
- * @param root0.isResetting
- * @param root0.isSigningOut
- * @param root0.setIsPreviewMode
- * @param root0.setIsResetting
- * @param root0.setIsSigningOut
+ * Manage the dashboard toolbar session actions.
+ * @param options - The options used to manage the dashboard toolbar session actions.
+ * @returns The dashboard toolbar session actions state and callbacks.
  */
-function useDashboardToolbarSessionActions({
-  isPreviewMode,
-  isResetting,
-  isSigningOut,
-  setIsPreviewMode,
-  setIsResetting,
-  setIsSigningOut,
-}: {
-  isPreviewMode: boolean;
-  isResetting: boolean;
-  isSigningOut: boolean;
-  setIsPreviewMode: (value: boolean) => void;
-  setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+function useDashboardToolbarSessionActions(
+  options: DashboardToolbarSessionActionsOptions,
+) {
+  const {
+    isPreviewMode,
+    isResetting,
+    isSigningOut,
+    setIsPreviewMode,
+    setIsResetting,
+    setIsSigningOut,
+  } = options;
   /**
-   *
+   * Process the navigate to landing.
    */
   const navigateToLanding = async () => {
     await clearClientOriginState();
@@ -353,7 +330,7 @@ function useDashboardToolbarSessionActions({
 
   return {
     /**
-     *
+     * Process the handle reset.
      */
     handleReset: async () => {
       if (isResetting) {
@@ -377,7 +354,7 @@ function useDashboardToolbarSessionActions({
       }
     },
     /**
-     *
+     * Process the handle sign out.
      */
     handleSignOut: async () => {
       if (isSigningOut) {
@@ -402,7 +379,8 @@ function useDashboardToolbarSessionActions({
 }
 
 /**
- *
+ * Manage the mounted flag.
+ * @returns Whether mounted flag.
  */
 function useMountedFlag() {
   const [mounted, setMounted] = useState(false);

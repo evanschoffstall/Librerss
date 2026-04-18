@@ -55,47 +55,28 @@ type UseDashboardHandlersOptions = FeedSelectionFetchers & {
 };
 
 /**
- * Builds the dashboard's stable UI event handlers for refresh and selection.
- *
- * The hook centralizes the semantics for manual refresh, background refresh, and
- * category/feed switching so UI components can stay declarative and free of
- * selection-service details.
- *
- * @param options - Current selection context, fetchers, and local UI setters.
- * @param options.articleLimit
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.fetchFeed
- * @param options.onBeforeRefresh
- * @param options.prefetchAllFeeds
- * @param options.prefetchCategoryFeeds
- * @param options.prefetchFeed
- * @param options.searchTerm
- * @param options.selectedCategory
- * @param options.selectedCategoryNode
- * @param options.selectedFeedUrl
- * @param options.selectionArticleLimit
- * @param options.setIsMobileSidebarOpen
- * @param options.setSelectedCategory
- * @returns Stable callbacks for feed/category clicks and refresh actions.
+ * Manage the dashboard handlers.
+ * @param options - The options used to manage the dashboard handlers.
+ * @returns The dashboard handlers state and callbacks.
  */
-export function useDashboardHandlers({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  onBeforeRefresh,
-  prefetchAllFeeds,
-  prefetchCategoryFeeds,
-  prefetchFeed,
-  searchTerm,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  selectionArticleLimit,
-  setIsMobileSidebarOpen,
-  setSelectedCategory,
-}: UseDashboardHandlersOptions) {
+export function useDashboardHandlers(options: UseDashboardHandlersOptions) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    onBeforeRefresh,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
+    searchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    selectionArticleLimit,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  } = options;
   const { handleAutoRefreshSelection, handleRefreshSelection } =
     useDashboardRefreshHandlers({
       articleLimit,
@@ -145,39 +126,35 @@ export function useDashboardHandlers({
 }
 
 /**
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.prefetchAllFeeds
- * @param root0.prefetchCategoryFeeds
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.setIsMobileSidebarOpen
- * @param root0.setSelectedCategory
+ * Manage the dashboard category selection handlers.
+ * @param options - The options used to manage the dashboard category selection handlers.
+ * @returns The dashboard category selection handlers state and callbacks.
  */
-function useDashboardCategorySelectionHandlers({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  prefetchAllFeeds,
-  prefetchCategoryFeeds,
-  searchTerm,
-  selectedCategory,
-  setIsMobileSidebarOpen,
-  setSelectedCategory,
-}: Pick<
-  UseDashboardHandlersOptions,
-  | "articleLimit"
-  | "fetchAllFeeds"
-  | "fetchCategoryFeeds"
-  | "prefetchAllFeeds"
-  | "prefetchCategoryFeeds"
-  | "searchTerm"
-  | "selectedCategory"
-  | "setIsMobileSidebarOpen"
-  | "setSelectedCategory"
->) {
+function useDashboardCategorySelectionHandlers(
+  options: Pick<
+    UseDashboardHandlersOptions,
+    | "articleLimit"
+    | "fetchAllFeeds"
+    | "fetchCategoryFeeds"
+    | "prefetchAllFeeds"
+    | "prefetchCategoryFeeds"
+    | "searchTerm"
+    | "selectedCategory"
+    | "setIsMobileSidebarOpen"
+    | "setSelectedCategory"
+  >,
+) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    searchTerm,
+    selectedCategory,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  } = options;
   return {
     handleCategoryClick: useCallback(
       (categoryNode: CategoryTreeNode) => {
@@ -221,33 +198,31 @@ function useDashboardCategorySelectionHandlers({
 }
 
 /**
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchFeed
- * @param root0.prefetchFeed
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.setIsMobileSidebarOpen
- * @param root0.setSelectedCategory
+ * Manage the dashboard feed selection handlers.
+ * @param options - The options used to manage the dashboard feed selection handlers.
+ * @returns The dashboard feed selection handlers state and callbacks.
  */
-function useDashboardFeedSelectionHandlers({
-  articleLimit,
-  fetchFeed,
-  prefetchFeed,
-  searchTerm,
-  selectedCategory,
-  setIsMobileSidebarOpen,
-  setSelectedCategory,
-}: Pick<
-  UseDashboardHandlersOptions,
-  | "articleLimit"
-  | "fetchFeed"
-  | "prefetchFeed"
-  | "searchTerm"
-  | "selectedCategory"
-  | "setIsMobileSidebarOpen"
-  | "setSelectedCategory"
->) {
+function useDashboardFeedSelectionHandlers(
+  options: Pick<
+    UseDashboardHandlersOptions,
+    | "articleLimit"
+    | "fetchFeed"
+    | "prefetchFeed"
+    | "searchTerm"
+    | "selectedCategory"
+    | "setIsMobileSidebarOpen"
+    | "setSelectedCategory"
+  >,
+) {
+  const {
+    articleLimit,
+    fetchFeed,
+    prefetchFeed,
+    searchTerm,
+    selectedCategory,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  } = options;
   return {
     handleFeedClick: useCallback(
       (feedNode: CategoryTreeNode) => {
@@ -282,39 +257,35 @@ function useDashboardFeedSelectionHandlers({
 }
 
 /**
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.onBeforeRefresh
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
+ * Manage the dashboard refresh handlers.
+ * @param options - The options used to manage the dashboard refresh handlers.
+ * @returns The dashboard refresh handlers state and callbacks.
  */
-function useDashboardRefreshHandlers({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  onBeforeRefresh,
-  searchTerm,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-}: Pick<
-  UseDashboardHandlersOptions,
-  | "articleLimit"
-  | "fetchAllFeeds"
-  | "fetchCategoryFeeds"
-  | "fetchFeed"
-  | "onBeforeRefresh"
-  | "searchTerm"
-  | "selectedCategory"
-  | "selectedCategoryNode"
-  | "selectedFeedUrl"
->) {
+function useDashboardRefreshHandlers(
+  options: Pick<
+    UseDashboardHandlersOptions,
+    | "articleLimit"
+    | "fetchAllFeeds"
+    | "fetchCategoryFeeds"
+    | "fetchFeed"
+    | "onBeforeRefresh"
+    | "searchTerm"
+    | "selectedCategory"
+    | "selectedCategoryNode"
+    | "selectedFeedUrl"
+  >,
+) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    onBeforeRefresh,
+    searchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+  } = options;
   const refreshOptions = useMemo(
     () => ({
       articleLimit,
@@ -359,45 +330,39 @@ function useDashboardRefreshHandlers({
 }
 
 /**
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.prefetchAllFeeds
- * @param root0.prefetchCategoryFeeds
- * @param root0.prefetchFeed
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.setIsMobileSidebarOpen
- * @param root0.setSelectedCategory
+ * Manage the dashboard selection handlers.
+ * @param options - The options used to manage the dashboard selection handlers.
+ * @returns The dashboard selection handlers state and callbacks.
  */
-function useDashboardSelectionHandlers({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  prefetchAllFeeds,
-  prefetchCategoryFeeds,
-  prefetchFeed,
-  searchTerm,
-  selectedCategory,
-  setIsMobileSidebarOpen,
-  setSelectedCategory,
-}: Pick<
-  UseDashboardHandlersOptions,
-  | "articleLimit"
-  | "fetchAllFeeds"
-  | "fetchCategoryFeeds"
-  | "fetchFeed"
-  | "prefetchAllFeeds"
-  | "prefetchCategoryFeeds"
-  | "prefetchFeed"
-  | "searchTerm"
-  | "selectedCategory"
-  | "setIsMobileSidebarOpen"
-  | "setSelectedCategory"
->) {
+function useDashboardSelectionHandlers(
+  options: Pick<
+    UseDashboardHandlersOptions,
+    | "articleLimit"
+    | "fetchAllFeeds"
+    | "fetchCategoryFeeds"
+    | "fetchFeed"
+    | "prefetchAllFeeds"
+    | "prefetchCategoryFeeds"
+    | "prefetchFeed"
+    | "searchTerm"
+    | "selectedCategory"
+    | "setIsMobileSidebarOpen"
+    | "setSelectedCategory"
+  >,
+) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    prefetchAllFeeds,
+    prefetchCategoryFeeds,
+    prefetchFeed,
+    searchTerm,
+    selectedCategory,
+    setIsMobileSidebarOpen,
+    setSelectedCategory,
+  } = options;
   const categoryHandlers = useDashboardCategorySelectionHandlers({
     articleLimit,
     fetchAllFeeds,

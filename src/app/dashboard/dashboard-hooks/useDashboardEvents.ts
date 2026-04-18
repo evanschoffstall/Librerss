@@ -18,6 +18,14 @@ import {
 import { ArticleService } from "@/lib/api";
 import { READING_LIST_STREAM } from "@/lib/core";
 
+interface DashboardActionRefsOptions {
+  onMarkAllReadLocally: (() => void) | undefined;
+  onMarkViewportRead: () => Promise<void>;
+  onOpenFeedsSidebar: () => void;
+  onOpenSettings: () => void;
+  onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>;
+}
+
 interface DashboardMarkAllReadCommandOptions {
   markAllRead?: (stream: string) => Promise<unknown>;
   onMarkAllReadLocally?: () => void;
@@ -28,10 +36,45 @@ interface DashboardMarkAllReadCommandOptions {
   usePlaceholderData: boolean;
 }
 
+interface DashboardMarkAllReadEventOptions {
+  onMarkAllReadLocallyRef: React.RefObject<(() => void) | undefined>;
+  onRefreshRef: React.RefObject<
+    (options?: DashboardRefreshEventDetail) => Promise<void>
+  >;
+  selectedCategoryNodeRef: React.RefObject<CategoryTreeNode | undefined>;
+  selectedCategoryRef: React.RefObject<string>;
+  selectedFeedUrlRef: React.RefObject<string | undefined>;
+  usePlaceholderDataRef: React.RefObject<boolean>;
+}
+
+interface DashboardOpenPanelEventsOptions {
+  onOpenFeedsSidebarRef: React.RefObject<() => void>;
+  onOpenSettingsRef: React.RefObject<() => void>;
+}
+
 interface DashboardRefreshEventDetail {
   forceResolveUpstream?: boolean;
 }
 
+interface DashboardRefreshEventsOptions {
+  onMarkViewportReadRef: React.RefObject<() => Promise<void>>;
+  onRefreshRef: React.RefObject<
+    (options?: DashboardRefreshEventDetail) => Promise<void>
+  >;
+}
+
+interface DashboardSearchEventOptions {
+  onSearchChangeRef: React.RefObject<(term: string) => void>;
+  pendingSearchTermRef: React.RefObject<string>;
+  searchFrameRef: React.RefObject<null | number>;
+}
+
+interface DashboardSelectionRefsOptions {
+  selectedCategory: string;
+  selectedCategoryNode: CategoryTreeNode | undefined;
+  selectedFeedUrl: string | undefined;
+  usePlaceholderData: boolean;
+}
 interface UseDashboardEventsOptions {
   onMarkAllReadLocally?: () => void;
   onMarkViewportRead: () => Promise<void>;
@@ -46,9 +89,9 @@ interface UseDashboardEventsOptions {
 }
 
 /**
- * Runs the mark-all-read command and emits the matching toolbar lifecycle events.
- * @param target
- * @param options
+ * Process the run dashboard mark all read command.
+ * @param target - The target.
+ * @param options - The options used to process the run dashboard mark all read command.
  */
 export async function runDashboardMarkAllReadCommand(
   target: Pick<Window, "dispatchEvent">,
@@ -89,12 +132,11 @@ export async function runDashboardMarkAllReadCommand(
     target.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_ALL_READ_END));
   }
 }
-
 /**
- * Runs the refresh command and emits the matching toolbar lifecycle events.
- * @param target
- * @param onRefresh
- * @param detail
+ * Process the run dashboard refresh command.
+ * @param target - The target.
+ * @param onRefresh - The callback that on refresh.
+ * @param detail - The detail.
  */
 export async function runDashboardRefreshCommand(
   target: Pick<Window, "dispatchEvent">,
@@ -113,14 +155,9 @@ export async function runDashboardRefreshCommand(
 }
 
 /**
- * Runs the viewport-read command and emits the matching toolbar lifecycle events.
- *
- * The toolbar loading indicator is cleared immediately after the optimistic UI
- * update is enqueued. Server persistence continues in the background; the
- * mutation pipeline owns its own error-recovery path (restoring failed article
- * read states via `setFeed`) so no additional error handling is needed here.
- * @param target
- * @param onMarkViewportRead
+ * Process the run dashboard viewport read command.
+ * @param target - The target.
+ * @param onMarkViewportRead - The callback that on mark viewport read.
  */
 export function runDashboardViewportReadCommand(
   target: Pick<Window, "dispatchEvent">,
@@ -139,36 +176,23 @@ export function runDashboardViewportReadCommand(
     new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
   );
 }
-
 /**
- * Wires the dashboard's window-level command bus to the latest UI callbacks.
- *
- * React 19 effect events keep the listeners stable while still seeing the
- * newest selected feed context, search callback, and placeholder-mode state.
- * @param root0
- * @param root0.onMarkAllReadLocally
- * @param root0.onMarkViewportRead
- * @param root0.onOpenFeedsSidebar
- * @param root0.onOpenSettings
- * @param root0.onRefresh
- * @param root0.onSearchChange
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
- * @param root0.usePlaceholderData
+ * Manage the dashboard events.
+ * @param options - The options used to manage the dashboard events.
  */
-export function useDashboardEvents({
-  onMarkAllReadLocally,
-  onMarkViewportRead,
-  onOpenFeedsSidebar,
-  onOpenSettings,
-  onRefresh,
-  onSearchChange,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  usePlaceholderData = false,
-}: UseDashboardEventsOptions) {
+export function useDashboardEvents(options: UseDashboardEventsOptions) {
+  const {
+    onMarkAllReadLocally,
+    onMarkViewportRead,
+    onOpenFeedsSidebar,
+    onOpenSettings,
+    onRefresh,
+    onSearchChange,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    usePlaceholderData = false,
+  } = options;
   const searchRefs = useDashboardSearchRefs(onSearchChange);
   const actionRefs = useDashboardActionRefs({
     onMarkAllReadLocally,
@@ -208,10 +232,11 @@ export function useDashboardEvents({
 }
 
 /**
- * Resolves the feed stream ids affected by a mark-all-read action.
- * @param selectedCategory
- * @param selectedFeedUrl
- * @param selectedCategoryNode
+ * Process the collect mark all read streams.
+ * @param selectedCategory - The selected category.
+ * @param selectedFeedUrl - The selected feed url.
+ * @param selectedCategoryNode - The selected category node.
+ * @returns The collect mark all read streams.
  */
 function collectMarkAllReadStreams(
   selectedCategory: string,
@@ -236,22 +261,12 @@ function collectMarkAllReadStreams(
     .filter((url): url is string => Boolean(url))
     .map((url) => `feed/${url}`);
 }
-
 /**
- * @param options
- * @param options.onMarkAllReadLocally
- * @param options.onMarkViewportRead
- * @param options.onOpenFeedsSidebar
- * @param options.onOpenSettings
- * @param options.onRefresh
+ * Manage the dashboard action refs.
+ * @param options - The options used to manage the dashboard action refs.
+ * @returns The dashboard action refs state and callbacks.
  */
-function useDashboardActionRefs(options: {
-  onMarkAllReadLocally: (() => void) | undefined;
-  onMarkViewportRead: () => Promise<void>;
-  onOpenFeedsSidebar: () => void;
-  onOpenSettings: () => void;
-  onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>;
-}) {
+function useDashboardActionRefs(options: DashboardActionRefsOptions) {
   const onMarkAllReadLocallyRef = useRef(options.onMarkAllReadLocally);
   const onMarkViewportReadRef = useRef(options.onMarkViewportRead);
   const onOpenFeedsSidebarRef = useRef(options.onOpenFeedsSidebar);
@@ -274,24 +289,12 @@ function useDashboardActionRefs(options: {
 }
 
 /**
- * @param options
- * @param options.onMarkAllReadLocallyRef
- * @param options.onRefreshRef
- * @param options.selectedCategoryNodeRef
- * @param options.selectedCategoryRef
- * @param options.selectedFeedUrlRef
- * @param options.usePlaceholderDataRef
+ * Manage the dashboard mark all read event.
+ * @param options - The options used to manage the dashboard mark all read event.
  */
-function useDashboardMarkAllReadEvent(options: {
-  onMarkAllReadLocallyRef: React.RefObject<(() => void) | undefined>;
-  onRefreshRef: React.RefObject<
-    (options?: DashboardRefreshEventDetail) => Promise<void>
-  >;
-  selectedCategoryNodeRef: React.RefObject<CategoryTreeNode | undefined>;
-  selectedCategoryRef: React.RefObject<string>;
-  selectedFeedUrlRef: React.RefObject<string | undefined>;
-  usePlaceholderDataRef: React.RefObject<boolean>;
-}) {
+function useDashboardMarkAllReadEvent(
+  options: DashboardMarkAllReadEventOptions,
+) {
   const {
     onMarkAllReadLocallyRef,
     onRefreshRef,
@@ -302,7 +305,7 @@ function useDashboardMarkAllReadEvent(options: {
   } = options;
   useEffect(() => {
     /**
-     *
+     * Process the handle mark all read.
      */
     const handleMarkAllRead = () => {
       void runDashboardMarkAllReadCommand(window, {
@@ -331,26 +334,21 @@ function useDashboardMarkAllReadEvent(options: {
     usePlaceholderDataRef,
   ]);
 }
-
 /**
- * @param options
- * @param options.onOpenFeedsSidebarRef
- * @param options.onOpenSettingsRef
+ * Manage the dashboard open panel events.
+ * @param options - The options used to manage the dashboard open panel events.
  */
-function useDashboardOpenPanelEvents(options: {
-  onOpenFeedsSidebarRef: React.RefObject<() => void>;
-  onOpenSettingsRef: React.RefObject<() => void>;
-}) {
+function useDashboardOpenPanelEvents(options: DashboardOpenPanelEventsOptions) {
   const { onOpenFeedsSidebarRef, onOpenSettingsRef } = options;
   useEffect(() => {
     /**
-     *
+     * Process the handle open settings.
      */
     const handleOpenSettings = () => {
       onOpenSettingsRef.current();
     };
     /**
-     *
+     * Process the handle open feeds sidebar.
      */
     const handleOpenFeedsSidebar = () => {
       onOpenFeedsSidebarRef.current();
@@ -376,20 +374,15 @@ function useDashboardOpenPanelEvents(options: {
 }
 
 /**
- * @param options
- * @param options.onMarkViewportReadRef
- * @param options.onRefreshRef
+ * Manage the dashboard refresh events.
+ * @param options - The options used to manage the dashboard refresh events.
  */
-function useDashboardRefreshEvents(options: {
-  onMarkViewportReadRef: React.RefObject<() => Promise<void>>;
-  onRefreshRef: React.RefObject<
-    (options?: DashboardRefreshEventDetail) => Promise<void>
-  >;
-}) {
+function useDashboardRefreshEvents(options: DashboardRefreshEventsOptions) {
   const { onMarkViewportReadRef, onRefreshRef } = options;
   useEffect(() => {
     /**
-     * @param event
+     * Process the handle refresh.
+     * @param event - The incoming event.
      */
     const handleRefresh = (event: Event) => {
       void (async () => {
@@ -401,7 +394,7 @@ function useDashboardRefreshEvents(options: {
     };
 
     /**
-     *
+     * Process the handle mark viewport read.
      */
     const handleMarkViewportRead = () => {
       runDashboardViewportReadCommand(window, onMarkViewportReadRef.current);
@@ -424,20 +417,14 @@ function useDashboardRefreshEvents(options: {
 }
 
 /**
- * @param options
- * @param options.onSearchChangeRef
- * @param options.pendingSearchTermRef
- * @param options.searchFrameRef
+ * Manage the dashboard search event.
+ * @param options - The options used to manage the dashboard search event.
  */
-function useDashboardSearchEvent(options: {
-  onSearchChangeRef: React.RefObject<(term: string) => void>;
-  pendingSearchTermRef: React.RefObject<string>;
-  searchFrameRef: React.RefObject<null | number>;
-}) {
+function useDashboardSearchEvent(options: DashboardSearchEventOptions) {
   const { onSearchChangeRef, pendingSearchTermRef, searchFrameRef } = options;
   useEffect(() => {
     /**
-     *
+     * Process the flush search change.
      */
     const flushSearchChange = () => {
       searchFrameRef.current = null;
@@ -448,7 +435,8 @@ function useDashboardSearchEvent(options: {
     };
 
     /**
-     * @param event
+     * Process the handle search change.
+     * @param event - The incoming event.
      */
     const handleSearchChange = (event: Event) => {
       const detail = (event as CustomEvent<{ term?: string }>).detail;
@@ -479,9 +467,10 @@ function useDashboardSearchEvent(options: {
     };
   }, [onSearchChangeRef, pendingSearchTermRef, searchFrameRef]);
 }
-
 /**
- * @param onSearchChange
+ * Manage the dashboard search refs.
+ * @param onSearchChange - The callback that on search change.
+ * @returns The dashboard search refs state and callbacks.
  */
 function useDashboardSearchRefs(onSearchChange: (term: string) => void) {
   const pendingSearchTermRef = useRef("");
@@ -497,18 +486,11 @@ function useDashboardSearchRefs(onSearchChange: (term: string) => void) {
 }
 
 /**
- * @param options
- * @param options.selectedCategory
- * @param options.selectedCategoryNode
- * @param options.selectedFeedUrl
- * @param options.usePlaceholderData
+ * Manage the dashboard selection refs.
+ * @param options - The options used to manage the dashboard selection refs.
+ * @returns The dashboard selection refs state and callbacks.
  */
-function useDashboardSelectionRefs(options: {
-  selectedCategory: string;
-  selectedCategoryNode: CategoryTreeNode | undefined;
-  selectedFeedUrl: string | undefined;
-  usePlaceholderData: boolean;
-}) {
+function useDashboardSelectionRefs(options: DashboardSelectionRefsOptions) {
   const selectedCategoryRef = useRef(options.selectedCategory);
   const selectedCategoryNodeRef = useRef(options.selectedCategoryNode);
   const selectedFeedUrlRef = useRef(options.selectedFeedUrl);

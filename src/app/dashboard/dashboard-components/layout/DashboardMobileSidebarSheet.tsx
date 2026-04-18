@@ -19,22 +19,14 @@ interface DashboardMobileSidebarSheetProps {
 }
 
 /**
- * Renders the mobile feeds sidebar inside the dashboard sheet shell.
- *
- * Keeping the mobile sheet structure in its own component prevents the main
- * dashboard view from mixing route orchestration with sidebar chrome details.
- *
- * @param props - Mobile sheet open state and sidebar content props.
- * @param props.isOpen
- * @param props.onOpenChange
- * @param props.sidebarContentProps
- * @returns The mobile sidebar sheet used on narrow viewports.
+ * Render the dashboard mobile sidebar sheet component.
+ * @param props - The component props.
+ * @returns The rendered dashboard mobile sidebar sheet component.
  */
-export function DashboardMobileSidebarSheet({
-  isOpen,
-  onOpenChange,
-  sidebarContentProps,
-}: DashboardMobileSidebarSheetProps) {
+export function DashboardMobileSidebarSheet(
+  props: DashboardMobileSidebarSheetProps,
+) {
+  const { isOpen, onOpenChange, sidebarContentProps } = props;
   const [mobileGroupedLayout] = useLocalStorage(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,

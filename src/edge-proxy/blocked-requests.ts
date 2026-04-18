@@ -11,7 +11,9 @@ export interface BlockedRequestPolicy {
 }
 
 /**
- * @param policies
+ * Process the define blocked request policies.
+ * @param policies - The policies.
+ * @returns The define blocked request policies.
  */
 function defineBlockedRequestPolicies(
   policies: readonly BlockedRequestPolicy[],
@@ -71,8 +73,10 @@ export const blockedRequestPolicies = defineBlockedRequestPolicies([
 ]);
 
 /**
- * @param request
- * @param policy
+ * Create the blocked request response.
+ * @param request - The request.
+ * @param policy - The policy.
+ * @returns The blocked request response.
  */
 export function createBlockedRequestResponse(
   request: NextRequest,
@@ -105,7 +109,9 @@ export function createBlockedRequestResponse(
 }
 
 /**
- * @param pathname
+ * Process the match blocked request policy.
+ * @param pathname - The pathname.
+ * @returns The match blocked request policy.
  */
 export function matchBlockedRequestPolicy(
   pathname: string,

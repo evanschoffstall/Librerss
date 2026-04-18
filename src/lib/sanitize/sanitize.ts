@@ -13,8 +13,15 @@ import {
 } from "./cleaners";
 import { purifyRawHtml } from "./purify";
 
+interface ExclusiveFilterFrame {
+  attribs?: Record<string, string>;
+  tag: string;
+}
+
 /**
- * @param attribs
+ * Return whether is known placeholder image.
+ * @param attribs - The attribs.
+ * @returns Whether is known placeholder image.
  */
 function isKnownPlaceholderImage(
   attribs: Record<string, string | undefined> | undefined,
@@ -37,7 +44,9 @@ const NON_CONTENT_IMAGE_TEXT_PATTERN =
   /\b(?:avatar|logo|icon|menu|search|toggle|button|close|share|social|badge|placeholder|pixel|spacer|sprite)\b/i;
 
 /**
- * @param descriptor
+ * Return whether has likely content descriptor.
+ * @param descriptor - The descriptor.
+ * @returns Whether has likely content descriptor.
  */
 function hasLikelyContentDescriptor(descriptor: string): boolean {
   if (!descriptor) {
@@ -52,7 +61,9 @@ function hasLikelyContentDescriptor(descriptor: string): boolean {
 }
 
 /**
- * @param attribs
+ * Return whether has likely content image signal.
+ * @param attribs - The attribs.
+ * @returns Whether has likely content image signal.
  */
 function hasLikelyContentImageSignal(
   attribs: Record<string, string | undefined> | undefined,
@@ -75,15 +86,19 @@ function hasLikelyContentImageSignal(
 }
 
 /**
- * @param srcset
+ * Return whether has too small srcset.
+ * @param srcset - The srcset.
+ * @returns Whether has too small srcset.
  */
 function hasTooSmallSrcset(srcset: string): boolean {
   return maxSrcsetWidth(srcset) < CONFIG.MIN_ARTICLE_IMAGE_WIDTH_PX;
 }
 
 /**
- * @param width
- * @param height
+ * Return whether is below minimum dimensions.
+ * @param width - The width.
+ * @param height - The height.
+ * @returns Whether is below minimum dimensions.
  */
 function isBelowMinimumDimensions(
   width: null | number,
@@ -96,7 +111,9 @@ function isBelowMinimumDimensions(
 }
 
 /**
- * @param attribs
+ * Return whether is too small image.
+ * @param attribs - The attribs.
+ * @returns Whether is too small image.
  */
 function isTooSmallImage(
   attribs: Record<string, string | undefined> | undefined,
@@ -120,7 +137,9 @@ function isTooSmallImage(
 }
 
 /**
- * @param srcset
+ * Process the max srcset width.
+ * @param srcset - The srcset.
+ * @returns The max srcset width.
  */
 function maxSrcsetWidth(srcset: string): number {
   const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
@@ -130,7 +149,9 @@ function maxSrcsetWidth(srcset: string): number {
 }
 
 /**
- * @param value
+ * Parse the dimension.
+ * @param value - The value.
+ * @returns The dimension.
  */
 function parseDimension(value: string | undefined): null | number {
   if (!value) return null;
@@ -142,7 +163,9 @@ function parseDimension(value: string | undefined): null | number {
 }
 
 /**
- * @param attribs
+ * Process the read image descriptor.
+ * @param attribs - The attribs.
+ * @returns The read image descriptor.
  */
 function readImageDescriptor(
   attribs: Record<string, string | undefined>,
@@ -198,11 +221,11 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "hr",
   ],
   /**
-   * @param frame
-   * @param frame.attribs
-   * @param frame.tag
+   * Process the exclusive filter.
+   * @param frame - The frame.
+   * @returns Whether exclusive filter.
    */
-  exclusiveFilter: (frame: { attribs?: Record<string, string>; tag: string }) =>
+  exclusiveFilter: (frame: ExclusiveFilterFrame) =>
     frame.tag === "img" &&
     (isTooSmallImage(frame.attribs) || isKnownPlaceholderImage(frame.attribs)),
   nonTextTags: [
@@ -235,8 +258,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
   ],
   transformTags: {
     /**
-     * @param tagName
-     * @param attribs
+     * Process the a.
+     * @param tagName - The tag name.
+     * @param attribs - The attribs.
+     * @returns The a.
      */
     a: (tagName: string, attribs: Record<string, string>) => ({
       attribs: {
@@ -247,8 +272,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
       tagName,
     }),
     /**
-     * @param tagName
-     * @param attribs
+     * Process the img.
+     * @param tagName - The tag name.
+     * @param attribs - The attribs.
+     * @returns The img.
      */
     img: (tagName: string, attribs: Record<string, string>) => {
       const trimmedSource = (
@@ -274,12 +301,9 @@ const ARTICLE_SANITIZE_OPTIONS = {
 };
 
 /**
- * Sanitizes article HTML and enforces {@link CONFIG.MAX_ARTICLE_CONTENT_LENGTH}.
- *
- * Unlike naively calling `sanitizeArticleHtml` + `substring`, this function
- * re-sanitizes the truncated string so that any HTML tag broken at the hard
- * length boundary is properly closed before the content is stored.
- * @param raw
+ * Process the sanitize and truncate article content.
+ * @param raw - The raw.
+ * @returns The sanitize and truncate article content.
  */
 export function sanitizeAndTruncateArticleContent(raw: string): string {
   const sanitized = sanitizeArticleHtml(raw);
@@ -298,12 +322,9 @@ export function sanitizeAndTruncateArticleContent(raw: string): string {
 }
 
 /**
- * Strips non-allowed HTML tags; forces safe link attributes.
- *
- * CRITICAL: This function may receive raw HTML from RSS feeds or other
- * external sources. `sanitize-html` (via `purifyRawHtml`) is applied FIRST
- * as mandatory XSS protection before any downstream transformation.
- * @param raw
+ * Process the sanitize article html.
+ * @param raw - The raw.
+ * @returns The sanitize article html.
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
@@ -324,13 +345,9 @@ export function sanitizeArticleHtml(raw: string): string {
 }
 
 /**
- * Sanitizes an article title: strips ALL HTML tags, trims whitespace, and
- * enforces {@link CONFIG.MAX_ARTICLE_TITLE_LENGTH}.
- *
- * RSS feed titles occasionally contain escaped or literal HTML
- * (e.g. `<b>Breaking</b>` or `<script>…</script>`); all markup must be
- * removed before the value is stored or rendered.
- * @param title
+ * Process the sanitize article title.
+ * @param title - The title.
+ * @returns The sanitize article title.
  */
 export function sanitizeArticleTitle(title: null | string | undefined): string {
   const stripped = sanitizeHtml(title ?? "", {

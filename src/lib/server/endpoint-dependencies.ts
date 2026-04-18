@@ -33,8 +33,9 @@ interface ExtractRuntimeDeps {
 }
 
 /**
- * Resolves the effective runtime dependencies for article extraction route handling.
- * @param depsOrContext
+ * Create the extract runtime deps.
+ * @param depsOrContext - The deps or context.
+ * @returns The extract runtime deps.
  */
 export function createExtractRuntimeDeps(
   depsOrContext: ExtractPostDeps | RouteHandlerContext,
@@ -61,7 +62,9 @@ export function createExtractRuntimeDeps(
 }
 
 /**
- * @param deps
+ * Resolve the runtime content deps.
+ * @param deps - The deps.
+ * @returns The runtime content deps.
  */
 function resolveRuntimeContentDeps(deps: ExtractPostDeps) {
   return {
@@ -72,7 +75,9 @@ function resolveRuntimeContentDeps(deps: ExtractPostDeps) {
 }
 
 /**
- * @param deps
+ * Resolve the runtime logger bindings.
+ * @param deps - The deps.
+ * @returns The runtime logger bindings.
  */
 function resolveRuntimeLoggerBindings(deps: ExtractPostDeps) {
   return {
@@ -82,7 +87,9 @@ function resolveRuntimeLoggerBindings(deps: ExtractPostDeps) {
 }
 
 /**
- * @param deps
+ * Resolve the runtime parsing deps.
+ * @param deps - The deps.
+ * @returns The runtime parsing deps.
  */
 function resolveRuntimeParsingDeps(deps: ExtractPostDeps) {
   return {

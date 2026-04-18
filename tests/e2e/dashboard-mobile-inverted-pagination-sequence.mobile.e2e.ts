@@ -28,10 +28,17 @@ async function enableMobileInvertedScroll(page: Page) {
   }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 }
 
-async function expandInvertedWindowByOnePage(page: Page, expectedCount: number) {
+async function expandInvertedWindowByOnePage(
+  page: Page,
+  expectedCount: number,
+) {
   let renderedCount = await readRenderedArticleCount(page);
 
-  for (let attempt = 0; attempt < INVERTED_PAGINATION_RETRY_LIMIT; attempt += 1) {
+  for (
+    let attempt = 0;
+    attempt < INVERTED_PAGINATION_RETRY_LIMIT;
+    attempt += 1
+  ) {
     await triggerFeedViewportWheelIntent(page, -240);
     await page.waitForTimeout(180);
 
@@ -85,10 +92,12 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
     await configureArticlesPerPage(page, 4);
 
     let initialCount = 0;
-    await expect.poll(async () => {
-      initialCount = await readStableRenderedCount(page);
-      return initialCount;
-    }).toBeGreaterThanOrEqual(4);
+    await expect
+      .poll(async () => {
+        initialCount = await readStableRenderedCount(page);
+        return initialCount;
+      })
+      .toBeGreaterThanOrEqual(4);
     expect([4, 8]).toContain(initialCount);
 
     const expectedGrowthByStep = [4, 8, 12, 16];

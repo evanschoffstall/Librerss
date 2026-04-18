@@ -18,9 +18,11 @@ interface UserOwnedArticle {
 }
 
 /**
- * @param db
- * @param userId
- * @param articleId
+ * Return the user owned article by id.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param articleId - The article id.
+ * @returns The user owned article by id.
  */
 export async function getUserOwnedArticleById(
   db: ReturnType<DbMod["getDb"]>,
@@ -45,9 +47,11 @@ export async function getUserOwnedArticleById(
 }
 
 /**
- * @param db
- * @param userId
- * @param limit
+ * Process the list user owned articles.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param limit - The limit.
+ * @returns The list user owned articles.
  */
 export async function listUserOwnedArticles(
   db: ReturnType<DbMod["getDb"]>,
@@ -70,9 +74,11 @@ export async function listUserOwnedArticles(
 }
 
 /**
- * @param userId
- * @param feedSources
- * @param feeds
+ * Process the enabled feed source join.
+ * @param userId - The r id.
+ * @param feedSources - The feed sources.
+ * @param feeds - The feeds.
+ * @returns The enabled feed source join.
  */
 function enabledFeedSourceJoin(
   userId: number,
@@ -87,7 +93,8 @@ function enabledFeedSourceJoin(
 }
 
 /**
- *
+ * Process the load article query context.
+ * @returns The load article query context.
  */
 async function loadArticleQueryContext() {
   const {

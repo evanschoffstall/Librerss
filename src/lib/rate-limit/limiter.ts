@@ -32,7 +32,7 @@ export class RateLimiter {
 
   // Clean up expired entries every 5 minutes
   /**
-   *
+   * Creates an in-memory rate limiter and starts periodic expiry cleanup.
    */
   constructor() {
     this.cleanupTimer = setInterval(
@@ -54,17 +54,12 @@ export class RateLimiter {
   }
 
   /**
-   * Checks whether the incoming request is within the rate limit.
-   *
-   * @param request
-   * @param key
-   * @param config
-   * @param skipClientId - When `true`, the `key` is used verbatim as the
-   *   bucket identifier with no client-IP suffix appended.  Set this for
-   *   user-scoped keys that already embed a user identifier (e.g.
-   *   `"feed-batch:user:42"`) so that the same user is never split across
-   *   multiple buckets because of IP variance or an unresolvable client IP.
-   *   Leave it `false` (the default) for request-scoped (IP-based) limits.
+   * Process the check.
+   * @param request - The request.
+   * @param key - The key.
+   * @param config - The config.
+   * @param skipClientId - The skip client id.
+   * @returns The check.
    */
   check(
     request: Request,
@@ -130,19 +125,23 @@ export class RateLimiter {
     return null;
   }
 
-  /** Cancels the periodic cleanup interval. Call during test teardown. */
+  /**
+   * Process the destroy.
+   */
   destroy(): void {
     clearInterval(this.cleanupTimer);
   }
 
-  /** Clears stored buckets and cached env-derived state for test isolation. */
+  /**
+   * Process the reset for testing.
+   */
   resetForTesting(): void {
     this.store.clear();
     this._trustedProxyCount = undefined;
   }
 
   /**
-   *
+   * Process the cleanup.
    */
   private cleanup(): void {
     const now = Date.now();
@@ -154,7 +153,9 @@ export class RateLimiter {
     }
   }
 
-  /** Enforce max size by evicting oldest expired entries first, then random */
+  /**
+   * Process the enforce bound.
+   */
   private enforceBound(): void {
     if (this.store.size <= MAX_RATE_LIMIT_ENTRIES) return;
 
@@ -193,7 +194,9 @@ export class RateLimiter {
   }
 
   /**
-   * @param request
+   * Return the client identifier.
+   * @param request - The request.
+   * @returns The client identifier.
    */
   private getClientIdentifier(request: Request): string {
     // A client can forge any left-hand entries in X-Forwarded-For. The
@@ -226,8 +229,10 @@ export class RateLimiter {
   }
 
   /**
-   * @param request
-   * @param trustedProxies
+   * Resolve the forwarded client id.
+   * @param request - The request.
+   * @param trustedProxies - The trusted proxies.
+   * @returns The forwarded client id.
    */
   private resolveForwardedClientId(
     request: Request,
@@ -261,7 +266,8 @@ export class RateLimiter {
   }
 
   /**
-   *
+   * Resolve the trusted proxy state.
+   * @returns The trusted proxy state.
    */
   private resolveTrustedProxyState(): TrustedProxyState {
     if (this._trustedProxyCount !== undefined) {
@@ -296,13 +302,16 @@ export class RateLimiter {
 // Export singleton instance
 export const rateLimiter = new RateLimiter();
 
-/** Resets the shared in-memory limiter between tests that mutate request state. */
+/**
+ * Process the reset rate limiter for testing.
+ */
 export function resetRateLimiterForTesting(): void {
   rateLimiter.resetForTesting();
 }
 
 /**
- * @param message
+ * Process the log rate limit error.
+ * @param message - The message.
  */
 function logRateLimitError(message: string): void {
   if (typeof console.error === "function") {
@@ -311,8 +320,9 @@ function logRateLimitError(message: string): void {
 }
 
 /**
- * @param message
- * @param context
+ * Process the log rate limit warning.
+ * @param message - The message.
+ * @param context - The context used to process the log rate limit warning.
  */
 function logRateLimitWarning(
   message: string,

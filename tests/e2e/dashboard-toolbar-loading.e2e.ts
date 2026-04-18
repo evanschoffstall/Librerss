@@ -97,24 +97,24 @@ test.describe("dashboard toolbar loading", () => {
     ).toBeVisible();
 
     const toolbarPulseState = await page.evaluate(() => {
-      const visiblePulseNodes = Array.from(document.querySelectorAll("*")).filter(
-        (node) => {
-          if (!(node instanceof HTMLElement)) {
-            return false;
-          }
+      const visiblePulseNodes = Array.from(
+        document.querySelectorAll("*"),
+      ).filter((node) => {
+        if (!(node instanceof HTMLElement)) {
+          return false;
+        }
 
-          const rect = node.getBoundingClientRect();
-          if (rect.width <= 0 || rect.height <= 0) {
-            return false;
-          }
+        const rect = node.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+          return false;
+        }
 
-          const style = getComputedStyle(node);
-          return (
-            style.animationName.includes("pulse") ||
-            node.className.toString().includes("animate-pulse")
-          );
-        },
-      );
+        const style = getComputedStyle(node);
+        return (
+          style.animationName.includes("pulse") ||
+          node.className.toString().includes("animate-pulse")
+        );
+      });
       const leakedToolbarShell = Array.from(document.body.children).some(
         (node) =>
           node instanceof HTMLElement &&
@@ -145,8 +145,8 @@ test.describe("dashboard toolbar loading", () => {
     await expect(viewportReadButton).toBeVisible();
 
     // Confirm no pulse before clicking.
-    const pulseBeforeClick = await viewportReadButton.evaluate((btn) =>
-      btn.querySelector(".animate-pulse") !== null,
+    const pulseBeforeClick = await viewportReadButton.evaluate(
+      (btn) => btn.querySelector(".animate-pulse") !== null,
     );
     expect(pulseBeforeClick).toBe(false);
 

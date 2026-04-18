@@ -6,7 +6,9 @@ import { markStreamRead, serverApi } from "@/lib/server";
 export const dynamic = "force-dynamic";
 
 /**
- * @param request
+ * Render the post component.
+ * @param request - The request.
+ * @returns The rendered post component.
  */
 export async function POST(request: NextRequest) {
   try {

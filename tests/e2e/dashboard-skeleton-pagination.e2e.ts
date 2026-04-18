@@ -12,7 +12,9 @@ import { expect, test } from "./test";
  * scroll-triggered pagination. Returns the peak skeleton count and
  * approximate duration in milliseconds.
  */
-async function observeSkeletonVisibility(page: import("@playwright/test").Page) {
+async function observeSkeletonVisibility(
+  page: import("@playwright/test").Page,
+) {
   return await page.evaluate(() => {
     return new Promise<{
       durationMs: "still visible" | number;

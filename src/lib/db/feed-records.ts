@@ -21,11 +21,24 @@ export const feedRecordFields = {
   url: feeds.url,
 };
 
+interface RemoveUserFeedCategoryOptions {
+  category?: string;
+  feedId: number;
+  userId: number;
+}
+
+interface ReplaceUserFeedCategoryOptions {
+  category: string;
+  feedId: number;
+  userId: number;
+}
 // Single-query upsert: always returns the row whether inserted or already existing.
 // ON CONFLICT DO UPDATE with a no-op SET guarantees RETURNING always fires.
 /**
- * @param executor
- * @param feedUrl
+ * Process the ensure feed record by url.
+ * @param executor - The executor.
+ * @param feedUrl - The feed url.
+ * @returns The ensure feed record by url.
  */
 export async function ensureFeedRecordByUrl(
   executor: FeedDbExecutor,
@@ -45,8 +58,10 @@ export async function ensureFeedRecordByUrl(
 }
 
 /**
- * @param executor
- * @param feedUrl
+ * Process the find feed id by url.
+ * @param executor - The executor.
+ * @param feedUrl - The feed url.
+ * @returns The find feed id by url.
  */
 export async function findFeedIdByUrl(
   executor: FeedDbExecutor,
@@ -60,26 +75,16 @@ export async function findFeedIdByUrl(
 
   return feedsByUrl.length === 0 ? null : feedsByUrl[0].id;
 }
-
 /**
- * @param executor
- * @param root0
- * @param root0.category
- * @param root0.feedId
- * @param root0.userId
+ * Process the remove user feed category.
+ * @param executor - The executor.
+ * @param options - The options used to process the remove user feed category.
  */
 export async function removeUserFeedCategory(
   executor: FeedDbExecutor,
-  {
-    category,
-    feedId,
-    userId,
-  }: {
-    category?: string;
-    feedId: number;
-    userId: number;
-  },
+  options: RemoveUserFeedCategoryOptions,
 ): Promise<void> {
+  const { category, feedId, userId } = options;
   await executor
     .delete(feedCategories)
     .where(
@@ -97,24 +102,15 @@ export async function removeUserFeedCategory(
 }
 
 /**
- * @param executor
- * @param root0
- * @param root0.category
- * @param root0.feedId
- * @param root0.userId
+ * Process the replace user feed category.
+ * @param executor - The executor.
+ * @param options - The options used to process the replace user feed category.
  */
 export async function replaceUserFeedCategory(
   executor: FeedDbExecutor,
-  {
-    category,
-    feedId,
-    userId,
-  }: {
-    category: string;
-    feedId: number;
-    userId: number;
-  },
+  options: ReplaceUserFeedCategoryOptions,
 ): Promise<void> {
+  const { category, feedId, userId } = options;
   await executor
     .insert(feedCategories)
     .values({

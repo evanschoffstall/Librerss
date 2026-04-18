@@ -2,7 +2,9 @@ import type { FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-da
 import type { BatchFeedResponseItem } from "@/lib/api/http";
 
 /**
- * @param batchResults
+ * Return the newest last fetched at.
+ * @param batchResults - The batch results.
+ * @returns The newest last fetched at.
  */
 export function getNewestLastFetchedAt(
   batchResults: BatchFeedResponseItem[],
@@ -21,7 +23,9 @@ export function getNewestLastFetchedAt(
 }
 
 /**
- * @param sources
+ * Return the source names by url.
+ * @param sources - The sources.
+ * @returns The source names by url.
  */
 export function getSourceNamesByUrl(
   sources: FeedBatchSource[],

@@ -30,12 +30,13 @@ interface ExecuteParallelRefreshesOptions {
 }
 
 /**
- * Builds the per-feed refresh plan for a batch request.
- * @param feedByUrl
- * @param allowedUrls
- * @param skipRefresh
- * @param forceRefresh
- * @param forceResolveUpstream
+ * Build the refresh plan.
+ * @param feedByUrl - The feed by url.
+ * @param allowedUrls - The allowed urls.
+ * @param skipRefresh - The skip refresh.
+ * @param forceRefresh - The force refresh.
+ * @param forceResolveUpstream - The force resolve upstream.
+ * @returns The refresh plan.
  */
 export function buildRefreshPlan(
   feedByUrl: Map<string, FeedRecord>,
@@ -84,29 +85,27 @@ export function buildRefreshPlan(
 }
 
 /**
- * @param root0
- * @param root0.allowedUrls
- * @param root0.db
- * @param root0.feedByUrl
- * @param root0.forceRefresh
- * @param root0.forceResolveUpstream
- * @param root0.proxyTransport
- * @param root0.skipRefresh
+ * Process the execute parallel refreshes.
+ * @param options - The options used to process the execute parallel refreshes.
+ * @returns The execute parallel refreshes.
  */
-export async function executeParallelRefreshes({
-  allowedUrls,
-  db,
-  feedByUrl,
-  forceRefresh,
-  forceResolveUpstream = false,
-  proxyTransport,
-  skipRefresh,
-}: ExecuteParallelRefreshesOptions): Promise<{
+export async function executeParallelRefreshes(
+  options: ExecuteParallelRefreshesOptions,
+): Promise<{
   cooldownLimitedCount: number;
   errors: Map<string, string>;
   refreshedCount: number;
   refreshedUrls: Set<string>;
 }> {
+  const {
+    allowedUrls,
+    db,
+    feedByUrl,
+    forceRefresh,
+    forceResolveUpstream = false,
+    proxyTransport,
+    skipRefresh,
+  } = options;
   const upstreamErrors = new Map<string, string>();
   const refreshedUrls = new Set<string>();
   const cooldownLimitedCount = countCooldownLimitedFeeds(
@@ -157,10 +156,12 @@ export async function executeParallelRefreshes({
 }
 
 /**
- * @param feedByUrl
- * @param allowedUrls
- * @param forceRefresh
- * @param forceResolveUpstream
+ * Process the count cooldown limited feeds.
+ * @param feedByUrl - The feed by url.
+ * @param allowedUrls - The allowed urls.
+ * @param forceRefresh - The force refresh.
+ * @param forceResolveUpstream - The force resolve upstream.
+ * @returns The count cooldown limited feeds.
  */
 function countCooldownLimitedFeeds(
   feedByUrl: Map<string, FeedRecord>,
@@ -183,9 +184,10 @@ function countCooldownLimitedFeeds(
 }
 
 /**
- * @param staleFeeds
- * @param results
- * @param upstreamErrors
+ * Process the record refresh settlements.
+ * @param staleFeeds - The stale feeds.
+ * @param results - The results.
+ * @param upstreamErrors - The upstream errors.
  */
 function recordRefreshSettlements(
   staleFeeds: FeedRecord[],
@@ -218,9 +220,11 @@ function recordRefreshSettlements(
 }
 
 /**
- * @param db
- * @param staleFeeds
- * @param proxyTransport
+ * Process the refresh candidate feeds.
+ * @param db - The db.
+ * @param staleFeeds - The stale feeds.
+ * @param proxyTransport - The proxy transport.
+ * @returns The refresh candidate feeds.
  */
 async function refreshCandidateFeeds(
   db: ReturnType<DbMod["getDb"]>,
@@ -239,10 +243,12 @@ async function refreshCandidateFeeds(
 }
 
 /**
- * @param feedByUrl
- * @param allowedUrls
- * @param forceRefresh
- * @param forceResolveUpstream
+ * Resolve the refresh candidates.
+ * @param feedByUrl - The feed by url.
+ * @param allowedUrls - The allowed urls.
+ * @param forceRefresh - The force refresh.
+ * @param forceResolveUpstream - The force resolve upstream.
+ * @returns The refresh candidates.
  */
 function resolveRefreshCandidates(
   feedByUrl: Map<string, FeedRecord>,
@@ -260,8 +266,10 @@ function resolveRefreshCandidates(
 }
 
 /**
- * @param tasks
- * @param concurrency
+ * Process the settled with concurrency.
+ * @param tasks - The callback that tasks.
+ * @param concurrency - The concurrency.
+ * @returns The settled with concurrency.
  */
 async function settledWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
@@ -272,7 +280,7 @@ async function settledWithConcurrency<T>(
   let nextIndex = 0;
 
   /**
-   *
+   * Process the worker.
    */
   async function worker() {
     while (nextIndex < tasks.length) {
@@ -295,9 +303,11 @@ async function settledWithConcurrency<T>(
 }
 
 /**
- * @param feed
- * @param forceRefresh
- * @param forceResolveUpstream
+ * Return whether should batch refresh feed.
+ * @param feed - The feed.
+ * @param forceRefresh - The force refresh.
+ * @param forceResolveUpstream - The force resolve upstream.
+ * @returns Whether should batch refresh feed.
  */
 function shouldBatchRefreshFeed(
   feed: FeedRecord,

@@ -7,6 +7,41 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 import { resolvePaginationBoundaryState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 
+interface CollapsingArticlesRefSyncOptions {
+  hasCollapsingArticles: boolean;
+  hasCollapsingArticlesRef: { current: boolean };
+}
+interface FeedPaginationQueryResetEffectOptions {
+  articleFilter: string;
+  feedViewKey: string;
+  isInvertedScroll: boolean;
+  resetPaginationState: () => void;
+  searchTerm: string;
+}
+
+interface FeedPaginationRefreshResetEffectOptions {
+  hasUserScrolledRef: { current: boolean };
+  isInvertedScroll: boolean;
+  isLoadingMore: boolean;
+  isRefreshing: boolean;
+  isStandardViewportRefillActiveRef: { current: boolean };
+  previousRefreshEpochRef: { current: number };
+  refreshEpoch: number;
+  resetPaginationState: () => void;
+}
+
+interface InitialFeedPaginationAutoFillEffectOptions {
+  filteredFeedLength: number;
+  isInitialLoading: boolean;
+  maybeAutoFillViewport: (committedListHeight?: number) => void;
+  scrollViewport: HTMLElement | null;
+  shouldUseVirtualizedFeed: boolean;
+  visibleArticleCount: number;
+}
+interface MountedFlagCleanupEffectOptions {
+  isMountedRef: { current: boolean };
+}
+
 interface PendingServerRevealOptions {
   hasPendingServerRevealRef: { current: boolean };
   hasResolvedStandardViewportRevealRef: { current: boolean };
@@ -16,24 +51,32 @@ interface PendingServerRevealOptions {
   lastInvertedScrollTopRef: { current: null | number };
   startServerLoadRearmCooldown: () => void;
 }
+interface ResolvedStandardViewportRevealEffectOptions {
+  filteredFeedLength: number;
+  hasResolvedStandardViewportRevealRef: { current: boolean };
+  isInvertedScroll: boolean;
+  maybeAutoFillViewport: (committedListHeight?: number) => void;
+}
+
+interface VisibleArticleCountRefSyncOptions {
+  visibleArticleCount: number;
+  visibleArticleCountRef: { current: number };
+}
 
 /**
- * @param options
- * @param options.hasCollapsingArticles
- * @param options.hasCollapsingArticlesRef
- * @param options.hasCollapsingArticlesRef.current
+ * Manage the collapsing articles ref sync.
+ * @param options - The options used to manage the collapsing articles ref sync.
  */
-export function useCollapsingArticlesRefSync(options: {
-  hasCollapsingArticles: boolean;
-  hasCollapsingArticlesRef: { current: boolean };
-}) {
+export function useCollapsingArticlesRefSync(
+  options: CollapsingArticlesRefSyncOptions,
+) {
   useLayoutEffect(() => {
     options.hasCollapsingArticlesRef.current = options.hasCollapsingArticles;
   }, [options.hasCollapsingArticles, options.hasCollapsingArticlesRef]);
 }
-
 /**
- * @param options
+ * Manage the feed pagination loading more reveal effect.
+ * @param options - The options used to manage the feed pagination loading more reveal effect.
  */
 export function useFeedPaginationLoadingMoreRevealEffect(
   options: PendingServerRevealOptions & {
@@ -87,20 +130,12 @@ export function useFeedPaginationLoadingMoreRevealEffect(
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.feedViewKey
- * @param options.isInvertedScroll
- * @param options.resetPaginationState
- * @param options.searchTerm
+ * Manage the feed pagination query reset effect.
+ * @param options - The options used to manage the feed pagination query reset effect.
  */
-export function useFeedPaginationQueryResetEffect(options: {
-  articleFilter: string;
-  feedViewKey: string;
-  isInvertedScroll: boolean;
-  resetPaginationState: () => void;
-  searchTerm: string;
-}) {
+export function useFeedPaginationQueryResetEffect(
+  options: FeedPaginationQueryResetEffectOptions,
+) {
   const {
     articleFilter,
     feedViewKey,
@@ -125,31 +160,13 @@ export function useFeedPaginationQueryResetEffect(options: {
     searchTerm,
   ]);
 }
-
 /**
- * @param options
- * @param options.hasUserScrolledRef
- * @param options.hasUserScrolledRef.current
- * @param options.isInvertedScroll
- * @param options.isLoadingMore
- * @param options.isRefreshing
- * @param options.isStandardViewportRefillActiveRef
- * @param options.isStandardViewportRefillActiveRef.current
- * @param options.previousRefreshEpochRef
- * @param options.previousRefreshEpochRef.current
- * @param options.refreshEpoch
- * @param options.resetPaginationState
+ * Manage the feed pagination refresh reset effect.
+ * @param options - The options used to manage the feed pagination refresh reset effect.
  */
-export function useFeedPaginationRefreshResetEffect(options: {
-  hasUserScrolledRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isLoadingMore: boolean;
-  isRefreshing: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  previousRefreshEpochRef: { current: number };
-  refreshEpoch: number;
-  resetPaginationState: () => void;
-}) {
+export function useFeedPaginationRefreshResetEffect(
+  options: FeedPaginationRefreshResetEffectOptions,
+) {
   const {
     hasUserScrolledRef,
     isInvertedScroll,
@@ -186,7 +203,8 @@ export function useFeedPaginationRefreshResetEffect(options: {
 }
 
 /**
- * @param options
+ * Manage the feed pagination reveal count effect.
+ * @param options - The options used to manage the feed pagination reveal count effect.
  */
 export function useFeedPaginationRevealCountEffect(
   options: PendingServerRevealOptions & {
@@ -265,22 +283,12 @@ export function useFeedPaginationRevealCountEffect(
 }
 
 /**
- * @param options
- * @param options.filteredFeedLength
- * @param options.isInitialLoading
- * @param options.maybeAutoFillViewport
- * @param options.scrollViewport
- * @param options.shouldUseVirtualizedFeed
- * @param options.visibleArticleCount
+ * Manage the initial feed pagination auto fill effect.
+ * @param options - The options used to manage the initial feed pagination auto fill effect.
  */
-export function useInitialFeedPaginationAutoFillEffect(options: {
-  filteredFeedLength: number;
-  isInitialLoading: boolean;
-  maybeAutoFillViewport: (committedListHeight?: number) => void;
-  scrollViewport: HTMLElement | null;
-  shouldUseVirtualizedFeed: boolean;
-  visibleArticleCount: number;
-}) {
+export function useInitialFeedPaginationAutoFillEffect(
+  options: InitialFeedPaginationAutoFillEffectOptions,
+) {
   const {
     filteredFeedLength,
     isInitialLoading,
@@ -312,15 +320,13 @@ export function useInitialFeedPaginationAutoFillEffect(options: {
     visibleArticleCount,
   ]);
 }
-
 /**
- * @param options
- * @param options.isMountedRef
- * @param options.isMountedRef.current
+ * Manage the mounted flag cleanup effect.
+ * @param options - The options used to manage the mounted flag cleanup effect.
  */
-export function useMountedFlagCleanupEffect(options: {
-  isMountedRef: { current: boolean };
-}) {
+export function useMountedFlagCleanupEffect(
+  options: MountedFlagCleanupEffectOptions,
+) {
   useEffect(() => {
     return () => {
       options.isMountedRef.current = false;
@@ -329,7 +335,9 @@ export function useMountedFlagCleanupEffect(options: {
 }
 
 /**
- * @param options
+ * Manage the rearm pagination boundary from user intent.
+ * @param options - The options used to manage the rearm pagination boundary from user intent.
+ * @returns The rearm pagination boundary from user intent state and callbacks.
  */
 export function useRearmPaginationBoundaryFromUserIntent(
   options: PaginationBoundaryUserIntentOptions,
@@ -386,21 +394,13 @@ export function useRearmPaginationBoundaryFromUserIntent(
     scrollViewport,
   ]);
 }
-
 /**
- * @param options
- * @param options.filteredFeedLength
- * @param options.hasResolvedStandardViewportRevealRef
- * @param options.hasResolvedStandardViewportRevealRef.current
- * @param options.isInvertedScroll
- * @param options.maybeAutoFillViewport
+ * Manage the resolved standard viewport reveal effect.
+ * @param options - The options used to manage the resolved standard viewport reveal effect.
  */
-export function useResolvedStandardViewportRevealEffect(options: {
-  filteredFeedLength: number;
-  hasResolvedStandardViewportRevealRef: { current: boolean };
-  isInvertedScroll: boolean;
-  maybeAutoFillViewport: (committedListHeight?: number) => void;
-}) {
+export function useResolvedStandardViewportRevealEffect(
+  options: ResolvedStandardViewportRevealEffectOptions,
+) {
   const {
     filteredFeedLength,
     hasResolvedStandardViewportRevealRef,
@@ -423,22 +423,20 @@ export function useResolvedStandardViewportRevealEffect(options: {
 }
 
 /**
- * @param options
- * @param options.visibleArticleCount
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
+ * Manage the visible article count ref sync.
+ * @param options - The options used to manage the visible article count ref sync.
  */
-export function useVisibleArticleCountRefSync(options: {
-  visibleArticleCount: number;
-  visibleArticleCountRef: { current: number };
-}) {
+export function useVisibleArticleCountRefSync(
+  options: VisibleArticleCountRefSyncOptions,
+) {
   useLayoutEffect(() => {
     options.visibleArticleCountRef.current = options.visibleArticleCount;
   }, [options.visibleArticleCount, options.visibleArticleCountRef]);
 }
 
 /**
- * @param options
+ * Process the complete pending server reveal.
+ * @param options - The options used to process the complete pending server reveal.
  */
 function completePendingServerReveal(options: PendingServerRevealOptions) {
   options.hasPendingServerRevealRef.current = false;

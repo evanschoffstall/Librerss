@@ -10,18 +10,17 @@ interface FeedEmptyStateProps {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.hasConfiguredFeeds
- * @param root0.hasSearchTerm
- * @param root0.trimmedSearchTerm
+ * Render the feed empty state component.
+ * @param props - The component props.
+ * @returns The rendered feed empty state component.
  */
-export function FeedEmptyState({
-  articleFilter,
-  hasConfiguredFeeds = true,
-  hasSearchTerm,
-  trimmedSearchTerm,
-}: FeedEmptyStateProps) {
+export function FeedEmptyState(props: FeedEmptyStateProps) {
+  const {
+    articleFilter,
+    hasConfiguredFeeds = true,
+    hasSearchTerm,
+    trimmedSearchTerm,
+  } = props;
   const {
     description,
     heading,
@@ -96,10 +95,11 @@ export function FeedEmptyState({
 }
 
 /**
- * Resolves the icon, heading, and description for the current empty-state reason.
- * @param hasSearchTerm
- * @param hasConfiguredFeeds
- * @param articleFilter
+ * Resolve the empty state content.
+ * @param hasSearchTerm - Whether has search term.
+ * @param hasConfiguredFeeds - Whether has configured feeds.
+ * @param articleFilter - The article filter.
+ * @returns The empty state content.
  */
 function resolveEmptyStateContent(
   hasSearchTerm: boolean,

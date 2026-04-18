@@ -16,23 +16,21 @@ interface LoginValidationInput {
 }
 
 /**
- * Validates the login or signup form and returns field-scoped errors when invalid.
- * @param root0
- * @param root0.allowSignup
- * @param root0.confirmPassword
- * @param root0.email
- * @param root0.hasAcceptedLegalTerms
- * @param root0.mode
- * @param root0.password
+ * Process the validate login fields.
+ * @param options - The options used to process the validate login fields.
+ * @returns The validate login fields.
  */
-export function validateLoginFields({
-  allowSignup,
-  confirmPassword,
-  email,
-  hasAcceptedLegalTerms,
-  mode,
-  password,
-}: LoginValidationInput): LoginFieldErrors | null {
+export function validateLoginFields(
+  options: LoginValidationInput,
+): LoginFieldErrors | null {
+  const {
+    allowSignup,
+    confirmPassword,
+    email,
+    hasAcceptedLegalTerms,
+    mode,
+    password,
+  } = options;
   const errors: LoginFieldErrors = {};
 
   if (mode === "signup" && !allowSignup) {
@@ -61,10 +59,11 @@ export function validateLoginFields({
 }
 
 /**
- * @param errors
- * @param password
- * @param confirmPassword
- * @param hasAcceptedLegalTerms
+ * Process the validate signup fields.
+ * @param errors - The errors.
+ * @param password - The password.
+ * @param confirmPassword - The confirm password.
+ * @param hasAcceptedLegalTerms - Whether has accepted legal terms.
  */
 function validateSignupFields(
   errors: LoginFieldErrors,

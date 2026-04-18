@@ -19,7 +19,9 @@ interface MockRAFQueue {
   request: (cb: FrameRequestCallback) => number;
 }
 
-function buildDefaultOptions(overrides?: Partial<Parameters<typeof useFeedPaginationLocalState>[0]>) {
+function buildDefaultOptions(
+  overrides?: Partial<Parameters<typeof useFeedPaginationLocalState>[0]>,
+) {
   return {
     articlesPerPage: 4,
     filteredFeedLength: 20,

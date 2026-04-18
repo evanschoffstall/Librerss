@@ -5,12 +5,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- * Route-level login loading shell that mirrors the exact card layout of LoginView.
- *
- * Shown as the Suspense fallback on `/dashboard` when the SSR-resolved session
- * indicates the user is unauthenticated. Matching the card structure, logo slot,
- * field rows, and action area prevents a jarring layout shift when the real
- * LoginView mounts after hydration.
+ * Render the login view skeleton component.
+ * @returns The rendered login view skeleton component.
  */
 export function LoginViewSkeleton() {
   return (

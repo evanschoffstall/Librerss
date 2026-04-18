@@ -9,12 +9,12 @@ interface UseCategoryOrderStateOptions {
 }
 
 /**
- * @param root0
- * @param root0.usePlaceholderData
+ * Manage the category order state.
+ * @param options - The options used to manage the category order state.
+ * @returns The category order state state and callbacks.
  */
-export function useCategoryOrderState({
-  usePlaceholderData,
-}: UseCategoryOrderStateOptions) {
+export function useCategoryOrderState(options: UseCategoryOrderStateOptions) {
+  const { usePlaceholderData } = options;
   const [orderedCategoryLabels, setOrderedCategoryLabels] = useState<string[]>(
     [],
   );

@@ -3,9 +3,13 @@ export const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DASHBOARD_PREVIEW_ENABLED_VALUE = "1";
 
+interface DashboardPreviewModeOptions {
+  hasExploreQuery: boolean;
+}
 /**
- * Returns whether dashboard preview mode is enabled for a request/session.
- * @param cookieValue
+ * Return whether is dashboard preview mode enabled.
+ * @param cookieValue - The cookie value.
+ * @returns Whether is dashboard preview mode enabled.
  */
 export function isDashboardPreviewModeEnabled(
   cookieValue: null | string | undefined,
@@ -14,19 +18,19 @@ export function isDashboardPreviewModeEnabled(
 }
 
 /**
- * Resolves preview mode from the explicit explore query only.
- * @param options
- * @param options.hasExploreQuery
+ * Resolve the dashboard preview mode.
+ * @param options - The options used to resolve the dashboard preview mode.
+ * @returns Whether dashboard preview mode.
  */
-export function resolveDashboardPreviewMode(options: {
-  hasExploreQuery: boolean;
-}): boolean {
+export function resolveDashboardPreviewMode(
+  options: DashboardPreviewModeOptions,
+): boolean {
   return options.hasExploreQuery;
 }
 
 /**
- * Writes or clears the legacy preview cookie for cleanup-only flows.
- * @param enabled
+ * Process the set dashboard preview persistence.
+ * @param enabled - The enabled.
  */
 export function setDashboardPreviewPersistence(enabled: boolean): void {
   if (typeof document === "undefined") {

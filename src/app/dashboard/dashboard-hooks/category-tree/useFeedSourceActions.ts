@@ -34,30 +34,23 @@ interface UseFeedSourceActionsOptions extends FeedSourceActionState {
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.ensureCategoryLabelExists
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setFeed
- * @param root0.setSelectedCategory
+ * Manage the feed source actions.
+ * @param options - The options used to manage the feed source actions.
+ * @returns The feed source actions state and callbacks.
  */
-export function useFeedSourceActions({
-  categories,
-  ensureCategoryLabelExists,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setFeed,
-  setSelectedCategory,
-}: UseFeedSourceActionsOptions) {
+export function useFeedSourceActions(options: UseFeedSourceActionsOptions) {
+  const {
+    categories,
+    ensureCategoryLabelExists,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+  } = options;
   const selectionActions = useFeedSourceSelectionActions({
     categories,
     fetchFeed,
@@ -83,28 +76,24 @@ export function useFeedSourceActions({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.ensureCategoryLabelExists
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setFeed
- * @param root0.setSelectedCategory
+ * Manage the feed source category mutation actions.
+ * @param options - The options used to manage the feed source category mutation actions.
+ * @returns The feed source category mutation actions state and callbacks.
  */
-function useFeedSourceCategoryMutationActions({
-  categories,
-  ensureCategoryLabelExists,
-  fetchCategoryFeeds,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setFeed,
-  setSelectedCategory,
-}: FeedSourceCategoryMutationOptions) {
+function useFeedSourceCategoryMutationActions(
+  options: FeedSourceCategoryMutationOptions,
+) {
+  const {
+    categories,
+    ensureCategoryLabelExists,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+  } = options;
   return {
     moveFeedByDrop: useCallback(
       async (key: string, targetCategory: string, targetIndex: number) => {
@@ -147,7 +136,9 @@ function useFeedSourceCategoryMutationActions({
 }
 
 /**
- * @param options
+ * Manage the feed source crud actions.
+ * @param options - The options used to manage the feed source crud actions.
+ * @returns The feed source crud actions state and callbacks.
  */
 function useFeedSourceCrudActions(options: FeedSourceCategoryMutationOptions) {
   return {
@@ -163,27 +154,27 @@ function useFeedSourceCrudActions(options: FeedSourceCategoryMutationOptions) {
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setSelectedCategory
+ * Manage the feed source import actions.
+ * @param options - The options used to manage the feed source import actions.
+ * @returns The feed source import actions state and callbacks.
  */
-function useFeedSourceImportActions({
-  categories,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setSelectedCategory,
-}: Pick<
-  UseFeedSourceActionsOptions,
-  | "categories"
-  | "fetchFeed"
-  | "loadFeedSources"
-  | "selectedCategory"
-  | "setSelectedCategory"
->) {
+function useFeedSourceImportActions(
+  options: Pick<
+    UseFeedSourceActionsOptions,
+    | "categories"
+    | "fetchFeed"
+    | "loadFeedSources"
+    | "selectedCategory"
+    | "setSelectedCategory"
+  >,
+) {
+  const {
+    categories,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setSelectedCategory,
+  } = options;
   return {
     addFeedSource: useCallback(
       async (name: string, url: string, category: string) =>
@@ -229,30 +220,25 @@ function useFeedSourceImportActions({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.ensureCategoryLabelExists
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setFeed
- * @param root0.setSelectedCategory
+ * Manage the feed source mutation actions.
+ * @param options - The options used to manage the feed source mutation actions.
+ * @returns The feed source mutation actions state and callbacks.
  */
-function useFeedSourceMutationActions({
-  categories,
-  ensureCategoryLabelExists,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setFeed,
-  setSelectedCategory,
-}: Omit<UseFeedSourceActionsOptions, never>) {
+function useFeedSourceMutationActions(
+  options: Omit<UseFeedSourceActionsOptions, never>,
+) {
+  const {
+    categories,
+    ensureCategoryLabelExists,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+  } = options;
   return {
     ...useFeedSourceCrudActions({
       categories,
@@ -277,19 +263,17 @@ function useFeedSourceMutationActions({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.fetchFeed
- * @param root0.setSelectedCategory
+ * Manage the feed source selection actions.
+ * @param options - The options used to manage the feed source selection actions.
+ * @returns The feed source selection actions state and callbacks.
  */
-function useFeedSourceSelectionActions({
-  categories,
-  fetchFeed,
-  setSelectedCategory,
-}: Pick<
-  UseFeedSourceActionsOptions,
-  "categories" | "fetchFeed" | "setSelectedCategory"
->) {
+function useFeedSourceSelectionActions(
+  options: Pick<
+    UseFeedSourceActionsOptions,
+    "categories" | "fetchFeed" | "setSelectedCategory"
+  >,
+) {
+  const { categories, fetchFeed, setSelectedCategory } = options;
   return {
     selectFeedByKey: useCallback(
       (key: string) => {
@@ -306,30 +290,29 @@ function useFeedSourceSelectionActions({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.fetchAllFeeds
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setSelectedCategory
+ * Manage the feed source settings actions.
+ * @param options - The options used to manage the feed source settings actions.
+ * @returns The feed source settings actions state and callbacks.
  */
-function useFeedSourceSettingsActions({
-  categories,
-  fetchAllFeeds,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setSelectedCategory,
-}: Pick<
-  UseFeedSourceActionsOptions,
-  | "categories"
-  | "fetchAllFeeds"
-  | "fetchFeed"
-  | "loadFeedSources"
-  | "selectedCategory"
-  | "setSelectedCategory"
->) {
+function useFeedSourceSettingsActions(
+  options: Pick<
+    UseFeedSourceActionsOptions,
+    | "categories"
+    | "fetchAllFeeds"
+    | "fetchFeed"
+    | "loadFeedSources"
+    | "selectedCategory"
+    | "setSelectedCategory"
+  >,
+) {
+  const {
+    categories,
+    fetchAllFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setSelectedCategory,
+  } = options;
   return {
     renameFeedSource: useCallback(
       async (key: string, nextName: string, nextUrl: string) =>

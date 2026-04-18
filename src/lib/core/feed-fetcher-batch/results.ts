@@ -88,20 +88,63 @@ export interface FeedUpstreamTransport {
 }
 
 type ArticleFilter = "all" | "read" | "starred" | "unread";
-
-/**
- * @param options
- * @param options.allowedUrls
- * @param options.cachedArticlesByUrl
- * @param options.changedArticlesByUrl
- * @param options.unchangedUrls
- */
-export function buildCachedArticleMap(options: {
+interface CachedArticleMapOptions {
   allowedUrls: string[];
   cachedArticlesByUrl: Map<string, ArticleRow[]> | undefined;
   changedArticlesByUrl: Map<string, ArticleRow[]>;
   unchangedUrls: ReadonlySet<string>;
-}): Map<string, ArticleRow[]> {
+}
+
+interface CachedBatchResponseOptions {
+  allWithinCooldown: boolean;
+  cached: CachedBatchPayload;
+  onCacheHit: (_details: {
+    articleFilter: ArticleFilter;
+    articleLimit: number;
+    feedCount: number;
+    forceRefreshCooldownHit: boolean;
+    requestSource: string;
+    userId: number;
+  }) => void;
+  request: BatchFetchRequest;
+}
+interface CollectUnchangedUrlsOptions {
+  articleLimit?: number;
+  knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined;
+  lastFetchedByUrl: ReadonlyMap<string, Date>;
+  urls: string[];
+}
+
+interface FeedIdlessBatchResultOptions {
+  allowedUrls: string[];
+  refreshExecution: BatchRefreshExecution;
+}
+
+interface LastFetchedByUrlOptions {
+  allowedUrls: string[];
+  feedByUrl: ReadonlyMap<string, FeedRecord>;
+  refreshedUrls: ReadonlySet<string>;
+}
+interface QueriedBatchResultOptions {
+  articleMap: Map<string, ArticleRow[]>;
+  lastFetchedByUrl: Map<string, Date>;
+  query: ChangedBatchArticleQuery;
+}
+
+interface UnchangedBatchResultOptions {
+  allowedUrlCount: number;
+  lastFetchedByUrl: Map<string, Date>;
+  refreshExecution: BatchRefreshExecution;
+  unchangedUrls: Set<string>;
+}
+/**
+ * Build the cached article map.
+ * @param options - The options used to build the cached article map.
+ * @returns The cached article map.
+ */
+export function buildCachedArticleMap(
+  options: CachedArticleMapOptions,
+): Map<string, ArticleRow[]> {
   const result = new Map(options.changedArticlesByUrl);
 
   for (const url of options.unchangedUrls) {
@@ -117,25 +160,13 @@ export function buildCachedArticleMap(options: {
 }
 
 /**
- * @param options
- * @param options.allWithinCooldown
- * @param options.cached
- * @param options.onCacheHit
- * @param options.request
+ * Build the cached batch response.
+ * @param options - The options used to build the cached batch response.
+ * @returns The cached batch response.
  */
-export function buildCachedBatchResponse(options: {
-  allWithinCooldown: boolean;
-  cached: CachedBatchPayload;
-  onCacheHit: (_details: {
-    articleFilter: ArticleFilter;
-    articleLimit: number;
-    feedCount: number;
-    forceRefreshCooldownHit: boolean;
-    requestSource: string;
-    userId: number;
-  }) => void;
-  request: BatchFetchRequest;
-}): BatchFeedResult {
+export function buildCachedBatchResponse(
+  options: CachedBatchResponseOptions,
+): BatchFeedResult {
   const cachedCount = options.request.feedUrls.length;
   const unchangedUrls = collectUnchangedUrls({
     articleLimit: options.request.articleLimit,
@@ -167,9 +198,9 @@ export function buildCachedBatchResponse(options: {
     unchangedUrls,
   };
 }
-
 /**
- *
+ * Build the empty batch result.
+ * @returns The empty batch result.
  */
 export function buildEmptyBatchResult(): BatchFeedResult {
   return {
@@ -185,14 +216,13 @@ export function buildEmptyBatchResult(): BatchFeedResult {
 }
 
 /**
- * @param options
- * @param options.allowedUrls
- * @param options.refreshExecution
+ * Build the feed idless batch result.
+ * @param options - The options used to build the feed idless batch result.
+ * @returns The feed idless batch result.
  */
-export function buildFeedIdlessBatchResult(options: {
-  allowedUrls: string[];
-  refreshExecution: BatchRefreshExecution;
-}): BatchFeedResult {
+export function buildFeedIdlessBatchResult(
+  options: FeedIdlessBatchResultOptions,
+): BatchFeedResult {
   return {
     articles: new Map(options.allowedUrls.map((url) => [url, []])),
     cachedCount:
@@ -206,18 +236,14 @@ export function buildFeedIdlessBatchResult(options: {
     unchangedUrls: new Set(),
   };
 }
-
 /**
- * @param options
- * @param options.allowedUrls
- * @param options.feedByUrl
- * @param options.refreshedUrls
+ * Build the last fetched by url.
+ * @param options - The options used to build the last fetched by url.
+ * @returns The last fetched by url.
  */
-export function buildLastFetchedByUrl(options: {
-  allowedUrls: string[];
-  feedByUrl: ReadonlyMap<string, FeedRecord>;
-  refreshedUrls: ReadonlySet<string>;
-}): Map<string, Date> {
+export function buildLastFetchedByUrl(
+  options: LastFetchedByUrlOptions,
+): Map<string, Date> {
   const refreshedAt = new Date();
 
   return new Map(
@@ -235,16 +261,13 @@ export function buildLastFetchedByUrl(options: {
 }
 
 /**
- * @param options
- * @param options.articleMap
- * @param options.lastFetchedByUrl
- * @param options.query
+ * Build the queried batch result.
+ * @param options - The options used to build the queried batch result.
+ * @returns The queried batch result.
  */
-export function buildQueriedBatchResult(options: {
-  articleMap: Map<string, ArticleRow[]>;
-  lastFetchedByUrl: Map<string, Date>;
-  query: ChangedBatchArticleQuery;
-}): BatchFeedResult {
+export function buildQueriedBatchResult(
+  options: QueriedBatchResultOptions,
+): BatchFeedResult {
   return {
     articles: options.articleMap,
     cachedCount:
@@ -259,20 +282,14 @@ export function buildQueriedBatchResult(options: {
     unchangedUrls: options.query.unchangedUrls,
   };
 }
-
 /**
- * @param options
- * @param options.allowedUrlCount
- * @param options.lastFetchedByUrl
- * @param options.refreshExecution
- * @param options.unchangedUrls
+ * Build the unchanged batch result.
+ * @param options - The options used to build the unchanged batch result.
+ * @returns The unchanged batch result.
  */
-export function buildUnchangedBatchResult(options: {
-  allowedUrlCount: number;
-  lastFetchedByUrl: Map<string, Date>;
-  refreshExecution: BatchRefreshExecution;
-  unchangedUrls: Set<string>;
-}): BatchFeedResult {
+export function buildUnchangedBatchResult(
+  options: UnchangedBatchResultOptions,
+): BatchFeedResult {
   return {
     articles: new Map(),
     cachedCount:
@@ -288,18 +305,13 @@ export function buildUnchangedBatchResult(options: {
 }
 
 /**
- * @param options
- * @param options.articleLimit
- * @param options.knownLastFetchedAtByUrl
- * @param options.lastFetchedByUrl
- * @param options.urls
+ * Process the collect unchanged urls.
+ * @param options - The options used to process the collect unchanged urls.
+ * @returns The collect unchanged urls.
  */
-export function collectUnchangedUrls(options: {
-  articleLimit?: number;
-  knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined;
-  lastFetchedByUrl: ReadonlyMap<string, Date>;
-  urls: string[];
-}): Set<string> {
+export function collectUnchangedUrls(
+  options: CollectUnchangedUrlsOptions,
+): Set<string> {
   if (
     !options.knownLastFetchedAtByUrl ||
     options.knownLastFetchedAtByUrl.size === 0 ||
@@ -324,23 +336,18 @@ export function collectUnchangedUrls(options: {
 }
 
 /**
- * @param userId
- * @param feedUrls
- * @param root0
- * @param root0.articleFilter
- * @param root0.articleLimit
- * @param root0.forceRefresh
- * @param root0.forceResolveUpstream
- * @param root0.knownLastFetchedAtByUrl
- * @param root0.requestSource
- * @param root0.resolveProxyTransport
- * @param root0.searchTerm
- * @param root0.skipRefresh
+ * Create the batch fetch request.
+ * @param userId - The r id.
+ * @param feedUrls - The feed urls.
+ * @param options - The options used to create the batch fetch request.
+ * @returns The batch fetch request.
  */
 export function createBatchFetchRequest(
   userId: number,
   feedUrls: string[],
-  {
+  options: BatchFetchOptions,
+): BatchFetchRequest {
+  const {
     articleFilter = "all",
     articleLimit = CONFIG.MAX_ALL_ARTICLES_LIMIT,
     forceRefresh = false,
@@ -350,8 +357,7 @@ export function createBatchFetchRequest(
     resolveProxyTransport,
     searchTerm,
     skipRefresh = false,
-  }: BatchFetchOptions,
-): BatchFetchRequest {
+  } = options;
   return {
     articleFilter,
     articleLimit,
@@ -368,8 +374,10 @@ export function createBatchFetchRequest(
 }
 
 /**
- * @param articlesByUrl
- * @param urls
+ * Process the slice article map by urls.
+ * @param articlesByUrl - The articles by url.
+ * @param urls - The urls.
+ * @returns The slice article map by urls.
  */
 export function sliceArticleMapByUrls(
   articlesByUrl: ReadonlyMap<string, ArticleRow[]>,

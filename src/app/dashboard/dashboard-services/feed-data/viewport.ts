@@ -9,7 +9,10 @@ interface ResolveFeedViewportOptions {
   fallbackViewport: HTMLElement;
 }
 
-/** Finds the active dashboard feed viewport that owns feed restore anchors. */
+/**
+ * Process the find dashboard feed viewport.
+ * @returns The find dashboard feed viewport.
+ */
 export function findDashboardFeedViewport() {
   const viewports = document.querySelectorAll<HTMLElement>(
     "[data-radix-scroll-area-viewport]",
@@ -19,8 +22,10 @@ export function findDashboardFeedViewport() {
 }
 
 /**
- * @param element
- * @param viewport
+ * Return the viewport offset top.
+ * @param element - The element.
+ * @param viewport - The viewport.
+ * @returns The viewport offset top.
  */
 export function getViewportOffsetTop(
   element: HTMLElement,
@@ -32,8 +37,9 @@ export function getViewportOffsetTop(
 }
 
 /**
- * Detects whether a Radix viewport belongs to the dashboard feed surface.
- * @param viewport
+ * Return whether is dashboard feed viewport.
+ * @param viewport - The viewport.
+ * @returns Whether is dashboard feed viewport.
  */
 export function isDashboardFeedViewport(viewport: HTMLElement) {
   return Boolean(
@@ -44,18 +50,14 @@ export function isDashboardFeedViewport(viewport: HTMLElement) {
 }
 
 /**
- * Observes feed viewport layout changes and rebinds resize targets when the
- * anchor subtree changes.
- * @param root0
- * @param root0.findAnchor
- * @param root0.onLayoutChange
- * @param root0.viewport
+ * Process the observe feed viewport layout.
+ * @param options - The options used to process the observe feed viewport layout.
+ * @returns The observe feed viewport layout.
  */
-export function observeFeedViewportLayout({
-  findAnchor,
-  onLayoutChange,
-  viewport,
-}: ObserveFeedViewportLayoutOptions) {
+export function observeFeedViewportLayout(
+  options: ObserveFeedViewportLayoutOptions,
+) {
+  const { findAnchor, onLayoutChange, viewport } = options;
   const resizeObserver =
     typeof ResizeObserver === "undefined"
       ? null
@@ -71,7 +73,8 @@ export function observeFeedViewportLayout({
         });
 
   /**
-   * @param target
+   * Process the observe resize target.
+   * @param target - The target.
    */
   const observeResizeTarget = (target: Element | null) => {
     if (!resizeObserver || !target) {
@@ -82,7 +85,7 @@ export function observeFeedViewportLayout({
   };
 
   /**
-   *
+   * Process the observe resize targets.
    */
   const observeResizeTargets = () => {
     resizeObserver?.disconnect();
@@ -104,15 +107,12 @@ export function observeFeedViewportLayout({
 }
 
 /**
- * Resolves the first live viewport candidate and otherwise falls back to the current viewport.
- * @param root0
- * @param root0.candidateViewports
- * @param root0.fallbackViewport
+ * Resolve the feed viewport.
+ * @param options - The options used to resolve the feed viewport.
+ * @returns The feed viewport.
  */
-export function resolveFeedViewport({
-  candidateViewports,
-  fallbackViewport,
-}: ResolveFeedViewportOptions) {
+export function resolveFeedViewport(options: ResolveFeedViewportOptions) {
+  const { candidateViewports, fallbackViewport } = options;
   for (const viewport of candidateViewports) {
     if (viewport) {
       return viewport;

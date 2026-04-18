@@ -27,7 +27,9 @@ export interface ResetPaginationStateOptions {
 }
 
 /**
- * @param options
+ * Manage the reset pagination state.
+ * @param options - The options used to manage the reset pagination state.
+ * @returns The reset pagination state state and callbacks.
  */
 export function useResetPaginationState(options: ResetPaginationStateOptions) {
   const runtimeStateArgs = useResetPaginationRuntimeStateArgs(options);
@@ -58,7 +60,9 @@ export function useResetPaginationState(options: ResetPaginationStateOptions) {
 }
 
 /**
- * @param options
+ * Manage the reset pagination runtime state args.
+ * @param options - The options used to manage the reset pagination runtime state args.
+ * @returns The reset pagination runtime state args state and callbacks.
  */
 function useResetPaginationRuntimeStateArgs(
   options: ResetPaginationStateOptions,

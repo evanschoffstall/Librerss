@@ -5,7 +5,9 @@ import { SettingsFeedRow } from "@/app/dashboard/dashboard-components/settings-d
 export type { SettingsCategoryFeedListProps } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsCategoryFeedContracts";
 
 /**
- * @param props
+ * Render the settings category feed list component.
+ * @param props - The component props.
+ * @returns The rendered settings category feed list component.
  */
 export function SettingsCategoryFeedList(props: SettingsCategoryFeedListProps) {
   return (

@@ -51,7 +51,9 @@ interface SettingsCategoryListProps {
 }
 
 /**
- * @param props
+ * Render the settings category list component.
+ * @param props - The component props.
+ * @returns The rendered settings category list component.
  */
 export function SettingsCategoryList(props: SettingsCategoryListProps) {
   if (props.categories.length === 0) {
@@ -72,24 +74,20 @@ export function SettingsCategoryList(props: SettingsCategoryListProps) {
 }
 
 /**
- * @param root0
- * @param root0.buttonClassName
- * @param root0.buttonLabel
- * @param root0.buttonVariant
- * @param root0.inputPlaceholder
- * @param root0.newCategoryName
- * @param root0.onAddCategory
- * @param root0.onNewCategoryNameChange
+ * Render the add category controls component.
+ * @param props - The component props.
+ * @returns The rendered add category controls component.
  */
-function AddCategoryControls({
-  buttonClassName,
-  buttonLabel,
-  buttonVariant,
-  inputPlaceholder,
-  newCategoryName,
-  onAddCategory,
-  onNewCategoryNameChange,
-}: AddCategoryControlsProps) {
+function AddCategoryControls(props: AddCategoryControlsProps) {
+  const {
+    buttonClassName,
+    buttonLabel,
+    buttonVariant,
+    inputPlaceholder,
+    newCategoryName,
+    onAddCategory,
+    onNewCategoryNameChange,
+  } = props;
   return (
     <div className="flex w-full max-w-xs items-center gap-2">
       <Input
@@ -122,55 +120,39 @@ function AddCategoryControls({
 }
 
 /**
- * @param root0
- * @param root0.addingFeedInCategory
- * @param root0.categories
- * @param root0.drag
- * @param root0.editingCategory
- * @param root0.editingCategoryName
- * @param root0.isSavingFeed
- * @param root0.newFeedName
- * @param root0.newFeedUrl
- * @param root0.onAddFeed
- * @param root0.onCancelAddFeed
- * @param root0.onCancelCategoryEdit
- * @param root0.onEditingCategoryNameChange
- * @param root0.onNewFeedNameChange
- * @param root0.onNewFeedUrlChange
- * @param root0.onRemoveCategory
- * @param root0.onSaveCategoryRename
- * @param root0.onStartCategoryEdit
- * @param root0.onToggleAddFeed
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.savingCategoryLabel
- * @param root0.sharedFeedRowProps
+ * Render the category accordion items component.
+ * @param props - The component props.
+ * @returns The rendered category accordion items component.
  */
-function CategoryAccordionItems({
-  addingFeedInCategory,
-  categories,
-  drag,
-  editingCategory,
-  editingCategoryName,
-  isSavingFeed,
-  newFeedName,
-  newFeedUrl,
-  onAddFeed,
-  onCancelAddFeed,
-  onCancelCategoryEdit,
-  onEditingCategoryNameChange,
-  onNewFeedNameChange,
-  onNewFeedUrlChange,
-  onRemoveCategory,
-  onSaveCategoryRename,
-  onStartCategoryEdit,
-  onToggleAddFeed,
-  pendingCategoryRemovalLabel,
-  savingCategoryLabel,
-  sharedFeedRowProps,
-}: Omit<
-  SettingsCategoryListProps,
-  "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
->) {
+function CategoryAccordionItems(
+  props: Omit<
+    SettingsCategoryListProps,
+    "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
+  >,
+) {
+  const {
+    addingFeedInCategory,
+    categories,
+    drag,
+    editingCategory,
+    editingCategoryName,
+    isSavingFeed,
+    newFeedName,
+    newFeedUrl,
+    onAddFeed,
+    onCancelAddFeed,
+    onCancelCategoryEdit,
+    onEditingCategoryNameChange,
+    onNewFeedNameChange,
+    onNewFeedUrlChange,
+    onRemoveCategory,
+    onSaveCategoryRename,
+    onStartCategoryEdit,
+    onToggleAddFeed,
+    pendingCategoryRemovalLabel,
+    savingCategoryLabel,
+    sharedFeedRowProps,
+  } = props;
   return categories.map((categoryNode, categoryIndex) => (
     <SettingsCategoryAccordionItem
       addingFeedInCategory={addingFeedInCategory}
@@ -207,7 +189,9 @@ function CategoryAccordionItems({
 }
 
 /**
- * @param props
+ * Render the category accordion list component.
+ * @param props - The component props.
+ * @returns The rendered category accordion list component.
  */
 function CategoryAccordionList(props: SettingsCategoryListProps) {
   return (
@@ -257,14 +241,14 @@ function CategoryAccordionList(props: SettingsCategoryListProps) {
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.drag
+ * Render the category drop zone component.
+ * @param props - The component props.
+ * @returns The rendered category drop zone component.
  */
-function CategoryDropZone({
-  categories,
-  drag,
-}: Pick<SettingsCategoryListProps, "categories" | "drag">) {
+function CategoryDropZone(
+  props: Pick<SettingsCategoryListProps, "categories" | "drag">,
+) {
+  const { categories, drag } = props;
   if (!drag.draggingCategoryLabel) {
     return null;
   }
@@ -292,19 +276,17 @@ function CategoryDropZone({
 }
 
 /**
- * @param root0
- * @param root0.newCategoryName
- * @param root0.onAddCategory
- * @param root0.onNewCategoryNameChange
+ * Render the category footer add controls component.
+ * @param props - The component props.
+ * @returns The rendered category footer add controls component.
  */
-function CategoryFooterAddControls({
-  newCategoryName,
-  onAddCategory,
-  onNewCategoryNameChange,
-}: Pick<
-  SettingsCategoryListProps,
-  "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
->) {
+function CategoryFooterAddControls(
+  props: Pick<
+    SettingsCategoryListProps,
+    "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
+  >,
+) {
+  const { newCategoryName, onAddCategory, onNewCategoryNameChange } = props;
   return (
     <div className="rounded-md border border-dashed p-2.5">
       <AddCategoryControls
@@ -321,19 +303,17 @@ function CategoryFooterAddControls({
 }
 
 /**
- * @param root0
- * @param root0.newCategoryName
- * @param root0.onAddCategory
- * @param root0.onNewCategoryNameChange
+ * Render the empty category state component.
+ * @param props - The component props.
+ * @returns The rendered empty category state component.
  */
-function EmptyCategoryState({
-  newCategoryName,
-  onAddCategory,
-  onNewCategoryNameChange,
-}: Pick<
-  SettingsCategoryListProps,
-  "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
->) {
+function EmptyCategoryState(
+  props: Pick<
+    SettingsCategoryListProps,
+    "newCategoryName" | "onAddCategory" | "onNewCategoryNameChange"
+  >,
+) {
+  const { newCategoryName, onAddCategory, onNewCategoryNameChange } = props;
   return (
     <div className="flex flex-col items-center gap-4 py-10 text-center">
       <div className="relative flex items-center justify-center">

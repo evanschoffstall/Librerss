@@ -5,16 +5,9 @@ const PG_SSLMODE_VERIFY_FULL_ALIASES = new Set([
 ]);
 
 /**
- * Normalizes PostgreSQL SSL query params for pg-compatible clients.
- *
- * Current pg releases still treat `prefer`, `require`, and `verify-ca` as
- * aliases for `verify-full`, but now emit a warning because future releases
- * will switch to standard libpq semantics. Upgrading those legacy aliases to
- * `verify-full` keeps today's secure behavior and silences the warning.
- *
- * When the URL explicitly opts into libpq compatibility via
- * `uselibpqcompat=true`, the string is left untouched.
- * @param connectionString
+ * Normalize the postgres connection string.
+ * @param connectionString - The connection string.
+ * @returns The postgres connection string.
  */
 export function normalizePostgresConnectionString(
   connectionString: string,
@@ -53,7 +46,9 @@ export function normalizePostgresConnectionString(
 }
 
 /**
- * @param searchParams
+ * Process the s libpq compatibility.
+ * @param searchParams - The search params.
+ * @returns Whether s libpq compatibility.
  */
 function usesLibpqCompatibility(searchParams: URLSearchParams): boolean {
   const rawValue = searchParams.get("uselibpqcompat")?.trim().toLowerCase();

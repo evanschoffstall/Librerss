@@ -63,10 +63,20 @@ interface UseSettingsProxyStateOptions {
   enabled?: boolean;
 }
 
+interface UseSettingsProxyStateResultOptions {
+  handleClear: () => Promise<void>;
+  handleRunCompatibilityCheck: () => Promise<void>;
+  handleSave: () => Promise<void>;
+  hasProxy: boolean;
+  isRunningCompatibilityCheck: boolean;
+  proxyState: ReturnType<typeof useSettingsProxyWritableState>;
+  saving: boolean;
+  syncAllowInsecureTls: (checked: boolean) => Promise<void>;
+}
 /**
- * Owns dashboard proxy settings state and rejects stale async completions when
- * newer user intent supersedes an older load, save, clear, or check request.
- * @param options
+ * Manage the settings proxy state.
+ * @param options - The options used to manage the settings proxy state.
+ * @returns The settings proxy state state and callbacks.
  */
 export function useSettingsProxyState(
   options: UseSettingsProxyStateOptions = {},
@@ -115,35 +125,23 @@ export function useSettingsProxyState(
 }
 
 /**
- * @param root0
- * @param root0.handleClear
- * @param root0.handleRunCompatibilityCheck
- * @param root0.handleSave
- * @param root0.hasProxy
- * @param root0.isRunningCompatibilityCheck
- * @param root0.proxyState
- * @param root0.saving
- * @param root0.syncAllowInsecureTls
+ * Build the use settings proxy state result.
+ * @param options - The options used to build the use settings proxy state result.
+ * @returns The use settings proxy state result.
  */
-function buildUseSettingsProxyStateResult({
-  handleClear,
-  handleRunCompatibilityCheck,
-  handleSave,
-  hasProxy,
-  isRunningCompatibilityCheck,
-  proxyState,
-  saving,
-  syncAllowInsecureTls,
-}: {
-  handleClear: () => Promise<void>;
-  handleRunCompatibilityCheck: () => Promise<void>;
-  handleSave: () => Promise<void>;
-  hasProxy: boolean;
-  isRunningCompatibilityCheck: boolean;
-  proxyState: ReturnType<typeof useSettingsProxyWritableState>;
-  saving: boolean;
-  syncAllowInsecureTls: (checked: boolean) => Promise<void>;
-}): UseSettingsProxyStateResult {
+function buildUseSettingsProxyStateResult(
+  options: UseSettingsProxyStateResultOptions,
+): UseSettingsProxyStateResult {
+  const {
+    handleClear,
+    handleRunCompatibilityCheck,
+    handleSave,
+    hasProxy,
+    isRunningCompatibilityCheck,
+    proxyState,
+    saving,
+    syncAllowInsecureTls,
+  } = options;
   return {
     allowInsecureTls: proxyState.allowInsecureTls,
     compatibilityCheckedAt: proxyState.compatibilityCheckedAt,
@@ -176,7 +174,9 @@ function buildUseSettingsProxyStateResult({
 }
 
 /**
- * @param requestState
+ * Resolve the proxy request statuses.
+ * @param requestState - The request state.
+ * @returns The proxy request statuses.
  */
 function resolveProxyRequestStatuses(
   requestState: ReturnType<typeof useSettingsProxyRequestState>,
@@ -189,7 +189,9 @@ function resolveProxyRequestStatuses(
 }
 
 /**
- * @param proxyState
+ * Manage the apply proxy settings.
+ * @param proxyState - The proxy state.
+ * @returns The apply proxy settings state and callbacks.
  */
 function useApplyProxySettings(
   proxyState: ReturnType<typeof useSettingsProxyWritableState>,

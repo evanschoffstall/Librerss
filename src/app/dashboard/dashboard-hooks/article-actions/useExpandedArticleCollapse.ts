@@ -11,6 +11,34 @@ import type { Article } from "@/lib/core";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types";
 
+interface HandleExpandedArticleToggleOptions {
+  articleFilter: UseExpandedArticleCollapseOptions["articleFilter"];
+  cancelCollapseScrollRestore: UseExpandedArticleCollapseOptions["cancelCollapseScrollRestore"];
+  clearRemovalAnimation: UseExpandedArticleCollapseOptions["clearRemovalAnimation"];
+  collapseExpandedArticle: (
+    article: Article,
+    options?: {
+      animationMode?: ArticleRemovalAnimationMode;
+      treatAsRead?: boolean;
+    },
+  ) => void;
+  expandedArticleKey: UseExpandedArticleCollapseOptions["expandedArticleKey"];
+  hydrateArticleContent: UseExpandedArticleCollapseOptions["hydrateArticleContent"];
+  markArticleReadIfNeeded: (article: Article) => Promise<void>;
+  setExpandedArticleKey: UseExpandedArticleCollapseOptions["setExpandedArticleKey"];
+}
+
+interface HandleExpandedSwipeReadOptions {
+  collapseExpandedArticle: (
+    article: Article,
+    options?: {
+      animationMode?: ArticleRemovalAnimationMode;
+      treatAsRead?: boolean;
+    },
+  ) => void;
+  markArticleReadIfNeeded: (article: Article) => Promise<void>;
+}
+
 interface UseExpandedArticleCollapseOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   cancelCollapseScrollRestore: () => void;
@@ -32,41 +60,28 @@ interface UseExpandedArticleCollapseOptions {
   ) => void;
   updatingArticleState: Record<string, boolean>;
 }
-
 /**
- * Coordinates expanded-row collapse and expansion transitions.
- *
- * This keeps the expanded-row lifecycle together so the top-level article
- * actions hook can compose read-state, hydration, and star-state mutations
- * without carrying the expansion orchestration inline.
- * @param root0
- * @param root0.articleFilter
- * @param root0.cancelCollapseScrollRestore
- * @param root0.cancelHydration
- * @param root0.clearExpandedArticleHydrationTracking
- * @param root0.clearRemovalAnimation
- * @param root0.expandedArticleKey
- * @param root0.hydrateArticleContent
- * @param root0.restoreCollapseScrollPosition
- * @param root0.setArticleReadState
- * @param root0.setExpandedArticleKey
- * @param root0.startRemovalAnimation
- * @param root0.updatingArticleState
+ * Manage the expanded article collapse.
+ * @param options - The options used to manage the expanded article collapse.
+ * @returns The expanded article collapse state and callbacks.
  */
-export function useExpandedArticleCollapse({
-  articleFilter,
-  cancelCollapseScrollRestore,
-  cancelHydration,
-  clearExpandedArticleHydrationTracking,
-  clearRemovalAnimation,
-  expandedArticleKey,
-  hydrateArticleContent,
-  restoreCollapseScrollPosition,
-  setArticleReadState,
-  setExpandedArticleKey,
-  startRemovalAnimation,
-  updatingArticleState,
-}: UseExpandedArticleCollapseOptions) {
+export function useExpandedArticleCollapse(
+  options: UseExpandedArticleCollapseOptions,
+) {
+  const {
+    articleFilter,
+    cancelCollapseScrollRestore,
+    cancelHydration,
+    clearExpandedArticleHydrationTracking,
+    clearRemovalAnimation,
+    expandedArticleKey,
+    hydrateArticleContent,
+    restoreCollapseScrollPosition,
+    setArticleReadState,
+    setExpandedArticleKey,
+    startRemovalAnimation,
+    updatingArticleState,
+  } = options;
   const queueCollapseScrollRestore = usePendingCollapseScrollRestore({
     expandedArticleKey,
     restoreCollapseScrollPosition,
@@ -107,34 +122,32 @@ export function useExpandedArticleCollapse({
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.cancelHydration
- * @param root0.clearExpandedArticleHydrationTracking
- * @param root0.clearRemovalAnimation
- * @param root0.queueCollapseScrollRestore
- * @param root0.setExpandedArticleKey
- * @param root0.startRemovalAnimation
+ * Manage the collapse expanded article.
+ * @param options - The options used to manage the collapse expanded article.
+ * @returns The collapse expanded article state and callbacks.
  */
-function useCollapseExpandedArticle({
-  articleFilter,
-  cancelHydration,
-  clearExpandedArticleHydrationTracking,
-  clearRemovalAnimation,
-  queueCollapseScrollRestore,
-  setExpandedArticleKey,
-  startRemovalAnimation,
-}: Pick<
-  UseExpandedArticleCollapseOptions,
-  | "articleFilter"
-  | "cancelHydration"
-  | "clearExpandedArticleHydrationTracking"
-  | "clearRemovalAnimation"
-  | "setExpandedArticleKey"
-  | "startRemovalAnimation"
-> & {
-  queueCollapseScrollRestore: (articleKey: string) => void;
-}) {
+function useCollapseExpandedArticle(
+  options: Pick<
+    UseExpandedArticleCollapseOptions,
+    | "articleFilter"
+    | "cancelHydration"
+    | "clearExpandedArticleHydrationTracking"
+    | "clearRemovalAnimation"
+    | "setExpandedArticleKey"
+    | "startRemovalAnimation"
+  > & {
+    queueCollapseScrollRestore: (articleKey: string) => void;
+  },
+) {
+  const {
+    articleFilter,
+    cancelHydration,
+    clearExpandedArticleHydrationTracking,
+    clearRemovalAnimation,
+    queueCollapseScrollRestore,
+    setExpandedArticleKey,
+    startRemovalAnimation,
+  } = options;
   return useCallback(
     (
       article: Article,
@@ -171,43 +184,24 @@ function useCollapseExpandedArticle({
     ],
   );
 }
-
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.cancelCollapseScrollRestore
- * @param root0.clearRemovalAnimation
- * @param root0.collapseExpandedArticle
- * @param root0.expandedArticleKey
- * @param root0.hydrateArticleContent
- * @param root0.markArticleReadIfNeeded
- * @param root0.setExpandedArticleKey
+ * Manage the handle expanded article toggle.
+ * @param options - The options used to manage the handle expanded article toggle.
+ * @returns The handle expanded article toggle state and callbacks.
  */
-function useHandleExpandedArticleToggle({
-  articleFilter,
-  cancelCollapseScrollRestore,
-  clearRemovalAnimation,
-  collapseExpandedArticle,
-  expandedArticleKey,
-  hydrateArticleContent,
-  markArticleReadIfNeeded,
-  setExpandedArticleKey,
-}: {
-  articleFilter: UseExpandedArticleCollapseOptions["articleFilter"];
-  cancelCollapseScrollRestore: UseExpandedArticleCollapseOptions["cancelCollapseScrollRestore"];
-  clearRemovalAnimation: UseExpandedArticleCollapseOptions["clearRemovalAnimation"];
-  collapseExpandedArticle: (
-    article: Article,
-    options?: {
-      animationMode?: ArticleRemovalAnimationMode;
-      treatAsRead?: boolean;
-    },
-  ) => void;
-  expandedArticleKey: UseExpandedArticleCollapseOptions["expandedArticleKey"];
-  hydrateArticleContent: UseExpandedArticleCollapseOptions["hydrateArticleContent"];
-  markArticleReadIfNeeded: (article: Article) => Promise<void>;
-  setExpandedArticleKey: UseExpandedArticleCollapseOptions["setExpandedArticleKey"];
-}) {
+function useHandleExpandedArticleToggle(
+  options: HandleExpandedArticleToggleOptions,
+) {
+  const {
+    articleFilter,
+    cancelCollapseScrollRestore,
+    clearRemovalAnimation,
+    collapseExpandedArticle,
+    expandedArticleKey,
+    hydrateArticleContent,
+    markArticleReadIfNeeded,
+    setExpandedArticleKey,
+  } = options;
   return useCallback(
     async (
       article: Article,
@@ -251,23 +245,12 @@ function useHandleExpandedArticleToggle({
 }
 
 /**
- * @param root0
- * @param root0.collapseExpandedArticle
- * @param root0.markArticleReadIfNeeded
+ * Manage the handle expanded swipe read.
+ * @param options - The options used to manage the handle expanded swipe read.
+ * @returns The handle expanded swipe read state and callbacks.
  */
-function useHandleExpandedSwipeRead({
-  collapseExpandedArticle,
-  markArticleReadIfNeeded,
-}: {
-  collapseExpandedArticle: (
-    article: Article,
-    options?: {
-      animationMode?: ArticleRemovalAnimationMode;
-      treatAsRead?: boolean;
-    },
-  ) => void;
-  markArticleReadIfNeeded: (article: Article) => Promise<void>;
-}) {
+function useHandleExpandedSwipeRead(options: HandleExpandedSwipeReadOptions) {
+  const { collapseExpandedArticle, markArticleReadIfNeeded } = options;
   return useCallback(
     async (article: Article) => {
       await markArticleReadIfNeeded(article);
@@ -281,17 +264,17 @@ function useHandleExpandedSwipeRead({
 }
 
 /**
- * @param root0
- * @param root0.setArticleReadState
- * @param root0.updatingArticleState
+ * Manage the mark expanded article read if needed.
+ * @param options - The options used to manage the mark expanded article read if needed.
+ * @returns The mark expanded article read if needed state and callbacks.
  */
-function useMarkExpandedArticleReadIfNeeded({
-  setArticleReadState,
-  updatingArticleState,
-}: Pick<
-  UseExpandedArticleCollapseOptions,
-  "setArticleReadState" | "updatingArticleState"
->) {
+function useMarkExpandedArticleReadIfNeeded(
+  options: Pick<
+    UseExpandedArticleCollapseOptions,
+    "setArticleReadState" | "updatingArticleState"
+  >,
+) {
+  const { setArticleReadState, updatingArticleState } = options;
   return useCallback(
     async (article: Article) => {
       const articleKey = getArticleKey(article);
@@ -304,22 +287,17 @@ function useMarkExpandedArticleReadIfNeeded({
 }
 
 /**
- * Defers collapse scroll restoration until the collapsed DOM state is committed.
- *
- * Restoring during the click handler can be overwritten while the expanded row
- * is still mounted, especially after hydration grows the article and the user
- * collapses from deep inside the content body.
- * @param root0
- * @param root0.expandedArticleKey
- * @param root0.restoreCollapseScrollPosition
+ * Manage the pending collapse scroll restore.
+ * @param options - The options used to manage the pending collapse scroll restore.
+ * @returns The pending collapse scroll restore state and callbacks.
  */
-function usePendingCollapseScrollRestore({
-  expandedArticleKey,
-  restoreCollapseScrollPosition,
-}: Pick<
-  UseExpandedArticleCollapseOptions,
-  "expandedArticleKey" | "restoreCollapseScrollPosition"
->) {
+function usePendingCollapseScrollRestore(
+  options: Pick<
+    UseExpandedArticleCollapseOptions,
+    "expandedArticleKey" | "restoreCollapseScrollPosition"
+  >,
+) {
+  const { expandedArticleKey, restoreCollapseScrollPosition } = options;
   const pendingCollapseRestoreKeyRef = useRef<null | string>(null);
 
   useLayoutEffect(() => {

@@ -17,15 +17,17 @@ const DNS_CACHE = new Map<string, DnsCacheEntry>();
 let _lookupFn: DnsLookupFn | null = null;
 
 /**
- *
+ * Process the clear dns cache for tests.
  */
 export function clearDnsCacheForTests(): void {
   DNS_CACHE.clear();
 }
 
 /**
- * @param hostname
- * @param deps
+ * Process the s to blocked address.
+ * @param hostname - The hostname.
+ * @param deps - The deps.
+ * @returns The s to blocked address.
  */
 export async function resolvesToBlockedAddress(
   hostname: string,
@@ -47,7 +49,8 @@ export async function resolvesToBlockedAddress(
 }
 
 /**
- *
+ * Return the lookup fn.
+ * @returns The lookup fn.
  */
 async function getLookupFn(): Promise<DnsLookupFn> {
   if (!_lookupFn) {

@@ -74,6 +74,12 @@ type FeedRouteWarn = (
   context?: Record<string, unknown>,
 ) => void;
 
+interface RenameFeedSourceFromPayloadParsedPayload {
+  name: string;
+  sourceId: number;
+  url: string;
+}
+
 interface ResolvedFeedRouteDeps {
   assertAllowedUrl: typeof assertAllowedFeedUrl;
   parseCreatePayload: typeof parseCreateFeedPayload;
@@ -90,8 +96,10 @@ interface ResolvedFeedRouteDeps {
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the delete component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered delete component.
  */
 export async function DELETE(
   request: NextRequest,
@@ -122,8 +130,10 @@ export async function DELETE(
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
  */
 export async function GET(
   request: NextRequest,
@@ -169,8 +179,10 @@ export async function GET(
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the patch component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered patch component.
  */
 export async function PATCH(
   request: NextRequest,
@@ -218,8 +230,10 @@ export async function PATCH(
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -267,7 +281,9 @@ export async function POST(
 }
 
 /**
- * @param request
+ * Build the feed attempt context.
+ * @param request - The request.
+ * @returns The feed attempt context.
  */
 function buildFeedAttemptContext(request: NextRequest) {
   return {
@@ -278,13 +294,13 @@ function buildFeedAttemptContext(request: NextRequest) {
       null,
     verboseLoggingEnabled: isVerboseLoggingEnabled(),
   };
-}
-
-/**
- * @param userId
- * @param payload
- * @param deps
- * @param resolvedDeps
+} /**
+ * Process the handle patch from parsed json payload.
+ * @param userId - The r id.
+ * @param payload - The payload.
+ * @param deps - The deps.
+ * @param resolvedDeps - The d deps.
+ * @returns The handle patch from parsed json payload.
  */
 async function handlePatchFromParsedJsonPayload(
   userId: number,
@@ -343,17 +359,16 @@ async function handlePatchFromParsedJsonPayload(
 }
 
 /**
- * @param userId
- * @param parsedPayload
- * @param parsedPayload.name
- * @param parsedPayload.sourceId
- * @param parsedPayload.url
- * @param deps
- * @param assertAllowedUrl
+ * Process the rename feed source from payload.
+ * @param userId - The r id.
+ * @param parsedPayload - The d payload.
+ * @param deps - The deps.
+ * @param assertAllowedUrl - The assert allowed url.
+ * @returns The rename feed source from payload.
  */
 async function renameFeedSourceFromPayload(
   userId: number,
-  parsedPayload: { name: string; sourceId: number; url: string },
+  parsedPayload: RenameFeedSourceFromPayloadParsedPayload,
   deps: FeedRouteDeps,
   assertAllowedUrl: typeof assertAllowedFeedUrl,
 ) {
@@ -373,9 +388,11 @@ async function renameFeedSourceFromPayload(
 }
 
 /**
- * @param request
- * @param depsOrContext
- * @param options
+ * Process the require mutable feed route context.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @param options - The options used to process the require mutable feed route context.
+ * @returns The require mutable feed route context.
  */
 async function requireMutableFeedRouteContext(
   request: NextRequest,
@@ -394,9 +411,11 @@ async function requireMutableFeedRouteContext(
 }
 
 /**
- * @param request
- * @param resolvedDeps
- * @param options
+ * Process the require mutable feed user.
+ * @param request - The request.
+ * @param resolvedDeps - The d deps.
+ * @param options - The options used to process the require mutable feed user.
+ * @returns The require mutable feed user.
  */
 async function requireMutableFeedUser(
   request: NextRequest,
@@ -407,7 +426,9 @@ async function requireMutableFeedUser(
 }
 
 /**
- * @param depsOrContext
+ * Resolve the feed route deps.
+ * @param depsOrContext - The deps or context.
+ * @returns The feed route deps.
  */
 function resolveFeedRouteDeps(
   depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext,
@@ -461,7 +482,9 @@ function resolveFeedRouteDeps(
 }
 
 /**
- * @param warnFn
+ * Resolve the feed route warn.
+ * @param warnFn - The callback that warn fn.
+ * @returns The feed route warn.
  */
 function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
   if (warnFn) {
@@ -474,16 +497,20 @@ function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
 }
 
 /**
- * @param dependency
- * @param fallback
+ * Resolve the route dependency.
+ * @param dependency - The dependency.
+ * @param fallback - The fallback.
+ * @returns The route dependency.
  */
 function resolveRouteDependency<T>(dependency: T | undefined, fallback: T): T {
   return dependency ?? fallback;
 }
 
 /**
- * @param request
- * @param resolvedDeps
+ * Resolve the validated feed url.
+ * @param request - The request.
+ * @param resolvedDeps - The d deps.
+ * @returns The validated feed url.
  */
 async function resolveValidatedFeedUrl(
   request: NextRequest,
@@ -499,8 +526,10 @@ async function resolveValidatedFeedUrl(
 }
 
 /**
- * @param error
- * @param deps
+ * Process the to server service error response.
+ * @param error - The error.
+ * @param deps - The deps.
+ * @returns The to server service error response.
  */
 function toServerServiceErrorResponse(
   error: serverApi.ServerServiceError,

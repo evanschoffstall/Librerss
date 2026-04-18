@@ -11,24 +11,7 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 
 const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
-
-/**
- * @param options
- * @param options.articleFilter
- * @param options.articlesPerPage
- * @param options.canLoadMoreFromServer
- * @param options.filteredFeedLength
- * @param options.hasPendingServerRevealRef
- * @param options.hasPendingServerRevealRef.current
- * @param options.hasRequestedServerLoadRef
- * @param options.hasRequestedServerLoadRef.current
- * @param options.isInvertedScroll
- * @param options.primeInvertedPaginationAnchor
- * @param options.requestMoreFromServer
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
- */
-export function useBackfillDepletedRevealedPageEffect(options: {
+interface BackfillDepletedRevealedPageEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
   canLoadMoreFromServer: boolean;
@@ -39,7 +22,60 @@ export function useBackfillDepletedRevealedPageEffect(options: {
   primeInvertedPaginationAnchor: () => void;
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
   visibleArticleCountRef: { current: number };
-}) {
+}
+
+interface ExpandVisibleWindowOptions {
+  articlesPerPage: number;
+  commitVisibleArticleCount: (nextVisibleCount: number) => void;
+  filteredFeedLengthRef: { current: number };
+  scheduleCachedPageReveal: (nextCount: number) => void;
+  visibleArticleCountRef: { current: number };
+}
+interface HasReachedStandardLoadBoundaryOptions {
+  isInvertedScroll: boolean;
+  scrollViewport: HTMLElement | null;
+}
+
+interface MaybeLoadInvertedNextPageOptions {
+  currentFilteredFeedLength: number;
+  currentVisibleCount: number;
+  expandVisibleWindow: () => boolean;
+  isInvertedLoadBoundaryArmedRef: { current: boolean };
+  primeInvertedPaginationAnchor: () => void;
+  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
+  scrollViewport: HTMLElement;
+}
+interface MaybeLoadNextPageOptions {
+  expandVisibleWindow: () => boolean;
+  filteredFeedLengthRef: { current: number };
+  hasCollapsingArticlesRef: { current: boolean };
+  hasReachedStandardLoadBoundary: () => boolean;
+  hasUserScrolledRef: { current: boolean };
+  isInvertedLoadBoundaryArmedRef: { current: boolean };
+  isInvertedScroll: boolean;
+  isStandardLoadBoundaryArmedRef: { current: boolean };
+  primeInvertedPaginationAnchor: () => void;
+  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
+  scrollViewport: HTMLElement | null;
+  visibleArticleCountRef: { current: number };
+}
+
+interface MaybeLoadStandardNextPageOptions {
+  currentFilteredFeedLength: number;
+  currentVisibleCount: number;
+  expandVisibleWindow: () => boolean;
+  hasReachedStandardLoadBoundary: () => boolean;
+  isStandardLoadBoundaryArmedRef: { current: boolean };
+  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
+}
+
+/**
+ * Manage the backfill depleted revealed page effect.
+ * @param options - The options used to manage the backfill depleted revealed page effect.
+ */
+export function useBackfillDepletedRevealedPageEffect(
+  options: BackfillDepletedRevealedPageEffectOptions,
+) {
   const {
     articleFilter,
     articlesPerPage,
@@ -94,24 +130,12 @@ export function useBackfillDepletedRevealedPageEffect(options: {
     maybeBackfillDepletedRevealedPage();
   }, [filteredFeedLength, maybeBackfillDepletedRevealedPage]);
 }
-
 /**
- * @param options
- * @param options.articlesPerPage
- * @param options.commitVisibleArticleCount
- * @param options.filteredFeedLengthRef
- * @param options.filteredFeedLengthRef.current
- * @param options.scheduleCachedPageReveal
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
+ * Manage the expand visible window.
+ * @param options - The options used to manage the expand visible window.
+ * @returns The expand visible window state and callbacks.
  */
-export function useExpandVisibleWindow(options: {
-  articlesPerPage: number;
-  commitVisibleArticleCount: (nextVisibleCount: number) => void;
-  filteredFeedLengthRef: { current: number };
-  scheduleCachedPageReveal: (nextCount: number) => void;
-  visibleArticleCountRef: { current: number };
-}) {
+export function useExpandVisibleWindow(options: ExpandVisibleWindowOptions) {
   const {
     articlesPerPage,
     commitVisibleArticleCount,
@@ -154,14 +178,13 @@ export function useExpandVisibleWindow(options: {
 }
 
 /**
- * @param options
- * @param options.isInvertedScroll
- * @param options.scrollViewport
+ * Manage the has reached standard load boundary.
+ * @param options - The options used to manage the has reached standard load boundary.
+ * @returns The has reached standard load boundary state and callbacks.
  */
-export function useHasReachedStandardLoadBoundary(options: {
-  isInvertedScroll: boolean;
-  scrollViewport: HTMLElement | null;
-}) {
+export function useHasReachedStandardLoadBoundary(
+  options: HasReachedStandardLoadBoundaryOptions,
+) {
   return useCallback(() => {
     if (!options.scrollViewport || options.isInvertedScroll) {
       return false;
@@ -173,9 +196,10 @@ export function useHasReachedStandardLoadBoundary(options: {
     }).hasReachedBoundary;
   }, [options.isInvertedScroll, options.scrollViewport]);
 }
-
 /**
- * @param options
+ * Manage the maybe auto fill viewport.
+ * @param options - The options used to manage the maybe auto fill viewport.
+ * @returns The maybe auto fill viewport state and callbacks.
  */
 export function useMaybeAutoFillViewport(
   options: MaybeAutoFillViewportOptions,
@@ -236,40 +260,11 @@ export function useMaybeAutoFillViewport(
 }
 
 /**
- * @param options
- * @param options.expandVisibleWindow
- * @param options.filteredFeedLengthRef
- * @param options.filteredFeedLengthRef.current
- * @param options.hasCollapsingArticlesRef
- * @param options.hasCollapsingArticlesRef.current
- * @param options.hasReachedStandardLoadBoundary
- * @param options.hasUserScrolledRef
- * @param options.hasUserScrolledRef.current
- * @param options.isInvertedLoadBoundaryArmedRef
- * @param options.isInvertedLoadBoundaryArmedRef.current
- * @param options.isInvertedScroll
- * @param options.isStandardLoadBoundaryArmedRef
- * @param options.isStandardLoadBoundaryArmedRef.current
- * @param options.primeInvertedPaginationAnchor
- * @param options.requestMoreFromServer
- * @param options.scrollViewport
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
+ * Manage the maybe load next page.
+ * @param options - The options used to manage the maybe load next page.
+ * @returns The maybe load next page state and callbacks.
  */
-export function useMaybeLoadNextPage(options: {
-  expandVisibleWindow: () => boolean;
-  filteredFeedLengthRef: { current: number };
-  hasCollapsingArticlesRef: { current: boolean };
-  hasReachedStandardLoadBoundary: () => boolean;
-  hasUserScrolledRef: { current: boolean };
-  isInvertedLoadBoundaryArmedRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isStandardLoadBoundaryArmedRef: { current: boolean };
-  primeInvertedPaginationAnchor: () => void;
-  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
-  scrollViewport: HTMLElement | null;
-  visibleArticleCountRef: { current: number };
-}) {
+export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
   return useCallback(
     (_trigger: "scroll" | "sentinel") => {
       if (
@@ -322,27 +317,11 @@ export function useMaybeLoadNextPage(options: {
     ],
   );
 }
-
 /**
- * @param options
- * @param options.currentFilteredFeedLength
- * @param options.currentVisibleCount
- * @param options.expandVisibleWindow
- * @param options.isInvertedLoadBoundaryArmedRef
- * @param options.isInvertedLoadBoundaryArmedRef.current
- * @param options.primeInvertedPaginationAnchor
- * @param options.requestMoreFromServer
- * @param options.scrollViewport
+ * Process the maybe load inverted next page.
+ * @param options - The options used to process the maybe load inverted next page.
  */
-function maybeLoadInvertedNextPage(options: {
-  currentFilteredFeedLength: number;
-  currentVisibleCount: number;
-  expandVisibleWindow: () => boolean;
-  isInvertedLoadBoundaryArmedRef: { current: boolean };
-  primeInvertedPaginationAnchor: () => void;
-  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
-  scrollViewport: HTMLElement;
-}) {
+function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
   const hasReachedInvertedLoadBoundary = resolvePaginationBoundaryState({
     isInvertedScroll: true,
     scrollViewport: options.scrollViewport,
@@ -372,23 +351,10 @@ function maybeLoadInvertedNextPage(options: {
 }
 
 /**
- * @param options
- * @param options.currentFilteredFeedLength
- * @param options.currentVisibleCount
- * @param options.expandVisibleWindow
- * @param options.hasReachedStandardLoadBoundary
- * @param options.isStandardLoadBoundaryArmedRef
- * @param options.isStandardLoadBoundaryArmedRef.current
- * @param options.requestMoreFromServer
+ * Process the maybe load standard next page.
+ * @param options - The options used to process the maybe load standard next page.
  */
-function maybeLoadStandardNextPage(options: {
-  currentFilteredFeedLength: number;
-  currentVisibleCount: number;
-  expandVisibleWindow: () => boolean;
-  hasReachedStandardLoadBoundary: () => boolean;
-  isStandardLoadBoundaryArmedRef: { current: boolean };
-  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
-}) {
+function maybeLoadStandardNextPage(options: MaybeLoadStandardNextPageOptions) {
   if (
     !options.hasReachedStandardLoadBoundary() ||
     !options.isStandardLoadBoundaryArmedRef.current
@@ -409,7 +375,9 @@ function maybeLoadStandardNextPage(options: {
 }
 
 /**
- * @param articlesPerPage
+ * Resolve the unread refill threshold.
+ * @param articlesPerPage - The articles per page.
+ * @returns The unread refill threshold.
  */
 function resolveUnreadRefillThreshold(articlesPerPage: number) {
   return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);

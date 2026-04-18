@@ -2,7 +2,8 @@ import { CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
- *
+ * Render the login skeleton header component.
+ * @returns The rendered login skeleton header component.
  */
 export function LoginSkeletonHeader() {
   return (

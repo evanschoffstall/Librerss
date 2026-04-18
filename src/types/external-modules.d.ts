@@ -14,6 +14,10 @@ declare module "sonner" {
 
 declare module "next-themes" {
   export const ThemeProvider: (props: Record<string, unknown>) => JSX.Element;
+  /**
+   * Manage the theme.
+   * @returns The theme state and callbacks.
+   */
   export function useTheme(): {
     resolvedTheme?: string;
     setTheme: (theme: string) => void;

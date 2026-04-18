@@ -2,7 +2,8 @@ import { LegalDocumentPage } from "@/app/app-components";
 import { getTermsPageContent } from "@/app/app-components/legal";
 
 /**
- * Renders the deployment-aware terms page.
+ * Render the terms page component.
+ * @returns The rendered terms page component.
  */
 export default function TermsPage() {
   return <LegalDocumentPage {...getTermsPageContent()} />;

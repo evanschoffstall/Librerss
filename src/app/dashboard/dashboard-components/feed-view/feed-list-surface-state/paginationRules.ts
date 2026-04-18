@@ -43,18 +43,14 @@ export interface ShouldAutoFillViewportOptions {
 }
 
 /**
- * Preserves boundary-departure evidence when the browser coalesces one scroll
- * interaction from an away position back onto the active boundary.
- * @param root0
- * @param root0.isInvertedScroll
- * @param root0.previousScrollTop
- * @param root0.scrollViewport
+ * Return whether has moved away from boundary since previous scroll.
+ * @param options - The options used to return whether has moved away from boundary since previous scroll.
+ * @returns Whether has moved away from boundary since previous scroll.
  */
-export function hasMovedAwayFromBoundarySincePreviousScroll({
-  isInvertedScroll,
-  previousScrollTop,
-  scrollViewport,
-}: HasMovedAwayFromBoundarySincePreviousScrollOptions) {
+export function hasMovedAwayFromBoundarySincePreviousScroll(
+  options: HasMovedAwayFromBoundarySincePreviousScrollOptions,
+) {
+  const { isInvertedScroll, previousScrollTop, scrollViewport } = options;
   const currentBoundaryState = resolvePaginationBoundaryState({
     isInvertedScroll,
     scrollViewport,
@@ -82,16 +78,15 @@ export function hasMovedAwayFromBoundarySincePreviousScroll({
 }
 
 /**
- * @param root0
- * @param root0.anchorViewportOffsetTop
- * @param root0.currentAnchorOffsetTop
- * @param root0.currentScrollTop
+ * Resolve the inverted pagination anchor scroll top.
+ * @param options - The options used to resolve the inverted pagination anchor scroll top.
+ * @returns The inverted pagination anchor scroll top.
  */
-export function resolveInvertedPaginationAnchorScrollTop({
-  anchorViewportOffsetTop,
-  currentAnchorOffsetTop,
-  currentScrollTop,
-}: ResolveInvertedPaginationAnchorScrollTopOptions) {
+export function resolveInvertedPaginationAnchorScrollTop(
+  options: ResolveInvertedPaginationAnchorScrollTopOptions,
+) {
+  const { anchorViewportOffsetTop, currentAnchorOffsetTop, currentScrollTop } =
+    options;
   return Math.max(
     0,
     currentScrollTop + (currentAnchorOffsetTop - anchorViewportOffsetTop),
@@ -99,16 +94,14 @@ export function resolveInvertedPaginationAnchorScrollTop({
 }
 
 /**
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.currentVisibleCount
- * @param root0.filteredFeedLength
+ * Resolve the next visible count.
+ * @param options - The options used to resolve the next visible count.
+ * @returns The next visible count.
  */
-export function resolveNextVisibleCount({
-  articlesPerPage,
-  currentVisibleCount,
-  filteredFeedLength,
-}: ResolveNextVisibleCountOptions) {
+export function resolveNextVisibleCount(
+  options: ResolveNextVisibleCountOptions,
+) {
+  const { articlesPerPage, currentVisibleCount, filteredFeedLength } = options;
   if (currentVisibleCount >= filteredFeedLength) {
     return currentVisibleCount;
   }
@@ -117,36 +110,33 @@ export function resolveNextVisibleCount({
 }
 
 /**
- * @param root0
- * @param root0.isInvertedScroll
- * @param root0.scrollViewport
+ * Resolve the pagination boundary state.
+ * @param options - The options used to resolve the pagination boundary state.
+ * @returns The pagination boundary state.
  */
-export function resolvePaginationBoundaryState({
-  isInvertedScroll,
-  scrollViewport,
-}: ResolvePaginationBoundaryStateOptions): PaginationBoundaryState {
+export function resolvePaginationBoundaryState(
+  options: ResolvePaginationBoundaryStateOptions,
+): PaginationBoundaryState {
+  const { isInvertedScroll, scrollViewport } = options;
   return isInvertedScroll
     ? resolveInvertedBoundaryState(scrollViewport)
     : resolveStandardBoundaryState(scrollViewport);
 }
 
 /**
- * @param root0
- * @param root0.clientHeight
- * @param root0.committedListHeight
- * @param root0.currentVisibleCount
- * @param root0.filteredFeedLength
- * @param root0.hasUserScrolled
- * @param root0.isInitialLoading
+ * Return whether should auto fill viewport.
+ * @param options - The options used to return whether should auto fill viewport.
+ * @returns Whether should auto fill viewport.
  */
-export function shouldAutoFillViewport({
-  clientHeight,
-  committedListHeight,
-  currentVisibleCount,
-  filteredFeedLength,
-  hasUserScrolled,
-  isInitialLoading,
-}: ShouldAutoFillViewportOptions) {
+export function shouldAutoFillViewport(options: ShouldAutoFillViewportOptions) {
+  const {
+    clientHeight,
+    committedListHeight,
+    currentVisibleCount,
+    filteredFeedLength,
+    hasUserScrolled,
+    isInitialLoading,
+  } = options;
   if (
     isInitialLoading ||
     !Number.isFinite(clientHeight) ||
@@ -166,7 +156,9 @@ export function shouldAutoFillViewport({
 }
 
 /**
- * @param scrollViewport
+ * Process the read standard remaining distance.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The read standard remaining distance.
  */
 function readStandardRemainingDistance(scrollViewport: HTMLElement) {
   return (
@@ -176,7 +168,9 @@ function readStandardRemainingDistance(scrollViewport: HTMLElement) {
 }
 
 /**
- * @param scrollViewport
+ * Resolve the inverted boundary state.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The inverted boundary state.
  */
 function resolveInvertedBoundaryState(
   scrollViewport: HTMLElement,
@@ -193,7 +187,9 @@ function resolveInvertedBoundaryState(
 }
 
 /**
- * @param scrollViewport
+ * Resolve the standard boundary state.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The standard boundary state.
  */
 function resolveStandardBoundaryState(
   scrollViewport: HTMLElement,

@@ -67,27 +67,26 @@ type ProxyUrlSectionProps = Pick<
   showProxyUrlRow: boolean;
 };
 
+interface SettingsProxySectionBodyProps {
+  proxyState: UseSettingsProxyStateResult;
+}
+
 /**
- * @param root0
- * @param root0.hasProxyPassword
- * @param root0.proxyPassword
- * @param root0.proxyUsername
- * @param root0.saving
- * @param root0.setProxyPassword
- * @param root0.setProxyUsername
- * @param root0.showPasswordField
- * @param root0.showUsernameField
+ * Render the proxy credentials section component.
+ * @param props - The component props.
+ * @returns The rendered proxy credentials section component.
  */
-export function ProxyCredentialsSection({
-  hasProxyPassword,
-  proxyPassword,
-  proxyUsername,
-  saving,
-  setProxyPassword,
-  setProxyUsername,
-  showPasswordField,
-  showUsernameField,
-}: ProxyCredentialsSectionProps) {
+export function ProxyCredentialsSection(props: ProxyCredentialsSectionProps) {
+  const {
+    hasProxyPassword,
+    proxyPassword,
+    proxyUsername,
+    saving,
+    setProxyPassword,
+    setProxyUsername,
+    showPasswordField,
+    showUsernameField,
+  } = props;
   return (
     <div className="grid grid-cols-2 gap-3">
       <div className="space-y-1.5">
@@ -146,18 +145,17 @@ export function ProxyCredentialsSection({
 }
 
 /**
- * @param root0
- * @param root0.badgeStatus
- * @param root0.proxyRoutingCheck
- * @param root0.showStatusBadges
- * @param root0.showStatusSkeletons
+ * Render the proxy section header component.
+ * @param props - The component props.
+ * @returns The rendered proxy section header component.
  */
-export function ProxySectionHeader({
-  badgeStatus,
-  proxyRoutingCheck,
-  showStatusBadges,
-  showStatusSkeletons,
-}: ProxySectionHeaderProps) {
+export function ProxySectionHeader(props: ProxySectionHeaderProps) {
+  const {
+    badgeStatus,
+    proxyRoutingCheck,
+    showStatusBadges,
+    showStatusSkeletons,
+  } = props;
   return (
     <div
       className="
@@ -207,18 +205,13 @@ export function ProxySectionHeader({
 }
 
 /**
- * @param root0
- * @param root0.allowInsecureTls
- * @param root0.saving
- * @param root0.showTlsToggle
- * @param root0.syncAllowInsecureTls
+ * Render the proxy tls toggle component.
+ * @param props - The component props.
+ * @returns The rendered proxy tls toggle component.
  */
-export function ProxyTlsToggle({
-  allowInsecureTls,
-  saving,
-  showTlsToggle,
-  syncAllowInsecureTls,
-}: ProxyTlsToggleProps) {
+export function ProxyTlsToggle(props: ProxyTlsToggleProps) {
+  const { allowInsecureTls, saving, showTlsToggle, syncAllowInsecureTls } =
+    props;
   return (
     <div className="row-between">
       <div className="flex items-center gap-1.5">
@@ -249,34 +242,25 @@ export function ProxyTlsToggle({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.error
- * @param root0.handleClear
- * @param root0.handleSave
- * @param root0.hasProxy
- * @param root0.inputRef
- * @param root0.isSaveDisabled
- * @param root0.proxyUrl
- * @param root0.saving
- * @param root0.setError
- * @param root0.setProxyUrl
- * @param root0.showProxyUrlRow
+ * Render the proxy url section component.
+ * @param props - The component props.
+ * @returns The rendered proxy url section component.
  */
-export function ProxyUrlSection({
-  error,
-  handleClear,
-  handleSave,
-  hasProxy,
-  inputRef,
-  isSaveDisabled,
-  proxyUrl,
-  saving,
-  setError,
-  setProxyUrl,
-  showProxyUrlRow,
-}: ProxyUrlSectionProps) {
+export function ProxyUrlSection(props: ProxyUrlSectionProps) {
+  const {
+    error,
+    handleClear,
+    handleSave,
+    hasProxy,
+    inputRef,
+    isSaveDisabled,
+    proxyUrl,
+    saving,
+    setError,
+    setProxyUrl,
+    showProxyUrlRow,
+  } = props;
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground">Proxy URL</Label>
@@ -345,14 +329,12 @@ export function ProxyUrlSection({
 }
 
 /**
- * @param root0
- * @param root0.proxyState
+ * Render the settings proxy section body component.
+ * @param props - The component props.
+ * @returns The rendered settings proxy section body component.
  */
-export function SettingsProxySectionBody({
-  proxyState,
-}: {
-  proxyState: UseSettingsProxyStateResult;
-}) {
+export function SettingsProxySectionBody(props: SettingsProxySectionBodyProps) {
+  const { proxyState } = props;
   const {
     compatibilityCheckedAt,
     compatibilityError,
@@ -384,7 +366,8 @@ export function SettingsProxySectionBody({
 }
 
 /**
- *
+ * Render the proxy badge skeletons component.
+ * @returns The rendered proxy badge skeletons component.
  */
 function ProxyBadgeSkeletons() {
   return (
@@ -401,12 +384,12 @@ function ProxyBadgeSkeletons() {
 }
 
 /**
- * @param root0
- * @param root0.error
+ * Render the proxy error message component.
+ * @param props - The component props.
+ * @returns The rendered proxy error message component.
  */
-function ProxyErrorMessage({
-  error,
-}: Pick<UseSettingsProxyStateResult, "error">) {
+function ProxyErrorMessage(props: Pick<UseSettingsProxyStateResult, "error">) {
+  const { error } = props;
   if (!error) {
     return null;
   }
@@ -429,7 +412,8 @@ function ProxyErrorMessage({
 }
 
 /**
- *
+ * Render the proxy url row skeleton component.
+ * @returns The rendered proxy url row skeleton component.
  */
 function ProxyUrlRowSkeleton() {
   return (

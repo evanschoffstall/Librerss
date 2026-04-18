@@ -32,26 +32,21 @@ export const DEFAULT_FEED_LIST_SKELETON_COUNT =
   FEED_ARTICLE_SKELETONS.length + 1;
 export const FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT = 1;
 export const MIN_FEED_LIST_SKELETON_COUNT = 1;
-
-/**
- * Returns the minimum skeleton count that fills the viewport plus one hidden row.
- *
- * The extra row keeps the loading surface from ending exactly on the fold while
- * still limiting the off-screen reserve to a single article footprint.
- * @param root0
- * @param root0.rowGap
- * @param root0.skeletonRowHeight
- * @param root0.viewportHeight
- */
-export function resolveFeedListSkeletonCount({
-  rowGap,
-  skeletonRowHeight,
-  viewportHeight,
-}: {
+interface FeedListSkeletonCountOptions {
   rowGap: number;
   skeletonRowHeight: number;
   viewportHeight: number;
-}) {
+}
+
+/**
+ * Resolve the feed list skeleton count.
+ * @param options - The options used to resolve the feed list skeleton count.
+ * @returns The feed list skeleton count.
+ */
+export function resolveFeedListSkeletonCount(
+  options: FeedListSkeletonCountOptions,
+) {
+  const { rowGap, skeletonRowHeight, viewportHeight } = options;
   const visibleRowCount = Math.floor(
     (viewportHeight + rowGap) / (skeletonRowHeight + rowGap),
   );

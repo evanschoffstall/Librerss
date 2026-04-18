@@ -485,7 +485,9 @@ async function readVisibleArticleKeys(page: Page) {
 
     const viewportRect = viewport.getBoundingClientRect();
 
-    return [...viewport.querySelectorAll<HTMLElement>("article[data-article-key]")]
+    return [
+      ...viewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ]
       .map((article) => {
         const articleKey = article.dataset.articleKey ?? null;
         const articleRect = article.getBoundingClientRect();
@@ -826,7 +828,10 @@ test.describe("dashboard mobile inverted scroll", () => {
         cancellationSignals.push(message);
       }
     };
-    const handleConsole = (message: { text: () => string; type: () => string }) => {
+    const handleConsole = (message: {
+      text: () => string;
+      type: () => string;
+    }) => {
       if (message.type() !== "error") {
         return;
       }
@@ -843,7 +848,10 @@ test.describe("dashboard mobile inverted scroll", () => {
     try {
       for (let cycle = 0; cycle < 4; cycle += 1) {
         await page
-          .getByRole("button", { exact: true, name: cycle % 2 === 0 ? "unread" : "all" })
+          .getByRole("button", {
+            exact: true,
+            name: cycle % 2 === 0 ? "unread" : "all",
+          })
           .click();
 
         const currentMetrics = await readFeedViewportMetrics(page);

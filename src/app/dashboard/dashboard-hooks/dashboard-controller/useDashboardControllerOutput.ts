@@ -16,37 +16,35 @@ import { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashbo
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 
-/**
- * @param root0
- * @param root0.animationState
- * @param root0.articleWindowState
- * @param root0.backgroundMode
- * @param root0.controllerResources
- * @param root0.dashboardState
- * @param root0.distillStrategy
- * @param root0.loadingState
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.refreshState
- * @param root0.runtimeState
- * @param root0.usePlaceholderData
- * @param root0.viewModelState
- */
-export function useDashboardControllerOutput({
-  animationState,
-  articleWindowState,
-  backgroundMode,
-  controllerResources,
-  dashboardState,
-  distillStrategy,
-  loadingState,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  refreshState,
-  runtimeState,
-  usePlaceholderData,
-  viewModelState,
-}: {
+interface DashboardControllerArticleViewStateOptions {
+  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
+  articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
+  controllerResources: ReturnType<typeof useDashboardControllerResources>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
+  viewModelState: ReturnType<typeof useDashboardViewModelState>;
+}
+
+interface DashboardControllerChromeStateOptions {
+  dashboardState: ReturnType<typeof useDashboardState>;
+  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
+  sidebarCategories: ReturnType<
+    typeof import("@/app/dashboard/dashboard-services/dashboard-state/view-model").buildDashboardViewModel
+  >["sidebarCategories"];
+}
+interface DashboardControllerLayoutViewStateOptions {
+  backgroundMode: BackgroundMode;
+  controllerResources: ReturnType<typeof useDashboardControllerResources>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
+  onBackgroundModeChange: (value: BackgroundMode) => void;
+  onDistillStrategyChange: (value: string) => void;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  sidebarContentProps: ReturnType<typeof buildDashboardSidebarContentProps>;
+  usePlaceholderData: boolean;
+}
+
+interface DashboardControllerOutputOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
   backgroundMode: BackgroundMode;
@@ -60,7 +58,38 @@ export function useDashboardControllerOutput({
   runtimeState: ReturnType<typeof useDashboardRuntimeState>;
   usePlaceholderData: boolean;
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
-}) {
+}
+interface DashboardSidebarContentStateOptions {
+  dashboardState: ReturnType<typeof useDashboardState>;
+  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
+  sidebarCategories: ReturnType<
+    typeof import("@/app/dashboard/dashboard-services/dashboard-state/view-model").buildDashboardViewModel
+  >["sidebarCategories"];
+}
+
+/**
+ * Manage the dashboard controller output.
+ * @param options - The options used to manage the dashboard controller output.
+ * @returns The dashboard controller output state and callbacks.
+ */
+export function useDashboardControllerOutput(
+  options: DashboardControllerOutputOptions,
+) {
+  const {
+    animationState,
+    articleWindowState,
+    backgroundMode,
+    controllerResources,
+    dashboardState,
+    distillStrategy,
+    loadingState,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    refreshState,
+    runtimeState,
+    usePlaceholderData,
+    viewModelState,
+  } = options;
   const chromeState = useDashboardControllerChromeState({
     dashboardState,
     runtimeState,
@@ -92,31 +121,22 @@ export function useDashboardControllerOutput({
     handleCloseSettings: chromeState.handleCloseSettings,
   });
 }
-
 /**
- * @param root0
- * @param root0.animationState
- * @param root0.articleWindowState
- * @param root0.controllerResources
- * @param root0.dashboardState
- * @param root0.runtimeState
- * @param root0.viewModelState
+ * Build the dashboard controller article view state.
+ * @param options - The options used to build the dashboard controller article view state.
+ * @returns The dashboard controller article view state.
  */
-function buildDashboardControllerArticleViewState({
-  animationState,
-  articleWindowState,
-  controllerResources,
-  dashboardState,
-  runtimeState,
-  viewModelState,
-}: {
-  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
-  articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
-  controllerResources: ReturnType<typeof useDashboardControllerResources>;
-  dashboardState: ReturnType<typeof useDashboardState>;
-  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
-  viewModelState: ReturnType<typeof useDashboardViewModelState>;
-}) {
+function buildDashboardControllerArticleViewState(
+  options: DashboardControllerArticleViewStateOptions,
+) {
+  const {
+    animationState,
+    articleWindowState,
+    controllerResources,
+    dashboardState,
+    runtimeState,
+    viewModelState,
+  } = options;
   return {
     animatingInArticleKeys: animationState.animatingInArticleKeys,
     articleCallbacks: runtimeState.articleCallbacks,
@@ -150,38 +170,24 @@ function buildDashboardControllerArticleViewState({
 }
 
 /**
- * @param root0
- * @param root0.backgroundMode
- * @param root0.controllerResources
- * @param root0.dashboardState
- * @param root0.loadingState
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.refreshState
- * @param root0.sidebarContentProps
- * @param root0.usePlaceholderData
+ * Build the dashboard controller layout view state.
+ * @param options - The options used to build the dashboard controller layout view state.
+ * @returns The dashboard controller layout view state.
  */
-function buildDashboardControllerLayoutViewState({
-  backgroundMode,
-  controllerResources,
-  dashboardState,
-  loadingState,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  refreshState,
-  sidebarContentProps,
-  usePlaceholderData,
-}: {
-  backgroundMode: BackgroundMode;
-  controllerResources: ReturnType<typeof useDashboardControllerResources>;
-  dashboardState: ReturnType<typeof useDashboardState>;
-  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
-  onBackgroundModeChange: (value: BackgroundMode) => void;
-  onDistillStrategyChange: (value: string) => void;
-  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
-  sidebarContentProps: ReturnType<typeof buildDashboardSidebarContentProps>;
-  usePlaceholderData: boolean;
-}) {
+function buildDashboardControllerLayoutViewState(
+  options: DashboardControllerLayoutViewStateOptions,
+) {
+  const {
+    backgroundMode,
+    controllerResources,
+    dashboardState,
+    loadingState,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    refreshState,
+    sidebarContentProps,
+    usePlaceholderData,
+  } = options;
   return {
     articlesPerPage: dashboardState.articlesPerPage,
     autoRefreshIntervalMinutes: dashboardState.autoRefreshIntervalMinutes,
@@ -208,24 +214,15 @@ function buildDashboardControllerLayoutViewState({
     usePlaceholderData,
   };
 }
-
 /**
- * @param root0
- * @param root0.dashboardState
- * @param root0.runtimeState
- * @param root0.sidebarCategories
+ * Manage the dashboard controller chrome state.
+ * @param options - The options used to manage the dashboard controller chrome state.
+ * @returns The dashboard controller chrome state state and callbacks.
  */
-function useDashboardControllerChromeState({
-  dashboardState,
-  runtimeState,
-  sidebarCategories,
-}: {
-  dashboardState: ReturnType<typeof useDashboardState>;
-  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
-  sidebarCategories: ReturnType<
-    typeof import("@/app/dashboard/dashboard-services/dashboard-state/view-model").buildDashboardViewModel
-  >["sidebarCategories"];
-}) {
+function useDashboardControllerChromeState(
+  options: DashboardControllerChromeStateOptions,
+) {
+  const { dashboardState, runtimeState, sidebarCategories } = options;
   const sidebarContentProps = useDashboardSidebarContentState({
     dashboardState,
     runtimeState,
@@ -242,22 +239,14 @@ function useDashboardControllerChromeState({
 }
 
 /**
- * @param root0
- * @param root0.dashboardState
- * @param root0.runtimeState
- * @param root0.sidebarCategories
+ * Manage the dashboard sidebar content state.
+ * @param options - The options used to manage the dashboard sidebar content state.
+ * @returns The dashboard sidebar content state state and callbacks.
  */
-function useDashboardSidebarContentState({
-  dashboardState,
-  runtimeState,
-  sidebarCategories,
-}: {
-  dashboardState: ReturnType<typeof useDashboardState>;
-  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
-  sidebarCategories: ReturnType<
-    typeof import("@/app/dashboard/dashboard-services/dashboard-state/view-model").buildDashboardViewModel
-  >["sidebarCategories"];
-}) {
+function useDashboardSidebarContentState(
+  options: DashboardSidebarContentStateOptions,
+) {
+  const { dashboardState, runtimeState, sidebarCategories } = options;
   return useMemo(
     () =>
       buildDashboardSidebarContentProps({

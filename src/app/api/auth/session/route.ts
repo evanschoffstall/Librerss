@@ -5,7 +5,9 @@ import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import { serverApi } from "@/lib/server";
 
 /**
- * @param request
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
  */
 export async function GET(request: NextRequest) {
   try {

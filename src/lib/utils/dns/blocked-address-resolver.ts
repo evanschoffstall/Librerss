@@ -28,18 +28,7 @@ export type DnsResolverDefaults = Pick<
   DnsResolveDeps,
   "isBlockedResolvedAddressFn" | "lookupFn" | "warnFn"
 >;
-
-/**
- * @param options
- * @param options.cache
- * @param options.cacheTtlMs
- * @param options.defaults
- * @param options.deps
- * @param options.hostname
- * @param options.maxEntries
- * @param options.timeoutMs
- */
-export async function resolveBlockedAddressWithCache(options: {
+interface BlockedAddressWithCacheOptions {
   cache: Map<string, DnsCacheEntry>;
   cacheTtlMs: number;
   defaults: DnsResolverDefaults;
@@ -47,7 +36,25 @@ export async function resolveBlockedAddressWithCache(options: {
   hostname: string;
   maxEntries: number;
   timeoutMs: number;
-}): Promise<boolean> {
+}
+
+interface CacheDnsLookupFailureOptions {
+  cache: Map<string, DnsCacheEntry>;
+  error: unknown;
+  hostname: string;
+  maxEntries: number;
+  nowFn: () => number;
+  warnFn: DnsResolveDeps["warnFn"];
+}
+
+/**
+ * Resolve the blocked address with cache.
+ * @param options - The options used to resolve the blocked address with cache.
+ * @returns The blocked address with cache.
+ */
+export async function resolveBlockedAddressWithCache(
+  options: BlockedAddressWithCacheOptions,
+): Promise<boolean> {
   const { cache, cacheTtlMs, defaults, deps, hostname, maxEntries, timeoutMs } =
     options;
   const ctx = resolveDnsLookupContext(hostname, cache, defaults, deps);
@@ -91,12 +98,13 @@ export async function resolveBlockedAddressWithCache(options: {
     });
   }
 }
-
 /**
- * @param hostname
- * @param cache
- * @param defaults
- * @param deps
+ * Resolve the dns lookup context.
+ * @param hostname - The hostname.
+ * @param cache - The cache.
+ * @param defaults - The defaults.
+ * @param deps - The deps.
+ * @returns The dns lookup context.
  */
 export function resolveDnsLookupContext(
   hostname: string,
@@ -127,22 +135,11 @@ export function resolveDnsLookupContext(
 }
 
 /**
- * @param options
- * @param options.cache
- * @param options.error
- * @param options.hostname
- * @param options.maxEntries
- * @param options.nowFn
- * @param options.warnFn
+ * Process the cache dns lookup failure.
+ * @param options - The options used to process the cache dns lookup failure.
+ * @returns Whether cache dns lookup failure.
  */
-function cacheDnsLookupFailure(options: {
-  cache: Map<string, DnsCacheEntry>;
-  error: unknown;
-  hostname: string;
-  maxEntries: number;
-  nowFn: () => number;
-  warnFn: DnsResolveDeps["warnFn"];
-}): boolean {
+function cacheDnsLookupFailure(options: CacheDnsLookupFailureOptions): boolean {
   options.warnFn("DNS lookup failed for feed validation", {
     error: getDnsLookupErrorMessage(options.error),
     hostname: options.hostname,
@@ -158,7 +155,9 @@ function cacheDnsLookupFailure(options: {
 }
 
 /**
- * @param error
+ * Return the dns lookup error message.
+ * @param error - The error.
+ * @returns The dns lookup error message.
  */
 function getDnsLookupErrorMessage(error: unknown): string {
   if (error instanceof Error) {

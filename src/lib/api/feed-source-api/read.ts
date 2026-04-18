@@ -27,6 +27,19 @@ interface HandleFeedReadDeps {
   tryNormalizeFeedUrlFn?: typeof tryNormalizeFeedUrl;
 }
 
+interface HandleFeedSourceListReadDeps {
+  getCachedFeedSources: typeof getCachedFeedSourceList;
+  listSourcesForUser: typeof listFeedSourcesForUser;
+  logInfo: typeof logger.info;
+  setCachedFeedSources: typeof setCachedFeedSourceList;
+  toFeedSource: typeof toFeedSourceResponse;
+}
+
+interface HandleSingleFeedReadDeps {
+  fetchFeedArticles: typeof fetchAndCacheFeedArticles;
+  getDbForRead: typeof getDb;
+}
+
 interface ResolvedFeedReadContext {
   fetchFeedArticles: typeof fetchAndCacheFeedArticles;
   getCachedFeedSources: typeof getCachedFeedSourceList;
@@ -38,16 +51,12 @@ interface ResolvedFeedReadContext {
   setCachedFeedSources: typeof setCachedFeedSourceList;
   toFeedSource: typeof toFeedSourceResponse;
 }
-
 /**
- * Resolves either the user's feed-source list or a single feed's article list.
- *
- * The feed-source list path uses a per-user in-memory cache so dashboard boot
- * does not re-run the same join-heavy `/api/feeds` query when the sidebar is
- * requested repeatedly during the cache TTL.
- * @param userId
- * @param feedUrl
- * @param deps
+ * Process the handle feed read.
+ * @param userId - The r id.
+ * @param feedUrl - The feed url.
+ * @param deps - The deps.
+ * @returns The handle feed read.
  */
 export async function handleFeedRead(
   userId: number,
@@ -58,30 +67,23 @@ export async function handleFeedRead(
 }
 
 /**
- * @param sourceCount
+ * Process the format feed source count.
+ * @param sourceCount - The source count value.
+ * @returns The format feed source count.
  */
 function formatFeedSourceCount(sourceCount: number) {
   return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
 /**
- * @param userId
- * @param deps
- * @param deps.getCachedFeedSources
- * @param deps.listSourcesForUser
- * @param deps.logInfo
- * @param deps.setCachedFeedSources
- * @param deps.toFeedSource
+ * Process the handle feed source list read.
+ * @param userId - The r id.
+ * @param deps - The deps.
+ * @returns The handle feed source list read.
  */
 async function handleFeedSourceListRead(
   userId: number,
-  deps: {
-    getCachedFeedSources: typeof getCachedFeedSourceList;
-    listSourcesForUser: typeof listFeedSourcesForUser;
-    logInfo: typeof logger.info;
-    setCachedFeedSources: typeof setCachedFeedSourceList;
-    toFeedSource: typeof toFeedSourceResponse;
-  },
+  deps: HandleFeedSourceListReadDeps,
 ) {
   const cachedSources = deps.getCachedFeedSources(userId);
   if (cachedSources) {
@@ -103,8 +105,10 @@ async function handleFeedSourceListRead(
 }
 
 /**
- * @param normalizedFeedUrl
- * @param getPlaceholderArticles
+ * Process the handle placeholder feed read.
+ * @param normalizedFeedUrl - The d feed url.
+ * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @returns The handle placeholder feed read.
  */
 function handlePlaceholderFeedRead(
   normalizedFeedUrl: null | string,
@@ -116,11 +120,11 @@ function handlePlaceholderFeedRead(
 
   return NextResponse.json(getPlaceholderArticles(normalizedFeedUrl));
 }
-
 /**
- * Dispatches the read request to placeholder, list, or single-feed modes.
- * @param userId
- * @param context
+ * Process the handle resolved feed read.
+ * @param userId - The r id.
+ * @param context - The context used to process the handle resolved feed read.
+ * @returns The handle resolved feed read.
  */
 function handleResolvedFeedRead(
   userId: number,
@@ -148,19 +152,16 @@ function handleResolvedFeedRead(
 }
 
 /**
- * @param userId
- * @param normalizedFeedUrl
- * @param deps
- * @param deps.fetchFeedArticles
- * @param deps.getDbForRead
+ * Process the handle single feed read.
+ * @param userId - The r id.
+ * @param normalizedFeedUrl - The d feed url.
+ * @param deps - The deps.
+ * @returns The handle single feed read.
  */
 async function handleSingleFeedRead(
   userId: number,
   normalizedFeedUrl: string,
-  deps: {
-    fetchFeedArticles: typeof fetchAndCacheFeedArticles;
-    getDbForRead: typeof getDb;
-  },
+  deps: HandleSingleFeedReadDeps,
 ) {
   const db = deps.getDbForRead();
   const feedArticles = await deps.fetchFeedArticles(
@@ -172,11 +173,10 @@ async function handleSingleFeedRead(
 }
 
 /**
- * Normalizes optional dependencies once so the exported entrypoint stays a thin
- * dispatcher rather than carrying the complexity cost of dependency fallback
- * and mode branching.
- * @param feedUrl
- * @param deps
+ * Resolve the feed read context.
+ * @param feedUrl - The feed url.
+ * @param deps - The deps.
+ * @returns The feed read context.
  */
 function resolveFeedReadContext(
   feedUrl: null | string,
@@ -222,9 +222,10 @@ function resolveFeedReadContext(
 }
 
 /**
- * Returns the provided dependency override or the canonical implementation.
- * @param dependency
- * @param fallback
+ * Resolve the feed read dependency.
+ * @param dependency - The dependency.
+ * @param fallback - The fallback.
+ * @returns The feed read dependency.
  */
 function resolveFeedReadDependency<T>(
   dependency: T | undefined,
@@ -234,9 +235,10 @@ function resolveFeedReadDependency<T>(
 }
 
 /**
- * Normalizes the optional feed URL once before dispatching mode-specific work.
- * @param feedUrl
- * @param normalizeFeedUrlForRead
+ * Resolve the requested feed url.
+ * @param feedUrl - The feed url.
+ * @param normalizeFeedUrlForRead - The feed url for read.
+ * @returns The requested feed url.
  */
 function resolveRequestedFeedUrl(
   feedUrl: null | string,

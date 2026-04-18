@@ -23,6 +23,15 @@ import {
   type PrimedUnreadRemovalState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+interface ExpandedArticleScrollLockLifecycleOptions {
+  captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
+  expandedArticleKey: null | string;
+  invertedExpansionViewportSnapshotRef: React.RefObject<InvertedExpansionViewportSnapshot | null>;
+  isInvertedScroll: boolean;
+  onClaimInvertedScrollOwnership: () => void;
+  previousExpandedArticleKeyRef: React.RefObject<null | string>;
+  startInvertedExpansionScrollLock: InvertedExpansionScrollLockStarter;
+}
 interface InvertedExpansionScrollLockLifecycleOptions {
   articleFilter: string;
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
@@ -42,25 +51,62 @@ interface InvertedExpansionScrollLockLifecycleOptions {
   syncInvertedExpansionScrollLock: () => void;
 }
 
-/**
- * @param options
- * @param options.captureInvertedExpansionViewportSnapshot
- * @param options.expandedArticleKey
- * @param options.invertedExpansionViewportSnapshotRef
- * @param options.isInvertedScroll
- * @param options.onClaimInvertedScrollOwnership
- * @param options.previousExpandedArticleKeyRef
- * @param options.startInvertedExpansionScrollLock
- */
-export function useExpandedArticleScrollLockLifecycle(options: {
+interface InvertedExpansionScrollLockRuntimeOptions {
+  articleFilter: string;
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
-  expandedArticleKey: null | string;
+  invertedExpansionScrollLockRef: React.RefObject<unknown>;
   invertedExpansionViewportSnapshotRef: React.RefObject<InvertedExpansionViewportSnapshot | null>;
-  isInvertedScroll: boolean;
+  isInvertedScrollRef: React.RefObject<boolean>;
   onClaimInvertedScrollOwnership: () => void;
-  previousExpandedArticleKeyRef: React.RefObject<null | string>;
+  prepareInvertedUnreadRemovalScrollLock: (
+    articleKeys: Iterable<string>,
+    lockOptions?: { primeInteraction?: boolean },
+  ) => void;
+  releaseInvertedExpansionScrollLock: () => void;
+  scrollViewport: HTMLElement | null;
   startInvertedExpansionScrollLock: InvertedExpansionScrollLockStarter;
-}) {
+  syncInvertedExpansionScrollLock: () => void;
+}
+
+interface InvertedExpansionScrollLockStateOptions {
+  expandedArticleKey: null | string;
+  isInvertedScroll: boolean;
+  scrollViewport: HTMLElement | null;
+}
+interface PrepareInvertedUnreadRemovalScrollLockOptions {
+  captureInvertedExpansionViewportSnapshot: (
+    articleKey: string,
+  ) => InvertedExpansionViewportSnapshot | null;
+  isInvertedScrollRef: React.RefObject<boolean>;
+  onClaimInvertedScrollOwnership: () => void;
+  primedUnreadRemovalRef: React.RefObject<null | PrimedUnreadRemovalState>;
+  startInvertedExpansionScrollLock: (
+    articleKey: null | string,
+    snapshot: InvertedExpansionViewportSnapshot | null,
+    mode: "collapsing" | "expand" | "stable",
+    releaseAt?: null | number,
+  ) => void;
+}
+
+interface UnreadRemovalScrollLockLifecycleOptions {
+  articleFilter: string;
+  collapsingArticles: Readonly<CollapsingArticles>;
+  expandedArticleKey: null | string;
+  isInvertedScroll: boolean;
+  prepareInvertedUnreadRemovalScrollLock: (
+    articleKeys: Iterable<string>,
+    lockOptions?: { primeInteraction?: boolean },
+  ) => void;
+  previousCollapsingArticleKeysRef: React.RefObject<string[]>;
+  primedUnreadRemovalRef: React.RefObject<null | PrimedUnreadRemovalState>;
+}
+/**
+ * Manage the expanded article scroll lock lifecycle.
+ * @param options - The options used to manage the expanded article scroll lock lifecycle.
+ */
+export function useExpandedArticleScrollLockLifecycle(
+  options: ExpandedArticleScrollLockLifecycleOptions,
+) {
   useLayoutEffect(() => {
     const previousExpandedArticleKey =
       options.previousExpandedArticleKeyRef.current;
@@ -115,7 +161,8 @@ export function useExpandedArticleScrollLockLifecycle(options: {
 }
 
 /**
- * @param options
+ * Manage the inverted expansion scroll lock lifecycles.
+ * @param options - The options used to manage the inverted expansion scroll lock lifecycles.
  */
 export function useInvertedExpansionScrollLockLifecycles(
   options: InvertedExpansionScrollLockLifecycleOptions,
@@ -170,35 +217,12 @@ export function useInvertedExpansionScrollLockLifecycles(
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.captureInvertedExpansionViewportSnapshot
- * @param options.invertedExpansionScrollLockRef
- * @param options.invertedExpansionViewportSnapshotRef
- * @param options.isInvertedScrollRef
- * @param options.onClaimInvertedScrollOwnership
- * @param options.prepareInvertedUnreadRemovalScrollLock
- * @param options.releaseInvertedExpansionScrollLock
- * @param options.scrollViewport
- * @param options.startInvertedExpansionScrollLock
- * @param options.syncInvertedExpansionScrollLock
+ * Manage the inverted expansion scroll lock runtime.
+ * @param options - The options used to manage the inverted expansion scroll lock runtime.
  */
-export function useInvertedExpansionScrollLockRuntime(options: {
-  articleFilter: string;
-  captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
-  invertedExpansionScrollLockRef: React.RefObject<unknown>;
-  invertedExpansionViewportSnapshotRef: React.RefObject<InvertedExpansionViewportSnapshot | null>;
-  isInvertedScrollRef: React.RefObject<boolean>;
-  onClaimInvertedScrollOwnership: () => void;
-  prepareInvertedUnreadRemovalScrollLock: (
-    articleKeys: Iterable<string>,
-    lockOptions?: { primeInteraction?: boolean },
-  ) => void;
-  releaseInvertedExpansionScrollLock: () => void;
-  scrollViewport: HTMLElement | null;
-  startInvertedExpansionScrollLock: InvertedExpansionScrollLockStarter;
-  syncInvertedExpansionScrollLock: () => void;
-}) {
+export function useInvertedExpansionScrollLockRuntime(
+  options: InvertedExpansionScrollLockRuntimeOptions,
+) {
   useInvertedExpansionScrollLockEvents({
     articleFilter: options.articleFilter,
     captureInvertedExpansionViewportSnapshot:
@@ -225,18 +249,14 @@ export function useInvertedExpansionScrollLockRuntime(options: {
     options.releaseInvertedExpansionScrollLock,
   ]);
 }
-
 /**
- * @param options
- * @param options.expandedArticleKey
- * @param options.isInvertedScroll
- * @param options.scrollViewport
+ * Manage the inverted expansion scroll lock state.
+ * @param options - The options used to manage the inverted expansion scroll lock state.
+ * @returns The inverted expansion scroll lock state state and callbacks.
  */
-export function useInvertedExpansionScrollLockState(options: {
-  expandedArticleKey: null | string;
-  isInvertedScroll: boolean;
-  scrollViewport: HTMLElement | null;
-}) {
+export function useInvertedExpansionScrollLockState(
+  options: InvertedExpansionScrollLockStateOptions,
+) {
   const invertedExpansionViewportSnapshotRef =
     useRef<InvertedExpansionViewportSnapshot | null>(null);
   const isInvertedScrollRef = useRef(options.isInvertedScroll);
@@ -264,7 +284,9 @@ export function useInvertedExpansionScrollLockState(options: {
 }
 
 /**
- * @param getPreExpandViewportSnapshot
+ * Manage the inverted expansion viewport snapshot.
+ * @param getPreExpandViewportSnapshot - The callback that pre expand viewport snapshot.
+ * @returns The inverted expansion viewport snapshot state and callbacks.
  */
 export function useInvertedExpansionViewportSnapshot(
   getPreExpandViewportSnapshot: (
@@ -315,29 +337,14 @@ export function useInvertedExpansionViewportSnapshot(
     clearInvertedExpansionViewportSnapshot,
   };
 }
-
 /**
- * @param options
- * @param options.captureInvertedExpansionViewportSnapshot
- * @param options.isInvertedScrollRef
- * @param options.onClaimInvertedScrollOwnership
- * @param options.primedUnreadRemovalRef
- * @param options.startInvertedExpansionScrollLock
+ * Manage the prepare inverted unread removal scroll lock.
+ * @param options - The options used to manage the prepare inverted unread removal scroll lock.
+ * @returns The prepare inverted unread removal scroll lock state and callbacks.
  */
-export function usePrepareInvertedUnreadRemovalScrollLock(options: {
-  captureInvertedExpansionViewportSnapshot: (
-    articleKey: string,
-  ) => InvertedExpansionViewportSnapshot | null;
-  isInvertedScrollRef: React.RefObject<boolean>;
-  onClaimInvertedScrollOwnership: () => void;
-  primedUnreadRemovalRef: React.RefObject<null | PrimedUnreadRemovalState>;
-  startInvertedExpansionScrollLock: (
-    articleKey: null | string,
-    snapshot: InvertedExpansionViewportSnapshot | null,
-    mode: "collapsing" | "expand" | "stable",
-    releaseAt?: null | number,
-  ) => void;
-}) {
+export function usePrepareInvertedUnreadRemovalScrollLock(
+  options: PrepareInvertedUnreadRemovalScrollLockOptions,
+) {
   return useCallback(
     (
       excludedArticleKeys: Iterable<string>,
@@ -400,27 +407,12 @@ export function usePrepareInvertedUnreadRemovalScrollLock(options: {
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.collapsingArticles
- * @param options.expandedArticleKey
- * @param options.isInvertedScroll
- * @param options.prepareInvertedUnreadRemovalScrollLock
- * @param options.previousCollapsingArticleKeysRef
- * @param options.primedUnreadRemovalRef
+ * Manage the unread removal scroll lock lifecycle.
+ * @param options - The options used to manage the unread removal scroll lock lifecycle.
  */
-export function useUnreadRemovalScrollLockLifecycle(options: {
-  articleFilter: string;
-  collapsingArticles: Readonly<CollapsingArticles>;
-  expandedArticleKey: null | string;
-  isInvertedScroll: boolean;
-  prepareInvertedUnreadRemovalScrollLock: (
-    articleKeys: Iterable<string>,
-    lockOptions?: { primeInteraction?: boolean },
-  ) => void;
-  previousCollapsingArticleKeysRef: React.RefObject<string[]>;
-  primedUnreadRemovalRef: React.RefObject<null | PrimedUnreadRemovalState>;
-}) {
+export function useUnreadRemovalScrollLockLifecycle(
+  options: UnreadRemovalScrollLockLifecycleOptions,
+) {
   useLayoutEffect(() => {
     const collapsingArticleKeys = Object.keys(options.collapsingArticles);
     const previousCollapsingArticleKeys =

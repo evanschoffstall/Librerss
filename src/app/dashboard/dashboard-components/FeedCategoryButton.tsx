@@ -26,22 +26,19 @@ const FEED_CATEGORY_HOVER_TRANSITION = {
 
 export const FeedCategoryButton = memo(
   /**
-   * @param root0
-   * @param root0.category
-   * @param root0.fallbackIconClassName
-   * @param root0.isActive
-   * @param root0.onClick
-   * @param root0.onPrefetch
-   * @param root0.showFavicon
+   * Render the feed category button component.
+   * @param props - The component props.
+   * @returns The rendered feed category button component.
    */
-  function FeedCategoryButton({
-    category,
-    fallbackIconClassName = "size-2.5",
-    isActive,
-    onClick,
-    onPrefetch,
-    showFavicon,
-  }: FeedCategoryButtonProps) {
+  function FeedCategoryButton(props: FeedCategoryButtonProps) {
+    const {
+      category,
+      fallbackIconClassName = "size-2.5",
+      isActive,
+      onClick,
+      onPrefetch,
+      showFavicon,
+    } = props;
     const shouldReduceMotion = useReducedMotion();
     const {
       faviconCacheKey,

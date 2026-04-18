@@ -14,7 +14,9 @@ export interface BatchFeedResponseItem {
 }
 
 /**
- * @param data
+ * Process the ensure array response.
+ * @param data - The data.
+ * @returns The ensure array response.
  */
 export function ensureArrayResponse<T>(data: unknown): T[] {
   if (!Array.isArray(data)) throw new Error("Invalid response format");
@@ -22,24 +24,30 @@ export function ensureArrayResponse<T>(data: unknown): T[] {
 }
 
 /**
- * @param message
+ * Process the forbidden response.
+ * @param message - The message.
+ * @returns The forbidden response.
  */
 export function forbiddenResponse(message = "Forbidden"): Response {
   return jsonError(message, 403);
 }
 
 /**
- * @param error
- * @param status
+ * Process the json error.
+ * @param error - The error.
+ * @param status - The status.
+ * @returns The json error.
  */
 export function jsonError(error: string, status: number): Response {
   return Response.json({ error }, { status });
 }
 
 /**
- * @param error
- * @param status
- * @param reason
+ * Process the json error with reason.
+ * @param error - The error.
+ * @param status - The status.
+ * @param reason - The reason.
+ * @returns The json error with reason.
  */
 export function jsonErrorWithReason(
   error: string,
@@ -52,7 +60,9 @@ export function jsonErrorWithReason(
 // ── Response normalizers ──────────────────────────────────────────────────────
 
 /**
- * @param item
+ * Normalize the batch item.
+ * @param item - The item.
+ * @returns The batch item.
  */
 export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
   const candidate =

@@ -38,8 +38,9 @@ interface ReleaseStep {
 /** Keep CI/CD deterministic while still prompting for explicit operator consent. */
 class ReleaseWorkflowError extends Error {
   /**
-   * @param message
-   * @param exitCode
+   * Creates a workflow error with an explicit process exit code.
+   * @param message - Operator-facing failure message for the aborted release step.
+   * @param exitCode - Process exit code that should be returned to the shell.
    */
   constructor(
     message: string,
@@ -51,18 +52,23 @@ class ReleaseWorkflowError extends Error {
 }
 
 /**
- * @param arguments_
+ * Process the git.
+ * @param arguments_ - The arguments.
+ * @returns The git.
  */
-const git = (...arguments_: [string, ...string[]]): Command => [
+const git = (arguments_: [string, ...string[]]): Command => [
   "git",
   ...arguments_,
 ];
 /**
- * @param message
+ * Writes a release workflow log line with the standard prefix.
+ * @param message - The message.
+ * @returns Nothing.
  */
 const logRelease = (message: string): void => console.info(`[cicd] ${message}`);
 /**
- * @param message
+ * Aborts the release workflow with a logged failure message.
+ * @param message - The message.
  */
 const failRelease = (message: string): never => {
   logRelease(message);
@@ -70,9 +76,10 @@ const failRelease = (message: string): never => {
 };
 
 /**
- * Keep pre-release validation strict while allowing the published release commit to advance origin/main.
- * @param phase
- * @param state
+ * Process the determine main branch sync action.
+ * @param phase - The phase.
+ * @param state - The state.
+ * @returns The determine main branch sync action.
  */
 export function determineMainBranchSyncAction(
   phase: MainBranchSyncPhase,
@@ -83,10 +90,11 @@ export function determineMainBranchSyncAction(
 }
 
 /**
- * Run subprocesses in either streaming or captured mode without losing timing data.
- * @param command
- * @param outputMode
- * @param cwd
+ * Process the run command.
+ * @param command - The command.
+ * @param outputMode - The output mode.
+ * @param cwd - The cwd.
+ * @returns The run command.
  */
 async function runCommand(
   command: Command,
@@ -104,7 +112,9 @@ async function runCommand(
     stdout: shouldCaptureOutput ? "pipe" : "inherit",
   });
   /**
-   * @param stream
+   * Process the read stream.
+   * @param stream - The stream.
+   * @returns The read stream.
    */
   const readStream = async (
     stream: null | ReadableStream<Uint8Array> | undefined,
@@ -123,9 +133,9 @@ async function runCommand(
 }
 
 /**
- * Abort immediately on failing steps so later release stages never run on invalid state.
- * @param step
- * @param cwd
+ * Process the run step or exit.
+ * @param step - The step.
+ * @param cwd - The cwd.
  */
 async function runStepOrExit(step: ReleaseStep, cwd?: string): Promise<void> {
   logRelease(`Starting: ${step.label}`);
@@ -140,8 +150,10 @@ async function runStepOrExit(step: ReleaseStep, cwd?: string): Promise<void> {
 }
 
 /**
- * @param command
- * @param failureLabel
+ * Process the run command for stdout.
+ * @param command - The command.
+ * @param failureLabel - The failure label.
+ * @returns The run command for stdout.
  */
 const runCommandForStdout = async (
   command: Command,
@@ -158,11 +170,12 @@ const runCommandForStdout = async (
 };
 
 /**
- * Isolate staged and committed snapshots while reusing the main dependency tree.
- * @param prefix
- * @param materialize
- * @param cleanup
- * @param action
+ * Process the with snapshot.
+ * @param prefix - The prefix.
+ * @param materialize - The callback that materialize.
+ * @param cleanup - The callback that cleanup.
+ * @param action - The callback that action.
+ * @returns The with snapshot.
  */
 async function withSnapshot<T>(
   prefix: string,
@@ -194,7 +207,9 @@ async function withSnapshot<T>(
 }
 
 /**
- * @param question
+ * Process the ask yes no.
+ * @param question - The question.
+ * @returns The ask yes no.
  */
 const askYesNo = async (question: string): Promise<boolean> => {
   const readline = createInterface({
@@ -211,12 +226,16 @@ const askYesNo = async (question: string): Promise<boolean> => {
 };
 
 /**
- * @param label
+ * Return the head revision.
+ * @param label - The label.
+ * @returns The head revision.
  */
 const getHeadRevision = async (label: string): Promise<string> =>
   await runCommandForStdout(git("rev-parse", "HEAD"), label);
 /**
- * @param label
+ * Return the origin main revision.
+ * @param label - The label.
+ * @returns The origin main revision.
  */
 const getOriginMainRevision = async (label: string): Promise<string> =>
   await runCommandForStdout(
@@ -224,7 +243,8 @@ const getOriginMainRevision = async (label: string): Promise<string> =>
     label,
   );
 /**
- *
+ * Return whether has pending changes.
+ * @returns Whether has pending changes.
  */
 const hasPendingChanges = async (): Promise<boolean> =>
   (
@@ -234,7 +254,8 @@ const hasPendingChanges = async (): Promise<boolean> =>
     )
   ).length > 0;
 /**
- *
+ * Return whether has staged changes.
+ * @returns Whether has staged changes.
  */
 const hasStagedChanges = async (): Promise<boolean> =>
   (
@@ -244,14 +265,17 @@ const hasStagedChanges = async (): Promise<boolean> =>
     )
   ).length > 0;
 /**
- * @param label
+ * Fetches the latest revision for the remote main branch.
+ * @param label - The label.
+ * @returns A promise that resolves once the fetch step finishes.
  */
 const fetchOriginMain = async (
   label = `Fetch origin/${MAIN_BRANCH}`,
 ): Promise<void> =>
   await runStepOrExit({ command: git("fetch", "origin", MAIN_BRANCH), label });
 /**
- *
+ * Process the read main branch revision state.
+ * @returns The read main branch revision state.
  */
 const readMainBranchRevisionState =
   async (): Promise<MainBranchRevisionState> => {
@@ -262,13 +286,16 @@ const readMainBranchRevisionState =
     return { headRevision, remoteRevision };
   };
 /**
- * @param state
+ * Process the format main branch mismatch.
+ * @param state - The state.
+ * @returns The format main branch mismatch.
  */
 const formatMainBranchMismatch = (state: MainBranchRevisionState): string =>
   `Local HEAD (${state.headRevision}) does not match origin/${MAIN_BRANCH} (${state.remoteRevision}). Push or reconcile before continuing.`;
 
 /**
- *
+ * Process the acquire release lock.
+ * @returns The acquire release lock.
  */
 async function acquireReleaseLock(): Promise<() => Promise<void>> {
   const lockDirectoryPath = join(
@@ -281,7 +308,8 @@ async function acquireReleaseLock(): Promise<() => Promise<void>> {
   );
   const metadataPath = join(lockDirectoryPath, "metadata.json");
   /**
-   *
+   * Persists lock ownership metadata for stale-lock recovery.
+   * @returns A promise that resolves once the metadata file is written.
    */
   const writeMetadata = async (): Promise<void> =>
     await writeFile(
@@ -330,7 +358,7 @@ async function acquireReleaseLock(): Promise<() => Promise<void>> {
 }
 
 /**
- *
+ * Process the commit pending changes if requested.
  */
 async function commitPendingChangesIfRequested(): Promise<void> {
   if (!(await hasPendingChanges())) return;
@@ -352,7 +380,9 @@ async function commitPendingChangesIfRequested(): Promise<void> {
 }
 
 /**
- * @param fetchLabel
+ * Process the ensure head matches origin main.
+ * @param fetchLabel - The fetch label.
+ * @returns The ensure head matches origin main.
  */
 async function ensureHeadMatchesOriginMain(
   fetchLabel = `Fetch origin/${MAIN_BRANCH}`,
@@ -365,7 +395,9 @@ async function ensureHeadMatchesOriginMain(
   return state.headRevision;
 }
 
-/** Guard main-branch release execution and keep origin/main synchronized with HEAD. */
+/**
+ * Process the ensure on main branch.
+ */
 async function ensureOnMainBranch(): Promise<void> {
   const branchName = await runCommandForStdout(
     git("rev-parse", "--abbrev-ref", "HEAD"),
@@ -380,7 +412,7 @@ async function ensureOnMainBranch(): Promise<void> {
 }
 
 /**
- *
+ * Process the ensure no staged changes remain.
  */
 const ensureNoStagedChangesRemain = async (): Promise<void> => {
   if (await hasStagedChanges())
@@ -390,7 +422,8 @@ const ensureNoStagedChangesRemain = async (): Promise<void> => {
 };
 
 /**
- *
+ * Runs the full Bun check suite against the staged index snapshot.
+ * @returns A promise that resolves once staged validation completes.
  */
 const runBunCheckAgainstIndexSnapshot = async (): Promise<void> =>
   await withSnapshot(
@@ -414,7 +447,9 @@ const runBunCheckAgainstIndexSnapshot = async (): Promise<void> =>
   );
 
 /**
- * @param step
+ * Runs a release step inside a detached worktree materialized from HEAD.
+ * @param step - The step.
+ * @returns A promise that resolves once the detached worktree step finishes.
  */
 const runStepAgainstHeadWorktree = async (step: ReleaseStep): Promise<void> =>
   await withSnapshot(
@@ -435,7 +470,10 @@ const runStepAgainstHeadWorktree = async (step: ReleaseStep): Promise<void> =>
     },
   );
 
-/** Validate the staged candidate, publish from detached HEAD, then fast-forward local main. */
+/**
+ * Executes the interactive release workflow from validation through publish.
+ * @returns A promise that resolves once the workflow finishes or is skipped.
+ */
 async function main(): Promise<void> {
   const releaseLock = await acquireReleaseLock();
   try {
@@ -474,7 +512,7 @@ async function main(): Promise<void> {
 }
 
 /**
- *
+ * Process the sync local main with origin.
  */
 async function syncLocalMainWithOrigin(): Promise<void> {
   await fetchOriginMain(`Fetch origin/${MAIN_BRANCH} after release`);

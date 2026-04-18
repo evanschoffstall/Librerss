@@ -2,9 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 
-import {
-  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-} from "@/app/dashboard/constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/constants";
 import { getToastPlacement } from "@/components/AppThemeProvider";
 
 interface MockToasterProps {
@@ -43,10 +41,8 @@ async function renderAppThemeProvider(options?: {
   isMobileGroupedLayout?: boolean;
   isMobileViewport?: boolean;
 }) {
-  const {
-    isMobileGroupedLayout = true,
-    isMobileViewport = true,
-  } = options ?? {};
+  const { isMobileGroupedLayout = true, isMobileViewport = true } =
+    options ?? {};
 
   toasterProps.length = 0;
   window.localStorage.clear();
@@ -270,19 +266,12 @@ describe("AppThemeProvider", () => {
       label:
         "keeps mobile toasts at the bottom when grouped layout is disabled",
     },
-  ])(
-    "$label",
-    ({
-      expected,
-      isMobileGroupedLayout,
-      isMobileViewport,
-    }) => {
-      expect(
-        getToastPlacement({
-          isMobileGroupedLayout,
-          isMobileViewport,
-        }),
-      ).toMatchObject(expected);
-    },
-  );
+  ])("$label", ({ expected, isMobileGroupedLayout, isMobileViewport }) => {
+    expect(
+      getToastPlacement({
+        isMobileGroupedLayout,
+        isMobileViewport,
+      }),
+    ).toMatchObject(expected);
+  });
 });

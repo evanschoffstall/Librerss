@@ -16,73 +16,21 @@ interface BooleanRef {
   current: boolean;
 }
 
+interface FinalizePaginationBoundaryRearmOptions {
+  armedBoundaryRef: BooleanRef;
+  hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
+  hasRequestedServerLoadRef: BooleanRef;
+}
+
+interface HasPendingPaginationBoundaryStateOptions {
+  hasPendingServerRevealRef: BooleanRef;
+  invertedPaginationAnchorRef: UnknownNullableRef;
+}
 interface NullableNumberRef {
   current: null | number;
 }
 
-interface UnknownNullableRef {
-  current: unknown;
-}
-
-/**
- * @param options
- * @param options.armedBoundaryRef
- * @param options.hasPendingBoundaryRearmAfterCooldownRef
- * @param options.hasRequestedServerLoadRef
- */
-export function finalizePaginationBoundaryRearm(options: {
-  armedBoundaryRef: BooleanRef;
-  hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
-  hasRequestedServerLoadRef: BooleanRef;
-}) {
-  if (options.hasRequestedServerLoadRef.current) {
-    options.hasPendingBoundaryRearmAfterCooldownRef.current = true;
-    return false;
-  }
-
-  options.armedBoundaryRef.current = true;
-  options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
-  options.hasRequestedServerLoadRef.current = false;
-  return true;
-}
-
-/**
- * @param options
- * @param options.hasPendingServerRevealRef
- * @param options.invertedPaginationAnchorRef
- */
-export function hasPendingPaginationBoundaryState(options: {
-  hasPendingServerRevealRef: BooleanRef;
-  invertedPaginationAnchorRef: UnknownNullableRef;
-}) {
-  return (
-    options.hasPendingServerRevealRef.current ||
-    options.invertedPaginationAnchorRef.current !== null
-  );
-}
-
-/**
- * @param options
- * @param options.clearServerLoadCooldown
- * @param options.filteredFeedLength
- * @param options.hasPendingBoundaryRearmAfterCooldownRef
- * @param options.hasPendingServerRevealRef
- * @param options.hasRequestedServerLoadRef
- * @param options.hasResolvedStandardViewportRevealRef
- * @param options.hasUserScrolledRef
- * @param options.isInvertedLoadBoundaryArmedRef
- * @param options.isStandardLoadBoundaryArmedRef
- * @param options.isStandardViewportRefillActiveRef
- * @param options.lastAutoFillListHeightRef
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.lastInvertedScrollTopRef
- * @param options.lastStandardScrollTopRef
- * @param options.paginationFrameRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.previousFilteredFeedLengthRef
- * @param options.previousFilteredFeedLengthRef.current
- */
-export function resetPaginationRuntimeState(options: {
+interface ResetPaginationRuntimeStateOptions {
   clearServerLoadCooldown: () => void;
   filteredFeedLength: number;
   hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
@@ -100,7 +48,50 @@ export function resetPaginationRuntimeState(options: {
   paginationFrameRef: NullableNumberRef;
   pendingInvertedPaginationAnchorSnapshotRef: UnknownNullableRef;
   previousFilteredFeedLengthRef: { current: number };
-}) {
+}
+interface UnknownNullableRef {
+  current: unknown;
+}
+
+/**
+ * Process the finalize pagination boundary rearm.
+ * @param options - The options used to process the finalize pagination boundary rearm.
+ * @returns Whether finalize pagination boundary rearm.
+ */
+export function finalizePaginationBoundaryRearm(
+  options: FinalizePaginationBoundaryRearmOptions,
+) {
+  if (options.hasRequestedServerLoadRef.current) {
+    options.hasPendingBoundaryRearmAfterCooldownRef.current = true;
+    return false;
+  }
+
+  options.armedBoundaryRef.current = true;
+  options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
+  options.hasRequestedServerLoadRef.current = false;
+  return true;
+}
+/**
+ * Return whether has pending pagination boundary state.
+ * @param options - The options used to return whether has pending pagination boundary state.
+ * @returns Whether has pending pagination boundary state.
+ */
+export function hasPendingPaginationBoundaryState(
+  options: HasPendingPaginationBoundaryStateOptions,
+) {
+  return (
+    options.hasPendingServerRevealRef.current ||
+    options.invertedPaginationAnchorRef.current !== null
+  );
+}
+
+/**
+ * Process the reset pagination runtime state.
+ * @param options - The options used to process the reset pagination runtime state.
+ */
+export function resetPaginationRuntimeState(
+  options: ResetPaginationRuntimeStateOptions,
+) {
   options.hasUserScrolledRef.current = false;
   options.clearServerLoadCooldown();
   options.hasRequestedServerLoadRef.current = false;
@@ -124,9 +115,11 @@ export function resetPaginationRuntimeState(options: {
 }
 
 /**
- * @param scrollViewport
- * @param hasPendingServerRevealRef
- * @param invertedPaginationAnchorRef
+ * Return whether should abort pagination boundary rearm.
+ * @param scrollViewport - The scroll viewport.
+ * @param hasPendingServerRevealRef - The ref that stores the has pending server reveal ref.
+ * @param invertedPaginationAnchorRef - The ref that stores the inverted pagination anchor ref.
+ * @returns Whether should abort pagination boundary rearm.
  */
 export function shouldAbortPaginationBoundaryRearm(
   scrollViewport: HTMLElement | null,

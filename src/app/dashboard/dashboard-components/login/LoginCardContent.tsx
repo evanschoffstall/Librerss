@@ -26,43 +26,43 @@ interface LoginCardContentProps {
   password: string;
 }
 
+interface LoginFormErrorProps {
+  message?: string;
+}
+interface SignupFieldsProps {
+  confirmError?: string;
+  confirmPassword: string;
+  hasAcceptedLegalTerms: boolean;
+  legalError?: string;
+  onAcceptedChange: (checked: boolean) => void;
+  onChangeConfirmPassword: (value: string) => void;
+  onKeyDown: KeyboardEventHandler;
+}
+
 /**
- * @param root0
- * @param root0.allowSignup
- * @param root0.confirmPassword
- * @param root0.email
- * @param root0.fieldErrors
- * @param root0.hasAcceptedLegalTerms
- * @param root0.isSubmitting
- * @param root0.mode
- * @param root0.onChangeConfirmPassword
- * @param root0.onChangeEmail
- * @param root0.onChangeLegalTerms
- * @param root0.onChangePassword
- * @param root0.onEnterPreview
- * @param root0.onKeyDown
- * @param root0.onSubmit
- * @param root0.onToggleMode
- * @param root0.password
+ * Render the login card content component.
+ * @param props - The component props.
+ * @returns The rendered login card content component.
  */
-export function LoginCardContent({
-  allowSignup,
-  confirmPassword,
-  email,
-  fieldErrors,
-  hasAcceptedLegalTerms,
-  isSubmitting,
-  mode,
-  onChangeConfirmPassword,
-  onChangeEmail,
-  onChangeLegalTerms,
-  onChangePassword,
-  onEnterPreview,
-  onKeyDown,
-  onSubmit,
-  onToggleMode,
-  password,
-}: LoginCardContentProps) {
+export function LoginCardContent(props: LoginCardContentProps) {
+  const {
+    allowSignup,
+    confirmPassword,
+    email,
+    fieldErrors,
+    hasAcceptedLegalTerms,
+    isSubmitting,
+    mode,
+    onChangeConfirmPassword,
+    onChangeEmail,
+    onChangeLegalTerms,
+    onChangePassword,
+    onEnterPreview,
+    onKeyDown,
+    onSubmit,
+    onToggleMode,
+    password,
+  } = props;
   return (
     <CardContent className="space-y-4">
       <LoginFormError message={fieldErrors.form} />
@@ -109,12 +109,13 @@ export function LoginCardContent({
     </CardContent>
   );
 }
-
 /**
- * @param root0
- * @param root0.message
+ * Render the login form error component.
+ * @param props - The component props.
+ * @returns The rendered login form error component.
  */
-function LoginFormError({ message }: { message?: string }) {
+function LoginFormError(props: LoginFormErrorProps) {
+  const { message } = props;
   if (!message) {
     return null;
   }
@@ -133,32 +134,20 @@ function LoginFormError({ message }: { message?: string }) {
 }
 
 /**
- * @param root0
- * @param root0.confirmError
- * @param root0.confirmPassword
- * @param root0.hasAcceptedLegalTerms
- * @param root0.legalError
- * @param root0.onAcceptedChange
- * @param root0.onChangeConfirmPassword
- * @param root0.onKeyDown
+ * Render the signup fields component.
+ * @param props - The component props.
+ * @returns The rendered signup fields component.
  */
-function SignupFields({
-  confirmError,
-  confirmPassword,
-  hasAcceptedLegalTerms,
-  legalError,
-  onAcceptedChange,
-  onChangeConfirmPassword,
-  onKeyDown,
-}: {
-  confirmError?: string;
-  confirmPassword: string;
-  hasAcceptedLegalTerms: boolean;
-  legalError?: string;
-  onAcceptedChange: (checked: boolean) => void;
-  onChangeConfirmPassword: (value: string) => void;
-  onKeyDown: KeyboardEventHandler;
-}) {
+function SignupFields(props: SignupFieldsProps) {
+  const {
+    confirmError,
+    confirmPassword,
+    hasAcceptedLegalTerms,
+    legalError,
+    onAcceptedChange,
+    onChangeConfirmPassword,
+    onKeyDown,
+  } = props;
   return (
     <>
       <LoginInputField

@@ -6,16 +6,18 @@ import type { DistilledArticle, DistillOptions } from "./types";
 const DEFAULT_MIN_BODY_LENGTH = 100;
 const EMPTY_STYLE = Object.freeze({
   /**
-   *
+   * Return the property value.
+   * @returns The property value.
    */
   getPropertyValue: () => "",
 });
 
 /**
- * Runs the Defuddle-backed distillation strategy against already-fetched HTML.
- * @param html
- * @param url
- * @param options
+ * Process the distill with defuddle.
+ * @param html - The html.
+ * @param url - The url.
+ * @param options - The options used to process the distill with defuddle.
+ * @returns The distill with defuddle.
  */
 export function distillWithDefuddle(
   html: string,
@@ -39,8 +41,8 @@ export function distillWithDefuddle(
 }
 
 /**
- * Stub browser APIs that linkedom lacks but Defuddle expects.
- * @param document
+ * Process the patch linkedom window.
+ * @param document - The document.
  */
 function patchLinkedomWindow(document: unknown): void {
   const doc = document as Record<string, unknown>;
@@ -50,7 +52,8 @@ function patchLinkedomWindow(document: unknown): void {
     typeof win.getComputedStyle !== "function"
   ) {
     /**
-     *
+     * Returns an inert CSSStyleDeclaration-like object for Linkedom documents.
+     * @returns The shared empty style shim.
      */
     win.getComputedStyle = () => EMPTY_STYLE;
   }

@@ -47,48 +47,32 @@ interface UseFeedListSurfaceStateResult {
 }
 
 /**
- * Coordinates feed-surface viewport state, pagination, and inverted anchoring.
- *
- * The heavy DOM-observer and scroll-event logic lives in dedicated helpers so
- * this hook can focus on composing the feed surface contract consumed by FeedList.
- * @param root0
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.canLoadMoreFromServer
- * @param root0.collapsingArticles
- * @param root0.expandedArticleKey
- * @param root0.feedViewKey
- * @param root0.filteredFeedLength
- * @param root0.getPreExpandViewportSnapshot
- * @param root0.invertedScrollAnchorIndex
- * @param root0.isCollapseScrollRestoreActive
- * @param root0.isInitialLoading
- * @param root0.isInvertedScroll
- * @param root0.isLoadingMore
- * @param root0.isRefreshing
- * @param root0.onLoadMore
- * @param root0.refreshEpoch
- * @param root0.searchTerm
+ * Manage the feed list surface state.
+ * @param options - The options used to manage the feed list surface state.
+ * @returns The feed list surface state state and callbacks.
  */
-export function useFeedListSurfaceState({
-  articleFilter,
-  articlesPerPage,
-  canLoadMoreFromServer,
-  collapsingArticles,
-  expandedArticleKey,
-  feedViewKey,
-  filteredFeedLength,
-  getPreExpandViewportSnapshot,
-  invertedScrollAnchorIndex: _invertedScrollAnchorIndex,
-  isCollapseScrollRestoreActive,
-  isInitialLoading,
-  isInvertedScroll,
-  isLoadingMore,
-  isRefreshing,
-  onLoadMore,
-  refreshEpoch,
-  searchTerm,
-}: UseFeedListSurfaceStateOptions): UseFeedListSurfaceStateResult {
+export function useFeedListSurfaceState(
+  options: UseFeedListSurfaceStateOptions,
+): UseFeedListSurfaceStateResult {
+  const {
+    articleFilter,
+    articlesPerPage,
+    canLoadMoreFromServer,
+    collapsingArticles,
+    expandedArticleKey,
+    feedViewKey,
+    filteredFeedLength,
+    getPreExpandViewportSnapshot,
+    invertedScrollAnchorIndex: _invertedScrollAnchorIndex,
+    isCollapseScrollRestoreActive,
+    isInitialLoading,
+    isInvertedScroll,
+    isLoadingMore,
+    isRefreshing,
+    onLoadMore,
+    refreshEpoch,
+    searchTerm,
+  } = options;
   const compositionState = useFeedSurfaceComposition({
     articleFilter,
     articlesPerPage,
@@ -118,9 +102,11 @@ export function useFeedListSurfaceState({
 }
 
 /**
- * @param compositionState
- * @param filteredFeedLength
- * @param isInvertedScroll
+ * Build the feed list surface state options.
+ * @param compositionState - The callback that composition state.
+ * @param filteredFeedLength - The filtered feed length value.
+ * @param isInvertedScroll - Whether is inverted scroll.
+ * @returns The feed list surface state options.
  */
 function buildFeedListSurfaceStateOptions(
   compositionState: ReturnType<typeof useFeedSurfaceComposition>,

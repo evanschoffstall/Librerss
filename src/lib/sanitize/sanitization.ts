@@ -14,7 +14,9 @@ interface SanitizedContentContext {
 }
 
 /**
- * @param rawContent
+ * Process the sanitize raw content.
+ * @param rawContent - The raw content.
+ * @returns The sanitize raw content.
  */
 export function sanitizeRawContent(rawContent: string): string {
   const context = createSanitizedContentContext(rawContent);
@@ -40,7 +42,9 @@ export function sanitizeRawContent(rawContent: string): string {
 }
 
 /**
- * @param rawContent
+ * Create the sanitized content context.
+ * @param rawContent - The raw content.
+ * @returns The sanitized content context.
  */
 function createSanitizedContentContext(
   rawContent: string,
@@ -69,8 +73,10 @@ function createSanitizedContentContext(
 }
 
 /**
- * @param sanitizedHtml
- * @param context
+ * Process the merge recovered images if needed.
+ * @param sanitizedHtml - The sanitized html.
+ * @param context - The context used to process the merge recovered images if needed.
+ * @returns The merge recovered images if needed.
  */
 function mergeRecoveredImagesIfNeeded(
   sanitizedHtml: string,
@@ -90,7 +96,9 @@ function mergeRecoveredImagesIfNeeded(
 }
 
 /**
- * @param rawHtml
+ * Process the recover sanitized image html.
+ * @param rawHtml - The raw html.
+ * @returns The recover sanitized image html.
  */
 function recoverSanitizedImageHtml(rawHtml: string): string {
   const imgTags = rawHtml.match(/<img\b[^>]*>/gi) ?? [];

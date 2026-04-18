@@ -7,9 +7,12 @@ test.describe("dashboard tablet inverted scroll", () => {
   test("applies the mobile inverted-scroll setting below desktop widths", async ({
     page,
   }) => {
-    await page.addInitScript(({ storageKey }) => {
-      window.localStorage.setItem(storageKey, JSON.stringify(true));
-    }, { storageKey: MOBILE_INVERTED_SCROLL_STORAGE_KEY });
+    await page.addInitScript(
+      ({ storageKey }) => {
+        window.localStorage.setItem(storageKey, JSON.stringify(true));
+      },
+      { storageKey: MOBILE_INVERTED_SCROLL_STORAGE_KEY },
+    );
 
     await page.setViewportSize({ height: 900, width: 900 });
     await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });

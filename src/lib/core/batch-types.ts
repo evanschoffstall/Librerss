@@ -42,11 +42,9 @@ export interface RefreshDecision {
 }
 
 /**
- * Verifies that a database row contains the fields required to become an article preview.
- *
- * The batch pipeline revalidates these fields before coercion so malformed or
- * partial query results never leak NaN or invalid dates into the dashboard.
- * @param row
+ * Return whether is valid ranked row.
+ * @param row - The row.
+ * @returns Whether is valid ranked row.
  */
 export function isValidRankedRow(row: RankedRow): boolean {
   const isValid = [
@@ -71,14 +69,18 @@ export function isValidRankedRow(row: RankedRow): boolean {
 }
 
 /**
- * @param value
+ * Return whether is date like.
+ * @param value - The value.
+ * @returns Whether is date like.
  */
 function isDateLike(value: unknown) {
   return typeof value === "string" || value instanceof Date;
 }
 
 /**
- * @param value
+ * Return whether is nullable boolean like.
+ * @param value - The value.
+ * @returns Whether is nullable boolean like.
  */
 function isNullableBooleanLike(value: unknown) {
   return (
@@ -87,14 +89,18 @@ function isNullableBooleanLike(value: unknown) {
 }
 
 /**
- * @param value
+ * Return whether is nullable string.
+ * @param value - The value.
+ * @returns Whether is nullable string.
  */
 function isNullableString(value: unknown) {
   return value === null || typeof value === "string";
 }
 
 /**
- * @param value
+ * Return whether is string or number.
+ * @param value - The value.
+ * @returns Whether is string or number.
  */
 function isStringOrNumber(value: unknown) {
   return typeof value === "number" || typeof value === "string";

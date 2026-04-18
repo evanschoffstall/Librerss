@@ -46,7 +46,11 @@ afterEach(() => {
     );
   }
   if (originalWindowLocalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalWindowLocalStorageDescriptor,
+    );
   }
 });
 

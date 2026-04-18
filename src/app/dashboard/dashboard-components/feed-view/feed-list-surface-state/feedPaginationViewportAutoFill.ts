@@ -20,8 +20,50 @@ export interface MaybeAutoFillViewportOptions {
   visibleArticleCountRef: { current: number };
 }
 
+interface CompleteViewportAutoFillOptions {
+  currentFilteredFeedLength: number;
+  effectiveListHeight: number;
+  hasUserScrolled: boolean;
+  options: MaybeAutoFillViewportOptions;
+  scrollViewport: HTMLElement;
+  shouldAllowStandardViewportRefill: boolean;
+}
+interface EffectiveListHeightOptions {
+  committedListHeight?: number;
+  scrollViewport: HTMLElement;
+}
+
+interface FinishViewportAutoFillOptions {
+  currentFilteredFeedLength: number;
+  expandVisibleWindow: (immediate?: boolean) => boolean;
+  hasPendingServerRevealRef: { current: boolean };
+  hasRequestedServerLoadRef: { current: boolean };
+  isInvertedScroll: boolean;
+  isStandardViewportRefillActiveRef: { current: boolean };
+  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
+  visibleArticleCountRef: { current: number };
+}
+interface ShouldContinueAutoFillOptions {
+  currentFilteredFeedLength: number;
+  currentVisibleCount: number;
+  effectiveListHeight: number;
+  hasUserScrolled: boolean;
+  isInitialLoading: boolean;
+  scrollViewport: HTMLElement;
+  shouldAllowStandardViewportRefill: boolean;
+}
+
+interface StandardViewportRefillStateOptions {
+  effectiveListHeight: number;
+  hasUserScrolled: boolean;
+  isInvertedScroll: boolean;
+  isStandardViewportRefillActiveRef: { current: boolean };
+  lastAutoFillListHeightRef: { current: null | number };
+}
+
 /**
- * @param options
+ * Process the maybe auto fill viewport now.
+ * @param options - The options used to process the maybe auto fill viewport now.
  */
 export function maybeAutoFillViewportNow(
   options: MaybeAutoFillViewportOptions & {
@@ -67,24 +109,11 @@ export function maybeAutoFillViewportNow(
     shouldAllowStandardViewportRefill,
   });
 }
-
 /**
- * @param options
- * @param options.currentFilteredFeedLength
- * @param options.effectiveListHeight
- * @param options.hasUserScrolled
- * @param options.options
- * @param options.scrollViewport
- * @param options.shouldAllowStandardViewportRefill
+ * Process the complete viewport auto fill.
+ * @param options - The options used to process the complete viewport auto fill.
  */
-function completeViewportAutoFill(options: {
-  currentFilteredFeedLength: number;
-  effectiveListHeight: number;
-  hasUserScrolled: boolean;
-  options: MaybeAutoFillViewportOptions;
-  scrollViewport: HTMLElement;
-  shouldAllowStandardViewportRefill: boolean;
-}) {
+function completeViewportAutoFill(options: CompleteViewportAutoFillOptions) {
   const shouldContinueAutoFill = resolveShouldContinueAutoFill({
     currentFilteredFeedLength: options.currentFilteredFeedLength,
     currentVisibleCount: options.options.visibleArticleCountRef.current,
@@ -126,30 +155,10 @@ function completeViewportAutoFill(options: {
 }
 
 /**
- * @param options
- * @param options.currentFilteredFeedLength
- * @param options.expandVisibleWindow
- * @param options.hasPendingServerRevealRef
- * @param options.hasPendingServerRevealRef.current
- * @param options.hasRequestedServerLoadRef
- * @param options.hasRequestedServerLoadRef.current
- * @param options.isInvertedScroll
- * @param options.isStandardViewportRefillActiveRef
- * @param options.isStandardViewportRefillActiveRef.current
- * @param options.requestMoreFromServer
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
+ * Process the finish viewport auto fill.
+ * @param options - The options used to process the finish viewport auto fill.
  */
-function finishViewportAutoFill(options: {
-  currentFilteredFeedLength: number;
-  expandVisibleWindow: (immediate?: boolean) => boolean;
-  hasPendingServerRevealRef: { current: boolean };
-  hasRequestedServerLoadRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
-  visibleArticleCountRef: { current: number };
-}) {
+function finishViewportAutoFill(options: FinishViewportAutoFillOptions) {
   if (
     options.visibleArticleCountRef.current < options.currentFilteredFeedLength
   ) {
@@ -167,9 +176,10 @@ function finishViewportAutoFill(options: {
     options.isStandardViewportRefillActiveRef.current = false;
   }
 }
-
 /**
- * @param scrollViewport
+ * Process the read viewport scroll height.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The read viewport scroll height.
  */
 function readViewportScrollHeight(scrollViewport: HTMLElement) {
   try {
@@ -180,14 +190,13 @@ function readViewportScrollHeight(scrollViewport: HTMLElement) {
 }
 
 /**
- * @param options
- * @param options.committedListHeight
- * @param options.scrollViewport
+ * Resolve the effective list height.
+ * @param options - The options used to resolve the effective list height.
+ * @returns The effective list height.
  */
-function resolveEffectiveListHeight(options: {
-  committedListHeight?: number;
-  scrollViewport: HTMLElement;
-}): number {
+function resolveEffectiveListHeight(
+  options: EffectiveListHeightOptions,
+): number {
   const { committedListHeight } = options;
   return typeof committedListHeight === "number" &&
     Number.isFinite(committedListHeight) &&
@@ -195,26 +204,12 @@ function resolveEffectiveListHeight(options: {
     ? committedListHeight
     : readViewportScrollHeight(options.scrollViewport);
 }
-
 /**
- * @param options
- * @param options.currentFilteredFeedLength
- * @param options.currentVisibleCount
- * @param options.effectiveListHeight
- * @param options.hasUserScrolled
- * @param options.isInitialLoading
- * @param options.scrollViewport
- * @param options.shouldAllowStandardViewportRefill
+ * Resolve the should continue auto fill.
+ * @param options - The options used to resolve the should continue auto fill.
+ * @returns Whether should continue auto fill.
  */
-function resolveShouldContinueAutoFill(options: {
-  currentFilteredFeedLength: number;
-  currentVisibleCount: number;
-  effectiveListHeight: number;
-  hasUserScrolled: boolean;
-  isInitialLoading: boolean;
-  scrollViewport: HTMLElement;
-  shouldAllowStandardViewportRefill: boolean;
-}) {
+function resolveShouldContinueAutoFill(options: ShouldContinueAutoFillOptions) {
   return shouldAutoFillViewport({
     clientHeight: options.scrollViewport.clientHeight,
     committedListHeight: options.effectiveListHeight,
@@ -227,22 +222,13 @@ function resolveShouldContinueAutoFill(options: {
 }
 
 /**
- * @param options
- * @param options.effectiveListHeight
- * @param options.hasUserScrolled
- * @param options.isInvertedScroll
- * @param options.isStandardViewportRefillActiveRef
- * @param options.isStandardViewportRefillActiveRef.current
- * @param options.lastAutoFillListHeightRef
- * @param options.lastAutoFillListHeightRef.current
+ * Resolve the standard viewport refill state.
+ * @param options - The options used to resolve the standard viewport refill state.
+ * @returns The standard viewport refill state.
  */
-function resolveStandardViewportRefillState(options: {
-  effectiveListHeight: number;
-  hasUserScrolled: boolean;
-  isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  lastAutoFillListHeightRef: { current: null | number };
-}) {
+function resolveStandardViewportRefillState(
+  options: StandardViewportRefillStateOptions,
+) {
   const previousListHeight = options.lastAutoFillListHeightRef.current;
   const hasListShrunk =
     previousListHeight !== null &&
@@ -257,8 +243,10 @@ function resolveStandardViewportRefillState(options: {
 }
 
 /**
- * @param options
- * @param currentFilteredFeedLength
+ * Return whether should skip viewport auto fill.
+ * @param options - The options used to return whether should skip viewport auto fill.
+ * @param currentFilteredFeedLength - The current filtered feed length value.
+ * @returns Whether should skip viewport auto fill.
  */
 function shouldSkipViewportAutoFill(
   options: MaybeAutoFillViewportOptions,

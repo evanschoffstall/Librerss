@@ -24,8 +24,9 @@ export interface PlaceholderSourceDefinition {
 }
 
 /**
- * Converts compact seed tuples into the named records used by the placeholder registry.
- * @param entries
+ * Create the placeholder seeds.
+ * @param entries - The entries.
+ * @returns The placeholder seeds.
  */
 export const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],

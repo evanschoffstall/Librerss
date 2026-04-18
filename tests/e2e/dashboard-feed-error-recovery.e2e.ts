@@ -80,7 +80,9 @@ async function gotoAuthenticatedDashboard(page: Page) {
 
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
 
-  await expect(page.locator("article[data-article-key]:visible").first()).toBeVisible({
+  await expect(
+    page.locator("article[data-article-key]:visible").first(),
+  ).toBeVisible({
     timeout: 15_000,
   });
 }

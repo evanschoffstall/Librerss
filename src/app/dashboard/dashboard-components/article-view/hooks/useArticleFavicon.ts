@@ -13,14 +13,12 @@ interface UseArticleFaviconOptions {
 }
 
 /**
- * @param root0
- * @param root0.fallbackUrl
- * @param root0.primaryUrl
+ * Manage the article favicon.
+ * @param options - The options used to manage the article favicon.
+ * @returns The article favicon state and callbacks.
  */
-export function useArticleFavicon({
-  fallbackUrl,
-  primaryUrl,
-}: UseArticleFaviconOptions) {
+export function useArticleFavicon(options: UseArticleFaviconOptions) {
+  const { fallbackUrl, primaryUrl } = options;
   const faviconCacheKey = useMemo(
     () => getFaviconCacheKey(primaryUrl, fallbackUrl),
     [fallbackUrl, primaryUrl],

@@ -24,11 +24,12 @@ const STANDARD_MINIMUM_OVERSCAN_COUNT = 5;
 const INVERTED_MINIMUM_OVERSCAN_COUNT = 4;
 
 /**
- * Builds the virtual entry list for the current scroll mode.
- * @param articles
- * @param feedViewKey
- * @param scrollMode
- * @param showLoadMoreBoundary
+ * Build the feed virtual list entries.
+ * @param articles - The articles.
+ * @param feedViewKey - The feed view key.
+ * @param scrollMode - The scroll mode.
+ * @param showLoadMoreBoundary - The show load more boundary.
+ * @returns The feed virtual list entries.
  */
 export function buildFeedVirtualListEntries(
   articles: Article[],
@@ -57,11 +58,12 @@ export function buildFeedVirtualListEntries(
 }
 
 /**
- * Converts the existing viewport padding contract into a TanStack overscan row count.
- * @param estimatedItemHeight
- * @param scrollMode
- * @param expandedArticleKey
- * @param isCollapseScrollRestoreActive
+ * Resolve the feed virtual list overscan count.
+ * @param estimatedItemHeight - The estimated item height value.
+ * @param scrollMode - The scroll mode.
+ * @param expandedArticleKey - The expanded article key.
+ * @param isCollapseScrollRestoreActive - Whether is collapse scroll restore active.
+ * @returns The feed virtual list overscan count.
  */
 export function resolveFeedVirtualListOverscanCount(
   estimatedItemHeight: number,
@@ -90,9 +92,11 @@ export function resolveFeedVirtualListOverscanCount(
 }
 
 /**
- * @param scrollMode
- * @param expandedArticleKey
- * @param isCollapseScrollRestoreActive
+ * Resolve the viewport increase.
+ * @param scrollMode - The scroll mode.
+ * @param expandedArticleKey - The expanded article key.
+ * @param isCollapseScrollRestoreActive - Whether is collapse scroll restore active.
+ * @returns The viewport increase.
  */
 function resolveViewportIncrease(
   scrollMode: FeedScrollMode,

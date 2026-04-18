@@ -64,33 +64,24 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
 const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 
 /**
- * Resolves whether the current dashboard selection can still paginate from the server.
- *
- * The controller should only mark the source exhausted after a server-backed fetch for
- * the active requested limit settles with fewer items than requested. Local optimistic
- * read-state changes must preserve the prior availability signal.
- * @param root0
- * @param root0.allowPartialFeedGrowth
- * @param root0.currentFeedLength
- * @param root0.hasStartedAwaitedWindowSettlement
- * @param root0.isAwaitingWindowSettlement
- * @param root0.isLoading
- * @param root0.previousFeedLength
- * @param root0.previousHasMoreServerArticles
- * @param root0.requestedArticleLimit
- * @param root0.shouldUseArticleWindow
+ * Resolve the article window availability.
+ * @param options - The options used to resolve the article window availability.
+ * @returns The article window availability.
  */
-export function resolveArticleWindowAvailability({
-  allowPartialFeedGrowth,
-  currentFeedLength,
-  hasStartedAwaitedWindowSettlement,
-  isAwaitingWindowSettlement,
-  isLoading,
-  previousFeedLength,
-  previousHasMoreServerArticles,
-  requestedArticleLimit,
-  shouldUseArticleWindow,
-}: ResolveArticleWindowAvailabilityOptions): ArticleWindowAvailabilityResult {
+export function resolveArticleWindowAvailability(
+  options: ResolveArticleWindowAvailabilityOptions,
+): ArticleWindowAvailabilityResult {
+  const {
+    allowPartialFeedGrowth,
+    currentFeedLength,
+    hasStartedAwaitedWindowSettlement,
+    isAwaitingWindowSettlement,
+    isLoading,
+    previousFeedLength,
+    previousHasMoreServerArticles,
+    requestedArticleLimit,
+    shouldUseArticleWindow,
+  } = options;
   if (!shouldUseArticleWindow) {
     return {
       hasMoreServerArticles: false,
@@ -133,21 +124,20 @@ export function resolveArticleWindowAvailability({
 }
 
 /**
- * Prevents load-more from starting before the live article window is ready.
- * @param root0
- * @param root0.currentFeedLength
- * @param root0.hasMoreServerArticles
- * @param root0.isCategoriesLoading
- * @param root0.isLoadingMoreArticles
- * @param root0.shouldUseArticleWindow
+ * Return whether should block article window load more.
+ * @param options - The options used to return whether should block article window load more.
+ * @returns Whether should block article window load more.
  */
-export function shouldBlockArticleWindowLoadMore({
-  currentFeedLength,
-  hasMoreServerArticles,
-  isCategoriesLoading,
-  isLoadingMoreArticles,
-  shouldUseArticleWindow,
-}: ShouldBlockArticleWindowLoadMoreOptions) {
+export function shouldBlockArticleWindowLoadMore(
+  options: ShouldBlockArticleWindowLoadMoreOptions,
+) {
+  const {
+    currentFeedLength,
+    hasMoreServerArticles,
+    isCategoriesLoading,
+    isLoadingMoreArticles,
+    shouldUseArticleWindow,
+  } = options;
   return (
     !shouldUseArticleWindow ||
     isCategoriesLoading ||
@@ -158,28 +148,23 @@ export function shouldBlockArticleWindowLoadMore({
 }
 
 /**
- * Determines whether the controller should refill an unread window that local
- * read-state changes have emptied.
- * @param root0
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.currentFeedLength
- * @param root0.currentFilteredFeedLength
- * @param root0.hasMoreServerArticles
- * @param root0.isLoading
- * @param root0.isRefillingDepletedUnreadWindow
- * @param root0.shouldUseArticleWindow
+ * Return whether should refill depleted unread window.
+ * @param options - The options used to return whether should refill depleted unread window.
+ * @returns Whether should refill depleted unread window.
  */
-export function shouldRefillDepletedUnreadWindow({
-  articleFilter,
-  articlesPerPage,
-  currentFeedLength,
-  currentFilteredFeedLength,
-  hasMoreServerArticles,
-  isLoading,
-  isRefillingDepletedUnreadWindow,
-  shouldUseArticleWindow,
-}: ShouldRefillDepletedUnreadWindowOptions) {
+export function shouldRefillDepletedUnreadWindow(
+  options: ShouldRefillDepletedUnreadWindowOptions,
+) {
+  const {
+    articleFilter,
+    articlesPerPage,
+    currentFeedLength,
+    currentFilteredFeedLength,
+    hasMoreServerArticles,
+    isLoading,
+    isRefillingDepletedUnreadWindow,
+    shouldUseArticleWindow,
+  } = options;
   const unreadRefillThreshold = resolveUnreadRefillThreshold(articlesPerPage);
 
   return (
@@ -194,12 +179,9 @@ export function shouldRefillDepletedUnreadWindow({
 }
 
 /**
- * Keeps one page plus a minimal overflow article buffered before unread refills.
- *
- * This matches the feed viewport contract: do not chase the server just because
- * local read-state updates removed a few visible rows. Refill only when the unread
- * window has fallen below one configured page and its smallest extra overflow.
- * @param articlesPerPage
+ * Resolve the unread refill threshold.
+ * @param articlesPerPage - The articles per page.
+ * @returns The unread refill threshold.
  */
 function resolveUnreadRefillThreshold(articlesPerPage: number) {
   return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);

@@ -49,8 +49,17 @@ export interface ArticleHeaderActionsProps {
   visuallyExpanded: boolean;
 }
 
+interface ArticleShareMenuLinkProps {
+  href: string;
+  icon?: React.ReactNode;
+  label: string;
+  onShareMenuOpenChange: (open: boolean) => void;
+}
+
 /**
- * @param props
+ * Render the article header actions component.
+ * @param props - The component props.
+ * @returns The rendered article header actions component.
  */
 export function ArticleHeaderActions(props: ArticleHeaderActionsProps) {
   return (
@@ -100,30 +109,29 @@ export function ArticleHeaderActions(props: ArticleHeaderActionsProps) {
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.articleActionControlProps
- * @param root0.iconBtnCls
- * @param root0.iconLinkCls
- * @param root0.isDevelopment
- * @param root0.onRawHtmlOpen
+ * Render the article header utility actions component.
+ * @param props - The component props.
+ * @returns The rendered article header utility actions component.
  */
-function ArticleHeaderUtilityActions({
-  article,
-  articleActionControlProps,
-  iconBtnCls,
-  iconLinkCls,
-  isDevelopment,
-  onRawHtmlOpen,
-}: Pick<
-  ArticleHeaderActionsProps,
-  | "article"
-  | "articleActionControlProps"
-  | "iconBtnCls"
-  | "iconLinkCls"
-  | "isDevelopment"
-  | "onRawHtmlOpen"
->) {
+function ArticleHeaderUtilityActions(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    | "article"
+    | "articleActionControlProps"
+    | "iconBtnCls"
+    | "iconLinkCls"
+    | "isDevelopment"
+    | "onRawHtmlOpen"
+  >,
+) {
+  const {
+    article,
+    articleActionControlProps,
+    iconBtnCls,
+    iconLinkCls,
+    isDevelopment,
+    onRawHtmlOpen,
+  } = props;
   return (
     <>
       {isDevelopment ? (
@@ -158,27 +166,27 @@ function ArticleHeaderUtilityActions({
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.articleActionControlProps
- * @param root0.iconBtnCls
- * @param root0.isUpdatingState
- * @param root0.onToggleRead
+ * Render the article read toggle button component.
+ * @param props - The component props.
+ * @returns The rendered article read toggle button component.
  */
-function ArticleReadToggleButton({
-  article,
-  articleActionControlProps,
-  iconBtnCls,
-  isUpdatingState,
-  onToggleRead,
-}: Pick<
-  ArticleHeaderActionsProps,
-  | "article"
-  | "articleActionControlProps"
-  | "iconBtnCls"
-  | "isUpdatingState"
-  | "onToggleRead"
->) {
+function ArticleReadToggleButton(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    | "article"
+    | "articleActionControlProps"
+    | "iconBtnCls"
+    | "isUpdatingState"
+    | "onToggleRead"
+  >,
+) {
+  const {
+    article,
+    articleActionControlProps,
+    iconBtnCls,
+    isUpdatingState,
+    onToggleRead,
+  } = props;
   return (
     <button
       aria-label={article.isRead ? "Mark as unread" : "Mark as read"}
@@ -234,45 +242,39 @@ function ArticleReadToggleButton({
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.articleActionControlProps
- * @param root0.encodedShareTitle
- * @param root0.encodedShareUrl
- * @param root0.iconBtnCls
- * @param root0.isShareMenuOpen
- * @param root0.onCopyLinkOpen
- * @param root0.onShare
- * @param root0.onShareMenuOpenChange
- * @param root0.shareUrl
- * @param root0.supportsNativeShare
+ * Render the article share action component.
+ * @param props - The component props.
+ * @returns The rendered article share action component.
  */
-function ArticleShareAction({
-  article,
-  articleActionControlProps,
-  encodedShareTitle,
-  encodedShareUrl,
-  iconBtnCls,
-  isShareMenuOpen,
-  onCopyLinkOpen,
-  onShare,
-  onShareMenuOpenChange,
-  shareUrl,
-  supportsNativeShare,
-}: Pick<
-  ArticleHeaderActionsProps,
-  | "article"
-  | "articleActionControlProps"
-  | "encodedShareTitle"
-  | "encodedShareUrl"
-  | "iconBtnCls"
-  | "isShareMenuOpen"
-  | "onCopyLinkOpen"
-  | "onShare"
-  | "onShareMenuOpenChange"
-  | "shareUrl"
-  | "supportsNativeShare"
->) {
+function ArticleShareAction(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    | "article"
+    | "articleActionControlProps"
+    | "encodedShareTitle"
+    | "encodedShareUrl"
+    | "iconBtnCls"
+    | "isShareMenuOpen"
+    | "onCopyLinkOpen"
+    | "onShare"
+    | "onShareMenuOpenChange"
+    | "shareUrl"
+    | "supportsNativeShare"
+  >,
+) {
+  const {
+    article,
+    articleActionControlProps,
+    encodedShareTitle,
+    encodedShareUrl,
+    iconBtnCls,
+    isShareMenuOpen,
+    onCopyLinkOpen,
+    onShare,
+    onShareMenuOpenChange,
+    shareUrl,
+    supportsNativeShare,
+  } = props;
   return supportsNativeShare ? (
     <NativeShareButton
       articleActionControlProps={articleActionControlProps}
@@ -293,41 +295,36 @@ function ArticleShareAction({
     />
   );
 }
-
 /**
- * @param root0
- * @param root0.article
- * @param root0.articleActionControlProps
- * @param root0.encodedShareTitle
- * @param root0.encodedShareUrl
- * @param root0.iconBtnCls
- * @param root0.isShareMenuOpen
- * @param root0.onCopyLinkOpen
- * @param root0.onShareMenuOpenChange
- * @param root0.shareUrl
+ * Render the article share menu component.
+ * @param props - The component props.
+ * @returns The rendered article share menu component.
  */
-function ArticleShareMenu({
-  article,
-  articleActionControlProps,
-  encodedShareTitle,
-  encodedShareUrl,
-  iconBtnCls,
-  isShareMenuOpen,
-  onCopyLinkOpen,
-  onShareMenuOpenChange,
-  shareUrl,
-}: Pick<
-  ArticleHeaderActionsProps,
-  | "article"
-  | "articleActionControlProps"
-  | "encodedShareTitle"
-  | "encodedShareUrl"
-  | "iconBtnCls"
-  | "isShareMenuOpen"
-  | "onCopyLinkOpen"
-  | "onShareMenuOpenChange"
-  | "shareUrl"
->) {
+function ArticleShareMenu(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    | "article"
+    | "articleActionControlProps"
+    | "encodedShareTitle"
+    | "encodedShareUrl"
+    | "iconBtnCls"
+    | "isShareMenuOpen"
+    | "onCopyLinkOpen"
+    | "onShareMenuOpenChange"
+    | "shareUrl"
+  >,
+) {
+  const {
+    article,
+    articleActionControlProps,
+    encodedShareTitle,
+    encodedShareUrl,
+    iconBtnCls,
+    isShareMenuOpen,
+    onCopyLinkOpen,
+    onShareMenuOpenChange,
+    shareUrl,
+  } = props;
   return (
     <DropdownMenu onOpenChange={onShareMenuOpenChange} open={isShareMenuOpen}>
       <DropdownMenuTrigger asChild>
@@ -381,23 +378,12 @@ function ArticleShareMenu({
 }
 
 /**
- * @param root0
- * @param root0.href
- * @param root0.icon
- * @param root0.label
- * @param root0.onShareMenuOpenChange
+ * Render the article share menu link component.
+ * @param props - The component props.
+ * @returns The rendered article share menu link component.
  */
-function ArticleShareMenuLink({
-  href,
-  icon,
-  label,
-  onShareMenuOpenChange,
-}: {
-  href: string;
-  icon?: React.ReactNode;
-  label: string;
-  onShareMenuOpenChange: (open: boolean) => void;
-}) {
+function ArticleShareMenuLink(props: ArticleShareMenuLinkProps) {
+  const { href, icon, label, onShareMenuOpenChange } = props;
   return (
     <DropdownMenuItem
       asChild
@@ -414,27 +400,27 @@ function ArticleShareMenuLink({
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.articleActionControlProps
- * @param root0.iconBtnCls
- * @param root0.isUpdatingState
- * @param root0.onToggleStarred
+ * Render the article star toggle button component.
+ * @param props - The component props.
+ * @returns The rendered article star toggle button component.
  */
-function ArticleStarToggleButton({
-  article,
-  articleActionControlProps,
-  iconBtnCls,
-  isUpdatingState,
-  onToggleStarred,
-}: Pick<
-  ArticleHeaderActionsProps,
-  | "article"
-  | "articleActionControlProps"
-  | "iconBtnCls"
-  | "isUpdatingState"
-  | "onToggleStarred"
->) {
+function ArticleStarToggleButton(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    | "article"
+    | "articleActionControlProps"
+    | "iconBtnCls"
+    | "isUpdatingState"
+    | "onToggleStarred"
+  >,
+) {
+  const {
+    article,
+    articleActionControlProps,
+    iconBtnCls,
+    isUpdatingState,
+    onToggleStarred,
+  } = props;
   return (
     <button
       aria-label={article.isStarred ? "Remove star" : "Star article"}
@@ -473,19 +459,17 @@ function ArticleStarToggleButton({
 }
 
 /**
- * @param root0
- * @param root0.articleActionControlProps
- * @param root0.iconBtnCls
- * @param root0.onShare
+ * Render the native share button component.
+ * @param props - The component props.
+ * @returns The rendered native share button component.
  */
-function NativeShareButton({
-  articleActionControlProps,
-  iconBtnCls,
-  onShare,
-}: Pick<
-  ArticleHeaderActionsProps,
-  "articleActionControlProps" | "iconBtnCls" | "onShare"
->) {
+function NativeShareButton(
+  props: Pick<
+    ArticleHeaderActionsProps,
+    "articleActionControlProps" | "iconBtnCls" | "onShare"
+  >,
+) {
+  const { articleActionControlProps, iconBtnCls, onShare } = props;
   return (
     <button
       aria-label="Share article"
@@ -502,8 +486,10 @@ function NativeShareButton({
 }
 
 /**
- * @param visuallyExpanded
- * @param isMobile
+ * Resolve the article header actions class name.
+ * @param visuallyExpanded - The visually expanded.
+ * @param isMobile - Whether is mobile.
+ * @returns The article header actions class name.
  */
 function resolveArticleHeaderActionsClassName(
   visuallyExpanded: boolean,

@@ -17,17 +17,22 @@ interface SettingsAccountActionRowProps {
   title: ReactNode;
 }
 
+interface SettingsAccountPolicyLinkProps {
+  href: string;
+  label: string;
+}
+
 interface SettingsAccountSectionProps {
   onAccountDeleted: () => void;
 }
 
 /**
- * @param root0
- * @param root0.onAccountDeleted
+ * Render the settings account section component.
+ * @param props - The component props.
+ * @returns The rendered settings account section component.
  */
-export function SettingsAccountSection({
-  onAccountDeleted,
-}: SettingsAccountSectionProps) {
+export function SettingsAccountSection(props: SettingsAccountSectionProps) {
+  const { onAccountDeleted } = props;
   const { handleDeleteActionClick, handleExport, isDeleting, isExporting } =
     useSettingsAccountActions(onAccountDeleted);
 
@@ -102,18 +107,13 @@ export function SettingsAccountSection({
     </>
   );
 }
-
 /**
- * @param root0
- * @param root0.action
- * @param root0.description
- * @param root0.title
+ * Render the settings account action row component.
+ * @param props - The component props.
+ * @returns The rendered settings account action row component.
  */
-function SettingsAccountActionRow({
-  action,
-  description,
-  title,
-}: SettingsAccountActionRowProps) {
+function SettingsAccountActionRow(props: SettingsAccountActionRowProps) {
+  const { action, description, title } = props;
   return (
     <div
       className="
@@ -131,17 +131,12 @@ function SettingsAccountActionRow({
 }
 
 /**
- * @param root0
- * @param root0.href
- * @param root0.label
+ * Render the settings account policy link component.
+ * @param props - The component props.
+ * @returns The rendered settings account policy link component.
  */
-function SettingsAccountPolicyLink({
-  href,
-  label,
-}: {
-  href: string;
-  label: string;
-}) {
+function SettingsAccountPolicyLink(props: SettingsAccountPolicyLinkProps) {
+  const { href, label } = props;
   return (
     <Link
       className="
@@ -158,14 +153,16 @@ function SettingsAccountPolicyLink({
 }
 
 /**
- * @param onAccountDeleted
+ * Manage the settings account actions.
+ * @param onAccountDeleted - The callback that on account deleted.
+ * @returns The settings account actions state and callbacks.
  */
 function useSettingsAccountActions(onAccountDeleted: () => void) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
   /**
-   *
+   * Process the handle export.
    */
   const handleExport = async () => {
     setIsExporting(true);
@@ -186,7 +183,7 @@ function useSettingsAccountActions(onAccountDeleted: () => void) {
   };
 
   /**
-   *
+   * Process the handle delete.
    */
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -204,7 +201,7 @@ function useSettingsAccountActions(onAccountDeleted: () => void) {
 
   return {
     /**
-     *
+     * Confirms account deletion before running the destructive delete flow.
      */
     handleDeleteActionClick: () => {
       const shouldDelete = window.confirm(

@@ -4,19 +4,22 @@ import { envBooleanOptional } from "@/lib/config";
 
 export const RUNTIME_FLAGS = {
   /**
-   *
+   * Returns whether signup should be available in the current runtime.
+   * @returns Whether signup is enabled.
    */
   get allowSignup() {
     return envBooleanOptional("ALLOW_SIGNUP", false);
   },
   /**
-   *
+   * Returns whether the runtime has a configured database connection string.
+   * @returns Whether DATABASE_URL is present.
    */
   get hasDatabaseUrl() {
     return Boolean(process.env.DATABASE_URL?.trim());
   },
   /**
-   *
+   * Returns whether the app should serve placeholder data instead of live data.
+   * @returns Whether placeholder mode is active.
    */
   get usePlaceholderData() {
     return !this.hasDatabaseUrl;

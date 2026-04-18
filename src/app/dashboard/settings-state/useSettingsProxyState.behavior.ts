@@ -16,6 +16,19 @@ import {
 } from "@/app/dashboard/settings-state/useSettingsProxyState.state";
 import { ArticleService } from "@/lib/api";
 
+interface HandleRunCompatibilityCheckOptions {
+  hasProxy: boolean;
+  proxyState: SettingsProxyWritableState;
+  requestState: SettingsProxyRequestState;
+}
+
+interface LoadProxySettingsOptions {
+  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
+  hasCachedSnapshot: boolean;
+  isEnabled: boolean;
+  proxyState: SettingsProxyWritableState;
+  requestState: SettingsProxyRequestState;
+}
 interface ProxyMutationHandlerOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   clearCompatibilityResults: () => void;
@@ -23,8 +36,31 @@ interface ProxyMutationHandlerOptions {
   requestState: SettingsProxyRequestState;
 }
 
+interface SettingsProxyActionsOptions {
+  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
+  clearCompatibilityResults: () => void;
+  hasProxy: boolean;
+  proxyState: SettingsProxyWritableState;
+  requestState: SettingsProxyRequestState;
+}
+interface SettingsProxyLifecycleOptions {
+  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
+  hasCachedSnapshot: boolean;
+  isEnabled: boolean;
+  proxyState: SettingsProxyWritableState;
+  requestState: SettingsProxyRequestState;
+}
+
+interface SyncAllowInsecureTlsOptions {
+  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
+  proxyState: SettingsProxyWritableState;
+  requestState: SettingsProxyRequestState;
+}
+
 /**
- * @param proxyState
+ * Manage the clear compatibility results.
+ * @param proxyState - The proxy state.
+ * @returns The clear compatibility results state and callbacks.
  */
 export function useClearCompatibilityResults(
   proxyState: SettingsProxyWritableState,
@@ -42,28 +78,19 @@ export function useClearCompatibilityResults(
     }
   };
 }
-
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.clearCompatibilityResults
- * @param root0.hasProxy
- * @param root0.proxyState
- * @param root0.requestState
+ * Manage the settings proxy actions.
+ * @param options - The options used to manage the settings proxy actions.
+ * @returns The settings proxy actions state and callbacks.
  */
-export function useSettingsProxyActions({
-  applyProxySettings,
-  clearCompatibilityResults,
-  hasProxy,
-  proxyState,
-  requestState,
-}: {
-  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
-  clearCompatibilityResults: () => void;
-  hasProxy: boolean;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}) {
+export function useSettingsProxyActions(options: SettingsProxyActionsOptions) {
+  const {
+    applyProxySettings,
+    clearCompatibilityResults,
+    hasProxy,
+    proxyState,
+    requestState,
+  } = options;
   return {
     handleClear: createHandleClear({
       applyProxySettings,
@@ -91,26 +118,19 @@ export function useSettingsProxyActions({
 }
 
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.hasCachedSnapshot
- * @param root0.isEnabled
- * @param root0.proxyState
- * @param root0.requestState
+ * Manage the settings proxy lifecycle.
+ * @param options - The options used to manage the settings proxy lifecycle.
  */
-export function useSettingsProxyLifecycle({
-  applyProxySettings,
-  hasCachedSnapshot,
-  isEnabled,
-  proxyState,
-  requestState,
-}: {
-  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
-  hasCachedSnapshot: boolean;
-  isEnabled: boolean;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}) {
+export function useSettingsProxyLifecycle(
+  options: SettingsProxyLifecycleOptions,
+) {
+  const {
+    applyProxySettings,
+    hasCachedSnapshot,
+    isEnabled,
+    proxyState,
+    requestState,
+  } = options;
   useEffect(() => {
     requestState.isMountedRef.current = true;
     return () => {
@@ -137,18 +157,17 @@ export function useSettingsProxyLifecycle({
 }
 
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.clearCompatibilityResults
- * @param root0.proxyState
- * @param root0.requestState
+ * Create the handle clear.
+ * @param options - The options used to create the handle clear.
+ * @returns The handle clear.
  */
-function createHandleClear({
-  applyProxySettings,
-  clearCompatibilityResults,
-  proxyState,
-  requestState,
-}: ProxyMutationHandlerOptions) {
+function createHandleClear(options: ProxyMutationHandlerOptions) {
+  const {
+    applyProxySettings,
+    clearCompatibilityResults,
+    proxyState,
+    requestState,
+  } = options;
   return async () => {
     const requestId = requestState.startProxyRequest();
     clearCompatibilityResults();
@@ -180,22 +199,15 @@ function createHandleClear({
     }
   };
 }
-
 /**
- * @param root0
- * @param root0.hasProxy
- * @param root0.proxyState
- * @param root0.requestState
+ * Create the handle run compatibility check.
+ * @param options - The options used to create the handle run compatibility check.
+ * @returns The handle run compatibility check.
  */
-function createHandleRunCompatibilityCheck({
-  hasProxy,
-  proxyState,
-  requestState,
-}: {
-  hasProxy: boolean;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}) {
+function createHandleRunCompatibilityCheck(
+  options: HandleRunCompatibilityCheckOptions,
+) {
+  const { hasProxy, proxyState, requestState } = options;
   return async () => {
     const requestId = requestState.startCompatibilityRequest();
     requestState.setActiveCompatibilityRequestId(requestId);
@@ -234,18 +246,17 @@ function createHandleRunCompatibilityCheck({
 }
 
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.clearCompatibilityResults
- * @param root0.proxyState
- * @param root0.requestState
+ * Create the handle save.
+ * @param options - The options used to create the handle save.
+ * @returns The handle save.
  */
-function createHandleSave({
-  applyProxySettings,
-  clearCompatibilityResults,
-  proxyState,
-  requestState,
-}: ProxyMutationHandlerOptions) {
+function createHandleSave(options: ProxyMutationHandlerOptions) {
+  const {
+    applyProxySettings,
+    clearCompatibilityResults,
+    proxyState,
+    requestState,
+  } = options;
   return async () => {
     const trimmed = proxyState.proxyUrl.trim();
     const trimmedUsername = proxyState.proxyUsername.trim() || null;
@@ -292,20 +303,12 @@ function createHandleSave({
 }
 
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.proxyState
- * @param root0.requestState
+ * Create the sync allow insecure tls.
+ * @param options - The options used to create the sync allow insecure tls.
+ * @returns The sync allow insecure tls.
  */
-function createSyncAllowInsecureTls({
-  applyProxySettings,
-  proxyState,
-  requestState,
-}: {
-  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}) {
+function createSyncAllowInsecureTls(options: SyncAllowInsecureTlsOptions) {
+  const { applyProxySettings, proxyState, requestState } = options;
   return async (checked: boolean) => {
     const currentUrl = proxyState.proxyUrl.trim();
     if (!currentUrl) {
@@ -339,9 +342,9 @@ function createSyncAllowInsecureTls({
     }
   };
 }
-
 /**
- * @param proxyState
+ * Manage the hydrate compatibility cache.
+ * @param proxyState - The proxy state.
  */
 function useHydrateCompatibilityCache(proxyState: SettingsProxyWritableState) {
   const { setCompatibilityCheckedAt, setCompatibilityResults } = proxyState;
@@ -356,26 +359,17 @@ function useHydrateCompatibilityCache(proxyState: SettingsProxyWritableState) {
 }
 
 /**
- * @param root0
- * @param root0.applyProxySettings
- * @param root0.hasCachedSnapshot
- * @param root0.isEnabled
- * @param root0.proxyState
- * @param root0.requestState
+ * Manage the load proxy settings.
+ * @param options - The options used to manage the load proxy settings.
  */
-function useLoadProxySettings({
-  applyProxySettings,
-  hasCachedSnapshot,
-  isEnabled,
-  proxyState,
-  requestState,
-}: {
-  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
-  hasCachedSnapshot: boolean;
-  isEnabled: boolean;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}) {
+function useLoadProxySettings(options: LoadProxySettingsOptions) {
+  const {
+    applyProxySettings,
+    hasCachedSnapshot,
+    isEnabled,
+    proxyState,
+    requestState,
+  } = options;
   const { setIsInitialProxyLoadPending, setProxyRoutingCheck, setProxyStatus } =
     proxyState;
   const { isCurrentProxyRequest, startProxyRequest } = requestState;
@@ -416,7 +410,8 @@ function useLoadProxySettings({
 }
 
 /**
- * @param proxyState
+ * Manage the proxy now clock.
+ * @param proxyState - The proxy state.
  */
 function useProxyNowClock(proxyState: SettingsProxyWritableState) {
   const { compatibilityCheckedAt, resultsRef, setNowTs } = proxyState;
@@ -436,7 +431,8 @@ function useProxyNowClock(proxyState: SettingsProxyWritableState) {
 }
 
 /**
- * @param proxyState
+ * Manage the proxy results auto scroll.
+ * @param proxyState - The proxy state.
  */
 function useProxyResultsAutoScroll(proxyState: SettingsProxyWritableState) {
   useEffect(() => {

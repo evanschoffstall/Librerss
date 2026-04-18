@@ -11,8 +11,10 @@ const FEED_DRAG_DATA_KEY = "application/x-librerss-feed-key";
 const CATEGORY_DRAG_DATA_KEY = "application/x-librerss-category-label";
 
 /**
- * @param event
- * @param dragType
+ * Return whether has drag type.
+ * @param event - The event.
+ * @param dragType - The drag type.
+ * @returns Whether has drag type.
  */
 const hasDragType = (event: React.DragEvent<HTMLElement>, dragType: string) =>
   Array.from(event.dataTransfer.types).includes(dragType);
@@ -29,14 +31,12 @@ interface UseSettingsDragOptions {
 }
 
 /**
- * @param root0
- * @param root0.onDropCategory
- * @param root0.onDropFeed
+ * Manage the settings drag.
+ * @param options - The options used to manage the settings drag.
+ * @returns The settings drag state and callbacks.
  */
-export function useSettingsDrag({
-  onDropCategory,
-  onDropFeed,
-}: UseSettingsDragOptions) {
+export function useSettingsDrag(options: UseSettingsDragOptions) {
+  const { onDropCategory, onDropFeed } = options;
   const feedDrag = useFeedSettingsDrag(onDropFeed);
   const categoryDrag = useCategorySettingsDrag(onDropCategory);
 
@@ -47,7 +47,9 @@ export function useSettingsDrag({
 }
 
 /**
- * @param onDropCategory
+ * Manage the category settings drag.
+ * @param onDropCategory - The callback that on drop category.
+ * @returns The category settings drag state and callbacks.
  */
 function useCategorySettingsDrag(
   onDropCategory: UseSettingsDragOptions["onDropCategory"],
@@ -118,7 +120,9 @@ function useCategorySettingsDrag(
 }
 
 /**
- * @param onDropFeed
+ * Manage the feed settings drag.
+ * @param onDropFeed - The callback that on drop feed.
+ * @returns The feed settings drag state and callbacks.
  */
 function useFeedSettingsDrag(onDropFeed: UseSettingsDragOptions["onDropFeed"]) {
   const [draggingFeedKey, setDraggingFeedKey] = useState<null | string>(null);

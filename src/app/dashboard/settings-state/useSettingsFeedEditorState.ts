@@ -11,6 +11,25 @@ import {
 } from "@/app/dashboard/settings-state/useSettingsDrag";
 import { isSameCategoryLabel } from "@/lib/utils";
 
+interface RunWithTransientFeedFlagOptions<TResult> {
+  run: () => Promise<TResult>;
+  setValue: (value: boolean) => void;
+}
+
+interface RunWithTransientFeedKeyOptions<TResult> {
+  key: string;
+  run: () => Promise<TResult>;
+  setKey: (key: null | string) => void;
+}
+
+interface SettingsFeedEditorActionsOptions {
+  onAddFeed: UseSettingsFeedEditorStateOptions["onAddFeed"];
+  onRemoveFeed: UseSettingsFeedEditorStateOptions["onRemoveFeed"];
+  onRenameFeed: UseSettingsFeedEditorStateOptions["onRenameFeed"];
+  onSetFeedEnabled: UseSettingsFeedEditorStateOptions["onSetFeedEnabled"];
+  onUpdateFeedSettings: UseSettingsFeedEditorStateOptions["onUpdateFeedSettings"];
+  state: ReturnType<typeof useSettingsFeedEditorLocalState>;
+}
 interface SettingsSharedFeedRowProps {
   deletingKey: null | string;
   draggingFeedKey: UseSettingsDragReturn["draggingFeedKey"];
@@ -38,38 +57,37 @@ interface SettingsSharedFeedRowProps {
   updatingSettingsKey: null | string;
 }
 
+interface SharedFeedRowPropsOptions {
+  actions: ReturnType<typeof useSettingsFeedEditorActions>;
+  drag: ReturnType<typeof useSettingsDrag>;
+  selectedCategory: string;
+  state: ReturnType<typeof useSettingsFeedEditorLocalState>;
+}
+
 type UseSettingsFeedEditorStateOptions = Omit<
   SettingsFeedStateOptions,
   "onImportOpml"
 >;
 
 /**
- * Owns feed row editing, enablement toggles, add-feed drafts, and drag state.
- *
- * Separating these concerns from OPML import keeps the mutable feed-management
- * path small enough to reason about independently.
- * @param root0
- * @param root0.categories
- * @param root0.onAddFeed
- * @param root0.onDropCategory
- * @param root0.onDropFeed
- * @param root0.onRemoveFeed
- * @param root0.onRenameFeed
- * @param root0.onSetFeedEnabled
- * @param root0.onUpdateFeedSettings
- * @param root0.selectedCategory
+ * Manage the settings feed editor state.
+ * @param options - The options used to manage the settings feed editor state.
+ * @returns The settings feed editor state state and callbacks.
  */
-export function useSettingsFeedEditorState({
-  categories,
-  onAddFeed,
-  onDropCategory,
-  onDropFeed,
-  onRemoveFeed,
-  onRenameFeed,
-  onSetFeedEnabled,
-  onUpdateFeedSettings,
-  selectedCategory,
-}: UseSettingsFeedEditorStateOptions) {
+export function useSettingsFeedEditorState(
+  options: UseSettingsFeedEditorStateOptions,
+) {
+  const {
+    categories,
+    onAddFeed,
+    onDropCategory,
+    onDropFeed,
+    onRemoveFeed,
+    onRenameFeed,
+    onSetFeedEnabled,
+    onUpdateFeedSettings,
+    selectedCategory,
+  } = options;
   const feedEditorState = useSettingsFeedEditorLocalState();
   const drag = useSettingsDrag({ onDropCategory, onDropFeed });
   useSyncSettingsFeedEditorState(categories, feedEditorState);
@@ -96,13 +114,14 @@ export function useSettingsFeedEditorState({
     newFeedName: feedEditorState.newFeedName,
     newFeedUrl: feedEditorState.newFeedUrl,
     /**
-     *
+     * Process the on cancel add feed.
      */
     onCancelAddFeed: () => {
       feedEditorState.setAddingFeedInCategory(null);
     },
     /**
-     * @param label
+     * Process the on toggle add feed.
+     * @param label - The label.
      */
     onToggleAddFeed: (label: string) => {
       feedEditorState.setAddingFeedInCategory(
@@ -118,23 +137,14 @@ export function useSettingsFeedEditorState({
 }
 
 /**
- * @param root0
- * @param root0.actions
- * @param root0.drag
- * @param root0.selectedCategory
- * @param root0.state
+ * Build the shared feed row props.
+ * @param options - The options used to build the shared feed row props.
+ * @returns The shared feed row props.
  */
-function buildSharedFeedRowProps({
-  actions,
-  drag,
-  selectedCategory,
-  state,
-}: {
-  actions: ReturnType<typeof useSettingsFeedEditorActions>;
-  drag: ReturnType<typeof useSettingsDrag>;
-  selectedCategory: string;
-  state: ReturnType<typeof useSettingsFeedEditorLocalState>;
-}): SettingsSharedFeedRowProps {
+function buildSharedFeedRowProps(
+  options: SharedFeedRowPropsOptions,
+): SettingsSharedFeedRowProps {
+  const { actions, drag, selectedCategory, state } = options;
   return {
     deletingKey: state.deletingKey,
     draggingFeedKey: drag.draggingFeedKey,
@@ -151,17 +161,24 @@ function buildSharedFeedRowProps({
     onFeedDragStart: drag.onFeedDragStart,
     onFeedDrop: drag.onFeedDrop,
     /**
-     * @param key
+     * Process the on remove feed.
+     * @param key - The key.
      */
-    onRemoveFeed: (key: string) => void actions.handleRemoveFeed(key),
+    onRemoveFeed: (key: string) => {
+      void actions.handleRemoveFeed(key);
+    },
     /**
-     * @param key
+     * Process the on save feed rename.
+     * @param key - The key.
      */
-    onSaveFeedRename: (key: string) => void actions.handleSaveFeedRename(key),
+    onSaveFeedRename: (key: string) => {
+      void actions.handleSaveFeedRename(key);
+    },
     /**
-     * @param key
-     * @param name
-     * @param url
+     * Process the on start feed edit.
+     * @param key - The key.
+     * @param name - The name.
+     * @param url - The url.
      */
     onStartFeedEdit: (key: string, name: string, url: string) => {
       state.setEditingFeedKey(key);
@@ -169,23 +186,29 @@ function buildSharedFeedRowProps({
       state.setEditingFeedUrl(url);
     },
     /**
-     * @param key
-     * @param disabled
+     * Process the on toggle extraction disabled.
+     * @param key - The key.
+     * @param disabled - The disabled.
      */
-    onToggleExtractionDisabled: (key: string, disabled: boolean) =>
-      void actions.handleToggleExtractionDisabled(key, disabled),
+    onToggleExtractionDisabled: (key: string, disabled: boolean) => {
+      void actions.handleToggleExtractionDisabled(key, disabled);
+    },
     /**
-     * @param key
-     * @param enabled
+     * Process the on toggle feed enabled.
+     * @param key - The key.
+     * @param enabled - The enabled.
      */
-    onToggleFeedEnabled: (key: string, enabled: boolean) =>
-      void actions.handleToggleFeedEnabled(key, enabled),
+    onToggleFeedEnabled: (key: string, enabled: boolean) => {
+      void actions.handleToggleFeedEnabled(key, enabled);
+    },
     /**
-     * @param key
-     * @param enabled
+     * Process the on toggle proxy enabled.
+     * @param key - The key.
+     * @param enabled - The enabled.
      */
-    onToggleProxyEnabled: (key: string, enabled: boolean) =>
-      void actions.handleToggleProxyEnabled(key, enabled),
+    onToggleProxyEnabled: (key: string, enabled: boolean) => {
+      void actions.handleToggleProxyEnabled(key, enabled);
+    },
     savingFeedKey: state.savingFeedKey,
     selectedCategory,
     togglingFeedKey: state.togglingFeedKey,
@@ -194,9 +217,11 @@ function buildSharedFeedRowProps({
 }
 
 /**
- * @param setKey
- * @param onUpdateFeedSettings
- * @param settingKey
+ * Create the feed settings toggle handler.
+ * @param setKey - The callback that set key.
+ * @param onUpdateFeedSettings - The callback that on update feed settings.
+ * @param settingKey - The setting key.
+ * @returns The feed settings toggle handler.
  */
 function createFeedSettingsToggleHandler(
   setKey: (key: null | string) => void,
@@ -211,8 +236,10 @@ function createFeedSettingsToggleHandler(
 }
 
 /**
- * @param state
- * @param onAddFeed
+ * Create the handle add feed.
+ * @param state - The state.
+ * @param onAddFeed - The callback that on add feed.
+ * @returns The handle add feed.
  */
 function createHandleAddFeed(
   state: ReturnType<typeof useSettingsFeedEditorLocalState>,
@@ -221,7 +248,7 @@ function createHandleAddFeed(
   return async (categoryLabel: string) => {
     await runWithTransientFeedFlag({
       /**
-       *
+       * Process the run.
        */
       run: async () => {
         const didSave = await onAddFeed(
@@ -238,11 +265,12 @@ function createHandleAddFeed(
     });
   };
 }
-
 /**
- * @param state
- * @param onRenameFeed
- * @param clearFeedEdit
+ * Create the handle save feed rename.
+ * @param state - The state.
+ * @param onRenameFeed - The callback that on rename feed.
+ * @param clearFeedEdit - The callback that clear feed edit.
+ * @returns The handle save feed rename.
  */
 function createHandleSaveFeedRename(
   state: ReturnType<typeof useSettingsFeedEditorLocalState>,
@@ -253,7 +281,7 @@ function createHandleSaveFeedRename(
     await runWithTransientFeedKey({
       key: feedKey,
       /**
-       *
+       * Process the run.
        */
       run: async () => {
         const didSave = await onRenameFeed(
@@ -270,8 +298,10 @@ function createHandleSaveFeedRename(
 }
 
 /**
- * @param setKey
- * @param run
+ * Create the transient feed key only handler.
+ * @param setKey - The callback that set key.
+ * @param run - The callback that run.
+ * @returns The transient feed key only handler.
  */
 function createTransientFeedKeyOnlyHandler(
   setKey: (key: null | string) => void,
@@ -281,17 +311,19 @@ function createTransientFeedKeyOnlyHandler(
     await runWithTransientFeedKey({
       key: feedKey,
       /**
-       *
+       * Process the run.
+       * @returns The run.
        */
       run: () => run(feedKey),
       setKey,
     });
   };
 }
-
 /**
- * @param setKey
- * @param run
+ * Create the transient feed key value handler.
+ * @param setKey - The callback that set key.
+ * @param run - The callback that run.
+ * @returns The transient feed key value handler.
  */
 function createTransientFeedKeyValueHandler<TValue>(
   setKey: (key: null | string) => void,
@@ -301,7 +333,8 @@ function createTransientFeedKeyValueHandler<TValue>(
     await runWithTransientFeedKey({
       key: feedKey,
       /**
-       *
+       * Process the run.
+       * @returns The run.
        */
       run: () => run(feedKey, value),
       setKey,
@@ -310,14 +343,13 @@ function createTransientFeedKeyValueHandler<TValue>(
 }
 
 /**
- * @param options
- * @param options.run
- * @param options.setValue
+ * Process the run with transient feed flag.
+ * @param options - The options used to process the run with transient feed flag.
+ * @returns The run with transient feed flag.
  */
-async function runWithTransientFeedFlag<T>(options: {
-  run: () => Promise<T>;
-  setValue: (value: boolean) => void;
-}) {
+async function runWithTransientFeedFlag<T>(
+  options: RunWithTransientFeedFlagOptions<T>,
+): Promise<T> {
   options.setValue(true);
   try {
     return await options.run();
@@ -325,18 +357,14 @@ async function runWithTransientFeedFlag<T>(options: {
     options.setValue(false);
   }
 }
-
 /**
- * @param options
- * @param options.key
- * @param options.run
- * @param options.setKey
+ * Process the run with transient feed key.
+ * @param options - The options used to process the run with transient feed key.
+ * @returns The run with transient feed key.
  */
-async function runWithTransientFeedKey<T>(options: {
-  key: string;
-  run: () => Promise<T>;
-  setKey: (key: null | string) => void;
-}) {
+async function runWithTransientFeedKey<T>(
+  options: RunWithTransientFeedKeyOptions<T>,
+): Promise<T> {
   options.setKey(options.key);
   try {
     return await options.run();
@@ -346,31 +374,23 @@ async function runWithTransientFeedKey<T>(options: {
 }
 
 /**
- * @param root0
- * @param root0.onAddFeed
- * @param root0.onRemoveFeed
- * @param root0.onRenameFeed
- * @param root0.onSetFeedEnabled
- * @param root0.onUpdateFeedSettings
- * @param root0.state
+ * Manage the settings feed editor actions.
+ * @param options - The options used to manage the settings feed editor actions.
+ * @returns The settings feed editor actions state and callbacks.
  */
-function useSettingsFeedEditorActions({
-  onAddFeed,
-  onRemoveFeed,
-  onRenameFeed,
-  onSetFeedEnabled,
-  onUpdateFeedSettings,
-  state,
-}: {
-  onAddFeed: UseSettingsFeedEditorStateOptions["onAddFeed"];
-  onRemoveFeed: UseSettingsFeedEditorStateOptions["onRemoveFeed"];
-  onRenameFeed: UseSettingsFeedEditorStateOptions["onRenameFeed"];
-  onSetFeedEnabled: UseSettingsFeedEditorStateOptions["onSetFeedEnabled"];
-  onUpdateFeedSettings: UseSettingsFeedEditorStateOptions["onUpdateFeedSettings"];
-  state: ReturnType<typeof useSettingsFeedEditorLocalState>;
-}) {
+function useSettingsFeedEditorActions(
+  options: SettingsFeedEditorActionsOptions,
+) {
+  const {
+    onAddFeed,
+    onRemoveFeed,
+    onRenameFeed,
+    onSetFeedEnabled,
+    onUpdateFeedSettings,
+    state,
+  } = options;
   /**
-   *
+   * Process the clear feed edit.
    */
   const clearFeedEdit = () => {
     state.setEditingFeedKey(null);
@@ -408,7 +428,8 @@ function useSettingsFeedEditorActions({
 }
 
 /**
- *
+ * Manage the settings feed editor local state.
+ * @returns The settings feed editor local state state and callbacks.
  */
 function useSettingsFeedEditorLocalState() {
   const [newFeedName, setNewFeedName] = useState("");
@@ -454,8 +475,9 @@ function useSettingsFeedEditorLocalState() {
 }
 
 /**
- * @param categories
- * @param state
+ * Manage the sync settings feed editor state.
+ * @param categories - The categories.
+ * @param state - The state.
  */
 function useSyncSettingsFeedEditorState(
   categories: CategoryTreeNode[],

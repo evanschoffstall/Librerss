@@ -14,7 +14,9 @@ export {
 } from "./text-cleaners";
 
 /**
- * @param value
+ * Process the escape html attribute.
+ * @param value - The value.
+ * @returns The escape html attribute.
  */
 export function escapeHtmlAttribute(value: string): string {
   return value
@@ -25,7 +27,9 @@ export function escapeHtmlAttribute(value: string): string {
 }
 
 /**
- * @param html
+ * Normalize the article html spacing.
+ * @param html - The html.
+ * @returns The article html spacing.
  */
 export function normalizeArticleHtmlSpacing(html: string): string {
   return stripEmptyTagBlocks(html)
@@ -36,7 +40,9 @@ export function normalizeArticleHtmlSpacing(html: string): string {
 }
 
 /**
- * @param html
+ * Process the strip ap junk blocks.
+ * @param html - The html.
+ * @returns The strip ap junk blocks.
  */
 export function stripApJunkBlocks(html: string): string {
   const marked = html.replace(
@@ -53,10 +59,9 @@ export function stripApJunkBlocks(html: string): string {
 }
 
 /**
- * Strip anchor elements whose inner content contains no visible text and no
- * img child.  These are left behind when sanitize-html strips non-allowed
- * children (SVG icons, buttons) from inside a link.
- * @param html
+ * Process the strip empty anchors.
+ * @param html - The html.
+ * @returns The strip empty anchors.
  */
 export function stripEmptyAnchors(html: string): string {
   return html.replace(/<a\b[^>]*>([\s\S]*?)<\/a>/gi, (match, inner: string) => {
@@ -66,7 +71,9 @@ export function stripEmptyAnchors(html: string): string {
 }
 
 /**
- * @param raw
+ * Process the to paragraph html.
+ * @param raw - The raw.
+ * @returns The to paragraph html.
  */
 export function toParagraphHtml(raw: string): string {
   return raw
@@ -78,8 +85,10 @@ export function toParagraphHtml(raw: string): string {
 }
 
 /**
- * @param html
- * @param openMatch
+ * Process the find element removal end index.
+ * @param html - The html.
+ * @param openMatch - The open match.
+ * @returns The find element removal end index.
  */
 function findElementRemovalEndIndex(
   html: string,
@@ -105,7 +114,9 @@ function findElementRemovalEndIndex(
 }
 
 /**
- * @param content
+ * Return whether has only empty list items.
+ * @param content - The content.
+ * @returns Whether has only empty list items.
  */
 function hasOnlyEmptyListItems(content: string): boolean {
   const listItems = [...content.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)];
@@ -114,7 +125,9 @@ function hasOnlyEmptyListItems(content: string): boolean {
 }
 
 /**
- * @param content
+ * Return whether is empty inline html.
+ * @param content - The content.
+ * @returns Whether is empty inline html.
  */
 function isEmptyInlineHtml(content: string): boolean {
   const withoutFormattingTags = content.replace(
@@ -130,9 +143,11 @@ function isEmptyInlineHtml(content: string): boolean {
 }
 
 /**
- * @param html
- * @param attr
- * @param pattern
+ * Process the remove elements by attr pattern.
+ * @param html - The html.
+ * @param attr - The attr.
+ * @param pattern - The pattern.
+ * @returns The remove elements by attr pattern.
  */
 function removeElementsByAttrPattern(
   html: string,
@@ -156,7 +171,9 @@ function removeElementsByAttrPattern(
 }
 
 /**
- * @param html
+ * Process the strip empty list items.
+ * @param html - The html.
+ * @returns The strip empty list items.
  */
 function stripEmptyListItems(html: string): string {
   return html.replace(
@@ -166,7 +183,9 @@ function stripEmptyListItems(html: string): string {
 }
 
 /**
- * @param html
+ * Process the strip empty tag blocks.
+ * @param html - The html.
+ * @returns The strip empty tag blocks.
  */
 function stripEmptyTagBlocks(html: string): string {
   return stripEmptyListItems(html).replace(
@@ -195,14 +214,9 @@ export const SOCIAL_SHARE_LINK_RE =
   /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
 
 /**
- * Strip noise containers (scripts, styles, headers, footers, comment widgets,
- * pure-link lists, social share blocks, nosnippet asides) from raw HTML before
- * passing to the content manipulator.
- *
- * CRITICAL: This function receives raw HTML from upstream sources and MUST
- * call purifyRawHtml() as the VERY FIRST operation to strip XSS vectors
- * before any other processing.
- * @param rawHtml
+ * Process the pre clean html.
+ * @param rawHtml - The raw html.
+ * @returns The pre clean html.
  */
 export function preCleanHtml(rawHtml: string): string {
   // MANDATORY: DOMPurify as first line of defense against XSS
@@ -223,7 +237,9 @@ export function preCleanHtml(rawHtml: string): string {
 }
 
 /**
- * @param html
+ * Process the strip bare link lists.
+ * @param html - The html.
+ * @returns The strip bare link lists.
  */
 function stripBareLinkLists(html: string): string {
   return html.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
@@ -245,7 +261,9 @@ function stripBareLinkLists(html: string): string {
 }
 
 /**
- * @param html
+ * Process the strip obvious noise blocks.
+ * @param html - The html.
+ * @returns The strip obvious noise blocks.
  */
 function stripObviousNoiseBlocks(html: string): string {
   return html

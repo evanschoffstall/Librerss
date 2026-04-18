@@ -265,8 +265,9 @@ describe("hooks/useLocalStorage", () => {
       writable: true,
     });
 
-    const { useLocalStorage: useLocalStorageHook } =
-      await import(`@/lib/hooks/useLocalStorage?test=${Date.now()}`);
+    const { useLocalStorage: useLocalStorageHook } = await import(
+      `@/lib/hooks/useLocalStorage?test=${Date.now()}`
+    );
     const { result } = renderHook(() => useLocalStorageHook("key", "default"));
 
     await waitFor(() => {

@@ -45,9 +45,11 @@ interface ArticleServiceDeps {
 }
 
 /**
- * @param userId
- * @param params
- * @param deps
+ * Create the article.
+ * @param userId - The r id.
+ * @param params - The params.
+ * @param deps - The deps.
+ * @returns The article.
  */
 export async function createArticle(
   userId: number,
@@ -74,9 +76,11 @@ export async function createArticle(
 }
 
 /**
- * @param userId
- * @param articleId
- * @param deps
+ * Return the article by id.
+ * @param userId - The r id.
+ * @param articleId - The article id.
+ * @param deps - The deps.
+ * @returns The article by id.
  */
 export async function getArticleById(
   userId: number,
@@ -94,8 +98,10 @@ export async function getArticleById(
 }
 
 /**
- * @param userId
- * @param deps
+ * Process the list user articles.
+ * @param userId - The r id.
+ * @param deps - The deps.
+ * @returns The list user articles.
  */
 export async function listUserArticles(
   userId: number,
@@ -113,8 +119,9 @@ export async function listUserArticles(
 }
 
 /**
- * @param userId
- * @param streamId
+ * Process the mark stream read.
+ * @param userId - The r id.
+ * @param streamId - The stream id.
  */
 export async function markStreamRead(userId: number, streamId: string) {
   await markStreamAsRead(userId, streamId);
@@ -122,10 +129,11 @@ export async function markStreamRead(userId: number, streamId: string) {
 }
 
 /**
- * @param userId
- * @param articleId
- * @param updates
- * @param deps
+ * Update the article status.
+ * @param userId - The r id.
+ * @param articleId - The article id.
+ * @param updates - The s.
+ * @param deps - The deps.
  */
 export async function updateArticleStatus(
   userId: number,
@@ -148,11 +156,10 @@ export async function updateArticleStatus(
 }
 
 /**
- * Confirms the target feed belongs to the authenticated user before allowing
- * direct article insertion.
- * @param db
- * @param userId
- * @param feedId
+ * Process the assert user owns feed.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedId - The feed id.
  */
 async function assertUserOwnsFeed(
   db: ReturnType<typeof getDb>,
@@ -179,8 +186,9 @@ async function assertUserOwnsFeed(
 }
 
 /**
- * Builds the sanitized article insert payload from raw request parameters.
- * @param params
+ * Build the article insert values.
+ * @param params - The params.
+ * @returns The article insert values.
  */
 function buildArticleInsertValues(params: CreateArticleParams) {
   return {

@@ -73,10 +73,9 @@ async function readLatestToastMetrics(page: Page) {
 /** Seeds the mobile toast and toolbar settings before the dashboard reads them. */
 async function setMobileToastPreferences(
   page: Page,
-  { mobileUiGroupedLayout }: Omit<
-    MobileToastPreferenceMatrixCase,
-    "expectedTop" | "name"
-  >,
+  {
+    mobileUiGroupedLayout,
+  }: Omit<MobileToastPreferenceMatrixCase, "expectedTop" | "name">,
 ) {
   await page.addInitScript(
     ({

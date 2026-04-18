@@ -12,6 +12,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/lib/hooks";
 import { generateOpml } from "@/lib/utils";
 
+interface SettingsFeedManagementActionsProps {
+  categories: CategoryTreeNode[];
+  isImportingOpml: boolean;
+  isMobile: boolean;
+  onImportClick: () => void;
+  onOpmlFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  opmlInputRef: SettingsModalState["opmlInputRef"];
+}
+
 interface SettingsFeedManagementSectionProps {
   categories: CategoryTreeNode[];
   isPreviewMode?: boolean;
@@ -19,23 +28,21 @@ interface SettingsFeedManagementSectionProps {
   pendingCategoryRemovalLabel: null | string;
   state: SettingsModalState;
 }
-
 /**
- * Renders feed import, export, and category/feed management controls.
- * @param root0
- * @param root0.categories
- * @param root0.isPreviewMode
- * @param root0.onRemoveCategory
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.state
+ * Render the settings feed management section component.
+ * @param props - The component props.
+ * @returns The rendered settings feed management section component.
  */
-export function SettingsFeedManagementSection({
-  categories,
-  isPreviewMode = false,
-  onRemoveCategory,
-  pendingCategoryRemovalLabel,
-  state,
-}: SettingsFeedManagementSectionProps) {
+export function SettingsFeedManagementSection(
+  props: SettingsFeedManagementSectionProps,
+) {
+  const {
+    categories,
+    isPreviewMode = false,
+    onRemoveCategory,
+    pendingCategoryRemovalLabel,
+    state,
+  } = props;
   const isMobile = useIsMobile();
 
   return (
@@ -77,29 +84,21 @@ export function SettingsFeedManagementSection({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.isImportingOpml
- * @param root0.isMobile
- * @param root0.onImportClick
- * @param root0.onOpmlFileChange
- * @param root0.opmlInputRef
+ * Render the settings feed management actions component.
+ * @param props - The component props.
+ * @returns The rendered settings feed management actions component.
  */
-function SettingsFeedManagementActions({
-  categories,
-  isImportingOpml,
-  isMobile,
-  onImportClick,
-  onOpmlFileChange,
-  opmlInputRef,
-}: {
-  categories: CategoryTreeNode[];
-  isImportingOpml: boolean;
-  isMobile: boolean;
-  onImportClick: () => void;
-  onOpmlFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  opmlInputRef: SettingsModalState["opmlInputRef"];
-}) {
+function SettingsFeedManagementActions(
+  props: SettingsFeedManagementActionsProps,
+) {
+  const {
+    categories,
+    isImportingOpml,
+    isMobile,
+    onImportClick,
+    onOpmlFileChange,
+    opmlInputRef,
+  } = props;
   return (
     <div className="flex shrink-0 items-center gap-2">
       <input
@@ -154,21 +153,18 @@ function SettingsFeedManagementActions({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.onRemoveCategory
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.state
+ * Render the settings feed management list component.
+ * @param props - The component props.
+ * @returns The rendered settings feed management list component.
  */
-function SettingsFeedManagementList({
-  categories,
-  onRemoveCategory,
-  pendingCategoryRemovalLabel,
-  state,
-}: Pick<
-  SettingsFeedManagementSectionProps,
-  "categories" | "onRemoveCategory" | "pendingCategoryRemovalLabel" | "state"
->) {
+function SettingsFeedManagementList(
+  props: Pick<
+    SettingsFeedManagementSectionProps,
+    "categories" | "onRemoveCategory" | "pendingCategoryRemovalLabel" | "state"
+  >,
+) {
+  const { categories, onRemoveCategory, pendingCategoryRemovalLabel, state } =
+    props;
   return state.isImportingOpml ? (
     <SettingsImportSkeleton />
   ) : (

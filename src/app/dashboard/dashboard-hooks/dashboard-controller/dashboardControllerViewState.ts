@@ -84,7 +84,9 @@ export interface UseDashboardControllerViewStateOptions {
 }
 
 /**
- * @param options
+ * Manage the dashboard controller view state.
+ * @param options - The options used to manage the dashboard controller view state.
+ * @returns The dashboard controller view state state and callbacks.
  */
 export function useDashboardControllerViewState(
   options: UseDashboardControllerViewStateOptions,
@@ -94,8 +96,10 @@ export function useDashboardControllerViewState(
 }
 
 /**
- * @param isFeedListInitialLoading
- * @param settleMs
+ * Manage the dashboard shell loading state.
+ * @param isFeedListInitialLoading - Whether is feed list initial loading.
+ * @param settleMs - The settle ms value.
+ * @returns Whether dashboard shell loading state.
  */
 export function useDashboardShellLoadingState(
   isFeedListInitialLoading: boolean,
@@ -140,7 +144,9 @@ export function useDashboardShellLoadingState(
 }
 
 /**
- * @param options
+ * Build the dashboard feed list state.
+ * @param options - The options used to build the dashboard feed list state.
+ * @returns The dashboard feed list state.
  */
 function buildDashboardFeedListState(
   options: UseDashboardControllerViewStateOptions,
@@ -183,7 +189,9 @@ function buildDashboardFeedListState(
 }
 
 /**
- * @param options
+ * Build the dashboard filter bar state.
+ * @param options - The options used to build the dashboard filter bar state.
+ * @returns The dashboard filter bar state.
  */
 function buildDashboardFilterBarState(
   options: UseDashboardControllerViewStateOptions,
@@ -201,7 +209,9 @@ function buildDashboardFilterBarState(
 }
 
 /**
- * @param options
+ * Build the dashboard settings state.
+ * @param options - The options used to build the dashboard settings state.
+ * @returns The dashboard settings state.
  */
 function buildDashboardSettingsState(
   options: UseDashboardControllerViewStateOptions,
@@ -227,7 +237,9 @@ function buildDashboardSettingsState(
 }
 
 /**
- * @param options
+ * Build the dashboard sidebar state.
+ * @param options - The options used to build the dashboard sidebar state.
+ * @returns The dashboard sidebar state.
  */
 function buildDashboardSidebarState(
   options: UseDashboardControllerViewStateOptions,
@@ -249,7 +261,9 @@ function buildDashboardSidebarState(
 }
 
 /**
- * @param options
+ * Manage the dashboard controller sections.
+ * @param options - The options used to manage the dashboard controller sections.
+ * @returns The dashboard controller sections state and callbacks.
  */
 function useDashboardControllerSections(
   options: UseDashboardControllerViewStateOptions,
@@ -263,7 +277,9 @@ function useDashboardControllerSections(
 }
 
 /**
- * @param controllerSections
+ * Manage the dashboard controller state memo.
+ * @param controllerSections - The callback that controller sections.
+ * @returns The dashboard controller state memo state and callbacks.
  */
 function useDashboardControllerStateMemo(
   controllerSections: ReturnType<typeof useDashboardControllerSections>,

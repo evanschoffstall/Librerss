@@ -12,12 +12,13 @@ let hasHydratedFaviconIndexCache = false;
 let hydratedFaviconIndexCachePayload: null | string = null;
 
 /**
- *
+ * Return whether can use storage.
+ * @returns Whether can use storage.
  */
 const canUseStorage = () => typeof window !== "undefined";
 
 /**
- *
+ * Process the trim favicon index cache.
  */
 const trimFaviconIndexCache = () => {
   let iterations = 0;
@@ -38,7 +39,7 @@ const trimFaviconIndexCache = () => {
 };
 
 /**
- *
+ * Process the persist favicon index cache.
  */
 const persistFaviconIndexCache = () => {
   if (!canUseStorage()) {
@@ -58,7 +59,9 @@ const persistFaviconIndexCache = () => {
 };
 
 /**
- * @param entry
+ * Return whether is expired failure.
+ * @param entry - The entry.
+ * @returns Whether is expired failure.
  */
 const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
   if (entry.index !== -1) {
@@ -73,7 +76,9 @@ const isExpiredFailure = (entry: FaviconCacheEntry): boolean => {
 };
 
 /**
- * @param value
+ * Return whether is cached favicon entry.
+ * @param value - The value.
+ * @returns Whether is cached favicon entry.
  */
 const isCachedFaviconEntry = (
   value: unknown,
@@ -87,7 +92,9 @@ const isCachedFaviconEntry = (
 };
 
 /**
- * @param value
+ * Parse the cached favicon entry.
+ * @param value - The value.
+ * @returns The cached favicon entry.
  */
 const parseCachedFaviconEntry = (value: unknown): FaviconCacheEntry | null => {
   if (!isCachedFaviconEntry(value)) {
@@ -103,7 +110,7 @@ const parseCachedFaviconEntry = (value: unknown): FaviconCacheEntry | null => {
 };
 
 /**
- *
+ * Process the hydrate favicon index cache.
  */
 const hydrateFaviconIndexCache = () => {
   if (!canUseStorage()) {
@@ -143,7 +150,8 @@ const hydrateFaviconIndexCache = () => {
 };
 
 /**
- * @param parsed
+ * Process the hydrate parsed favicon entries.
+ * @param parsed - The d.
  */
 const hydrateParsedFaviconEntries = (parsed: object) => {
   for (const [key, value] of Object.entries(parsed)) {
@@ -162,7 +170,9 @@ const hydrateParsedFaviconEntries = (parsed: object) => {
 };
 
 /**
- * @param cacheKey
+ * Return the cached favicon index.
+ * @param cacheKey - The cache key.
+ * @returns The cached favicon index.
  */
 export function getCachedFaviconIndex(cacheKey: null | string) {
   hydrateFaviconIndexCache();
@@ -187,8 +197,9 @@ export function getCachedFaviconIndex(cacheKey: null | string) {
 }
 
 /**
- * @param cacheKey
- * @param index
+ * Process the set cached favicon index.
+ * @param cacheKey - The cache key.
+ * @param index - The index.
  */
 export function setCachedFaviconIndex(cacheKey: null | string, index: number) {
   hydrateFaviconIndexCache();

@@ -11,6 +11,108 @@ import {
   getBackgroundCanvasScale,
 } from "@/app/dashboard/dashboard-components/background-internals";
 
+/**
+ * Manage the background particle canvas setup.
+ * @param options - The options used to manage the background particle canvas setup.
+ * @returns The background particle canvas setup state and callbacks.
+ */
+interface BackgroundParticleCanvasSetupOptions {
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  circles: React.RefObject<Circle[]>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  quantity: number;
+  seedParticles: (count: number, width: number, height: number) => Circle[];
+  startedAtRef: React.RefObject<number>;
+}
+
+/**
+ * Update the background particle circle.
+ * @param options - The options used to update the background particle circle.
+ * @returns The background particle circle.
+ */
+interface BackgroundParticleCircleOptions {
+  circle: Circle;
+  elapsed: number;
+  height: number;
+  lerpFactor: number;
+  pointerOffset: { x: number; y: number };
+  staticity: number;
+  width: number;
+}
+
+/**
+ * Render the background particle circles.
+ * @param options - The options used to render the background particle circles.
+ */
+interface BackgroundParticleCirclesOptions {
+  circles: Circle[];
+  ctx: CanvasRenderingContext2D;
+  elapsed: number;
+  height: number;
+  lerpFactor: number;
+  particleRgb: string;
+  pointerOffset: { x: number; y: number };
+  staticity: number;
+  width: number;
+}
+
+/**
+ * Render the background particle frame.
+ * @param options - The options used to render the background particle frame.
+ */
+interface BackgroundParticleFrameOptions {
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  circles: React.RefObject<Circle[]>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  delta: number;
+  ease: number;
+  now: number;
+  particleRgb: string;
+  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
+  startedAtRef: React.RefObject<number>;
+  staticity: number;
+}
+
+/**
+ * Manage the background particle pointer handler.
+ * @param options - The options used to manage the background particle pointer handler.
+ * @returns The background particle pointer handler state and callbacks.
+ */
+interface BackgroundParticlePointerHandlerOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
+}
+
+/**
+ * Resolve the background particle pointer offset.
+ * @param options - The options used to resolve the background particle pointer offset.
+ * @returns The background particle pointer offset.
+ */
+interface BackgroundParticlePointerOffsetOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  event: MouseEvent;
+}
+
+/**
+ * Manage the background particle renderer.
+ * @param options - The options used to manage the background particle renderer.
+ * @returns The background particle renderer state and callbacks.
+ */
+interface BackgroundParticleRendererOptions {
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  circles: React.RefObject<Circle[]>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  ease: number;
+  particleRgb: string;
+  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
+  startedAtRef: React.RefObject<number>;
+  staticity: number;
+}
+
 interface Circle {
   alphaBase: number;
   alphaPhase: number;
@@ -24,6 +126,13 @@ interface Circle {
   translateY: number;
 }
 
+interface InitializeBackgroundParticleCanvasOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+  initParticles: () => void;
+  startedAtRef: React.RefObject<number>;
+}
+
 interface ParticlesProps {
   className?: string;
   color?: "dark" | "light";
@@ -34,22 +143,40 @@ interface ParticlesProps {
 }
 
 /**
- * @param root0
- * @param root0.className
- * @param root0.color
- * @param root0.ease
- * @param root0.quantity
- * @param root0.refresh
- * @param root0.staticity
+ * Process the rescale background particle origins.
+ * @param options - The options used to process the rescale background particle origins.
  */
-export default function BackgroundParticles({
-  className = "",
-  color = "light",
-  ease = 50,
-  quantity = 30,
-  refresh = false,
-  staticity = 50,
-}: ParticlesProps) {
+interface RescaleBackgroundParticleOriginsOptions {
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  circles: React.RefObject<Circle[]>;
+  resizeCanvas: () => void;
+}
+
+/**
+ * Process the resize background particle canvas.
+ * @param options - The options used to process the resize background particle canvas.
+ */
+interface ResizeBackgroundParticleCanvasOptions {
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ height: number; width: number }>;
+  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
+}
+
+/**
+ * Render the background particles component.
+ * @param props - The component props.
+ * @returns The rendered background particles component.
+ */
+export default function BackgroundParticles(props: ParticlesProps) {
+  const {
+    className = "",
+    color = "light",
+    ease = 50,
+    quantity = 30,
+    refresh = false,
+    staticity = 50,
+  } = props;
   const runtime = useBackgroundParticlesRuntime({
     color,
     ease,
@@ -96,10 +223,11 @@ export default function BackgroundParticles({
 }
 
 /**
- * @param ctx
- * @param circle
- * @param particleRgb
- * @param alpha
+ * Draw the background particle circle.
+ * @param ctx - The canvas rendering context.
+ * @param circle - The circle.
+ * @param particleRgb - The particle rgb.
+ * @param alpha - The alpha.
  */
 function drawBackgroundParticleCircle(
   ctx: CanvasRenderingContext2D,
@@ -120,23 +248,13 @@ function drawBackgroundParticleCircle(
 }
 
 /**
- * @param root0
- * @param root0.canvasRef
- * @param root0.ctxRef
- * @param root0.initParticles
- * @param root0.startedAtRef
+ * Initialize the background particle canvas.
+ * @param options - The options used to initialize the background particle canvas.
  */
-function initializeBackgroundParticleCanvas({
-  canvasRef,
-  ctxRef,
-  initParticles,
-  startedAtRef,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
-  initParticles: () => void;
-  startedAtRef: React.RefObject<number>;
-}) {
+function initializeBackgroundParticleCanvas(
+  options: InitializeBackgroundParticleCanvasOptions,
+) {
+  const { canvasRef, ctxRef, initParticles, startedAtRef } = options;
   const canvas = canvasRef.current;
   if (!canvas) {
     return;
@@ -153,40 +271,23 @@ function initializeBackgroundParticleCanvas({
 }
 
 /**
- * @param root0
- * @param root0.circles
- * @param root0.ctx
- * @param root0.elapsed
- * @param root0.height
- * @param root0.lerpFactor
- * @param root0.particleRgb
- * @param root0.pointerOffset
- * @param root0.pointerOffset.x
- * @param root0.pointerOffset.y
- * @param root0.staticity
- * @param root0.width
+ * Render the background particle circles.
+ * @param options - The options used to render the background particle circles.
  */
-function renderBackgroundParticleCircles({
-  circles,
-  ctx,
-  elapsed,
-  height,
-  lerpFactor,
-  particleRgb,
-  pointerOffset,
-  staticity,
-  width,
-}: {
-  circles: Circle[];
-  ctx: CanvasRenderingContext2D;
-  elapsed: number;
-  height: number;
-  lerpFactor: number;
-  particleRgb: string;
-  pointerOffset: { x: number; y: number };
-  staticity: number;
-  width: number;
-}) {
+function renderBackgroundParticleCircles(
+  options: BackgroundParticleCirclesOptions,
+) {
+  const {
+    circles,
+    ctx,
+    elapsed,
+    height,
+    lerpFactor,
+    particleRgb,
+    pointerOffset,
+    staticity,
+    width,
+  } = options;
   for (const circle of circles) {
     const alpha = updateBackgroundParticleCircle({
       circle,
@@ -202,41 +303,24 @@ function renderBackgroundParticleCircles({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.circles
- * @param root0.ctxRef
- * @param root0.delta
- * @param root0.ease
- * @param root0.now
- * @param root0.particleRgb
- * @param root0.pointerOffsetRef
- * @param root0.startedAtRef
- * @param root0.staticity
+ * Render the background particle frame.
+ * @param options - The options used to render the background particle frame.
  */
-function renderBackgroundParticleFrame({
-  canvasSize,
-  circles,
-  ctxRef,
-  delta,
-  ease,
-  now,
-  particleRgb,
-  pointerOffsetRef,
-  startedAtRef,
-  staticity,
-}: {
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  circles: React.RefObject<Circle[]>;
-  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
-  delta: number;
-  ease: number;
-  now: number;
-  particleRgb: string;
-  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
-  startedAtRef: React.RefObject<number>;
-  staticity: number;
-}) {
+function renderBackgroundParticleFrame(
+  options: BackgroundParticleFrameOptions,
+) {
+  const {
+    canvasSize,
+    circles,
+    ctxRef,
+    delta,
+    ease,
+    now,
+    particleRgb,
+    pointerOffsetRef,
+    startedAtRef,
+    staticity,
+  } = options;
   const ctx = ctxRef.current;
   if (!ctx) {
     return;
@@ -263,20 +347,13 @@ function renderBackgroundParticleFrame({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.circles
- * @param root0.resizeCanvas
+ * Process the rescale background particle origins.
+ * @param options - The options used to process the rescale background particle origins.
  */
-function rescaleBackgroundParticleOrigins({
-  canvasSize,
-  circles,
-  resizeCanvas,
-}: {
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  circles: React.RefObject<Circle[]>;
-  resizeCanvas: () => void;
-}) {
+function rescaleBackgroundParticleOrigins(
+  options: RescaleBackgroundParticleOriginsOptions,
+) {
+  const { canvasSize, circles, resizeCanvas } = options;
   const oldW = canvasSize.current.width;
   const oldH = canvasSize.current.height;
   resizeCanvas();
@@ -293,23 +370,13 @@ function rescaleBackgroundParticleOrigins({
 }
 
 /**
- * @param root0
- * @param root0.canvasContainerRef
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.ctxRef
+ * Process the resize background particle canvas.
+ * @param options - The options used to process the resize background particle canvas.
  */
-function resizeBackgroundParticleCanvas({
-  canvasContainerRef,
-  canvasRef,
-  canvasSize,
-  ctxRef,
-}: {
-  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
-}) {
+function resizeBackgroundParticleCanvas(
+  options: ResizeBackgroundParticleCanvasOptions,
+) {
+  const { canvasContainerRef, canvasRef, canvasSize, ctxRef } = options;
   const canvas = canvasRef.current;
   const container = canvasContainerRef.current;
   const ctx = ctxRef.current;
@@ -327,20 +394,14 @@ function resizeBackgroundParticleCanvas({
 }
 
 /**
- * @param root0
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.event
+ * Resolve the background particle pointer offset.
+ * @param options - The options used to resolve the background particle pointer offset.
+ * @returns The background particle pointer offset.
  */
-function resolveBackgroundParticlePointerOffset({
-  canvasRef,
-  canvasSize,
-  event,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  event: MouseEvent;
-}) {
+function resolveBackgroundParticlePointerOffset(
+  options: BackgroundParticlePointerOffsetOptions,
+) {
+  const { canvasRef, canvasSize, event } = options;
   const canvas = canvasRef.current;
   if (!canvas) {
     return { x: 0, y: 0 };
@@ -357,34 +418,22 @@ function resolveBackgroundParticlePointerOffset({
 }
 
 /**
- * @param root0
- * @param root0.circle
- * @param root0.elapsed
- * @param root0.height
- * @param root0.lerpFactor
- * @param root0.pointerOffset
- * @param root0.pointerOffset.x
- * @param root0.pointerOffset.y
- * @param root0.staticity
- * @param root0.width
+ * Update the background particle circle.
+ * @param options - The options used to update the background particle circle.
+ * @returns The background particle circle.
  */
-function updateBackgroundParticleCircle({
-  circle,
-  elapsed,
-  height,
-  lerpFactor,
-  pointerOffset,
-  staticity,
-  width,
-}: {
-  circle: Circle;
-  elapsed: number;
-  height: number;
-  lerpFactor: number;
-  pointerOffset: { x: number; y: number };
-  staticity: number;
-  width: number;
-}) {
+function updateBackgroundParticleCircle(
+  options: BackgroundParticleCircleOptions,
+) {
+  const {
+    circle,
+    elapsed,
+    height,
+    lerpFactor,
+    pointerOffset,
+    staticity,
+    width,
+  } = options;
   circle.originX = (circle.originX + circle.driftX + width) % width;
   circle.originY = (circle.originY + circle.driftY + height) % height;
   const wave = Math.sin(elapsed * circle.sway + circle.alphaPhase);
@@ -398,35 +447,23 @@ function updateBackgroundParticleCircle({
 }
 
 /**
- * @param root0
- * @param root0.canvasContainerRef
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.circles
- * @param root0.ctxRef
- * @param root0.quantity
- * @param root0.seedParticles
- * @param root0.startedAtRef
+ * Manage the background particle canvas setup.
+ * @param options - The options used to manage the background particle canvas setup.
+ * @returns The background particle canvas setup state and callbacks.
  */
-function useBackgroundParticleCanvasSetup({
-  canvasContainerRef,
-  canvasRef,
-  canvasSize,
-  circles,
-  ctxRef,
-  quantity,
-  seedParticles,
-  startedAtRef,
-}: {
-  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  circles: React.RefObject<Circle[]>;
-  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
-  quantity: number;
-  seedParticles: (count: number, width: number, height: number) => Circle[];
-  startedAtRef: React.RefObject<number>;
-}) {
+function useBackgroundParticleCanvasSetup(
+  options: BackgroundParticleCanvasSetupOptions,
+) {
+  const {
+    canvasContainerRef,
+    canvasRef,
+    canvasSize,
+    circles,
+    ctxRef,
+    quantity,
+    seedParticles,
+    startedAtRef,
+  } = options;
   const resizeCanvas = useCallback(() => {
     resizeBackgroundParticleCanvas({
       canvasContainerRef,
@@ -459,20 +496,14 @@ function useBackgroundParticleCanvasSetup({
 }
 
 /**
- * @param root0
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.pointerOffsetRef
+ * Manage the background particle pointer handler.
+ * @param options - The options used to manage the background particle pointer handler.
+ * @returns The background particle pointer handler state and callbacks.
  */
-function useBackgroundParticlePointerHandler({
-  canvasRef,
-  canvasSize,
-  pointerOffsetRef,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
-}) {
+function useBackgroundParticlePointerHandler(
+  options: BackgroundParticlePointerHandlerOptions,
+) {
+  const { canvasRef, canvasSize, pointerOffsetRef } = options;
   return useCallback(
     (event: MouseEvent) => {
       pointerOffsetRef.current = resolveBackgroundParticlePointerOffset({
@@ -486,35 +517,23 @@ function useBackgroundParticlePointerHandler({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.circles
- * @param root0.ctxRef
- * @param root0.ease
- * @param root0.particleRgb
- * @param root0.pointerOffsetRef
- * @param root0.startedAtRef
- * @param root0.staticity
+ * Manage the background particle renderer.
+ * @param options - The options used to manage the background particle renderer.
+ * @returns The background particle renderer state and callbacks.
  */
-function useBackgroundParticleRenderer({
-  canvasSize,
-  circles,
-  ctxRef,
-  ease,
-  particleRgb,
-  pointerOffsetRef,
-  startedAtRef,
-  staticity,
-}: {
-  canvasSize: React.RefObject<{ height: number; width: number }>;
-  circles: React.RefObject<Circle[]>;
-  ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
-  ease: number;
-  particleRgb: string;
-  pointerOffsetRef: React.RefObject<{ x: number; y: number }>;
-  startedAtRef: React.RefObject<number>;
-  staticity: number;
-}) {
+function useBackgroundParticleRenderer(
+  options: BackgroundParticleRendererOptions,
+) {
+  const {
+    canvasSize,
+    circles,
+    ctxRef,
+    ease,
+    particleRgb,
+    pointerOffsetRef,
+    startedAtRef,
+    staticity,
+  } = options;
   return useCallback(
     (now: number, delta: number) => {
       renderBackgroundParticleFrame({
@@ -544,20 +563,16 @@ function useBackgroundParticleRenderer({
 }
 
 /**
- * @param root0
- * @param root0.color
- * @param root0.ease
- * @param root0.quantity
- * @param root0.staticity
+ * Manage the background particles runtime.
+ * @param options - The options used to manage the background particles runtime.
+ * @returns The background particles runtime state and callbacks.
  */
-function useBackgroundParticlesRuntime({
-  color,
-  ease,
-  quantity,
-  staticity,
-}: Required<
-  Pick<ParticlesProps, "color" | "ease" | "quantity" | "staticity">
->) {
+function useBackgroundParticlesRuntime(
+  options: Required<
+    Pick<ParticlesProps, "color" | "ease" | "quantity" | "staticity">
+  >,
+) {
+  const { color, ease, quantity, staticity } = options;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const circles = useRef<Circle[]>([]);
@@ -609,7 +624,8 @@ function useBackgroundParticlesRuntime({
 }
 
 /**
- *
+ * Manage the seed particles.
+ * @returns The seed particles state and callbacks.
  */
 function useSeedParticles() {
   return useCallback(

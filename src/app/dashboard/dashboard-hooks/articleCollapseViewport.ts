@@ -24,7 +24,9 @@ export interface CollapseRestoreLayoutObserverOptions {
 }
 
 /**
- * @param articleKey
+ * Process the capture article viewport snapshot.
+ * @param articleKey - The article key.
+ * @returns The capture article viewport snapshot.
  */
 export function captureArticleViewportSnapshot(articleKey: string) {
   const articleElement = document.querySelector<HTMLElement>(
@@ -56,7 +58,9 @@ export function captureArticleViewportSnapshot(articleKey: string) {
 }
 
 /**
- * @param snapshot
+ * Return whether is restorable article viewport snapshot.
+ * @param snapshot - The snapshot.
+ * @returns Whether is restorable article viewport snapshot.
  */
 export function isRestorableArticleViewportSnapshot(
   snapshot: ArticleViewportSnapshot,
@@ -68,19 +72,18 @@ export function isRestorableArticleViewportSnapshot(
 }
 
 /**
- * @param root0
- * @param root0.articleKey
- * @param root0.onLayoutChange
- * @param root0.viewport
+ * Process the observe collapse restore layout.
+ * @param options - The options used to process the observe collapse restore layout.
+ * @returns The observe collapse restore layout.
  */
-export function observeCollapseRestoreLayout({
-  articleKey,
-  onLayoutChange,
-  viewport,
-}: CollapseRestoreLayoutObserverOptions) {
+export function observeCollapseRestoreLayout(
+  options: CollapseRestoreLayoutObserverOptions,
+) {
+  const { articleKey, onLayoutChange, viewport } = options;
   return observeFeedViewportLayout({
     /**
-     *
+     * Resolves the anchor element used to observe collapse layout changes.
+     * @returns The current collapse anchor element for the article.
      */
     findAnchor: () => findCollapseRestoreAnchor(articleKey),
     onLayoutChange,
@@ -89,8 +92,10 @@ export function observeCollapseRestoreLayout({
 }
 
 /**
- * @param currentState
- * @param articleKey
+ * Process the remove collapsing article.
+ * @param currentState - The current state.
+ * @param articleKey - The article key.
+ * @returns The remove collapsing article.
  */
 export function removeCollapsingArticle<T>(
   currentState: Partial<Record<string, T>>,
@@ -105,8 +110,10 @@ export function removeCollapsingArticle<T>(
 }
 
 /**
- * @param articleKey
- * @param fallbackViewport
+ * Resolve the collapse restore viewport.
+ * @param articleKey - The article key.
+ * @param fallbackViewport - The fallback viewport.
+ * @returns The collapse restore viewport.
  */
 export function resolveCollapseRestoreViewport(
   articleKey: string,
@@ -134,7 +141,9 @@ export function resolveCollapseRestoreViewport(
 }
 
 /**
- * @param articleKey
+ * Process the find collapse restore anchor.
+ * @param articleKey - The article key.
+ * @returns The find collapse restore anchor.
  */
 function findCollapseRestoreAnchor(articleKey: string) {
   return document.querySelector<HTMLElement>(

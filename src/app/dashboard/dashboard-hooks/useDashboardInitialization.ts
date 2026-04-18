@@ -6,29 +6,23 @@ import { type UseDashboardInitializationOptions } from "@/app/dashboard/dashboar
 import { initializeDashboardSelection } from "@/app/dashboard/dashboard-services/selection";
 
 /**
- * Runs the one-time dashboard boot sequence that resolves the initial selection.
- * @param root0
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.hasInitializedDashboardRef
- * @param root0.initialArticleLimit
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setIsCategoriesLoading
- * @param root0.setSelectedCategory
+ * Manage the dashboard initialization.
+ * @param options - The options used to manage the dashboard initialization.
  */
-export function useDashboardInitialization({
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  hasInitializedDashboardRef,
-  initialArticleLimit,
-  loadFeedSources,
-  selectedCategory,
-  setIsCategoriesLoading,
-  setSelectedCategory,
-}: UseDashboardInitializationOptions) {
+export function useDashboardInitialization(
+  options: UseDashboardInitializationOptions,
+) {
+  const {
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    initialArticleLimit,
+    loadFeedSources,
+    selectedCategory,
+    setIsCategoriesLoading,
+    setSelectedCategory,
+  } = options;
   useEffect(() => {
     if (hasInitializedDashboardRef.current) {
       return;

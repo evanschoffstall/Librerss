@@ -5,19 +5,18 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
-/**
- * Global error boundary rendered for unrecoverable runtime errors.
- * Replaces the root layout, so it provides its own `<html>` and `<body>`.
- * @param root0
- * @param root0.error
- * @param root0.reset
- */
-export default function GlobalError({
-  reset,
-}: {
+interface GlobalErrorProps {
   error: Error & { digest?: string };
   reset: () => void;
-}) {
+}
+
+/**
+ * Render the global error component.
+ * @param props - The component props.
+ * @returns The rendered global error component.
+ */
+export default function GlobalError(props: GlobalErrorProps) {
+  const { reset } = props;
   return (
     <html lang="en">
       <body

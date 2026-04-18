@@ -13,7 +13,9 @@ import {
 } from "@/lib/utils";
 
 /**
- * @param label
+ * Process the to category key.
+ * @param label - The label.
+ * @returns The to category key.
  */
 export const toCategoryKey = (label: string) =>
   `cat-${
@@ -24,13 +26,17 @@ export const toCategoryKey = (label: string) =>
   }`;
 
 /**
- * @param nodes
+ * Process the flatten category feeds.
+ * @param nodes - The nodes.
+ * @returns The flatten category feeds.
  */
 const flattenCategoryFeeds = (nodes: CategoryTreeNode[]) =>
   nodes.flatMap((category) => category.children ?? []);
 
 /**
- * @param sources
+ * Build the categories from sources.
+ * @param sources - The sources.
+ * @returns The categories from sources.
  */
 export const buildCategoriesFromSources = (
   sources: {
@@ -73,7 +79,9 @@ export const buildCategoriesFromSources = (
 };
 
 /**
- * @param usePlaceholderData
+ * Build the default categories.
+ * @param usePlaceholderData - The placeholder data.
+ * @returns The default categories.
  */
 export const buildDefaultCategories = (
   usePlaceholderData: boolean,
@@ -109,9 +117,20 @@ export const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
   label: ALL_FEEDS_LABEL,
 };
 
+interface InsertRelocatedFeedOptions {
+  destinationCategoryIndex: number;
+  movedSource: CategoryTreeNode;
+  nextCategories: CategoryTreeNode[];
+  sourceCategoryIndex: number;
+  sourceFeedIndex: number;
+  targetIndex: number;
+}
+
 /**
- * @param categories
- * @param customCategoryLabels
+ * Process the collect known category labels.
+ * @param categories - The categories.
+ * @param customCategoryLabels - The custom category labels.
+ * @returns The collect known category labels.
  */
 export function collectKnownCategoryLabels(
   categories: CategoryTreeNode[],
@@ -121,8 +140,10 @@ export function collectKnownCategoryLabels(
 }
 
 /**
- * @param categories
- * @param key
+ * Process the find feed node by key.
+ * @param categories - The categories.
+ * @param key - The key.
+ * @returns The find feed node by key.
  */
 export function findFeedNodeByKey(
   categories: CategoryTreeNode[],
@@ -132,8 +153,10 @@ export function findFeedNodeByKey(
 }
 
 /**
- * @param categories
- * @param url
+ * Process the find feed node by url.
+ * @param categories - The categories.
+ * @param url - The url.
+ * @returns The find feed node by url.
  */
 export function findFeedNodeByUrl(
   categories: CategoryTreeNode[],
@@ -143,7 +166,9 @@ export function findFeedNodeByUrl(
 }
 
 /**
- * @param categories
+ * Return the all feed nodes.
+ * @param categories - The categories.
+ * @returns The all feed nodes.
  */
 export function getAllFeedNodes(
   categories: CategoryTreeNode[],
@@ -152,8 +177,10 @@ export function getAllFeedNodes(
 }
 
 /**
- * @param categories
- * @param selectedKey
+ * Return the feed url by selected key.
+ * @param categories - The categories.
+ * @param selectedKey - The selected key.
+ * @returns The feed url by selected key.
  */
 export function getFeedUrlBySelectedKey(
   categories: CategoryTreeNode[],
@@ -163,7 +190,9 @@ export function getFeedUrlBySelectedKey(
 }
 
 /**
- * @param categories
+ * Return the first feed node.
+ * @param categories - The categories.
+ * @returns The first feed node.
  */
 export function getFirstFeedNode(
   categories: CategoryTreeNode[],
@@ -172,8 +201,10 @@ export function getFirstFeedNode(
 }
 
 /**
- * @param categories
- * @param label
+ * Return whether has category label in tree.
+ * @param categories - The categories.
+ * @param label - The label.
+ * @returns Whether has category label in tree.
  */
 export function hasCategoryLabelInTree(
   categories: CategoryTreeNode[],
@@ -186,10 +217,12 @@ export function hasCategoryLabelInTree(
 }
 
 /**
- * @param currentCategories
- * @param feedKey
- * @param targetCategoryLabel
- * @param targetIndex
+ * Process the relocate feed in categories.
+ * @param currentCategories - The current categories.
+ * @param feedKey - The feed key.
+ * @param targetCategoryLabel - The target category label.
+ * @param targetIndex - The target index value.
+ * @returns The relocate feed in categories.
  */
 export function relocateFeedInCategories(
   currentCategories: CategoryTreeNode[],
@@ -229,7 +262,9 @@ export function relocateFeedInCategories(
 }
 
 /**
- * @param labels
+ * Process the to distinct category labels.
+ * @param labels - The labels.
+ * @returns The to distinct category labels.
  */
 export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
   const distinctLabels = new Map<string, string>();
@@ -244,10 +279,11 @@ export function toDistinctCategoryLabels(labels: readonly string[]): string[] {
 
   return [...distinctLabels.values()];
 }
-
 /**
- * @param categories
- * @param targetCategoryLabel
+ * Process the find or create destination category index.
+ * @param categories - The categories.
+ * @param targetCategoryLabel - The target category label.
+ * @returns The find or create destination category index.
  */
 function findOrCreateDestinationCategoryIndex(
   categories: CategoryTreeNode[],
@@ -273,29 +309,18 @@ function findOrCreateDestinationCategoryIndex(
 }
 
 /**
- * @param root0
- * @param root0.destinationCategoryIndex
- * @param root0.movedSource
- * @param root0.nextCategories
- * @param root0.sourceCategoryIndex
- * @param root0.sourceFeedIndex
- * @param root0.targetIndex
+ * Process the insert relocated feed.
+ * @param options - The options used to process the insert relocated feed.
  */
-function insertRelocatedFeed({
-  destinationCategoryIndex,
-  movedSource,
-  nextCategories,
-  sourceCategoryIndex,
-  sourceFeedIndex,
-  targetIndex,
-}: {
-  destinationCategoryIndex: number;
-  movedSource: CategoryTreeNode;
-  nextCategories: CategoryTreeNode[];
-  sourceCategoryIndex: number;
-  sourceFeedIndex: number;
-  targetIndex: number;
-}) {
+function insertRelocatedFeed(options: InsertRelocatedFeedOptions) {
+  const {
+    destinationCategoryIndex,
+    movedSource,
+    nextCategories,
+    sourceCategoryIndex,
+    sourceFeedIndex,
+    targetIndex,
+  } = options;
   const destinationCategory = nextCategories[destinationCategoryIndex];
   const destinationFeeds = destinationCategory.children ?? [];
   destinationCategory.children = destinationFeeds;

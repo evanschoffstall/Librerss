@@ -24,36 +24,26 @@ export interface FeedVirtualListProps extends FeedVirtualListSharedProps {
  */
 export const FeedVirtualList = memo(
   /**
-   * @param root0
-   * @param root0.articles
-   * @param root0.className
-   * @param root0.estimatedItemHeight
-   * @param root0.expandedArticleKey
-   * @param root0.feedViewKey
-   * @param root0.isCollapseScrollRestoreActive
-   * @param root0.loadMoreSentinelRef
-   * @param root0.minimumTotalListHeight
-   * @param root0.onTotalListHeightChange
-   * @param root0.renderArticle
-   * @param root0.scrollMode
-   * @param root0.scrollViewport
-   * @param root0.showLoadMoreBoundary
+   * Render the feed virtual list component.
+   * @param props - The component props.
+   * @returns The rendered feed virtual list component.
    */
-  function FeedVirtualList({
-    articles,
-    className,
-    estimatedItemHeight,
-    expandedArticleKey,
-    feedViewKey,
-    isCollapseScrollRestoreActive,
-    loadMoreSentinelRef,
-    minimumTotalListHeight,
-    onTotalListHeightChange,
-    renderArticle,
-    scrollMode,
-    scrollViewport,
-    showLoadMoreBoundary,
-  }: FeedVirtualListProps) {
+  function FeedVirtualList(props: FeedVirtualListProps) {
+    const {
+      articles,
+      className,
+      estimatedItemHeight,
+      expandedArticleKey,
+      feedViewKey,
+      isCollapseScrollRestoreActive,
+      loadMoreSentinelRef,
+      minimumTotalListHeight,
+      onTotalListHeightChange,
+      renderArticle,
+      scrollMode,
+      scrollViewport,
+      showLoadMoreBoundary,
+    } = props;
     const isTestEnvironment =
       process.env.NODE_ENV === "test" ||
       (typeof window !== "undefined" && "happyDOM" in window);

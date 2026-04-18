@@ -87,11 +87,23 @@ export interface FeedFetcherBatchRuntimeDependencies {
 
 type DbMod = typeof import("@/lib/db");
 
+interface RefreshProxyTransportOptions {
+  allowedUrls: string[];
+  dependencies: FeedFetcherBatchRuntimeDependencies;
+  feedByUrl: ReadonlyMap<string, FeedRecord>;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
+  skipRefresh: boolean;
+}
+
 /**
- * @param dependencies
- * @param db
- * @param request
- * @param shouldForceRefresh
+ * Resolve the batch feed resolution.
+ * @param dependencies - The dependencies.
+ * @param db - The db.
+ * @param request - The request.
+ * @param shouldForceRefresh - Whether should force refresh.
+ * @returns The batch feed resolution.
  */
 export async function resolveBatchFeedResolution(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -130,12 +142,14 @@ export async function resolveBatchFeedResolution(
 }
 
 /**
- * @param dependencies
- * @param db
- * @param request
- * @param batchFeeds
- * @param refreshExecution
- * @param cached
+ * Resolve the batch feed result.
+ * @param dependencies - The dependencies.
+ * @param db - The db.
+ * @param request - The request.
+ * @param batchFeeds - The batch feeds.
+ * @param refreshExecution - The refresh execution.
+ * @param cached - The cached.
+ * @returns The batch feed result.
  */
 export async function resolveBatchFeedResult(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -191,9 +205,11 @@ export async function resolveBatchFeedResult(
 }
 
 /**
- * @param dependencies
- * @param db
- * @param request
+ * Resolve the batch force refresh.
+ * @param dependencies - The dependencies.
+ * @param db - The db.
+ * @param request - The request.
+ * @returns The batch force refresh.
  */
 export async function resolveBatchForceRefresh(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -243,9 +259,11 @@ export async function resolveBatchForceRefresh(
 }
 
 /**
- * @param dependencies
- * @param request
- * @param shouldForceRefresh
+ * Resolve the cached batch result.
+ * @param dependencies - The dependencies.
+ * @param request - The request.
+ * @param shouldForceRefresh - Whether should force refresh.
+ * @returns The cached batch result.
  */
 export function resolveCachedBatchResult(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -278,7 +296,8 @@ export function resolveCachedBatchResult(
       allWithinCooldown,
       cached,
       /**
-       * @param details
+       * Reports diagnostic details for a successful in-memory batch cache hit.
+       * @param details - Structured cache-hit diagnostics emitted for debugging.
        */
       onCacheHit: (details) => {
         dependencies.diagInfo(
@@ -292,11 +311,13 @@ export function resolveCachedBatchResult(
 }
 
 /**
- * @param dependencies
- * @param db
- * @param request
- * @param batchFeeds
- * @param shouldForceRefresh
+ * Process the run batch refresh execution.
+ * @param dependencies - The dependencies.
+ * @param db - The db.
+ * @param request - The request.
+ * @param batchFeeds - The batch feeds.
+ * @param shouldForceRefresh - Whether should force refresh.
+ * @returns The run batch refresh execution.
  */
 export async function runBatchRefreshExecution(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -344,11 +365,12 @@ export async function runBatchRefreshExecution(
 }
 
 /**
- * @param dependencies
- * @param request
- * @param articleMap
- * @param totalArticles
- * @param errors
+ * Process the log batch fetch completion.
+ * @param dependencies - The dependencies.
+ * @param request - The request.
+ * @param articleMap - The article map.
+ * @param totalArticles - The total articles.
+ * @param errors - The errors.
  */
 function logBatchFetchCompletion(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -377,10 +399,11 @@ function logBatchFetchCompletion(
 }
 
 /**
- * @param dependencies
- * @param request
- * @param allowedUrlCount
- * @param refreshExecution
+ * Process the log batch refresh outcome.
+ * @param dependencies - The dependencies.
+ * @param request - The request.
+ * @param allowedUrlCount - The allowed url count value.
+ * @param refreshExecution - The refresh execution.
  */
 function logBatchRefreshOutcome(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -417,9 +440,10 @@ function logBatchRefreshOutcome(
 }
 
 /**
- * @param dependencies
- * @param query
- * @param articleMap
+ * Process the persist batch cache.
+ * @param dependencies - The dependencies.
+ * @param query - The query.
+ * @param articleMap - The article map.
  */
 function persistBatchCache(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -451,11 +475,12 @@ function persistBatchCache(
     );
   }
 }
-
 /**
- * @param dependencies
- * @param db
- * @param query
+ * Process the query changed batch articles.
+ * @param dependencies - The dependencies.
+ * @param db - The db.
+ * @param query - The query.
+ * @returns The query changed batch articles.
  */
 async function queryChangedBatchArticles(
   dependencies: FeedFetcherBatchRuntimeDependencies,
@@ -496,24 +521,13 @@ async function queryChangedBatchArticles(
 }
 
 /**
- * @param options
- * @param options.allowedUrls
- * @param options.dependencies
- * @param options.feedByUrl
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.resolveProxyTransport
- * @param options.skipRefresh
+ * Resolve the refresh proxy transport.
+ * @param options - The options used to resolve the refresh proxy transport.
+ * @returns The refresh proxy transport.
  */
-async function resolveRefreshProxyTransport(options: {
-  allowedUrls: string[];
-  dependencies: FeedFetcherBatchRuntimeDependencies;
-  feedByUrl: ReadonlyMap<string, FeedRecord>;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
-  skipRefresh: boolean;
-}): Promise<FeedUpstreamTransport | undefined> {
+async function resolveRefreshProxyTransport(
+  options: RefreshProxyTransportOptions,
+): Promise<FeedUpstreamTransport | undefined> {
   if (!options.resolveProxyTransport || options.skipRefresh) {
     return undefined;
   }

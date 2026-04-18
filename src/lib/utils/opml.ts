@@ -12,7 +12,9 @@ export interface OpmlFeedImportEntry {
 }
 
 /**
- * @param outline
+ * Return the outline label.
+ * @param outline - The outline.
+ * @returns The outline label.
  */
 const getOutlineLabel = (outline: Element): string => {
   const text = outline.getAttribute("text")?.trim();
@@ -25,7 +27,9 @@ const getOutlineLabel = (outline: Element): string => {
 };
 
 /**
- * @param outline
+ * Return the feed name.
+ * @param outline - The outline.
+ * @returns The feed name.
  */
 const getFeedName = (outline: Element): string => {
   const label = getOutlineLabel(outline);
@@ -38,10 +42,9 @@ const getFeedName = (outline: Element): string => {
 };
 
 /**
- * Normalizes an OPML feed URL.  Returns null when the URL is invalid or uses a
- * non-HTTP(S) protocol.  Delegates to tryNormalizeFeedUrl for consistent
- * parsing / stripping behaviour across the codebase.
- * @param rawUrl
+ * Normalize the import url.
+ * @param rawUrl - The raw url.
+ * @returns The import url.
  */
 const normalizeImportUrl = (rawUrl: string): null | string => {
   try {
@@ -58,7 +61,9 @@ const normalizeImportUrl = (rawUrl: string): null | string => {
 };
 
 /**
- * @param opmlXml
+ * Parse the opml feed import.
+ * @param opmlXml - The opml xml.
+ * @returns The opml feed import.
  */
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const parser = new DOMParser();
@@ -77,8 +82,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const imported = new Map<string, OpmlFeedImportEntry>();
 
   /**
-   * @param outline
-   * @param parentCategory
+   * Process the walk outline tree.
+   * @param outline - The outline.
+   * @param parentCategory - The parent category.
    */
   const walkOutlineTree = (outline: Element, parentCategory: null | string) => {
     // Stop collecting once the cap is reached — prevents a crafted OPML with
@@ -128,7 +134,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
 };
 
 /**
- * @param s
+ * Process the escape xml.
+ * @param s - The s.
+ * @returns The escape xml.
  */
 const escapeXml = (s: string): string =>
   s
@@ -138,7 +146,9 @@ const escapeXml = (s: string): string =>
     .replace(/"/g, "&quot;");
 
 /**
- * @param categories
+ * Process the generate opml.
+ * @param categories - The categories.
+ * @returns The generate opml.
  */
 export const generateOpml = (categories: CategoryTreeNode[]): string => {
   const lines: string[] = [

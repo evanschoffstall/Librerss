@@ -12,6 +12,10 @@ export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
 
+interface LogAndRespondErrorOptions {
+  publicMessage?: string;
+  status?: number;
+}
 interface MutationRequestOptions {
   rateLimit?: {
     key: string;
@@ -24,19 +28,16 @@ interface MutationRequestOptions {
 }
 
 /**
- * @param message
- * @param error
- * @param options
- * @param options.publicMessage
- * @param options.status
+ * Process the log and respond error.
+ * @param message - The message.
+ * @param error - The error.
+ * @param options - The options used to process the log and respond error.
+ * @returns The log and respond error.
  */
 export function logAndRespondError(
   message: string,
   error: unknown,
-  options?: {
-    publicMessage?: string;
-    status?: number;
-  },
+  options?: LogAndRespondErrorOptions,
 ): Response {
   const logError =
     typeof logger.error === "function" ? logger.error.bind(logger) : undefined;
@@ -48,7 +49,9 @@ export function logAndRespondError(
 }
 
 /**
- * @param request
+ * Process the require authenticated user.
+ * @param request - The request.
+ * @returns The require authenticated user.
  */
 export async function requireAuthenticatedUser(
   request: NextRequest,
@@ -69,8 +72,10 @@ export async function requireAuthenticatedUser(
 }
 
 /**
- * @param request
- * @param options
+ * Process the require mutable authenticated user.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable authenticated user.
+ * @returns The require mutable authenticated user.
  */
 export async function requireMutableAuthenticatedUser(
   request: NextRequest,
@@ -104,8 +109,10 @@ export async function requireMutableAuthenticatedUser(
 // User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
 // because it requires a resolved userId.
 /**
- * @param request
- * @param options
+ * Process the require mutable request.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable request.
+ * @returns The require mutable request.
  */
 export function requireMutableRequest(
   request: Request,
@@ -127,8 +134,10 @@ export function requireMutableRequest(
 }
 
 /**
- * @param request
- * @param options
+ * Process the require mutable user and json body.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable user and json body.
+ * @returns The require mutable user and json body.
  */
 export async function requireMutableUserAndJsonBody<
   TBody extends object = Record<string, unknown>,

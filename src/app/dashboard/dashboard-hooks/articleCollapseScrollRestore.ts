@@ -13,29 +13,40 @@ import {
   resolveCollapseRestoreViewport,
 } from "@/app/dashboard/dashboard-hooks/articleCollapseViewport";
 
-/**
- * @param root0
- * @param root0.articleKey
- * @param root0.clearPreExpandSnapshot
- * @param root0.setIsCollapseScrollRestoreActive
- * @param root0.snapshot
- */
-export function createCollapseScrollRestoreRuntime({
-  articleKey,
-  clearPreExpandSnapshot,
-  setIsCollapseScrollRestoreActive,
-  snapshot,
-}: {
+interface CollapseScrollRestoreRuntimeOptions {
   articleKey: string;
   clearPreExpandSnapshot: () => void;
   setIsCollapseScrollRestoreActive: React.Dispatch<
     React.SetStateAction<boolean>
   >;
   snapshot: ArticleViewportSnapshot;
-}) {
+}
+
+interface CollapseViewportSyncOptions {
+  adoptViewport: (nextViewport: HTMLElement) => void;
+  articleKey: string;
+  release: () => void;
+  scheduleViewportSync: () => void;
+  state: ReturnType<typeof createCollapseScrollRestoreState>;
+}
+
+/**
+ * Create the collapse scroll restore runtime.
+ * @param options - The options used to create the collapse scroll restore runtime.
+ * @returns The collapse scroll restore runtime.
+ */
+export function createCollapseScrollRestoreRuntime(
+  options: CollapseScrollRestoreRuntimeOptions,
+) {
+  const {
+    articleKey,
+    clearPreExpandSnapshot,
+    setIsCollapseScrollRestoreActive,
+    snapshot,
+  } = options;
   const state = createCollapseScrollRestoreState(articleKey, snapshot);
   /**
-   *
+   * Process the release.
    */
   const release = () => {
     releaseCollapseScrollRestore(
@@ -46,7 +57,7 @@ export function createCollapseScrollRestoreRuntime({
     );
   };
   /**
-   *
+   * Process the reconnect layout observers.
    */
   const reconnectLayoutObservers = () => {
     state.disconnectLayoutObservers?.();
@@ -57,7 +68,8 @@ export function createCollapseScrollRestoreRuntime({
     });
   };
   /**
-   * @param nextViewport
+   * Process the adopt viewport.
+   * @param nextViewport - The next viewport.
    */
   const adoptViewport = (nextViewport: HTMLElement) => {
     adoptCollapseRestoreViewport(
@@ -68,7 +80,7 @@ export function createCollapseScrollRestoreRuntime({
     );
   };
   /**
-   *
+   * Process the schedule viewport sync.
    */
   const scheduleViewportSync = () => {
     scheduleCollapseViewportSync(state, syncViewportScroll);
@@ -90,10 +102,11 @@ export function createCollapseScrollRestoreRuntime({
 }
 
 /**
- * @param state
- * @param nextViewport
- * @param reconnectLayoutObservers
- * @param release
+ * Process the adopt collapse restore viewport.
+ * @param state - The callback that state.
+ * @param nextViewport - The next viewport.
+ * @param reconnectLayoutObservers - The callback that reconnect layout observers.
+ * @param release - The callback that release.
  */
 function adoptCollapseRestoreViewport(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
@@ -115,9 +128,10 @@ function adoptCollapseRestoreViewport(
 }
 
 /**
- * @param targetViewport
- * @param release
- * @param shouldBind
+ * Process the bind collapse release listeners.
+ * @param targetViewport - The target viewport.
+ * @param release - The callback that release.
+ * @param shouldBind - Whether should bind.
  */
 function bindCollapseReleaseListeners(
   targetViewport: HTMLElement,
@@ -128,10 +142,11 @@ function bindCollapseReleaseListeners(
   targetViewport[method]("wheel", release, { passive: true });
   targetViewport[method]("touchmove", release, { passive: true });
 }
-
 /**
- * @param articleKey
- * @param snapshot
+ * Create the collapse scroll restore state.
+ * @param articleKey - The article key.
+ * @param snapshot - The snapshot.
+ * @returns The collapse scroll restore state.
  */
 function createCollapseScrollRestoreState(
   articleKey: string,
@@ -156,22 +171,13 @@ function createCollapseScrollRestoreState(
 }
 
 /**
- * @param options
- * @param options.adoptViewport
- * @param options.articleKey
- * @param options.release
- * @param options.scheduleViewportSync
- * @param options.state
+ * Create the collapse viewport sync.
+ * @param options - The options used to create the collapse viewport sync.
+ * @returns The collapse viewport sync.
  */
-function createCollapseViewportSync(options: {
-  adoptViewport: (nextViewport: HTMLElement) => void;
-  articleKey: string;
-  release: () => void;
-  scheduleViewportSync: () => void;
-  state: ReturnType<typeof createCollapseScrollRestoreState>;
-}) {
+function createCollapseViewportSync(options: CollapseViewportSyncOptions) {
   /**
-   *
+   * Synchronizes the viewport back to the preserved collapse position.
    */
   return function syncViewportScroll() {
     const currentViewport = resolveCollapseRestoreViewport(
@@ -210,9 +216,10 @@ function createCollapseViewportSync(options: {
 }
 
 /**
- * @param state
- * @param reconnectLayoutObservers
- * @param release
+ * Initialize the collapse scroll restore.
+ * @param state - The callback that state.
+ * @param reconnectLayoutObservers - The callback that reconnect layout observers.
+ * @param release - The callback that release.
  */
 function initializeCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
@@ -225,10 +232,11 @@ function initializeCollapseScrollRestore(
 }
 
 /**
- * @param state
- * @param clearPreExpandSnapshot
- * @param release
- * @param setIsCollapseScrollRestoreActive
+ * Process the release collapse scroll restore.
+ * @param state - The callback that state.
+ * @param clearPreExpandSnapshot - The callback that clear pre expand snapshot.
+ * @param release - The callback that release.
+ * @param setIsCollapseScrollRestoreActive - The set is collapse scroll restore active.
  */
 function releaseCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
@@ -252,8 +260,9 @@ function releaseCollapseScrollRestore(
 }
 
 /**
- * @param state
- * @param syncViewportScroll
+ * Process the schedule collapse viewport sync.
+ * @param state - The callback that state.
+ * @param syncViewportScroll - The callback that sync viewport scroll.
  */
 function scheduleCollapseViewportSync(
   state: ReturnType<typeof createCollapseScrollRestoreState>,

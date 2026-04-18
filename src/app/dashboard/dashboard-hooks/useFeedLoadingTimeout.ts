@@ -6,21 +6,11 @@ import { toast } from "sonner";
 import { type UseFeedLoadingTimeoutOptions } from "@/app/dashboard/dashboard-hooks/dashboard-effects.contracts";
 
 /**
- * Enforces a client-side timeout around dashboard feed-loading sessions.
- * @param root0
- * @param root0.loading
- * @param root0.loadingEpoch
- * @param root0.onTimeout
- * @param root0.setLoading
- * @param root0.timeoutMs
+ * Manage the feed loading timeout.
+ * @param options - The options used to manage the feed loading timeout.
  */
-export function useFeedLoadingTimeout({
-  loading,
-  loadingEpoch,
-  onTimeout,
-  setLoading,
-  timeoutMs,
-}: UseFeedLoadingTimeoutOptions) {
+export function useFeedLoadingTimeout(options: UseFeedLoadingTimeoutOptions) {
+  const { loading, loadingEpoch, onTimeout, setLoading, timeoutMs } = options;
   useEffect(() => {
     if (!loading) {
       return;

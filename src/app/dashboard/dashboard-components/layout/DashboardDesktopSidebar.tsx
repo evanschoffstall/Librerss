@@ -18,22 +18,12 @@ interface DashboardDesktopSidebarProps {
 }
 
 /**
- * Renders the desktop dashboard sidebar with its reveal transition.
- *
- * This isolates desktop-only sidebar animation and scroll wiring from the main
- * dashboard route view.
- *
- * @param props - Reveal state, scroll ref, and sidebar content props.
- * @param props.isSidebarVisible
- * @param props.sidebarContentProps
- * @param props.sidebarScrollRef
- * @returns The desktop sidebar surface used inside the shared dashboard scaffold.
+ * Render the dashboard desktop sidebar component.
+ * @param props - The component props.
+ * @returns The rendered dashboard desktop sidebar component.
  */
-export function DashboardDesktopSidebar({
-  isSidebarVisible,
-  sidebarContentProps,
-  sidebarScrollRef,
-}: DashboardDesktopSidebarProps) {
+export function DashboardDesktopSidebar(props: DashboardDesktopSidebarProps) {
+  const { isSidebarVisible, sidebarContentProps, sidebarScrollRef } = props;
   return (
     <motion.div
       animate={{

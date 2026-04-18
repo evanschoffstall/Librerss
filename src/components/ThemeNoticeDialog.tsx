@@ -16,7 +16,8 @@ import {
 const STORAGE_KEY = "theme-notice-dismissed";
 
 /**
- *
+ * Render the theme notice dialog component.
+ * @returns The rendered theme notice dialog component.
  */
 export function ThemeNoticeDialog() {
   const [open, setOpen] = useState(false);
@@ -42,7 +43,7 @@ export function ThemeNoticeDialog() {
   }, []);
 
   /**
-   *
+   * Process the handle dismiss.
    */
   const handleDismiss = () => {
     localStorage.setItem(STORAGE_KEY, "true");
@@ -103,7 +104,8 @@ export function ThemeNoticeDialog() {
 }
 
 /**
- * Detects if Dark Reader or similar visual adjustment extensions are active.
+ * Process the detect visual adjustment extensions.
+ * @returns Whether detect visual adjustment extensions.
  */
 function detectVisualAdjustmentExtensions(): boolean {
   // Check for Dark Reader

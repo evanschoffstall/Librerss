@@ -63,7 +63,18 @@ interface ProxyRoutingCheckDeps {
   fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
 }
 
+interface ProxyRoutingCheckOptions {
+  allowInsecureTls: boolean;
+  proxyUrl: string;
+}
+
 type PublicIpProvider = (typeof PUBLIC_IP_PROVIDERS)[number];
+interface ResolvedProxyUrlOptions {
+  baseProxyUrl: string | undefined;
+  decryptedProxyPassword: null | string;
+  embeddedCredentials: ReturnType<typeof resolveEmbeddedCredentials>;
+  proxyUsername: null | string;
+}
 
 interface StoredUserProxyRow {
   allowInsecureTls: boolean;
@@ -73,18 +84,13 @@ interface StoredUserProxyRow {
 }
 
 /**
- * Compares the direct and proxied public egress IPs using the same HTTPCloak
- * request path used by upstream fetches.
- * @param options
- * @param options.allowInsecureTls
- * @param options.proxyUrl
- * @param deps
+ * Return the proxy routing check.
+ * @param options - The options used to return the proxy routing check.
+ * @param deps - The deps.
+ * @returns The proxy routing check.
  */
 export async function getProxyRoutingCheck(
-  options: {
-    allowInsecureTls: boolean;
-    proxyUrl: string;
-  },
+  options: ProxyRoutingCheckOptions,
   deps?: ProxyRoutingCheckDeps,
 ): Promise<ProxyRoutingCheckResult> {
   const fetchPublicIp =
@@ -127,8 +133,9 @@ export async function getProxyRoutingCheck(
 }
 
 /**
- * Returns a simple reachability check for the user's configured proxy.
- * @param userId
+ * Return the proxy status.
+ * @param userId - The r id.
+ * @returns The proxy status.
  */
 export async function getProxyStatus(
   userId: number,
@@ -161,13 +168,10 @@ export async function getProxyStatus(
     status,
   };
 }
-
 /**
- * Resolves the fully-qualified proxy URL (with injected credentials) for a
- * user. Returns `undefined` proxy URL when the user has no proxy configured.
- *
- * Throws {@link ServerServiceError} when stored credentials cannot be materialized.
- * @param userId
+ * Resolve the user proxy.
+ * @param userId - The r id.
+ * @returns The user proxy.
  */
 export async function resolveUserProxy(
   userId: number,
@@ -193,18 +197,13 @@ export async function resolveUserProxy(
 }
 
 /**
- * @param options
- * @param options.baseProxyUrl
- * @param options.decryptedProxyPassword
- * @param options.embeddedCredentials
- * @param options.proxyUsername
+ * Build the resolved proxy url.
+ * @param options - The options used to build the resolved proxy url.
+ * @returns The resolved proxy url.
  */
-function buildResolvedProxyUrl(options: {
-  baseProxyUrl: string | undefined;
-  decryptedProxyPassword: null | string;
-  embeddedCredentials: ReturnType<typeof resolveEmbeddedCredentials>;
-  proxyUsername: null | string;
-}): string | undefined {
+function buildResolvedProxyUrl(
+  options: ResolvedProxyUrlOptions,
+): string | undefined {
   const {
     baseProxyUrl,
     decryptedProxyPassword,
@@ -237,7 +236,9 @@ function buildResolvedProxyUrl(options: {
 }
 
 /**
- * @param userId
+ * Process the load stored user proxy row.
+ * @param userId - The r id.
+ * @returns The load stored user proxy row.
  */
 async function loadStoredUserProxyRow(
   userId: number,
@@ -259,8 +260,10 @@ async function loadStoredUserProxyRow(
 }
 
 /**
- * @param row
- * @param userId
+ * Process the materialize proxy password.
+ * @param row - The row.
+ * @param userId - The r id.
+ * @returns The materialize proxy password.
  */
 async function materializeProxyPassword(
   row: StoredUserProxyRow,
@@ -292,7 +295,9 @@ async function materializeProxyPassword(
 }
 
 /**
- * @param proxyUrl
+ * Normalize the stored proxy url.
+ * @param proxyUrl - The proxy url.
+ * @returns The stored proxy url.
  */
 function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
   const trimmedProxyUrl = proxyUrl?.trim();
@@ -313,7 +318,9 @@ function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
 }
 
 /**
- * @param body
+ * Parse the plain text public ip payload.
+ * @param body - The body.
+ * @returns The plain text public ip payload.
  */
 function parsePlainTextPublicIpPayload(body: string): { ip: string } {
   const trimmedBody = body.trim();
@@ -326,8 +333,10 @@ function parsePlainTextPublicIpPayload(body: string): { ip: string } {
 }
 
 /**
- * @param provider
- * @param body
+ * Parse the provider public ip payload.
+ * @param provider - The provider.
+ * @param body - The body.
+ * @returns The provider public ip payload.
  */
 function parseProviderPublicIpPayload(
   provider: PublicIpProvider,
@@ -339,8 +348,9 @@ function parseProviderPublicIpPayload(
 }
 
 /**
- * Parses and validates the fixed JSON payload returned by the public IP echo.
- * @param body
+ * Parse the public ip payload.
+ * @param body - The body.
+ * @returns The public ip payload.
  */
 function parsePublicIpPayload(body: string): { ip: string } {
   let parsedBody: unknown;
@@ -365,10 +375,11 @@ function parsePublicIpPayload(body: string): { ip: string } {
 }
 
 /**
- * Fetches a public IP echo payload through HTTPCloak and validates the result.
- * @param proxyUrl
- * @param allowInsecureTls
- * @param fetchPublicIp
+ * Process the read public ip.
+ * @param proxyUrl - The proxy url.
+ * @param allowInsecureTls - The allow insecure tls.
+ * @param fetchPublicIp - The fetch public ip.
+ * @returns The read public ip.
  */
 async function readPublicIp(
   proxyUrl: string | undefined,
@@ -405,14 +416,18 @@ async function readPublicIp(
 }
 
 /**
- * @param proxyUrl
+ * Resolve the embedded credentials.
+ * @param proxyUrl - The proxy url.
+ * @returns The embedded credentials.
  */
 function resolveEmbeddedCredentials(proxyUrl: string | undefined) {
   return proxyUrl ? getUrlCredentials(proxyUrl) : null;
 }
 
 /**
- * @param result
+ * Process the to settled reason.
+ * @param result - The result.
+ * @returns The to settled reason.
  */
 function toSettledReason(result: PromiseSettledResult<string>): string {
   if (result.status === "fulfilled") {
@@ -425,8 +440,9 @@ function toSettledReason(result: PromiseSettledResult<string>): string {
 }
 
 /**
- * Restricts the egress proof request to the fixed public IP echo endpoint.
- * @param candidateUrl
+ * Process the validate public ip endpoint.
+ * @param candidateUrl - The candidate url.
+ * @returns Whether validate public ip endpoint.
  */
 function validatePublicIpEndpoint(candidateUrl: string): boolean {
   const parsedUrl = new URL(candidateUrl);

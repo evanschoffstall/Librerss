@@ -43,6 +43,10 @@ interface ArticleCardHeaderProps extends ArticleHeaderActionsProps {
   showFavicon: boolean;
 }
 
+interface ArticleHeaderDateProps {
+  publicationDate: Date | string;
+}
+
 type ArticleHeaderSourceProps = Pick<
   ArticleCardHeaderProps,
   | "article"
@@ -54,9 +58,10 @@ type ArticleHeaderSourceProps = Pick<
   | "setFaviconIndex"
   | "showFavicon"
 >;
-
 /**
- * @param props
+ * Render the article card header component.
+ * @param props - The component props.
+ * @returns The rendered article card header component.
  */
 export function ArticleCardHeader(props: ArticleCardHeaderProps) {
   return (
@@ -88,14 +93,12 @@ export function ArticleCardHeader(props: ArticleCardHeaderProps) {
 }
 
 /**
- * @param root0
- * @param root0.publicationDate
+ * Render the article header date component.
+ * @param props - The component props.
+ * @returns The rendered article header date component.
  */
-function ArticleHeaderDate({
-  publicationDate,
-}: {
-  publicationDate: Date | string;
-}) {
+function ArticleHeaderDate(props: ArticleHeaderDateProps) {
+  const { publicationDate } = props;
   return (
     <div className="flex shrink-0 items-center gap-2 whitespace-nowrap">
       <CalendarDays className="size-3" />
@@ -109,30 +112,29 @@ function ArticleHeaderDate({
 }
 
 /**
- * @param root0
- * @param root0.faviconCacheKey
- * @param root0.faviconCandidates
- * @param root0.faviconIndex
- * @param root0.faviconTint
- * @param root0.faviconUrl
- * @param root0.setFaviconIndex
+ * Render the article header favicon component.
+ * @param props - The component props.
+ * @returns The rendered article header favicon component.
  */
-function ArticleHeaderFavicon({
-  faviconCacheKey,
-  faviconCandidates,
-  faviconIndex,
-  faviconTint,
-  faviconUrl,
-  setFaviconIndex,
-}: Pick<
-  ArticleCardHeaderProps,
-  | "faviconCacheKey"
-  | "faviconCandidates"
-  | "faviconIndex"
-  | "faviconTint"
-  | "faviconUrl"
-  | "setFaviconIndex"
->) {
+function ArticleHeaderFavicon(
+  props: Pick<
+    ArticleCardHeaderProps,
+    | "faviconCacheKey"
+    | "faviconCandidates"
+    | "faviconIndex"
+    | "faviconTint"
+    | "faviconUrl"
+    | "setFaviconIndex"
+  >,
+) {
+  const {
+    faviconCacheKey,
+    faviconCandidates,
+    faviconIndex,
+    faviconTint,
+    faviconUrl,
+    setFaviconIndex,
+  } = props;
   if (!faviconUrl) {
     return (
       <span
@@ -170,14 +172,17 @@ function ArticleHeaderFavicon({
 }
 
 /**
- * @param root0
- * @param root0.gradientCls
- * @param root0.headerGradientOverlayRef
+ * Render the article header gradient component.
+ * @param props - The component props.
+ * @returns The rendered article header gradient component.
  */
-function ArticleHeaderGradient({
-  gradientCls,
-  headerGradientOverlayRef,
-}: Pick<ArticleCardHeaderProps, "gradientCls" | "headerGradientOverlayRef">) {
+function ArticleHeaderGradient(
+  props: Pick<
+    ArticleCardHeaderProps,
+    "gradientCls" | "headerGradientOverlayRef"
+  >,
+) {
+  const { gradientCls, headerGradientOverlayRef } = props;
   return (
     <div
       className="
@@ -190,7 +195,9 @@ function ArticleHeaderGradient({
 }
 
 /**
- * @param props
+ * Render the article header meta row component.
+ * @param props - The component props.
+ * @returns The rendered article header meta row component.
  */
 function ArticleHeaderMetaRow(props: ArticleCardHeaderProps) {
   return (
@@ -217,26 +224,21 @@ function ArticleHeaderMetaRow(props: ArticleCardHeaderProps) {
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.faviconCacheKey
- * @param root0.faviconCandidates
- * @param root0.faviconIndex
- * @param root0.faviconTint
- * @param root0.faviconUrl
- * @param root0.setFaviconIndex
- * @param root0.showFavicon
+ * Render the article header source component.
+ * @param props - The component props.
+ * @returns The rendered article header source component.
  */
-function ArticleHeaderSource({
-  article,
-  faviconCacheKey,
-  faviconCandidates,
-  faviconIndex,
-  faviconTint,
-  faviconUrl,
-  setFaviconIndex,
-  showFavicon,
-}: ArticleHeaderSourceProps) {
+function ArticleHeaderSource(props: ArticleHeaderSourceProps) {
+  const {
+    article,
+    faviconCacheKey,
+    faviconCandidates,
+    faviconIndex,
+    faviconTint,
+    faviconUrl,
+    setFaviconIndex,
+    showFavicon,
+  } = props;
   return (
     <div className="flex min-w-0 items-center gap-2">
       {showFavicon ? (
@@ -255,19 +257,17 @@ function ArticleHeaderSource({
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.collapsedTitleClassName
- * @param root0.visuallyExpanded
+ * Render the article header title component.
+ * @param props - The component props.
+ * @returns The rendered article header title component.
  */
-function ArticleHeaderTitle({
-  article,
-  collapsedTitleClassName,
-  visuallyExpanded,
-}: Pick<
-  ArticleCardHeaderProps,
-  "article" | "collapsedTitleClassName" | "visuallyExpanded"
->) {
+function ArticleHeaderTitle(
+  props: Pick<
+    ArticleCardHeaderProps,
+    "article" | "collapsedTitleClassName" | "visuallyExpanded"
+  >,
+) {
+  const { article, collapsedTitleClassName, visuallyExpanded } = props;
   return (
     <h3
       className={[
@@ -283,7 +283,9 @@ function ArticleHeaderTitle({
 }
 
 /**
- * @param props
+ * Resolve the article header actions props.
+ * @param props - The component props.
+ * @returns The article header actions props.
  */
 function resolveArticleHeaderActionsProps(
   props: ArticleCardHeaderProps,
@@ -312,7 +314,9 @@ function resolveArticleHeaderActionsProps(
 }
 
 /**
- * @param visuallyExpanded
+ * Resolve the article header class name.
+ * @param visuallyExpanded - The visually expanded.
+ * @returns The article header class name.
  */
 function resolveArticleHeaderClassName(visuallyExpanded: boolean) {
   return visuallyExpanded

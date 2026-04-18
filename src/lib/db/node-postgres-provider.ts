@@ -17,8 +17,9 @@ interface NodePostgresDatabaseOptions {
 }
 
 /**
- * Builds the existing node-postgres-backed Drizzle instance.
- * @param options
+ * Create the node postgres database.
+ * @param options - The options used to create the node postgres database.
+ * @returns The node postgres database.
  */
 export function createNodePostgresDatabase(
   options: NodePostgresDatabaseOptions,
@@ -37,8 +38,9 @@ export function createNodePostgresDatabase(
 }
 
 /**
- * Creates a direct SQL executor that reuses a single client per script run.
- * @param connectionString
+ * Create the node postgres query executor.
+ * @param connectionString - The connection string.
+ * @returns The node postgres query executor.
  */
 export function createNodePostgresQueryExecutor(
   connectionString: string,
@@ -46,8 +48,10 @@ export function createNodePostgresQueryExecutor(
   const client = new Client({ connectionString });
   let isConnected = false;
   /**
-   * @param queryText
-   * @param params
+   * Process the query.
+   * @param queryText - The query text.
+   * @param params - The params.
+   * @returns The query.
    */
   const query = async <TRow extends QueryResultRow = QueryResultRow>(
     queryText: string,
@@ -68,7 +72,7 @@ export function createNodePostgresQueryExecutor(
 
   return {
     /**
-     *
+     * Process the close.
      */
     async close() {
       if (!isConnected) {
@@ -83,7 +87,9 @@ export function createNodePostgresQueryExecutor(
 }
 
 /**
- * @param rows
+ * Process the to query rows.
+ * @param rows - The rows.
+ * @returns The to query rows.
  */
 function toQueryRows(rows: unknown[]): QueryResultRow[] {
   return rows.flatMap((row) =>

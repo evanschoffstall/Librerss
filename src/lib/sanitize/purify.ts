@@ -147,22 +147,9 @@ const PURIFY_OPTIONS = {
 } satisfies Parameters<typeof sanitizeHtml>[1];
 
 /**
- * Purify raw HTML with hardened configuration.
- *
- * This is the MANDATORY first step for ALL raw HTML entering lib/sanitize.
- * Strips script tags, event handlers, dangerous protocols, and other XSS
- * vectors before any downstream processing.
- *
- * Configuration:
- * - Allows a broad set of tags and attributes for subsequent processing
- * - Removes all script/event handler attributes
- * - Blocks javascript:, data:, and vbscript: protocols
- * - Normalizes markup for consistent downstream parsing.
- *
- * This is NOT the final sanitization step — downstream modules apply
- * additional content-specific filtering (image size limits, promotional
- * block removal, etc.). This step only provides baseline XSS protection.
- * @param rawHtml
+ * Process the purify raw html.
+ * @param rawHtml - The raw html.
+ * @returns The purify raw html.
  */
 export function purifyRawHtml(rawHtml: string): string {
   if (!rawHtml || typeof rawHtml !== "string") {

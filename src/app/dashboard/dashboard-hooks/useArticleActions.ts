@@ -16,6 +16,43 @@ import { useArticleHydration } from "@/app/dashboard/dashboard-hooks/useArticleH
 import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
 import { type FeedExtractionSettings } from "@/app/dashboard/display-types";
 
+interface ArticleActionDependenciesResultOptions {
+  actionHandlers: ReturnType<typeof useArticleActionHandlers>;
+  expansion: ReturnType<typeof useArticleExpansionDependencies>;
+  handleToggleStarredState: ReturnType<
+    typeof useArticleStarredState
+  >["handleToggleStarredState"];
+  readState: ReturnType<typeof useArticleReadState>;
+}
+
+interface ArticleActionHandlersOptions {
+  articleFilter: UseArticleActionsOptions["articleFilter"];
+  markExpandedArticleHydrationHandled: (articleKey: string) => void;
+  setArticlesReadState: ReturnType<
+    typeof useArticleReadState
+  >["setArticlesReadState"];
+  startRemovalAnimation: ReturnType<
+    typeof useArticleCollapseState
+  >["startRemovalAnimation"];
+  toggleArticleReadState: ReturnType<
+    typeof useArticleReadState
+  >["handleToggleReadState"];
+  toggleExpandedArticle: (
+    article: Article,
+    markExpandedArticleHydrationHandled: (articleKey: string) => void,
+  ) => Promise<void>;
+}
+interface ArticleExpansionDependenciesOptions {
+  articleFilter: UseArticleActionsOptions["articleFilter"];
+  distillStrategy: UseArticleActionsOptions["distillStrategy"];
+  expandedArticleKey: UseArticleActionsOptions["expandedArticleKey"];
+  feed: UseArticleActionsOptions["feed"];
+  getFeedSettings: ReturnType<typeof useFeedSettingsLookup>;
+  readState: ReturnType<typeof useArticleReadState>;
+  setExpandedArticleKey: UseArticleActionsOptions["setExpandedArticleKey"];
+  setFeed: UseArticleActionsOptions["setFeed"];
+}
+
 interface UseArticleActionsOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   categories?: CategoryTreeNode[];
@@ -28,30 +65,21 @@ interface UseArticleActionsOptions {
 }
 
 /**
- * Coordinates article expansion, hydration, read-state, and star-state updates.
- *
- * Each lifecycle now lives in its owning helper so this hook can expose the
- * stable article-action contract consumed by the dashboard controller.
- * @param root0
- * @param root0.articleFilter
- * @param root0.categories
- * @param root0.distillStrategy
- * @param root0.expandedArticleKey
- * @param root0.feed
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
- * @param root0.usePlaceholderData
+ * Manage the article actions.
+ * @param options - The options used to manage the article actions.
+ * @returns The article actions state and callbacks.
  */
-export function useArticleActions({
-  articleFilter,
-  categories,
-  distillStrategy,
-  expandedArticleKey,
-  feed,
-  setExpandedArticleKey,
-  setFeed,
-  usePlaceholderData = false,
-}: UseArticleActionsOptions) {
+export function useArticleActions(options: UseArticleActionsOptions) {
+  const {
+    articleFilter,
+    categories,
+    distillStrategy,
+    expandedArticleKey,
+    feed,
+    setExpandedArticleKey,
+    setFeed,
+    usePlaceholderData = false,
+  } = options;
   return useArticleActionDependencies({
     articleFilter,
     categories,
@@ -63,22 +91,14 @@ export function useArticleActions({
     usePlaceholderData,
   });
 }
-
 /**
- * @param options
- * @param options.actionHandlers
- * @param options.expansion
- * @param options.handleToggleStarredState
- * @param options.readState
+ * Build the article action dependencies result.
+ * @param options - The options used to build the article action dependencies result.
+ * @returns The article action dependencies result.
  */
-function buildArticleActionDependenciesResult(options: {
-  actionHandlers: ReturnType<typeof useArticleActionHandlers>;
-  expansion: ReturnType<typeof useArticleExpansionDependencies>;
-  handleToggleStarredState: ReturnType<
-    typeof useArticleStarredState
-  >["handleToggleStarredState"];
-  readState: ReturnType<typeof useArticleReadState>;
-}) {
+function buildArticleActionDependenciesResult(
+  options: ArticleActionDependenciesResultOptions,
+) {
   return {
     capturePreExpandSnapshot:
       options.expansion.collapseState.capturePreExpandSnapshot,
@@ -102,26 +122,21 @@ function buildArticleActionDependenciesResult(options: {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.categories
- * @param root0.distillStrategy
- * @param root0.expandedArticleKey
- * @param root0.feed
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
- * @param root0.usePlaceholderData
+ * Manage the article action dependencies.
+ * @param options - The options used to manage the article action dependencies.
+ * @returns The article action dependencies state and callbacks.
  */
-function useArticleActionDependencies({
-  articleFilter,
-  categories,
-  distillStrategy,
-  expandedArticleKey,
-  feed,
-  setExpandedArticleKey,
-  setFeed,
-  usePlaceholderData = false,
-}: UseArticleActionsOptions) {
+function useArticleActionDependencies(options: UseArticleActionsOptions) {
+  const {
+    articleFilter,
+    categories,
+    distillStrategy,
+    expandedArticleKey,
+    feed,
+    setExpandedArticleKey,
+    setFeed,
+    usePlaceholderData = false,
+  } = options;
   const readState = useArticleReadState({ setFeed, usePlaceholderData });
   const getFeedSettings = useFeedSettingsLookup(categories);
   const expansion = useArticleExpansionDependencies({
@@ -157,40 +172,20 @@ function useArticleActionDependencies({
     readState,
   });
 }
-
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.markExpandedArticleHydrationHandled
- * @param root0.setArticlesReadState
- * @param root0.startRemovalAnimation
- * @param root0.toggleArticleReadState
- * @param root0.toggleExpandedArticle
+ * Manage the article action handlers.
+ * @param options - The options used to manage the article action handlers.
+ * @returns The article action handlers state and callbacks.
  */
-function useArticleActionHandlers({
-  articleFilter,
-  markExpandedArticleHydrationHandled,
-  setArticlesReadState,
-  startRemovalAnimation,
-  toggleArticleReadState,
-  toggleExpandedArticle,
-}: {
-  articleFilter: UseArticleActionsOptions["articleFilter"];
-  markExpandedArticleHydrationHandled: (articleKey: string) => void;
-  setArticlesReadState: ReturnType<
-    typeof useArticleReadState
-  >["setArticlesReadState"];
-  startRemovalAnimation: ReturnType<
-    typeof useArticleCollapseState
-  >["startRemovalAnimation"];
-  toggleArticleReadState: ReturnType<
-    typeof useArticleReadState
-  >["handleToggleReadState"];
-  toggleExpandedArticle: (
-    article: Article,
-    markExpandedArticleHydrationHandled: (articleKey: string) => void,
-  ) => Promise<void>;
-}) {
+function useArticleActionHandlers(options: ArticleActionHandlersOptions) {
+  const {
+    articleFilter,
+    markExpandedArticleHydrationHandled,
+    setArticlesReadState,
+    startRemovalAnimation,
+    toggleArticleReadState,
+    toggleExpandedArticle,
+  } = options;
   const handleArticleToggle = useCallback(
     async (article: Article) => {
       await toggleExpandedArticle(article, markExpandedArticleHydrationHandled);
@@ -249,35 +244,23 @@ function useArticleActionHandlers({
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.distillStrategy
- * @param root0.expandedArticleKey
- * @param root0.feed
- * @param root0.getFeedSettings
- * @param root0.readState
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
+ * Manage the article expansion dependencies.
+ * @param options - The options used to manage the article expansion dependencies.
+ * @returns The article expansion dependencies state and callbacks.
  */
-function useArticleExpansionDependencies({
-  articleFilter,
-  distillStrategy,
-  expandedArticleKey,
-  feed,
-  getFeedSettings,
-  readState,
-  setExpandedArticleKey,
-  setFeed,
-}: {
-  articleFilter: UseArticleActionsOptions["articleFilter"];
-  distillStrategy: UseArticleActionsOptions["distillStrategy"];
-  expandedArticleKey: UseArticleActionsOptions["expandedArticleKey"];
-  feed: UseArticleActionsOptions["feed"];
-  getFeedSettings: ReturnType<typeof useFeedSettingsLookup>;
-  readState: ReturnType<typeof useArticleReadState>;
-  setExpandedArticleKey: UseArticleActionsOptions["setExpandedArticleKey"];
-  setFeed: UseArticleActionsOptions["setFeed"];
-}) {
+function useArticleExpansionDependencies(
+  options: ArticleExpansionDependenciesOptions,
+) {
+  const {
+    articleFilter,
+    distillStrategy,
+    expandedArticleKey,
+    feed,
+    getFeedSettings,
+    readState,
+    setExpandedArticleKey,
+    setFeed,
+  } = options;
   const hydration = useArticleHydration({
     distillStrategy,
     getFeedSettings,
@@ -318,7 +301,9 @@ function useArticleExpansionDependencies({
 }
 
 /**
- * @param categories
+ * Manage the feed settings lookup.
+ * @param categories - The categories.
+ * @returns The feed settings lookup state and callbacks.
  */
 function useFeedSettingsLookup(categories?: CategoryTreeNode[]) {
   return useMemo(() => {

@@ -44,10 +44,29 @@ export interface FeedBatchRequestHelpers {
   ) => Map<string, Date> | undefined;
 }
 
+interface FeedBatchRequestQueryStateOptions {
+  articleFilter: ArticleFilter;
+  keepExistingFeed: boolean;
+  normalizedSources: FeedBatchSource[];
+  options?: FeedFetchOptions;
+  requestHelpers: FeedBatchRequestHelpers;
+}
+
+interface PrepareFeedBatchRequestContextOptions {
+  articleFilter: ArticleFilter;
+  options?: FeedFetchOptions;
+  queryClient: QueryClient;
+  requestHelpers: FeedBatchRequestHelpers;
+  requestState: ReturnType<typeof useFeedBatchRequestState>;
+  sources: FeedBatchSource[];
+  usePlaceholderData: boolean;
+}
+
 /**
- * @param context
- * @param queryClient
- * @param setFeed
+ * Process the clear stale feed before refresh.
+ * @param context - The context used to process the clear stale feed before refresh.
+ * @param queryClient - The query client.
+ * @param setFeed - The set feed.
  */
 export function clearStaleFeedBeforeRefresh(
   context: FeedBatchRequestContext,
@@ -77,9 +96,10 @@ export function clearStaleFeedBeforeRefresh(
 }
 
 /**
- * @param requestState
- * @param logRefreshDiagnostics
- * @param requestId
+ * Process the finish feed batch request.
+ * @param requestState - The request state.
+ * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param requestId - The request id.
  */
 export function finishFeedBatchRequest(
   requestState: ReturnType<typeof useFeedBatchRequestState>,
@@ -98,9 +118,11 @@ export function finishFeedBatchRequest(
 }
 
 /**
- * @param context
- * @param loadBatchResults
- * @param logRefreshDiagnostics
+ * Process the load feed batch results or return null.
+ * @param context - The context used to process the load feed batch results or return null.
+ * @param loadBatchResults - The callback that load batch results.
+ * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @returns The load feed batch results or return null.
  */
 export async function loadFeedBatchResultsOrReturnNull(
   context: FeedBatchRequestContext,
@@ -142,12 +164,12 @@ export async function loadFeedBatchResultsOrReturnNull(
 
   return batchResults;
 }
-
 /**
- * @param logRefreshDiagnostics
- * @param context
- * @param sourceCount
- * @param options
+ * Process the log feed batch start.
+ * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param context - The context used to process the log feed batch start.
+ * @param sourceCount - The source count value.
+ * @param options - The options used to process the log feed batch start.
  */
 export function logFeedBatchStart(
   logRefreshDiagnostics: (
@@ -177,9 +199,10 @@ export function logFeedBatchStart(
 }
 
 /**
- * @param logRefreshDiagnostics
- * @param requestId
- * @param batchResults
+ * Process the log stale feed batch request.
+ * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param requestId - The request id.
+ * @param batchResults - The batch results.
  */
 export function logStaleFeedBatchRequest(
   logRefreshDiagnostics: (
@@ -199,36 +222,25 @@ export function logStaleFeedBatchRequest(
 
   logRefreshDiagnostics("refresh:stale-request", { requestId });
 }
-
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.options
- * @param root0.queryClient
- * @param root0.requestHelpers
- * @param root0.requestState
- * @param root0.sources
- * @param root0.usePlaceholderData
+ * Process the prepare feed batch request context.
+ * @param options - The options used to process the prepare feed batch request context.
+ * @returns The prepare feed batch request context.
  */
-export function prepareFeedBatchRequestContext({
-  articleFilter,
-  options,
-  queryClient: _queryClient,
-  requestHelpers,
-  requestState,
-  sources,
-  usePlaceholderData,
-}: {
-  articleFilter: ArticleFilter;
-  options?: FeedFetchOptions;
-  queryClient: QueryClient;
-  requestHelpers: FeedBatchRequestHelpers;
-  requestState: ReturnType<typeof useFeedBatchRequestState>;
-  sources: FeedBatchSource[];
-  usePlaceholderData: boolean;
-}): FeedBatchRequestContext | null {
-  const keepExistingFeed = options?.keepExistingFeed === true;
-  const forceRefresh = options?.forceRefresh === true;
+export function prepareFeedBatchRequestContext(
+  options: PrepareFeedBatchRequestContextOptions,
+): FeedBatchRequestContext | null {
+  const {
+    articleFilter,
+    options,
+    queryClient: _queryClient,
+    requestHelpers,
+    requestState,
+    sources,
+    usePlaceholderData,
+  } = options;
+  const keepExistingFeed = options.keepExistingFeed === true;
+  const forceRefresh = options.forceRefresh === true;
   const isBackground = keepExistingFeed && !forceRefresh;
   if (isBackground && requestState.isLoadingRequest()) {
     return null;
@@ -266,20 +278,13 @@ export function prepareFeedBatchRequestContext({
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.keepExistingFeed
- * @param options.normalizedSources
- * @param options.options
- * @param options.requestHelpers
+ * Build the feed batch request query state.
+ * @param options - The options used to build the feed batch request query state.
+ * @returns The feed batch request query state.
  */
-function buildFeedBatchRequestQueryState(options: {
-  articleFilter: ArticleFilter;
-  keepExistingFeed: boolean;
-  normalizedSources: FeedBatchSource[];
-  options?: FeedFetchOptions;
-  requestHelpers: FeedBatchRequestHelpers;
-}) {
+function buildFeedBatchRequestQueryState(
+  options: FeedBatchRequestQueryStateOptions,
+) {
   const requestSignature = options.requestHelpers.buildRequestSignature(
     options.normalizedSources,
     options.options?.articleLimit,

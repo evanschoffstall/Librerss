@@ -30,11 +30,9 @@ export interface UseFeedPaginationOptions {
 }
 
 /**
- * Owns visible-window sizing, scroll-triggered pagination, and viewport auto-fill.
- *
- * This keeps feed paging mechanics separate from the higher-level viewport lock
- * and anchor logic so the main hook reads as orchestration instead of event soup.
- * @param options
+ * Manage the feed pagination.
+ * @param options - The options used to manage the feed pagination.
+ * @returns The feed pagination state and callbacks.
  */
 export function useFeedPagination(options: UseFeedPaginationOptions) {
   const canLoadMoreFromServer = options.canLoadMoreFromServer ?? false;
@@ -69,9 +67,11 @@ export function useFeedPagination(options: UseFeedPaginationOptions) {
 }
 
 /**
- * @param options
- * @param canLoadMoreFromServer
- * @param controllers
+ * Build the feed pagination effects options.
+ * @param options - The options used to build the feed pagination effects options.
+ * @param canLoadMoreFromServer - Whether can load more from server.
+ * @param controllers - The callback that controllers.
+ * @returns The feed pagination effects options.
  */
 function buildFeedPaginationEffectsOptions(
   options: UseFeedPaginationOptions,
@@ -82,9 +82,11 @@ function buildFeedPaginationEffectsOptions(
 }
 
 /**
- * @param options
- * @param canLoadMoreFromServer
- * @param controllers
+ * Build the feed pagination runtime options.
+ * @param options - The options used to build the feed pagination runtime options.
+ * @param canLoadMoreFromServer - Whether can load more from server.
+ * @param controllers - The callback that controllers.
+ * @returns The feed pagination runtime options.
  */
 function buildFeedPaginationRuntimeOptions(
   options: UseFeedPaginationOptions,

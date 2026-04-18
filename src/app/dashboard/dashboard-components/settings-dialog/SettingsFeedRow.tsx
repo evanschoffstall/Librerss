@@ -61,9 +61,30 @@ export interface SettingsFeedRowProps {
   updatingSettingsKey: null | string;
 }
 
+interface FeedRowDisplayContentProps {
+  feedNode: CategoryTreeNode;
+  isEnabled: boolean;
+  movingFeedKey: null | string;
+  selectedCategory: string;
+}
+interface FeedRowDropMarkerProps {
+  position: "bottom" | "top";
+}
+
+interface FeedRowEditingFieldsProps {
+  editingFeedName: string;
+  editingFeedUrl: string;
+  feedKey: string;
+  onCancelRename: () => void;
+  onEditingNameChange: (name: string) => void;
+  onEditingUrlChange: (url: string) => void;
+  onSaveRename: (key: string) => void;
+  savingFeedKey: null | string;
+}
 /**
- * Renders a single feed row in the settings accordion with edit and drag controls.
- * @param props
+ * Render the settings feed row component.
+ * @param props - The component props.
+ * @returns The rendered settings feed row component.
  */
 export function SettingsFeedRow(props: SettingsFeedRowProps) {
   const isMobile = useIsMobile();
@@ -138,23 +159,12 @@ export function SettingsFeedRow(props: SettingsFeedRowProps) {
 }
 
 /**
- * @param root0
- * @param root0.feedNode
- * @param root0.isEnabled
- * @param root0.movingFeedKey
- * @param root0.selectedCategory
+ * Render the feed row display content component.
+ * @param props - The component props.
+ * @returns The rendered feed row display content component.
  */
-function FeedRowDisplayContent({
-  feedNode,
-  isEnabled,
-  movingFeedKey,
-  selectedCategory,
-}: {
-  feedNode: CategoryTreeNode;
-  isEnabled: boolean;
-  movingFeedKey: null | string;
-  selectedCategory: string;
-}) {
+function FeedRowDisplayContent(props: FeedRowDisplayContentProps) {
+  const { feedNode, isEnabled, movingFeedKey, selectedCategory } = props;
   return (
     <div
       className={[
@@ -185,12 +195,13 @@ function FeedRowDisplayContent({
     </div>
   );
 }
-
 /**
- * @param root0
- * @param root0.position
+ * Render the feed row drop marker component.
+ * @param props - The component props.
+ * @returns The rendered feed row drop marker component.
  */
-function FeedRowDropMarker({ position }: { position: "bottom" | "top" }) {
+function FeedRowDropMarker(props: FeedRowDropMarkerProps) {
+  const { position } = props;
   return (
     <div
       className={[
@@ -202,35 +213,21 @@ function FeedRowDropMarker({ position }: { position: "bottom" | "top" }) {
 }
 
 /**
- * @param root0
- * @param root0.editingFeedName
- * @param root0.editingFeedUrl
- * @param root0.feedKey
- * @param root0.onCancelRename
- * @param root0.onEditingNameChange
- * @param root0.onEditingUrlChange
- * @param root0.onSaveRename
- * @param root0.savingFeedKey
+ * Render the feed row editing fields component.
+ * @param props - The component props.
+ * @returns The rendered feed row editing fields component.
  */
-function FeedRowEditingFields({
-  editingFeedName,
-  editingFeedUrl,
-  feedKey,
-  onCancelRename,
-  onEditingNameChange,
-  onEditingUrlChange,
-  onSaveRename,
-  savingFeedKey,
-}: {
-  editingFeedName: string;
-  editingFeedUrl: string;
-  feedKey: string;
-  onCancelRename: () => void;
-  onEditingNameChange: (name: string) => void;
-  onEditingUrlChange: (url: string) => void;
-  onSaveRename: (key: string) => void;
-  savingFeedKey: null | string;
-}) {
+function FeedRowEditingFields(props: FeedRowEditingFieldsProps) {
+  const {
+    editingFeedName,
+    editingFeedUrl,
+    feedKey,
+    onCancelRename,
+    onEditingNameChange,
+    onEditingUrlChange,
+    onSaveRename,
+    savingFeedKey,
+  } = props;
   const isSaving = savingFeedKey === feedKey;
 
   return (
@@ -282,8 +279,10 @@ function FeedRowEditingFields({
 }
 
 /**
- * @param event
- * @param index
+ * Resolve the target index from pointer.
+ * @param event - The event.
+ * @param index - The index.
+ * @returns The target index from pointer.
  */
 function resolveTargetIndexFromPointer(
   event: React.DragEvent<HTMLElement>,
@@ -294,42 +293,37 @@ function resolveTargetIndexFromPointer(
 }
 
 /**
- * @param root0
- * @param root0.categoryLabel
- * @param root0.deletingKey
- * @param root0.draggingFeedKey
- * @param root0.editingFeedKey
- * @param root0.feedDropTarget
- * @param root0.feedNode
- * @param root0.index
- * @param root0.onStartEditing
- * @param root0.togglingFeedKey
- * @param root0.updatingSettingsKey
+ * Manage the settings feed row state.
+ * @param options - The options used to manage the settings feed row state.
+ * @returns The settings feed row state state and callbacks.
  */
-function useSettingsFeedRowState({
-  categoryLabel,
-  deletingKey,
-  draggingFeedKey,
-  editingFeedKey,
-  feedDropTarget,
-  feedNode,
-  index,
-  onStartEditing,
-  togglingFeedKey,
-  updatingSettingsKey,
-}: Pick<
-  SettingsFeedRowProps,
-  | "categoryLabel"
-  | "deletingKey"
-  | "draggingFeedKey"
-  | "editingFeedKey"
-  | "feedDropTarget"
-  | "feedNode"
-  | "index"
-  | "onStartEditing"
-  | "togglingFeedKey"
-  | "updatingSettingsKey"
->): SettingsFeedRowDerivedState {
+function useSettingsFeedRowState(
+  options: Pick<
+    SettingsFeedRowProps,
+    | "categoryLabel"
+    | "deletingKey"
+    | "draggingFeedKey"
+    | "editingFeedKey"
+    | "feedDropTarget"
+    | "feedNode"
+    | "index"
+    | "onStartEditing"
+    | "togglingFeedKey"
+    | "updatingSettingsKey"
+  >,
+): SettingsFeedRowDerivedState {
+  const {
+    categoryLabel,
+    deletingKey,
+    draggingFeedKey,
+    editingFeedKey,
+    feedDropTarget,
+    feedNode,
+    index,
+    onStartEditing,
+    togglingFeedKey,
+    updatingSettingsKey,
+  } = options;
   const [pendingSetting, setPendingSetting] = useState<
     "extraction" | "proxy" | null
   >(null);
@@ -367,7 +361,7 @@ function useSettingsFeedRowState({
     setPendingSetting,
     settingsBusy: isUpdatingSettings || isTogglingEnabled || isDeleting,
     /**
-     *
+     * Opens the inline feed editor with the current feed values prefilled.
      */
     startEditingFeed: () => {
       onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");

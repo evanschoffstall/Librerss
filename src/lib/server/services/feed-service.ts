@@ -34,10 +34,17 @@ interface FeedServiceDeps {
 
 // ─── Feed source listing ──────────────────────────────────────────────────────
 
+interface FeedSettingsSettings {
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
+}
+
 /**
- * @param userId
- * @param payload
- * @param deps
+ * Create the feed.
+ * @param userId - The r id.
+ * @param payload - The payload.
+ * @param deps - The deps.
+ * @returns The feed.
  */
 export async function createFeed(
   userId: number,
@@ -57,10 +64,14 @@ export async function createFeed(
   return result;
 }
 
+// ─── Feed source CRUD ─────────────────────────────────────────────────────────
+
 /**
- * @param userId
- * @param sourceId
- * @param deps
+ * Process the delete feed.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param deps - The deps.
+ * @returns The delete feed.
  */
 export async function deleteFeed(
   userId: number,
@@ -78,11 +89,11 @@ export async function deleteFeed(
   return deleted;
 }
 
-// ─── Feed source CRUD ─────────────────────────────────────────────────────────
-
 /**
- * @param userId
- * @param deps
+ * Return the category order.
+ * @param userId - The r id.
+ * @param deps - The deps.
+ * @returns The category order.
  */
 export async function getCategoryOrder(
   userId: number,
@@ -99,11 +110,13 @@ export async function getCategoryOrder(
 }
 
 /**
- * @param userId
- * @param sourceId
- * @param name
- * @param url
- * @param deps
+ * Process the rename feed.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param name - The name.
+ * @param url - The url.
+ * @param deps - The deps.
+ * @returns The rename feed.
  */
 export async function renameFeed(
   userId: number,
@@ -122,9 +135,11 @@ export async function renameFeed(
 }
 
 /**
- * @param userId
- * @param labels
- * @param deps
+ * Process the save category order.
+ * @param userId - The r id.
+ * @param labels - The labels.
+ * @param deps - The deps.
+ * @returns The save category order.
  */
 export async function saveCategoryOrder(
   userId: number,
@@ -146,12 +161,13 @@ export async function saveCategoryOrder(
     });
   return labels;
 }
-
 /**
- * @param userId
- * @param sourceId
- * @param enabled
- * @param deps
+ * Process the set feed enabled.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param enabled - The enabled.
+ * @param deps - The deps.
+ * @returns The set feed enabled.
  */
 export async function setFeedEnabled(
   userId: number,
@@ -170,17 +186,17 @@ export async function setFeedEnabled(
 }
 
 /**
- * @param userId
- * @param sourceId
- * @param settings
- * @param settings.extractionDisabled
- * @param settings.proxyEnabled
- * @param deps
+ * Update the feed settings.
+ * @param userId - The r id.
+ * @param sourceId - The source id.
+ * @param settings - The settings.
+ * @param deps - The deps.
+ * @returns The feed settings.
  */
 export async function updateFeedSettings(
   userId: number,
   sourceId: number,
-  settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+  settings: FeedSettingsSettings,
   deps: Pick<FeedServiceDeps, "updateFeedSettingsForUserFn"> = {},
 ): Promise<FeedSourceRecord> {
   const update = deps.updateFeedSettingsForUserFn ?? updateFeedSettingsForUser;
@@ -195,7 +211,9 @@ export async function updateFeedSettings(
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /**
- * @param raw
+ * Process the safe parse label array.
+ * @param raw - The raw.
+ * @returns The safe parse label array.
  */
 function safeParseLabelArray(raw: string): string[] {
   try {

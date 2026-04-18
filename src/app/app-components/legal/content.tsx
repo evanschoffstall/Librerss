@@ -23,7 +23,9 @@ interface LegalDeploymentProfile {
 type LegalProfile = (typeof LEGAL_PROFILES)[number];
 
 /**
- * @param rawValue
+ * Process the trim optional env.
+ * @param rawValue - The raw value.
+ * @returns The trim optional env.
  */
 const trimOptionalEnv = (rawValue: string | undefined): string | undefined => {
   if (rawValue === undefined) {
@@ -35,9 +37,11 @@ const trimOptionalEnv = (rawValue: string | undefined): string | undefined => {
 };
 
 /**
- * @param key
- * @param rawValue
- * @param maximumLength
+ * Process the read optional display env.
+ * @param key - The key.
+ * @param rawValue - The raw value.
+ * @param maximumLength - The maximum length value.
+ * @returns The read optional display env.
  */
 const readOptionalDisplayEnv = (
   key: string,
@@ -60,8 +64,10 @@ const readOptionalDisplayEnv = (
 };
 
 /**
- * @param key
- * @param rawValue
+ * Process the read optional email env.
+ * @param key - The key.
+ * @param rawValue - The raw value.
+ * @returns The read optional email env.
  */
 const readOptionalEmailEnv = (
   key: string,
@@ -81,7 +87,8 @@ const readOptionalEmailEnv = (
 };
 
 /**
- *
+ * Process the read legal profile.
+ * @returns The read legal profile.
  */
 const readLegalProfile = (): LegalProfile => {
   const rawValue = trimOptionalEnv(process.env.LEGAL_PROFILE)?.toLowerCase();
@@ -100,8 +107,8 @@ const readLegalProfile = (): LegalProfile => {
 };
 
 /**
- * Reads and validates the deployment metadata that makes the legal pages
- * deployment-aware instead of pretending one policy applies to every install.
+ * Return the legal deployment profile.
+ * @returns The legal deployment profile.
  */
 export const getLegalDeploymentProfile = (): LegalDeploymentProfile => {
   const profile = readLegalProfile();
@@ -130,7 +137,9 @@ export const getLegalDeploymentProfile = (): LegalDeploymentProfile => {
 };
 
 /**
- * @param profile
+ * Resolve the default deployment name.
+ * @param profile - The profile.
+ * @returns The default deployment name.
  */
 function resolveDefaultDeploymentName(profile: LegalProfile): string {
   return profile === "official"
@@ -139,15 +148,19 @@ function resolveDefaultDeploymentName(profile: LegalProfile): string {
 }
 
 /**
- * @param profile
+ * Resolve the default operator name.
+ * @param profile - The profile.
+ * @returns The default operator name.
  */
 function resolveDefaultOperatorName(profile: LegalProfile): string | undefined {
   return profile === "official" ? DEFAULT_OFFICIAL_OPERATOR_NAME : undefined;
 }
 
 /**
- * @param profile
- * @param topicLabel
+ * Build the contact card.
+ * @param profile - The profile.
+ * @param topicLabel - The topic label.
+ * @returns The contact card.
  */
 const buildContactCard = (
   profile: LegalDeploymentProfile,
@@ -194,7 +207,9 @@ const buildContactCard = (
 };
 
 /**
- * @param profile
+ * Build the privacy sections.
+ * @param profile - The profile.
+ * @returns The privacy sections.
  */
 const buildPrivacySections = (
   profile: LegalDeploymentProfile,
@@ -235,7 +250,9 @@ const buildPrivacySections = (
 ];
 
 /**
- * @param profile
+ * Build the terms sections.
+ * @param profile - The profile.
+ * @returns The terms sections.
  */
 const buildTermsSections = (
   profile: LegalDeploymentProfile,
@@ -283,7 +300,8 @@ const buildTermsSections = (
 ];
 
 /**
- * Builds the privacy page content from validated deployment metadata.
+ * Return the privacy page content.
+ * @returns The privacy page content.
  */
 export const getPrivacyPageContent = (): LegalDocumentPageProps => {
   const profile = getLegalDeploymentProfile();
@@ -308,7 +326,8 @@ export const getPrivacyPageContent = (): LegalDocumentPageProps => {
 };
 
 /**
- * Builds the terms page content from validated deployment metadata.
+ * Return the terms page content.
+ * @returns The terms page content.
  */
 export const getTermsPageContent = (): LegalDocumentPageProps => {
   const profile = getLegalDeploymentProfile();

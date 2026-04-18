@@ -15,6 +15,16 @@ interface FeedPaginationServerLoadCooldownStateOptions {
   >>;
 }
 
+interface RequestMoreFromServerOptions {
+  canLoadMoreFromServer: boolean;
+  hasPendingBoundaryRearmAfterCooldownRef: React.RefObject<boolean>;
+  hasPendingServerRevealRef: React.RefObject<boolean>;
+  hasRequestedServerLoadRef: React.RefObject<boolean>;
+  isInvertedScroll: boolean;
+  isStandardViewportRefillActiveRef: React.RefObject<boolean>;
+  onLoadMore?: () => void;
+}
+
 interface UseFeedPaginationServerLoadCooldownOptions extends FeedPaginationServerLoadCooldownStateOptions {
   clearServerLoadCooldown: () => void;
 }
@@ -28,20 +38,20 @@ interface UseFeedPaginationServerLoadOptions {
 }
 
 /**
- * @param root0
- * @param root0.canLoadMoreFromServer
- * @param root0.isInvertedLoadBoundaryArmedRef
- * @param root0.isInvertedScroll
- * @param root0.isStandardLoadBoundaryArmedRef
- * @param root0.onLoadMore
+ * Manage the feed pagination server load.
+ * @param options - The options used to manage the feed pagination server load.
+ * @returns The feed pagination server load state and callbacks.
  */
-export function useFeedPaginationServerLoad({
-  canLoadMoreFromServer,
-  isInvertedLoadBoundaryArmedRef,
-  isInvertedScroll,
-  isStandardLoadBoundaryArmedRef,
-  onLoadMore,
-}: UseFeedPaginationServerLoadOptions) {
+export function useFeedPaginationServerLoad(
+  options: UseFeedPaginationServerLoadOptions,
+) {
+  const {
+    canLoadMoreFromServer,
+    isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll,
+    isStandardLoadBoundaryArmedRef,
+    onLoadMore,
+  } = options;
   const {
     hasPendingBoundaryRearmAfterCooldownRef,
     hasPendingServerRevealRef,
@@ -91,7 +101,8 @@ export function useFeedPaginationServerLoad({
 }
 
 /**
- * @param options
+ * Process the complete feed server load cooldown.
+ * @param options - The options used to process the complete feed server load cooldown.
  */
 function completeFeedServerLoadCooldown(
   options: FeedPaginationServerLoadCooldownStateOptions,
@@ -115,9 +126,10 @@ function completeFeedServerLoadCooldown(
 }
 
 /**
- * @param isInvertedScroll
- * @param isInvertedLoadBoundaryArmedRef
- * @param isStandardLoadBoundaryArmedRef
+ * Process the rearm feed load boundary.
+ * @param isInvertedScroll - Whether is inverted scroll.
+ * @param isInvertedLoadBoundaryArmedRef - The ref that stores the is inverted load boundary armed ref.
+ * @param isStandardLoadBoundaryArmedRef - The ref that stores the is standard load boundary armed ref.
  */
 function rearmFeedLoadBoundary(
   isInvertedScroll: boolean,
@@ -133,24 +145,22 @@ function rearmFeedLoadBoundary(
 }
 
 /**
- * @param root0
- * @param root0.clearServerLoadCooldown
- * @param root0.hasPendingBoundaryRearmAfterCooldownRef
- * @param root0.hasRequestedServerLoadRef
- * @param root0.isInvertedLoadBoundaryArmedRef
- * @param root0.isInvertedScroll
- * @param root0.isStandardLoadBoundaryArmedRef
- * @param root0.serverLoadCooldownTimerRef
+ * Manage the feed pagination server load cooldown.
+ * @param options - The options used to manage the feed pagination server load cooldown.
+ * @returns The feed pagination server load cooldown state and callbacks.
  */
-function useFeedPaginationServerLoadCooldown({
-  clearServerLoadCooldown,
-  hasPendingBoundaryRearmAfterCooldownRef,
-  hasRequestedServerLoadRef,
-  isInvertedLoadBoundaryArmedRef,
-  isInvertedScroll,
-  isStandardLoadBoundaryArmedRef,
-  serverLoadCooldownTimerRef,
-}: UseFeedPaginationServerLoadCooldownOptions) {
+function useFeedPaginationServerLoadCooldown(
+  options: UseFeedPaginationServerLoadCooldownOptions,
+) {
+  const {
+    clearServerLoadCooldown,
+    hasPendingBoundaryRearmAfterCooldownRef,
+    hasRequestedServerLoadRef,
+    isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll,
+    isStandardLoadBoundaryArmedRef,
+    serverLoadCooldownTimerRef,
+  } = options;
   return useCallback(() => {
     clearServerLoadCooldown();
 
@@ -186,9 +196,9 @@ function useFeedPaginationServerLoadCooldown({
     serverLoadCooldownTimerRef,
   ]);
 }
-
 /**
- *
+ * Manage the feed pagination server load refs.
+ * @returns The feed pagination server load refs state and callbacks.
  */
 function useFeedPaginationServerLoadRefs() {
   return {
@@ -204,24 +214,11 @@ function useFeedPaginationServerLoadRefs() {
 }
 
 /**
- * @param options
- * @param options.canLoadMoreFromServer
- * @param options.hasPendingBoundaryRearmAfterCooldownRef
- * @param options.hasPendingServerRevealRef
- * @param options.hasRequestedServerLoadRef
- * @param options.isInvertedScroll
- * @param options.isStandardViewportRefillActiveRef
- * @param options.onLoadMore
+ * Manage the request more from server.
+ * @param options - The options used to manage the request more from server.
+ * @returns The request more from server state and callbacks.
  */
-function useRequestMoreFromServer(options: {
-  canLoadMoreFromServer: boolean;
-  hasPendingBoundaryRearmAfterCooldownRef: React.RefObject<boolean>;
-  hasPendingServerRevealRef: React.RefObject<boolean>;
-  hasRequestedServerLoadRef: React.RefObject<boolean>;
-  isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: React.RefObject<boolean>;
-  onLoadMore?: () => void;
-}) {
+function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
   return useCallback(
     (requestOptions?: { isViewportRefill?: boolean }) => {
       if (

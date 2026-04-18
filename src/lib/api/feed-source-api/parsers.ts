@@ -21,7 +21,9 @@ import type {
 const MAX_FEED_URL_LENGTH = 2048;
 
 /**
- * @param url
+ * Process the assert allowed feed url.
+ * @param url - The url.
+ * @returns The assert allowed feed url.
  */
 export async function assertAllowedFeedUrl(
   url: string,
@@ -34,7 +36,9 @@ export async function assertAllowedFeedUrl(
 }
 
 /**
- * @param request
+ * Return the requested feed url.
+ * @param request - The request.
+ * @returns The requested feed url.
  */
 export function getRequestedFeedUrl(request: NextRequest): null | string {
   const requestUrl = new URL(request.url);
@@ -48,7 +52,9 @@ export function getRequestedFeedUrl(request: NextRequest): null | string {
 }
 
 /**
- * @param request
+ * Parse the create feed payload.
+ * @param request - The request.
+ * @returns The create feed payload.
  */
 export async function parseCreateFeedPayload(
   request: NextRequest,
@@ -91,7 +97,9 @@ export async function parseCreateFeedPayload(
 }
 
 /**
- * @param request
+ * Parse the delete source id.
+ * @param request - The request.
+ * @returns The delete source id.
  */
 export function parseDeleteSourceId(request: NextRequest): number | Response {
   const requestUrl = new URL(request.url);
@@ -105,7 +113,9 @@ export function parseDeleteSourceId(request: NextRequest): number | Response {
 }
 
 /**
- * @param request
+ * Parse the rename feed payload.
+ * @param request - The request.
+ * @returns The rename feed payload.
  */
 export async function parseRenameFeedPayload(
   request: NextRequest,
@@ -119,7 +129,9 @@ export async function parseRenameFeedPayload(
 }
 
 /**
- * @param payload
+ * Parse the rename feed payload from body.
+ * @param payload - The payload.
+ * @returns The rename feed payload from body.
  */
 export function parseRenameFeedPayloadFromBody(
   payload: Record<string, unknown>,
@@ -158,7 +170,9 @@ export function parseRenameFeedPayloadFromBody(
 }
 
 /**
- * @param payload
+ * Parse the toggle feed enabled payload from body.
+ * @param payload - The payload.
+ * @returns The toggle feed enabled payload from body.
  */
 export function parseToggleFeedEnabledPayloadFromBody(
   payload: Record<string, unknown>,
@@ -176,7 +190,9 @@ export function parseToggleFeedEnabledPayloadFromBody(
 }
 
 /**
- * @param payload
+ * Parse the update feed settings payload from body.
+ * @param payload - The payload.
+ * @returns The update feed settings payload from body.
  */
 export function parseUpdateFeedSettingsPayloadFromBody(
   payload: Record<string, unknown>,

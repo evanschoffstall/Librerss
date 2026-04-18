@@ -8,8 +8,10 @@ export const runtime = "nodejs";
 export { getHostname } from "@/lib/server";
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,

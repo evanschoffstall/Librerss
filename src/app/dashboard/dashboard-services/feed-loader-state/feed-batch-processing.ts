@@ -4,7 +4,9 @@ export {
 } from "@/app/dashboard/dashboard-services/feed-data/batch";
 
 /**
- * @param timestamp
+ * Process the format last refresh label.
+ * @param timestamp - The timestamp.
+ * @returns The format last refresh label.
  */
 export function formatLastRefreshLabel(timestamp: Date | null): string {
   if (!timestamp) {

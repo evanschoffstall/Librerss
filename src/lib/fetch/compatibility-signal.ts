@@ -13,11 +13,11 @@ type CompatibilityProvider =
   | "reCAPTCHA";
 
 /**
- * Detect whether an upstream response looks like a bot-management challenge
- * and whether retrying the same profile has a reasonable chance of success.
- * @param responseStatus
- * @param headers
- * @param responseBody
+ * Process the detect response compatibility signal.
+ * @param responseStatus - The response status.
+ * @param headers - The headers.
+ * @param responseBody - The response body.
+ * @returns The detect response compatibility signal.
  */
 export function detectResponseCompatibilitySignal(
   responseStatus: number | undefined,
@@ -52,8 +52,10 @@ export function detectResponseCompatibilitySignal(
 }
 
 /**
- * @param provider
- * @param challengeCookies
+ * Create the detected response.
+ * @param provider - The provider.
+ * @param challengeCookies - The challenge cookies.
+ * @returns The detected response.
  */
 function createDetectedResponse(
   provider: CompatibilityProvider,
@@ -70,7 +72,9 @@ function createDetectedResponse(
 }
 
 /**
- * @param headers
+ * Return the challenge cookies.
+ * @param headers - The headers.
+ * @returns The challenge cookies.
  */
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {
   const setCookie = headers?.["set-cookie"];
@@ -82,15 +86,19 @@ function getChallengeCookies(headers: Record<string, unknown> | undefined) {
 }
 
 /**
- * @param headers
+ * Return the lowercase header keys.
+ * @param headers - The headers.
+ * @returns The lowercase header keys.
  */
 function getLowercaseHeaderKeys(headers: Record<string, unknown> | undefined) {
   return Object.keys(headers ?? {}).map((header) => header.toLowerCase());
 }
 
 /**
- * @param headers
- * @param key
+ * Process the header text.
+ * @param headers - The headers.
+ * @param key - The key.
+ * @returns The header text.
  */
 function headerText(headers: Record<string, unknown> | undefined, key: string) {
   const value = headers?.[key];
@@ -102,8 +110,10 @@ function headerText(headers: Record<string, unknown> | undefined, key: string) {
 }
 
 /**
- * @param headers
- * @param responseBody
+ * Return whether is cloudflare challenge.
+ * @param headers - The headers.
+ * @param responseBody - The response body.
+ * @returns Whether is cloudflare challenge.
  */
 function isCloudflareChallenge(
   headers: Record<string, unknown> | undefined,
@@ -118,15 +128,19 @@ function isCloudflareChallenge(
 }
 
 /**
- * @param headers
+ * Return whether is data dome challenge.
+ * @param headers - The headers.
+ * @returns Whether is data dome challenge.
  */
 function isDataDomeChallenge(headers: Record<string, unknown> | undefined) {
   return headerText(headers, "x-datadome") === "protected";
 }
 
 /**
- * @param responseBody
- * @param responseHeaderKeys
+ * Return whether is perimeter x challenge.
+ * @param responseBody - The response body.
+ * @param responseHeaderKeys - The response header keys.
+ * @returns Whether is perimeter x challenge.
  */
 function isPerimeterXChallenge(
   responseBody: string,
@@ -139,8 +153,10 @@ function isPerimeterXChallenge(
 }
 
 /**
- * @param responseBody
- * @param responseBodyLower
+ * Return whether is recaptcha challenge.
+ * @param responseBody - The response body.
+ * @param responseBodyLower - The response body lower.
+ * @returns Whether is recaptcha challenge.
  */
 function isRecaptchaChallenge(responseBody: string, responseBodyLower: string) {
   return (

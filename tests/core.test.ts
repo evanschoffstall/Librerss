@@ -1990,9 +1990,8 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
     try {
       // Zero TTL → any entry is immediately stale (Date.now() - cachedAt < 0 is false)
       process.env.FEED_CACHE_TTL_MINUTES = "0";
-      const { getCachedBatch, setCachedBatch } = await import(
-        "@/lib/core/server"
-      );
+      const { getCachedBatch, setCachedBatch } =
+        await import("@/lib/core/server");
       const mockResult = {
         articles: new Map(),
         errors: new Map(),

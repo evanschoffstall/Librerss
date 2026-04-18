@@ -31,25 +31,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { type AuthSession } from "@/lib/core";
 import { useLocalStorage } from "@/lib/hooks";
 
-/**
- * @param root0
- * @param root0.backgroundMode
- * @param root0.distillStrategy
- * @param root0.isLightMode
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.usePlaceholderData
- * @param root0.viewKey
- */
-export function DashboardApplicationSurface({
-  backgroundMode,
-  distillStrategy,
-  isLightMode,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  usePlaceholderData,
-  viewKey,
-}: {
+interface DashboardApplicationSurfaceProps {
   backgroundMode: BackgroundMode;
   distillStrategy: string;
   isLightMode: boolean;
@@ -57,7 +39,44 @@ export function DashboardApplicationSurface({
   onDistillStrategyChange: (value: string) => void;
   usePlaceholderData: boolean;
   viewKey: string;
-}) {
+}
+
+interface DashboardBackgroundProps {
+  backgroundMode: BackgroundMode;
+  isLightMode: boolean;
+}
+interface DashboardLoginSurfaceProps {
+  allowSignup: boolean;
+  initialAutoLoginPath?: string;
+  initialFormError?: string;
+  onAuthenticated: React.Dispatch<
+    React.SetStateAction<AuthSession["user"] | null>
+  >;
+  onEnterPreview?: () => void;
+  shouldAutoLogin: boolean;
+  viewKey: string;
+}
+
+interface DashboardSkeletonViewProps {
+  viewKey: string;
+}
+/**
+ * Render the dashboard application surface component.
+ * @param props - The component props.
+ * @returns The rendered dashboard application surface component.
+ */
+export function DashboardApplicationSurface(
+  props: DashboardApplicationSurfaceProps,
+) {
+  const {
+    backgroundMode,
+    distillStrategy,
+    isLightMode,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    usePlaceholderData,
+    viewKey,
+  } = props;
   return (
     <motion.main
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -87,34 +106,20 @@ export function DashboardApplicationSurface({
 }
 
 /**
- * @param root0
- * @param root0.allowSignup
- * @param root0.initialAutoLoginPath
- * @param root0.initialFormError
- * @param root0.onAuthenticated
- * @param root0.onEnterPreview
- * @param root0.shouldAutoLogin
- * @param root0.viewKey
+ * Render the dashboard login surface component.
+ * @param props - The component props.
+ * @returns The rendered dashboard login surface component.
  */
-export function DashboardLoginSurface({
-  allowSignup,
-  initialAutoLoginPath,
-  initialFormError,
-  onAuthenticated,
-  onEnterPreview,
-  shouldAutoLogin,
-  viewKey,
-}: {
-  allowSignup: boolean;
-  initialAutoLoginPath?: string;
-  initialFormError?: string;
-  onAuthenticated: React.Dispatch<
-    React.SetStateAction<AuthSession["user"] | null>
-  >;
-  onEnterPreview?: () => void;
-  shouldAutoLogin: boolean;
-  viewKey: string;
-}) {
+export function DashboardLoginSurface(props: DashboardLoginSurfaceProps) {
+  const {
+    allowSignup,
+    initialAutoLoginPath,
+    initialFormError,
+    onAuthenticated,
+    onEnterPreview,
+    shouldAutoLogin,
+    viewKey,
+  } = props;
   return (
     <motion.main
       animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -136,12 +141,13 @@ export function DashboardLoginSurface({
     </motion.main>
   );
 }
-
 /**
- * @param root0
- * @param root0.viewKey
+ * Render the dashboard skeleton view component.
+ * @param props - The component props.
+ * @returns The rendered dashboard skeleton view component.
  */
-export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
+export function DashboardSkeletonView(props: DashboardSkeletonViewProps) {
+  const { viewKey } = props;
   const [mobileGroupedLayout] = useLocalStorage(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
@@ -190,17 +196,12 @@ export function DashboardSkeletonView({ viewKey }: { viewKey: string }) {
 }
 
 /**
- * @param root0
- * @param root0.backgroundMode
- * @param root0.isLightMode
+ * Render the dashboard background component.
+ * @param props - The component props.
+ * @returns The rendered dashboard background component.
  */
-function DashboardBackground({
-  backgroundMode,
-  isLightMode,
-}: {
-  backgroundMode: BackgroundMode;
-  isLightMode: boolean;
-}) {
+function DashboardBackground(props: DashboardBackgroundProps) {
+  const { backgroundMode, isLightMode } = props;
   if (backgroundMode === "particles") {
     return isLightMode ? <ParticlesBackgroundLight /> : <ParticlesBackground />;
   }

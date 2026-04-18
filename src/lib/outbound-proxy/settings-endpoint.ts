@@ -38,14 +38,56 @@ interface AuthorizedProxyRequest {
   probe: (url: string) => Promise<boolean>;
 }
 
+interface PersistAuthorizedProxySubmissionOptions {
+  auth: serverApi.AuthenticatedUser;
+  proxyUrl: null | string;
+  submission: NormalizedProxySubmission;
+}
+
+interface PersistedProxyProbeResponseOptions {
+  authorized: AuthorizedProxyRequest;
+  persistedProxy: PersistedProxyRow;
+  proxyPassword: null | string;
+  proxyUrl: string;
+}
+
+interface PersistProxySettingsValues {
+  allowInsecureTls?: boolean;
+  proxyPassword?: null | string;
+  proxyUrl: null | string;
+  proxyUsername?: null | string;
+}
+interface ProbeAndRespondOptions {
+  allowInsecureTls?: boolean;
+  getProxyRoutingCheckFn: ProxyRoutingCheckFn;
+  logLabel: string;
+  probe: (url: string) => Promise<boolean>;
+  proxyPassword?: null | string;
+  proxyUrl: string;
+  proxyUsername?: null | string;
+}
+
 type ProxyRoutingCheckFn = (options: {
   allowInsecureTls: boolean;
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
+interface RespondWithSavedPasswordReadErrorOptions {
+  allowInsecureTls: boolean;
+  hasProxyPassword: boolean;
+  proxyUrl: null | string;
+  proxyUsername: null | string;
+}
 
+interface ResponseProxyPasswordOptions {
+  effectiveProxyPassword: null | string | undefined;
+  persistedProxyPassword: null | string;
+  userId: number;
+}
 /**
- * @param request
- * @param depsOrContext
+ * Process the handle proxy settings get.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The handle proxy settings get.
  */
 export async function handleProxySettingsGet(
   request: NextRequest,
@@ -86,9 +128,11 @@ export async function handleProxySettingsGet(
 }
 
 /**
- * @param request
- * @param body
- * @param depsOrContext
+ * Process the handle proxy settings put.
+ * @param request - The request.
+ * @param body - The body.
+ * @param depsOrContext - The deps or context.
+ * @returns The handle proxy settings put.
  */
 export async function handleProxySettingsPut(
   request: NextRequest,
@@ -137,20 +181,14 @@ export async function handleProxySettingsPut(
     proxyUrl,
   });
 }
-
 /**
- * @param options
- * @param options.authorized
- * @param options.persistedProxy
- * @param options.proxyPassword
- * @param options.proxyUrl
+ * Build the persisted proxy probe response.
+ * @param options - The options used to build the persisted proxy probe response.
+ * @returns The persisted proxy probe response.
  */
-function buildPersistedProxyProbeResponse(options: {
-  authorized: AuthorizedProxyRequest;
-  persistedProxy: PersistedProxyRow;
-  proxyPassword: null | string;
-  proxyUrl: string;
-}) {
+function buildPersistedProxyProbeResponse(
+  options: PersistedProxyProbeResponseOptions,
+) {
   return probeAndRespond({
     allowInsecureTls: options.persistedProxy.allowInsecureTls,
     getProxyRoutingCheckFn: options.authorized.getProxyRoutingCheck,
@@ -163,16 +201,13 @@ function buildPersistedProxyProbeResponse(options: {
 }
 
 /**
- * @param options
- * @param options.auth
- * @param options.proxyUrl
- * @param options.submission
+ * Process the persist authorized proxy submission.
+ * @param options - The options used to process the persist authorized proxy submission.
+ * @returns The persist authorized proxy submission.
  */
-async function persistAuthorizedProxySubmission(options: {
-  auth: serverApi.AuthenticatedUser;
-  proxyUrl: null | string;
-  submission: NormalizedProxySubmission;
-}) {
+async function persistAuthorizedProxySubmission(
+  options: PersistAuthorizedProxySubmissionOptions,
+) {
   const { effectiveProxyPassword, effectiveProxyUsername } =
     resolveEffectiveProxyCredentials(options.submission);
   const storedProxyPassword = resolveStoredProxyPasswordValue(
@@ -195,21 +230,14 @@ async function persistAuthorizedProxySubmission(options: {
 }
 
 /**
- * @param userId
- * @param values
- * @param values.allowInsecureTls
- * @param values.proxyPassword
- * @param values.proxyUrl
- * @param values.proxyUsername
+ * Process the persist proxy settings.
+ * @param userId - The r id.
+ * @param values - The values.
+ * @returns The persist proxy settings.
  */
 async function persistProxySettings(
   userId: number,
-  values: {
-    allowInsecureTls?: boolean;
-    proxyPassword?: null | string;
-    proxyUrl: null | string;
-    proxyUsername?: null | string;
-  },
+  values: PersistProxySettingsValues,
 ): Promise<PersistedProxyRow> {
   const rows = await getDb()
     .update(users)
@@ -242,24 +270,13 @@ async function persistProxySettings(
 }
 
 /**
- * @param options
- * @param options.allowInsecureTls
- * @param options.getProxyRoutingCheckFn
- * @param options.logLabel
- * @param options.probe
- * @param options.proxyPassword
- * @param options.proxyUrl
- * @param options.proxyUsername
+ * Process the probe and respond.
+ * @param options - The options used to process the probe and respond.
+ * @returns The probe and respond.
  */
-async function probeAndRespond(options: {
-  allowInsecureTls?: boolean;
-  getProxyRoutingCheckFn: ProxyRoutingCheckFn;
-  logLabel: string;
-  probe: (url: string) => Promise<boolean>;
-  proxyPassword?: null | string;
-  proxyUrl: string;
-  proxyUsername?: null | string;
-}): Promise<Response> {
+async function probeAndRespond(
+  options: ProbeAndRespondOptions,
+): Promise<Response> {
   const proxyPassword = options.proxyPassword ?? null;
   const proxyUsername = options.proxyUsername ?? null;
   const transportProxyUrl =
@@ -292,7 +309,9 @@ async function probeAndRespond(options: {
 }
 
 /**
- * @param userId
+ * Process the read saved proxy record.
+ * @param userId - The r id.
+ * @returns The read saved proxy record.
  */
 async function readSavedProxyRecord(
   userId: number,
@@ -310,10 +329,11 @@ async function readSavedProxyRecord(
 
   return rows[0] ?? null;
 }
-
 /**
- * @param request
- * @param depsOrContext
+ * Resolve the authorized proxy request.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The authorized proxy request.
  */
 async function resolveAuthorizedProxyRequest(
   request: NextRequest,
@@ -334,8 +354,10 @@ async function resolveAuthorizedProxyRequest(
 }
 
 /**
- * @param submission
- * @param authorized
+ * Resolve the normalized proxy url.
+ * @param submission - The submission.
+ * @param authorized - The authorized.
+ * @returns The normalized proxy url.
  */
 async function resolveNormalizedProxyUrl(
   submission: NormalizedProxySubmission,
@@ -359,16 +381,13 @@ async function resolveNormalizedProxyUrl(
 }
 
 /**
- * @param options
- * @param options.effectiveProxyPassword
- * @param options.persistedProxyPassword
- * @param options.userId
+ * Resolve the response proxy password.
+ * @param options - The options used to resolve the response proxy password.
+ * @returns The response proxy password.
  */
-async function resolveResponseProxyPassword(options: {
-  effectiveProxyPassword: null | string | undefined;
-  persistedProxyPassword: null | string;
-  userId: number;
-}): Promise<null | Response | string> {
+async function resolveResponseProxyPassword(
+  options: ResponseProxyPasswordOptions,
+): Promise<null | Response | string> {
   if (options.effectiveProxyPassword !== undefined) {
     return options.effectiveProxyPassword;
   }
@@ -378,11 +397,12 @@ async function resolveResponseProxyPassword(options: {
     options.persistedProxyPassword,
   );
 }
-
 /**
- * @param getProxyRoutingCheckFn
- * @param allowInsecureTls
- * @param proxyUrl
+ * Resolve the routing check.
+ * @param getProxyRoutingCheckFn - The proxy routing check fn.
+ * @param allowInsecureTls - The allow insecure tls.
+ * @param proxyUrl - The proxy url.
+ * @returns The routing check.
  */
 async function resolveRoutingCheck(
   getProxyRoutingCheckFn: ProxyRoutingCheckFn,
@@ -410,18 +430,13 @@ async function resolveRoutingCheck(
 }
 
 /**
- * @param options
- * @param options.allowInsecureTls
- * @param options.hasProxyPassword
- * @param options.proxyUrl
- * @param options.proxyUsername
+ * Process the respond with saved password read error.
+ * @param options - The options used to process the respond with saved password read error.
+ * @returns The respond with saved password read error.
  */
-function respondWithSavedPasswordReadError(options: {
-  allowInsecureTls: boolean;
-  hasProxyPassword: boolean;
-  proxyUrl: null | string;
-  proxyUsername: null | string;
-}) {
+function respondWithSavedPasswordReadError(
+  options: RespondWithSavedPasswordReadErrorOptions,
+) {
   if (!options.proxyUrl) {
     return unconfiguredResponse();
   }

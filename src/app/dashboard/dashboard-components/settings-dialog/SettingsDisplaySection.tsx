@@ -38,31 +38,38 @@ export interface SettingsDisplaySectionProps {
   showFavicons: boolean;
 }
 
+interface AutoRefreshControlProps {
+  autoRefreshDraft: string;
+  autoRefreshIntervalMinutes: number;
+  commitAutoRefreshDraft: () => void;
+  setAutoRefreshDraft: (value: string) => void;
+}
+interface DisplayMobileToggleGroupProps {
+  isMobileInvertedScrollAvailable: boolean;
+  mobileGroupedLayout: boolean;
+  mobileInvertedScroll: boolean;
+  setMobileGroupedLayout: (value: boolean) => void;
+  setMobileInvertedScroll: (value: boolean) => void;
+}
+
 /**
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.autoRefreshIntervalMinutes
- * @param root0.backgroundMode
- * @param root0.distillStrategy
- * @param root0.onArticlesPerPageChange
- * @param root0.onAutoRefreshIntervalMinutesChange
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.onShowFaviconsChange
- * @param root0.showFavicons
+ * Render the settings display section component.
+ * @param props - The component props.
+ * @returns The rendered settings display section component.
  */
-export function SettingsDisplaySection({
-  articlesPerPage,
-  autoRefreshIntervalMinutes,
-  backgroundMode,
-  distillStrategy,
-  onArticlesPerPageChange,
-  onAutoRefreshIntervalMinutesChange,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  onShowFaviconsChange,
-  showFavicons,
-}: SettingsDisplaySectionProps) {
+export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
+  const {
+    articlesPerPage,
+    autoRefreshIntervalMinutes,
+    backgroundMode,
+    distillStrategy,
+    onArticlesPerPageChange,
+    onAutoRefreshIntervalMinutesChange,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    onShowFaviconsChange,
+    showFavicons,
+  } = props;
   const {
     autoRefreshDraft,
     commitAutoRefreshDraft,
@@ -122,25 +129,18 @@ export function SettingsDisplaySection({
     </section>
   );
 }
-
 /**
- * @param root0
- * @param root0.autoRefreshDraft
- * @param root0.autoRefreshIntervalMinutes
- * @param root0.commitAutoRefreshDraft
- * @param root0.setAutoRefreshDraft
+ * Render the auto refresh control component.
+ * @param props - The component props.
+ * @returns The rendered auto refresh control component.
  */
-function AutoRefreshControl({
-  autoRefreshDraft,
-  autoRefreshIntervalMinutes,
-  commitAutoRefreshDraft,
-  setAutoRefreshDraft,
-}: {
-  autoRefreshDraft: string;
-  autoRefreshIntervalMinutes: number;
-  commitAutoRefreshDraft: () => void;
-  setAutoRefreshDraft: (value: string) => void;
-}) {
+function AutoRefreshControl(props: AutoRefreshControlProps) {
+  const {
+    autoRefreshDraft,
+    autoRefreshIntervalMinutes,
+    commitAutoRefreshDraft,
+    setAutoRefreshDraft,
+  } = props;
   return (
     <div className="row-between items-start gap-4">
       <div>
@@ -180,26 +180,18 @@ function AutoRefreshControl({
 }
 
 /**
- * @param root0
- * @param root0.isMobileInvertedScrollAvailable
- * @param root0.mobileGroupedLayout
- * @param root0.mobileInvertedScroll
- * @param root0.setMobileGroupedLayout
- * @param root0.setMobileInvertedScroll
+ * Render the display mobile toggle group component.
+ * @param props - The component props.
+ * @returns The rendered display mobile toggle group component.
  */
-function DisplayMobileToggleGroup({
-  isMobileInvertedScrollAvailable,
-  mobileGroupedLayout,
-  mobileInvertedScroll,
-  setMobileGroupedLayout,
-  setMobileInvertedScroll,
-}: {
-  isMobileInvertedScrollAvailable: boolean;
-  mobileGroupedLayout: boolean;
-  mobileInvertedScroll: boolean;
-  setMobileGroupedLayout: (value: boolean) => void;
-  setMobileInvertedScroll: (value: boolean) => void;
-}) {
+function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
+  const {
+    isMobileInvertedScrollAvailable,
+    mobileGroupedLayout,
+    mobileInvertedScroll,
+    setMobileGroupedLayout,
+    setMobileInvertedScroll,
+  } = props;
   return (
     <>
       <div className="flex items-center justify-between">
@@ -239,30 +231,29 @@ function DisplayMobileToggleGroup({
 }
 
 /**
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.backgroundMode
- * @param root0.distillStrategy
- * @param root0.onArticlesPerPageChange
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
+ * Render the display select group component.
+ * @param props - The component props.
+ * @returns The rendered display select group component.
  */
-function DisplaySelectGroup({
-  articlesPerPage,
-  backgroundMode,
-  distillStrategy,
-  onArticlesPerPageChange,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-}: Pick<
-  SettingsDisplaySectionProps,
-  | "articlesPerPage"
-  | "backgroundMode"
-  | "distillStrategy"
-  | "onArticlesPerPageChange"
-  | "onBackgroundModeChange"
-  | "onDistillStrategyChange"
->) {
+function DisplaySelectGroup(
+  props: Pick<
+    SettingsDisplaySectionProps,
+    | "articlesPerPage"
+    | "backgroundMode"
+    | "distillStrategy"
+    | "onArticlesPerPageChange"
+    | "onBackgroundModeChange"
+    | "onDistillStrategyChange"
+  >,
+) {
+  const {
+    articlesPerPage,
+    backgroundMode,
+    distillStrategy,
+    onArticlesPerPageChange,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+  } = props;
   return (
     <>
       <div className="row-between">
@@ -321,8 +312,10 @@ function DisplaySelectGroup({
 }
 
 /**
- * @param autoRefreshIntervalMinutes
- * @param onAutoRefreshIntervalMinutesChange
+ * Manage the display section state.
+ * @param autoRefreshIntervalMinutes - The auto refresh interval minutes.
+ * @param onAutoRefreshIntervalMinutesChange - The callback that on auto refresh interval minutes change.
+ * @returns The display section state state and callbacks.
  */
 function useDisplaySectionState(
   autoRefreshIntervalMinutes: number,
@@ -362,7 +355,7 @@ function useDisplaySectionState(
   return {
     autoRefreshDraft,
     /**
-     *
+     * Process the commit auto refresh draft.
      */
     commitAutoRefreshDraft: () => {
       const parsedValue = Number.parseInt(autoRefreshDraft, 10);
@@ -379,7 +372,8 @@ function useDisplaySectionState(
     setAutoRefreshDraft,
     setMobileGroupedLayout,
     /**
-     * @param value
+     * Process the set mobile inverted scroll.
+     * @param value - The value.
      */
     setMobileInvertedScroll: (value: boolean) => {
       if (!isMobileInvertedScrollAvailable) {

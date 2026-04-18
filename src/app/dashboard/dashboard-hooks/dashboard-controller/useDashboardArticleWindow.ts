@@ -28,6 +28,11 @@ type DashboardArticleWindowAvailabilityOptions = Pick<
   | "shouldUseArticleWindow"
 >;
 
+interface DashboardArticleWindowControlsOptions {
+  articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
+  options: UseDashboardArticleWindowOptions;
+}
+
 interface DashboardArticleWindowLifecycleOptions {
   articleFilter: UseDashboardArticleWindowOptions["articleFilter"];
   articlesPerPage: UseDashboardArticleWindowOptions["articlesPerPage"];
@@ -71,12 +76,9 @@ interface UseDashboardArticleWindowOptions extends FeedSelectionFetchers {
 }
 
 /**
- * Owns the live article-window size, load-more requests, and unread-window refills.
- *
- * The dashboard controller consumes this hook as the single authority for
- * server-backed feed pagination so the controller can remain focused on wiring
- * together surface state instead of manually coordinating many pagination refs.
- * @param options
+ * Manage the dashboard article window.
+ * @param options - The options used to manage the dashboard article window.
+ * @returns The dashboard article window state and callbacks.
  */
 export function useDashboardArticleWindow(
   options: UseDashboardArticleWindowOptions,
@@ -116,7 +118,9 @@ export function useDashboardArticleWindow(
 }
 
 /**
- * @param articleWindowState
+ * Return the dashboard article window availability state.
+ * @param articleWindowState - The article window state.
+ * @returns The dashboard article window availability state.
  */
 function getDashboardArticleWindowAvailabilityState(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
@@ -144,8 +148,10 @@ function getDashboardArticleWindowAvailabilityState(
 }
 
 /**
- * @param articleWindowState
- * @param options
+ * Return the dashboard article window control counts.
+ * @param articleWindowState - The article window state.
+ * @param options - The options used to return the dashboard article window control counts.
+ * @returns The dashboard article window control counts.
  */
 function getDashboardArticleWindowControlCounts(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
@@ -158,26 +164,22 @@ function getDashboardArticleWindowControlCounts(
     shouldUseArticleWindow: options.shouldUseArticleWindow,
   });
 }
-
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.articleWindowState
- * @param root0.currentFeedLength
- * @param root0.isLoading
- * @param root0.selectedCategory
- * @param root0.shouldUseArticleWindow
+ * Manage the dashboard article window availability lifecycle.
+ * @param options - The options used to manage the dashboard article window availability lifecycle.
  */
-function useDashboardArticleWindowAvailabilityLifecycle({
-  articleFilter,
-  articlesPerPage,
-  articleWindowState,
-  currentFeedLength,
-  isLoading,
-  selectedCategory,
-  shouldUseArticleWindow,
-}: DashboardArticleWindowAvailabilityOptions) {
+function useDashboardArticleWindowAvailabilityLifecycle(
+  options: DashboardArticleWindowAvailabilityOptions,
+) {
+  const {
+    articleFilter,
+    articlesPerPage,
+    articleWindowState,
+    currentFeedLength,
+    isLoading,
+    selectedCategory,
+    shouldUseArticleWindow,
+  } = options;
   const lifecycleState =
     getDashboardArticleWindowAvailabilityState(articleWindowState);
 
@@ -228,17 +230,14 @@ function useDashboardArticleWindowAvailabilityLifecycle({
 }
 
 /**
- * @param root0
- * @param root0.articleWindowState
- * @param root0.options
+ * Manage the dashboard article window controls.
+ * @param options - The options used to manage the dashboard article window controls.
+ * @returns The dashboard article window controls state and callbacks.
  */
-function useDashboardArticleWindowControls({
-  articleWindowState,
-  options,
-}: {
-  articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
-  options: UseDashboardArticleWindowOptions;
-}) {
+function useDashboardArticleWindowControls(
+  options: DashboardArticleWindowControlsOptions,
+) {
+  const { articleWindowState, options } = options;
   const prefetchNextPage = useDashboardArticleWindowNextPagePrefetch(
     articleWindowState,
     options,
@@ -261,36 +260,27 @@ function useDashboardArticleWindowControls({
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.articleWindowState
- * @param root0.currentFeedLength
- * @param root0.currentFilteredFeedLength
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.isLoading
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
- * @param root0.shouldUseArticleWindow
+ * Manage the dashboard article window lifecycle.
+ * @param options - The options used to manage the dashboard article window lifecycle.
  */
-function useDashboardArticleWindowLifecycle({
-  articleFilter,
-  articlesPerPage,
-  articleWindowState,
-  currentFeedLength,
-  currentFilteredFeedLength,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  isLoading,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  shouldUseArticleWindow,
-}: DashboardArticleWindowLifecycleOptions) {
+function useDashboardArticleWindowLifecycle(
+  options: DashboardArticleWindowLifecycleOptions,
+) {
+  const {
+    articleFilter,
+    articlesPerPage,
+    articleWindowState,
+    currentFeedLength,
+    currentFilteredFeedLength,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    isLoading,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    shouldUseArticleWindow,
+  } = options;
   useDashboardArticleWindowAvailabilityLifecycle({
     articleFilter,
     articlesPerPage,
@@ -318,9 +308,11 @@ function useDashboardArticleWindowLifecycle({
 }
 
 /**
- * @param articleWindowState
- * @param options
- * @param prefetchNextPage
+ * Manage the dashboard article window load more control.
+ * @param articleWindowState - The article window state.
+ * @param options - The options used to manage the dashboard article window load more control.
+ * @param prefetchNextPage - The callback that prefetch next page.
+ * @returns The dashboard article window load more control state and callbacks.
  */
 function useDashboardArticleWindowLoadMoreControl(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
@@ -357,8 +349,10 @@ function useDashboardArticleWindowLoadMoreControl(
 }
 
 /**
- * @param articleWindowState
- * @param options
+ * Manage the dashboard article window next page prefetch.
+ * @param articleWindowState - The article window state.
+ * @param options - The options used to manage the dashboard article window next page prefetch.
+ * @returns The dashboard article window next page prefetch state and callbacks.
  */
 function useDashboardArticleWindowNextPagePrefetch(
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>,
@@ -383,17 +377,17 @@ function useDashboardArticleWindowNextPagePrefetch(
 }
 
 /**
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.shouldUseArticleWindow
+ * Manage the dashboard article window state.
+ * @param options - The options used to manage the dashboard article window state.
+ * @returns The dashboard article window state state and callbacks.
  */
-function useDashboardArticleWindowState({
-  articlesPerPage,
-  shouldUseArticleWindow,
-}: Pick<
-  UseDashboardArticleWindowOptions,
-  "articlesPerPage" | "shouldUseArticleWindow"
->) {
+function useDashboardArticleWindowState(
+  options: Pick<
+    UseDashboardArticleWindowOptions,
+    "articlesPerPage" | "shouldUseArticleWindow"
+  >,
+) {
+  const { articlesPerPage, shouldUseArticleWindow } = options;
   const [requestedArticleLimit, setRequestedArticleLimit] =
     useState(articlesPerPage);
   const [isLoadingMoreArticles, setIsLoadingMoreArticles] = useState(false);
@@ -428,36 +422,27 @@ function useDashboardArticleWindowState({
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.articleWindowState
- * @param root0.currentFeedLength
- * @param root0.currentFilteredFeedLength
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.isLoading
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
- * @param root0.shouldUseArticleWindow
+ * Manage the dashboard article window unread refill lifecycle.
+ * @param options - The options used to manage the dashboard article window unread refill lifecycle.
  */
-function useDashboardArticleWindowUnreadRefillLifecycle({
-  articleFilter,
-  articlesPerPage,
-  articleWindowState,
-  currentFeedLength,
-  currentFilteredFeedLength,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  isLoading,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  shouldUseArticleWindow,
-}: DashboardArticleWindowLifecycleOptions) {
+function useDashboardArticleWindowUnreadRefillLifecycle(
+  options: DashboardArticleWindowLifecycleOptions,
+) {
+  const {
+    articleFilter,
+    articlesPerPage,
+    articleWindowState,
+    currentFeedLength,
+    currentFilteredFeedLength,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    isLoading,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    shouldUseArticleWindow,
+  } = options;
   useUnreadWindowRefill({
     allowPartialArticleWindowGrowthRef:
       articleWindowState.allowPartialArticleWindowGrowthRef,

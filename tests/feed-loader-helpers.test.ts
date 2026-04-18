@@ -420,12 +420,18 @@ describe("classifyFeedBatchError", () => {
 
   test("classifies proxy-password-unreadable reason as proxy credentials unavailable", () => {
     // Server responds 500 with { error: "...", reason: "proxy-password-unreadable" }
-    const error = Object.assign(new Error("Request failed with status code 500"), {
-      response: {
-        data: { error: "Proxy password could not be read", reason: "proxy-password-unreadable" },
-        status: 500,
+    const error = Object.assign(
+      new Error("Request failed with status code 500"),
+      {
+        response: {
+          data: {
+            error: "Proxy password could not be read",
+            reason: "proxy-password-unreadable",
+          },
+          status: 500,
+        },
       },
-    });
+    );
     const result = classifyFeedBatchError(error);
     expect(result.title).toBe("Proxy credentials unavailable.");
     expect(result.description).toContain("proxy password");

@@ -33,34 +33,25 @@ type FeedRouteWarn = (
 ) => void;
 
 /**
- * Maps feed read failures to route responses while preserving diagnostic logs.
- *
- * The route owns authentication and dependency wiring; this helper owns the
- * upstream failure matrix so the route file stays below complexity thresholds.
- * @param root0
- * @param root0.error
- * @param root0.feedAttemptContext
- * @param root0.isSourceNotFound
- * @param root0.isUpstreamError
- * @param root0.jsonError
- * @param root0.request
- * @param root0.requestedFeedUrl
- * @param root0.toErrorMessage
- * @param root0.upstreamFeedErrorMessage
- * @param root0.warn
+ * Process the respond to feed read error.
+ * @param options - The options used to process the respond to feed read error.
+ * @returns The respond to feed read error.
  */
-export function respondToFeedReadError({
-  error,
-  feedAttemptContext,
-  isSourceNotFound,
-  isUpstreamError,
-  jsonError: toJsonError,
-  request,
-  requestedFeedUrl,
-  toErrorMessage,
-  upstreamFeedErrorMessage,
-  warn,
-}: FeedReadErrorResponderOptions): null | Response {
+export function respondToFeedReadError(
+  options: FeedReadErrorResponderOptions,
+): null | Response {
+  const {
+    error,
+    feedAttemptContext,
+    isSourceNotFound,
+    isUpstreamError,
+    jsonError: toJsonError,
+    request,
+    requestedFeedUrl,
+    toErrorMessage,
+    upstreamFeedErrorMessage,
+    warn,
+  } = options;
   const requestedUrl = requestedFeedUrl(request);
   const safeUrl = requestedUrl ? redactUrlForLogs(requestedUrl) : null;
   const urlSuffix = safeUrl ? ` for ${safeUrl}` : "";

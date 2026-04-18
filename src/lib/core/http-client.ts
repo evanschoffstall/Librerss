@@ -20,12 +20,18 @@ interface FeedHttpDeps {
   httpCloakRequestFn?: ValidatedHttpCloakRequestFn;
 }
 
+interface FeedStageErrorResponse {
+  headers: Record<string, string | string[] | undefined>;
+  redirectHop: number;
+  requestHeaders: Record<string, string>;
+  statusCode: number;
+}
 /**
- * Fetch feed XML through HTTPCloak only, validating each redirect hop before
- * following it and rejecting non-success upstream responses directly.
- * @param url
- * @param deps
- * @param transport
+ * Process the fetch feed xml.
+ * @param url - The url.
+ * @param deps - The deps.
+ * @param transport - The transport.
+ * @returns The fetch feed xml.
  */
 export async function fetchFeedXml(
   url: string,
@@ -43,7 +49,8 @@ export async function fetchFeedXml(
         timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
         url,
         /**
-         * @param candidateUrl
+         * Process the validate url.
+         * @param candidateUrl - The candidate url.
          */
         validateUrl: async (candidateUrl) => {
           await assertUrl(candidateUrl);
@@ -71,21 +78,14 @@ export async function fetchFeedXml(
 }
 
 /**
- * @param response
- * @param response.headers
- * @param response.redirectHop
- * @param response.requestHeaders
- * @param response.statusCode
- * @param responseBody
- * @param transport
+ * Create the feed stage error.
+ * @param response - The response.
+ * @param responseBody - The response body.
+ * @param transport - The transport.
+ * @returns The feed stage error.
  */
 function createFeedStageError(
-  response: {
-    headers: Record<string, string | string[] | undefined>;
-    redirectHop: number;
-    requestHeaders: Record<string, string>;
-    statusCode: number;
-  },
+  response: FeedStageErrorResponse,
   responseBody: string,
   transport?: FeedUpstreamTransport,
 ): Error {
@@ -113,7 +113,9 @@ function createFeedStageError(
 }
 
 /**
- * @param error
+ * Return whether is url validation error.
+ * @param error - The error.
+ * @returns Whether is url validation error.
  */
 function isUrlValidationError(error: unknown): boolean {
   return (

@@ -2,9 +2,8 @@ let cachedBuildTimeDefaults: Record<string, string> = {};
 let cachedBuildTimeDefaultsRaw: string | undefined;
 
 /**
- * Reads build-time config defaults injected by next.config.ts via DefinePlugin.
- * The raw JSON blob is memoized by value so repeated accesses are cheap while
- * still tolerating module graphs that load before the env replacement is ready.
+ * Return the build time defaults.
+ * @returns The build time defaults.
  */
 const getBuildTimeDefaults = (): Record<string, string> => {
   const raw = process.env.LIBRERSS_BUILD_CONFIG;
@@ -27,16 +26,18 @@ const getBuildTimeDefaults = (): Record<string, string> => {
 };
 
 /**
- * Reads an environment variable with build-time fallback. Runtime values
- * (hosting platform env vars, .env.local) always take precedence.
- * @param key
+ * Return the env.
+ * @param key - The key.
+ * @returns The env.
  */
 export const getEnv = (key: string): string | undefined =>
   process.env[key] ?? getBuildTimeDefaults()[key];
 
 /**
- * @param value
- * @param key
+ * Parse the env boolean.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns Whether env boolean.
  */
 export function parseEnvBoolean(value: string, key: string): boolean {
   const normalized = value.trim().toLowerCase();
@@ -53,8 +54,10 @@ export function parseEnvBoolean(value: string, key: string): boolean {
 }
 
 /**
- * @param value
- * @param key
+ * Parse the env number.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns The env number.
  */
 export function parseEnvNumber(value: string, key: string): number {
   const parsed = Number(value);
@@ -67,8 +70,10 @@ export function parseEnvNumber(value: string, key: string): number {
 }
 
 /**
- * @param value
- * @param key
+ * Process the require env value.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns The require env value.
  */
 export function requireEnvValue(
   value: string | undefined,
@@ -82,26 +87,34 @@ export function requireEnvValue(
 }
 
 /**
- * @param key
+ * Process the env string.
+ * @param key - The key.
+ * @returns The env string.
  */
 export const envString = (key: string): string =>
   requireEnvValue(getEnv(key), key);
 
 /**
- * @param key
+ * Process the env number.
+ * @param key - The key.
+ * @returns The env number.
  */
 export const envNumber = (key: string): number =>
   parseEnvNumber(envString(key), key);
 
 /**
- * @param key
+ * Process the env boolean.
+ * @param key - The key.
+ * @returns Whether env boolean.
  */
 export const envBoolean = (key: string): boolean =>
   parseEnvBoolean(envString(key), key);
 
 /**
- * @param key
- * @param allowedValues
+ * Process the env enum.
+ * @param key - The key.
+ * @param allowedValues - The allowed values.
+ * @returns The env enum.
  */
 export const envEnum = <T extends string>(
   key: string,

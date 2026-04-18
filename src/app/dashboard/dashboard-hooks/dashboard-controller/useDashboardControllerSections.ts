@@ -19,8 +19,50 @@ export { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-ho
 export { useDashboardControllerOutput } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerOutput";
 export { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
 
+interface DashboardArticleWindowStateOptions {
+  dashboardState: ReturnType<typeof useDashboardState>;
+  feedLoader: ReturnType<typeof useFeedLoader>;
+  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
+  selectedCategoryNode: ReturnType<
+    typeof useDashboardViewModelState
+  >["selectedCategoryNode"];
+  selectedFeedUrl: null | string;
+  usePlaceholderData: boolean;
+  viewModelState: ReturnType<typeof useDashboardViewModelState>;
+}
+interface DashboardControllerResourcesOptions {
+  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  distillStrategy: string;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  usePlaceholderData: boolean;
+}
+
+interface DashboardFeedLoaderOptionsOptions {
+  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  usePlaceholderData: boolean;
+}
+interface DashboardFeedLoadingStateOptions {
+  articleFilter: ArticleFilter;
+  feedLength: number;
+  /** Whether the feed source/category tree is still being fetched on first load. */
+  isCategoriesLoading: boolean;
+  loading: boolean;
+  searchTerm: string;
+  settleMs: number;
+  usePlaceholderData: boolean;
+}
+
+interface DashboardViewModelStateOptions {
+  categoryTree: ReturnType<typeof useDashboardCategoryTree>;
+  collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
+  dashboardState: ReturnType<typeof useDashboardState>;
+}
 /**
- *
+ * Manage the dashboard animating article state.
+ * @returns The dashboard animating article state state and callbacks.
  */
 export function useDashboardAnimatingArticleState() {
   const [animatingInArticleKeys, setAnimatingInArticleKeys] = useState(
@@ -52,34 +94,22 @@ export function useDashboardAnimatingArticleState() {
 }
 
 /**
- * @param root0
- * @param root0.dashboardState
- * @param root0.feedLoader
- * @param root0.loadingState
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
- * @param root0.usePlaceholderData
- * @param root0.viewModelState
+ * Manage the dashboard article window state.
+ * @param options - The options used to manage the dashboard article window state.
+ * @returns The dashboard article window state state and callbacks.
  */
-export function useDashboardArticleWindowState({
-  dashboardState,
-  feedLoader,
-  loadingState,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  usePlaceholderData,
-  viewModelState,
-}: {
-  dashboardState: ReturnType<typeof useDashboardState>;
-  feedLoader: ReturnType<typeof useFeedLoader>;
-  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
-  selectedCategoryNode: ReturnType<
-    typeof useDashboardViewModelState
-  >["selectedCategoryNode"];
-  selectedFeedUrl: null | string;
-  usePlaceholderData: boolean;
-  viewModelState: ReturnType<typeof useDashboardViewModelState>;
-}) {
+export function useDashboardArticleWindowState(
+  options: DashboardArticleWindowStateOptions,
+) {
+  const {
+    dashboardState,
+    feedLoader,
+    loadingState,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    usePlaceholderData,
+    viewModelState,
+  } = options;
   return useDashboardArticleWindow({
     articleFilter: dashboardState.articleFilter,
     articlesPerPage: dashboardState.articlesPerPage,
@@ -101,28 +131,21 @@ export function useDashboardArticleWindowState({
     usePlaceholderData,
   });
 }
-
 /**
- * @param root0
- * @param root0.animationState
- * @param root0.dashboardState
- * @param root0.distillStrategy
- * @param root0.refreshState
- * @param root0.usePlaceholderData
+ * Manage the dashboard controller resources.
+ * @param options - The options used to manage the dashboard controller resources.
+ * @returns The dashboard controller resources state and callbacks.
  */
-export function useDashboardControllerResources({
-  animationState,
-  dashboardState,
-  distillStrategy,
-  refreshState,
-  usePlaceholderData,
-}: {
-  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
-  dashboardState: ReturnType<typeof useDashboardState>;
-  distillStrategy: string;
-  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
-  usePlaceholderData: boolean;
-}) {
+export function useDashboardControllerResources(
+  options: DashboardControllerResourcesOptions,
+) {
+  const {
+    animationState,
+    dashboardState,
+    distillStrategy,
+    refreshState,
+    usePlaceholderData,
+  } = options;
   const feedLoader = useFeedLoader(
     buildDashboardFeedLoaderOptions({
       animationState,
@@ -166,32 +189,21 @@ export function useDashboardControllerResources({
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.feedLength
- * @param root0.isCategoriesLoading
- * @param root0.loading
- * @param root0.searchTerm
- * @param root0.settleMs
- * @param root0.usePlaceholderData
+ * Manage the dashboard feed loading state.
+ * @param options - The options used to manage the dashboard feed loading state.
+ * @returns The dashboard feed loading state state and callbacks.
  */
-export function useDashboardFeedLoadingState({
-  articleFilter: _articleFilter,
-  feedLength,
-  isCategoriesLoading,
-  loading,
-  searchTerm,
-  settleMs,
-}: {
-  articleFilter: ArticleFilter;
-  feedLength: number;
-  /** Whether the feed source/category tree is still being fetched on first load. */
-  isCategoriesLoading: boolean;
-  loading: boolean;
-  searchTerm: string;
-  settleMs: number;
-  usePlaceholderData: boolean;
-}) {
+export function useDashboardFeedLoadingState(
+  options: DashboardFeedLoadingStateOptions,
+) {
+  const {
+    articleFilter: _articleFilter,
+    feedLength,
+    isCategoriesLoading,
+    loading,
+    searchTerm,
+    settleMs,
+  } = options;
   const trimmedSearchTerm = searchTerm.trim();
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const isFeedListInitialLoading = loading && feedLength === 0;
@@ -211,22 +223,15 @@ export function useDashboardFeedLoadingState({
     shouldUseArticleWindow: trimmedSearchTerm === "",
   };
 }
-
 /**
- * @param root0
- * @param root0.categoryTree
- * @param root0.collapsedArticles
- * @param root0.dashboardState
+ * Manage the dashboard view model state.
+ * @param options - The options used to manage the dashboard view model state.
+ * @returns The dashboard view model state state and callbacks.
  */
-export function useDashboardViewModelState({
-  categoryTree,
-  collapsedArticles,
-  dashboardState,
-}: {
-  categoryTree: ReturnType<typeof useDashboardCategoryTree>;
-  collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
-  dashboardState: ReturnType<typeof useDashboardState>;
-}) {
+export function useDashboardViewModelState(
+  options: DashboardViewModelStateOptions,
+) {
+  const { categoryTree, collapsedArticles, dashboardState } = options;
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
@@ -272,23 +277,15 @@ export function useDashboardViewModelState({
 }
 
 /**
- * @param root0
- * @param root0.animationState
- * @param root0.dashboardState
- * @param root0.refreshState
- * @param root0.usePlaceholderData
+ * Build the dashboard feed loader options.
+ * @param options - The options used to build the dashboard feed loader options.
+ * @returns The dashboard feed loader options.
  */
-function buildDashboardFeedLoaderOptions({
-  animationState,
-  dashboardState,
-  refreshState,
-  usePlaceholderData,
-}: {
-  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
-  dashboardState: ReturnType<typeof useDashboardState>;
-  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
-  usePlaceholderData: boolean;
-}) {
+function buildDashboardFeedLoaderOptions(
+  options: DashboardFeedLoaderOptionsOptions,
+) {
+  const { animationState, dashboardState, refreshState, usePlaceholderData } =
+    options;
   return {
     articleFilter: dashboardState.articleFilter,
     categoriesRef: dashboardState.categoriesRef,

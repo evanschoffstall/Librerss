@@ -8,6 +8,17 @@ import { prefetchNextPageForCurrentSelection } from "@/app/dashboard/dashboard-h
 import { prefetchArticleWindowLimitIfNeeded } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
 import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
+interface ArticleWindowPrefetchEffectOptions {
+  articlesPerPage: number;
+  hasMoreServerArticles: boolean;
+  inFlightPrefetchedLimitRef: React.RefObject<number>;
+  isLoading: boolean;
+  lastPrefetchedLimitRef: React.RefObject<number>;
+  prefetchNextPage: (nextLimit: number) => Promise<void>;
+  requestedArticleLimit: number;
+  shouldUseArticleWindow: boolean;
+}
+
 interface UseDashboardArticleWindowLoadingStateOptions {
   hasStartedArticleWindowSettlementRef: React.RefObject<boolean>;
   isAwaitingArticleWindowSettlementRef: React.RefObject<boolean>;
@@ -33,8 +44,8 @@ interface UseDashboardArticleWindowPrefetchOptions {
 }
 
 /**
- * Marks article-window settlement as active whenever the live feed starts loading.
- * @param options
+ * Manage the dashboard article window loading state.
+ * @param options - The options used to manage the dashboard article window loading state.
  */
 export function useDashboardArticleWindowLoadingState(
   options: UseDashboardArticleWindowLoadingStateOptions,
@@ -58,11 +69,10 @@ export function useDashboardArticleWindowLoadingState(
     shouldUseArticleWindow,
   ]);
 }
-
 /**
- * Keeps the next article-window page warm in the query cache so repeated
- * load-more interactions can hydrate from a completed prefetch when available.
- * @param options
+ * Manage the dashboard article window prefetch.
+ * @param options - The options used to manage the dashboard article window prefetch.
+ * @returns The dashboard article window prefetch state and callbacks.
  */
 export function useDashboardArticleWindowPrefetch(
   options: UseDashboardArticleWindowPrefetchOptions,
@@ -135,35 +145,22 @@ export function useDashboardArticleWindowPrefetch(
 }
 
 /**
- * @param root0
- * @param root0.articlesPerPage
- * @param root0.hasMoreServerArticles
- * @param root0.inFlightPrefetchedLimitRef
- * @param root0.isLoading
- * @param root0.lastPrefetchedLimitRef
- * @param root0.prefetchNextPage
- * @param root0.requestedArticleLimit
- * @param root0.shouldUseArticleWindow
+ * Manage the article window prefetch effect.
+ * @param options - The options used to manage the article window prefetch effect.
  */
-function useArticleWindowPrefetchEffect({
-  articlesPerPage,
-  hasMoreServerArticles,
-  inFlightPrefetchedLimitRef,
-  isLoading,
-  lastPrefetchedLimitRef,
-  prefetchNextPage,
-  requestedArticleLimit,
-  shouldUseArticleWindow,
-}: {
-  articlesPerPage: number;
-  hasMoreServerArticles: boolean;
-  inFlightPrefetchedLimitRef: React.RefObject<number>;
-  isLoading: boolean;
-  lastPrefetchedLimitRef: React.RefObject<number>;
-  prefetchNextPage: (nextLimit: number) => Promise<void>;
-  requestedArticleLimit: number;
-  shouldUseArticleWindow: boolean;
-}) {
+function useArticleWindowPrefetchEffect(
+  options: ArticleWindowPrefetchEffectOptions,
+) {
+  const {
+    articlesPerPage,
+    hasMoreServerArticles,
+    inFlightPrefetchedLimitRef,
+    isLoading,
+    lastPrefetchedLimitRef,
+    prefetchNextPage,
+    requestedArticleLimit,
+    shouldUseArticleWindow,
+  } = options;
   useEffect(() => {
     if (!shouldUseArticleWindow || isLoading || !hasMoreServerArticles) {
       return;

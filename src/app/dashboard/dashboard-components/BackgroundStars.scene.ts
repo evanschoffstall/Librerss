@@ -19,15 +19,29 @@ export interface Star {
   x: number;
   y: number;
 }
+interface BackgroundStarCanvasSize {
+  h: number;
+  w: number;
+}
 
-/**
- * @param canvasSize
- * @param canvasSize.h
- * @param canvasSize.w
- * @param color
+interface BackgroundStarMouse {
+  x: number;
+  y: number;
+}
+
+interface BackgroundStarPointerOffsetOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  event: MouseEvent;
+  fallback: { x: number; y: number };
+} /**
+ * Build the background star.
+ * @param canvasSize - The canvas size.
+ * @param color - The color.
+ * @returns The background star.
  */
 export function buildBackgroundStar(
-  canvasSize: { h: number; w: number },
+  canvasSize: BackgroundStarCanvasSize,
   color: "dark" | "light",
 ): Star {
   const mode = resolveBackgroundStarMode();
@@ -54,8 +68,9 @@ export function buildBackgroundStar(
 }
 
 /**
- * @param context
- * @param star
+ * Draw the background star.
+ * @param context - The context used to draw the background star.
+ * @param star - The star.
  */
 export function drawBackgroundStar(
   context: CanvasRenderingContext2D,
@@ -86,28 +101,15 @@ export function drawBackgroundStar(
   context.fillStyle = `rgba(${star.colorRgb}, ${star.alpha})`;
   context.fill();
   context.restore();
-}
-
-/**
- * @param root0
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.event
- * @param root0.fallback
- * @param root0.fallback.x
- * @param root0.fallback.y
+} /**
+ * Resolve the background star pointer offset.
+ * @param options - The options used to resolve the background star pointer offset.
+ * @returns The background star pointer offset.
  */
-export function resolveBackgroundStarPointerOffset({
-  canvasRef,
-  canvasSize,
-  event,
-  fallback,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  event: MouseEvent;
-  fallback: { x: number; y: number };
-}) {
+export function resolveBackgroundStarPointerOffset(
+  options: BackgroundStarPointerOffsetOptions,
+) {
+  const { canvasRef, canvasSize, event, fallback } = options;
   const canvas = canvasRef.current;
   if (!canvas) {
     return fallback;
@@ -125,17 +127,16 @@ export function resolveBackgroundStarPointerOffset({
 }
 
 /**
- * @param star
- * @param lerpFactor
- * @param mouse
- * @param mouse.x
- * @param mouse.y
- * @param staticity
+ * Update the background star.
+ * @param star - The star.
+ * @param lerpFactor - The lerp factor.
+ * @param mouse - The mouse.
+ * @param staticity - The staticity.
  */
 export function updateBackgroundStar(
   star: Star,
   lerpFactor: number,
-  mouse: { x: number; y: number },
+  mouse: BackgroundStarMouse,
   staticity: number,
 ) {
   if (star.mode !== "steady") {
@@ -156,8 +157,10 @@ export function updateBackgroundStar(
 }
 
 /**
- * @param color
- * @param isBrightStar
+ * Resolve the background star color.
+ * @param color - The color.
+ * @param isBrightStar - Whether is bright star.
+ * @returns The background star color.
  */
 function resolveBackgroundStarColor(
   color: "dark" | "light",
@@ -176,7 +179,8 @@ function resolveBackgroundStarColor(
 }
 
 /**
- *
+ * Resolve the background star mode.
+ * @returns The background star mode.
  */
 function resolveBackgroundStarMode(): Star["mode"] {
   const modeRoll = Math.random();
@@ -188,8 +192,10 @@ function resolveBackgroundStarMode(): Star["mode"] {
 }
 
 /**
- * @param mode
- * @param brightnessRoll
+ * Resolve the background star profile.
+ * @param mode - The mode.
+ * @param brightnessRoll - The brightness roll.
+ * @returns The background star profile.
  */
 function resolveBackgroundStarProfile(
   mode: Star["mode"],
@@ -208,8 +214,10 @@ function resolveBackgroundStarProfile(
 }
 
 /**
- * @param isBrightStar
- * @param isDimStar
+ * Resolve the background star size.
+ * @param isBrightStar - Whether is bright star.
+ * @param isDimStar - Whether is dim star.
+ * @returns The background star size.
  */
 function resolveBackgroundStarSize(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
@@ -220,7 +228,9 @@ function resolveBackgroundStarSize(isBrightStar: boolean, isDimStar: boolean) {
 }
 
 /**
- * @param mode
+ * Resolve the background star speed.
+ * @param mode - The mode.
+ * @returns The background star speed.
  */
 function resolveBackgroundStarSpeed(mode: Star["mode"]) {
   if (mode === "twinkle") {
@@ -236,8 +246,10 @@ function resolveBackgroundStarSpeed(mode: Star["mode"]) {
 }
 
 /**
- * @param isBrightStar
- * @param isDimStar
+ * Resolve the max alpha.
+ * @param isBrightStar - Whether is bright star.
+ * @param isDimStar - Whether is dim star.
+ * @returns The max alpha.
  */
 function resolveMaxAlpha(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
@@ -250,8 +262,10 @@ function resolveMaxAlpha(isBrightStar: boolean, isDimStar: boolean) {
 }
 
 /**
- * @param isBrightStar
- * @param isDimStar
+ * Resolve the min alpha.
+ * @param isBrightStar - Whether is bright star.
+ * @param isDimStar - Whether is dim star.
+ * @returns The min alpha.
  */
 function resolveMinAlpha(isBrightStar: boolean, isDimStar: boolean) {
   if (isDimStar) {
@@ -264,15 +278,19 @@ function resolveMinAlpha(isBrightStar: boolean, isDimStar: boolean) {
 }
 
 /**
- * @param minAlpha
- * @param maxAlpha
+ * Resolve the random alpha.
+ * @param minAlpha - The min alpha.
+ * @param maxAlpha - The max alpha.
+ * @returns The random alpha.
  */
 function resolveRandomAlpha(minAlpha: number, maxAlpha: number) {
   return toFixedAlpha(Math.random() * (maxAlpha - minAlpha) + minAlpha);
 }
 
 /**
- * @param value
+ * Process the to fixed alpha.
+ * @param value - The value.
+ * @returns The to fixed alpha.
  */
 function toFixedAlpha(value: number) {
   return parseFloat(value.toFixed(2));

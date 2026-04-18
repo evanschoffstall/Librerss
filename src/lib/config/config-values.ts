@@ -23,16 +23,19 @@ import {
   requireEnvValue,
 } from "./env";
 
-/** Resolves development mode at call time so no module caches NODE_ENV early. */
+/**
+ * Return whether is development.
+ * @returns Whether is development.
+ */
 export function isDevelopment(): boolean {
   return process.env.NODE_ENV === "development";
 }
 
 /**
- * Reads an optional boolean env variable, returning `defaultValue` when the
- * key is missing or empty.
- * @param key
- * @param defaultValue
+ * Process the env boolean optional.
+ * @param key - The key.
+ * @param defaultValue - The default value.
+ * @returns Whether env boolean optional.
  */
 export const envBooleanOptional = (
   key: string,
@@ -44,9 +47,9 @@ export const envBooleanOptional = (
 };
 
 /**
- * Reads an optional string env variable, returning `undefined` when the key is
- * missing or empty after trimming.
- * @param key
+ * Process the env string optional.
+ * @param key - The key.
+ * @returns The env string optional.
  */
 export const envStringOptional = (key: string): string | undefined => {
   const raw = getEnv(key);
@@ -64,7 +67,8 @@ const LOG_LEVEL_VALUES = ["none", "error", "warn", "info", "verbose"] as const;
 type LogLevel = (typeof LOG_LEVEL_VALUES)[number];
 
 /**
- *
+ * Process the client feed cache ttl minutes.
+ * @returns The client feed cache ttl minutes.
  */
 export const clientFeedCacheTtlMinutes = (): number => {
   const key = "NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES";
@@ -75,7 +79,8 @@ export const clientFeedCacheTtlMinutes = (): number => {
 };
 
 /**
- *
+ * Process the client feed refresh diagnostics enabled.
+ * @returns Whether client feed refresh diagnostics enabled.
  */
 export const clientFeedRefreshDiagnosticsEnabled = (): boolean => {
   const key = "NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED";
@@ -89,28 +94,29 @@ export const clientFeedRefreshDiagnosticsEnabled = (): boolean => {
 };
 
 /**
- * Reads the configured batch concurrency into client code through the
- * build-time config payload injected by next.config.ts.
+ * Process the client feed batch concurrency.
+ * @returns The client feed batch concurrency.
  */
 export const clientFeedBatchConcurrency = (): number =>
   envNumber("FEED_BATCH_CONCURRENCY");
 
 /**
- * Reads the configured maximum batch URL count into client code through the
- * build-time config payload injected by next.config.ts.
+ * Process the client feed batch max urls.
+ * @returns The client feed batch max urls.
  */
 export const clientFeedBatchMaxUrls = (): number =>
   envNumber("FEED_BATCH_MAX_URLS");
 
 /**
- * Reads the per-feed upstream request timeout into client code through the
- * build-time config payload injected by next.config.ts.
+ * Process the client feed request timeout ms.
+ * @returns The client feed request timeout ms.
  */
 export const clientFeedRequestTimeoutMs = (): number =>
   envNumber("FEED_REQUEST_TIMEOUT_MS");
 
 /**
- *
+ * Process the max article consecutive blank lines.
+ * @returns The max article consecutive blank lines.
  */
 export const maxArticleConsecutiveBlankLines = (): number => {
   const clientKey = "NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES";
@@ -168,7 +174,9 @@ interface ConfigKeys {
 }
 
 /**
- * @param key
+ * Resolve the config value.
+ * @param key - The key.
+ * @returns The config value.
  */
 const resolveConfigValue = (key: string): unknown => {
   if (key === "LOG_LEVEL") {
@@ -192,8 +200,10 @@ const resolveConfigValue = (key: string): unknown => {
  */
 export const CONFIG = new Proxy({} as ConfigKeys & Record<string, unknown>, {
   /**
-   * @param _target
-   * @param property
+   * Return the .
+   * @param _target - The target.
+   * @param property - The property.
+   * @returns The .
    */
   get: (_target, property) => {
     if (typeof property !== "string") {

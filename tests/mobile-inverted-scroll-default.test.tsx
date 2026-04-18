@@ -33,28 +33,30 @@ const motion = new Proxy(
   {},
   {
     get: (_target, tag) =>
-      React.forwardRef<HTMLElement, MockMotionProps>(function MockMotionComponent(
-        {
-          animate: _animate,
-          exit: _exit,
-          initial: _initial,
-          layout: _layout,
-          layoutId: _layoutId,
-          transition: _transition,
-          ...props
-        },
-        ref,
-      ) {
-        return React.createElement(
-          tag as string,
+      React.forwardRef<HTMLElement, MockMotionProps>(
+        function MockMotionComponent(
           {
-            ...props,
-            "data-motion-initial": serializeMockMotionValue(_initial),
-            ref,
+            animate: _animate,
+            exit: _exit,
+            initial: _initial,
+            layout: _layout,
+            layoutId: _layoutId,
+            transition: _transition,
+            ...props
           },
-          props.children,
-        );
-      }),
+          ref,
+        ) {
+          return React.createElement(
+            tag as string,
+            {
+              ...props,
+              "data-motion-initial": serializeMockMotionValue(_initial),
+              ref,
+            },
+            props.children,
+          );
+        },
+      ),
   },
 );
 
@@ -76,14 +78,12 @@ describe("mobile inverted scroll defaults", () => {
       ],
     }));
 
-    ({ FeedList } =
-      await import(
-        `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
-      ));
-    ({ SettingsDisplaySection } =
-      await import(
-        `@/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
-      ));
+    ({ FeedList } = await import(
+      `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
+    ));
+    ({ SettingsDisplaySection } = await import(
+      `@/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
+    ));
   });
 
   afterEach(() => {

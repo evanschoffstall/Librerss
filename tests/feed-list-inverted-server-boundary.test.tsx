@@ -93,8 +93,9 @@ function readRenderedArticleKeys(container: HTMLElement) {
     container.querySelectorAll<HTMLElement>("article[data-article-key]"),
   )
     .map((article) => article.dataset.articleKey)
-    .filter((articleKey): articleKey is string =>
-      typeof articleKey === "string" && articleKey.length > 0,
+    .filter(
+      (articleKey): articleKey is string =>
+        typeof articleKey === "string" && articleKey.length > 0,
     );
 }
 
@@ -136,10 +137,9 @@ beforeEach(async () => {
     ],
   }));
   installFeedListDomMocks();
-  ({ FeedList } =
-    await import(
-      `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
-    ));
+  ({ FeedList } = await import(
+    `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
+  ));
 });
 
 afterEach(() => {

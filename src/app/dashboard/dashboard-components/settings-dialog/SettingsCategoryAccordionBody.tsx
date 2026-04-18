@@ -19,8 +19,30 @@ export interface SettingsCategoryAccordionBodyProps
   isAddingFeed: boolean;
 }
 
+interface CategoryAddFeedActionsProps {
+  canAddFeed: boolean;
+  isSavingFeed: boolean;
+  onCancelAddFeed: () => void;
+  onSubmit: () => void;
+}
+interface CategoryFeedUrlKeyDownHandlerOptions {
+  canAddFeed: boolean;
+  handleAddFeed: () => void;
+  onCancelAddFeed: () => void;
+}
+
+interface EmptyCategoryFeedDropZoneProps {
+  categoryLabel: string;
+  draggingFeedKey: null | string;
+  feedDropTarget: SharedFeedRowProps["feedDropTarget"];
+  onFeedDragOver: SharedFeedRowProps["onFeedDragOver"];
+  onFeedDrop: SharedFeedRowProps["onFeedDrop"];
+}
+
 /**
- * @param props
+ * Render the settings category accordion body component.
+ * @param props - The component props.
+ * @returns The rendered settings category accordion body component.
  */
 export function SettingsCategoryAccordionBody(
   props: SettingsCategoryAccordionBodyProps,
@@ -69,25 +91,13 @@ export function SettingsCategoryAccordionBody(
     </>
   );
 }
-
 /**
- * @param root0
- * @param root0.canAddFeed
- * @param root0.isSavingFeed
- * @param root0.onCancelAddFeed
- * @param root0.onSubmit
+ * Render the category add feed actions component.
+ * @param props - The component props.
+ * @returns The rendered category add feed actions component.
  */
-function CategoryAddFeedActions({
-  canAddFeed,
-  isSavingFeed,
-  onCancelAddFeed,
-  onSubmit,
-}: {
-  canAddFeed: boolean;
-  isSavingFeed: boolean;
-  onCancelAddFeed: () => void;
-  onSubmit: () => void;
-}) {
+function CategoryAddFeedActions(props: CategoryAddFeedActionsProps) {
+  const { canAddFeed, isSavingFeed, onCancelAddFeed, onSubmit } = props;
   return (
     <>
       <Button
@@ -116,39 +126,36 @@ function CategoryAddFeedActions({
 }
 
 /**
- * @param root0
- * @param root0.categoryNode
- * @param root0.isSavingFeed
- * @param root0.newFeedName
- * @param root0.newFeedUrl
- * @param root0.onAddFeed
- * @param root0.onCancelAddFeed
- * @param root0.onNewFeedNameChange
- * @param root0.onNewFeedUrlChange
+ * Render the category add feed form component.
+ * @param props - The component props.
+ * @returns The rendered category add feed form component.
  */
-function CategoryAddFeedForm({
-  categoryNode,
-  isSavingFeed,
-  newFeedName,
-  newFeedUrl,
-  onAddFeed,
-  onCancelAddFeed,
-  onNewFeedNameChange,
-  onNewFeedUrlChange,
-}: Pick<
-  SettingsCategoryAccordionBodyProps,
-  | "categoryNode"
-  | "isSavingFeed"
-  | "newFeedName"
-  | "newFeedUrl"
-  | "onAddFeed"
-  | "onCancelAddFeed"
-  | "onNewFeedNameChange"
-  | "onNewFeedUrlChange"
->) {
+function CategoryAddFeedForm(
+  props: Pick<
+    SettingsCategoryAccordionBodyProps,
+    | "categoryNode"
+    | "isSavingFeed"
+    | "newFeedName"
+    | "newFeedUrl"
+    | "onAddFeed"
+    | "onCancelAddFeed"
+    | "onNewFeedNameChange"
+    | "onNewFeedUrlChange"
+  >,
+) {
+  const {
+    categoryNode,
+    isSavingFeed,
+    newFeedName,
+    newFeedUrl,
+    onAddFeed,
+    onCancelAddFeed,
+    onNewFeedNameChange,
+    onNewFeedUrlChange,
+  } = props;
   const canAddFeed = newFeedName.trim() && newFeedUrl.trim();
   /**
-   *
+   * Process the handle add feed.
    */
   const handleAddFeed = () => {
     onAddFeed(categoryNode.label);
@@ -195,18 +202,14 @@ function CategoryAddFeedForm({
     </div>
   );
 }
-
 /**
- * @param options
- * @param options.canAddFeed
- * @param options.handleAddFeed
- * @param options.onCancelAddFeed
+ * Create the category feed url key down handler.
+ * @param options - The options used to create the category feed url key down handler.
+ * @returns The category feed url key down handler.
  */
-function createCategoryFeedUrlKeyDownHandler(options: {
-  canAddFeed: boolean;
-  handleAddFeed: () => void;
-  onCancelAddFeed: () => void;
-}) {
+function createCategoryFeedUrlKeyDownHandler(
+  options: CategoryFeedUrlKeyDownHandlerOptions,
+) {
   return (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "Enter" && options.canAddFeed) {
       options.handleAddFeed();
@@ -219,26 +222,18 @@ function createCategoryFeedUrlKeyDownHandler(options: {
 }
 
 /**
- * @param root0
- * @param root0.categoryLabel
- * @param root0.draggingFeedKey
- * @param root0.feedDropTarget
- * @param root0.onFeedDragOver
- * @param root0.onFeedDrop
+ * Render the empty category feed drop zone component.
+ * @param props - The component props.
+ * @returns The rendered empty category feed drop zone component.
  */
-function EmptyCategoryFeedDropZone({
-  categoryLabel,
-  draggingFeedKey,
-  feedDropTarget,
-  onFeedDragOver,
-  onFeedDrop,
-}: {
-  categoryLabel: string;
-  draggingFeedKey: null | string;
-  feedDropTarget: SharedFeedRowProps["feedDropTarget"];
-  onFeedDragOver: SharedFeedRowProps["onFeedDragOver"];
-  onFeedDrop: SharedFeedRowProps["onFeedDrop"];
-}) {
+function EmptyCategoryFeedDropZone(props: EmptyCategoryFeedDropZoneProps) {
+  const {
+    categoryLabel,
+    draggingFeedKey,
+    feedDropTarget,
+    onFeedDragOver,
+    onFeedDrop,
+  } = props;
   const isDropTarget =
     feedDropTarget?.categoryLabel === categoryLabel &&
     feedDropTarget.index === 0;

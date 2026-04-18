@@ -10,7 +10,9 @@ import {
 } from "./lead-media";
 
 /**
- * @param li
+ * Return whether is social share list item.
+ * @param li - The li.
+ * @returns Whether is social share list item.
  */
 function isSocialShareListItem(li: string): boolean {
   const lower = li.toLowerCase();
@@ -25,7 +27,9 @@ function isSocialShareListItem(li: string): boolean {
 }
 
 /**
- * @param content
+ * Process the strip share engagement toolbars.
+ * @param content - The content.
+ * @returns The strip share engagement toolbars.
  */
 function stripShareEngagementToolbars(content: string): string {
   return content.replace(/<ul\b[^>]*>[\s\S]*?<\/ul>/gi, (ulBlock) => {
@@ -95,7 +99,9 @@ const FILE_DOWNLOAD_EXTENSIONS = new Set([
 const FILE_SIZE_SUFFIX_RE = /^([a-z0-9]{2,5})\s*\(\d[\d.]*\s*[KMGT]?B\)$/i;
 
 /**
- * @param text
+ * Return whether is file type size text.
+ * @param text - The text.
+ * @returns Whether is file type size text.
  */
 function isFileTypeSizeText(text: string): boolean {
   const m = FILE_SIZE_SUFFIX_RE.exec(text);
@@ -103,7 +109,9 @@ function isFileTypeSizeText(text: string): boolean {
 }
 
 /**
- * @param text
+ * Return whether is short heading label.
+ * @param text - The text.
+ * @returns Whether is short heading label.
  */
 function isShortHeadingLabel(text: string): boolean {
   const normalized = text.trim();
@@ -113,7 +121,9 @@ function isShortHeadingLabel(text: string): boolean {
 }
 
 /**
- * @param value
+ * Normalize the heading text.
+ * @param value - The value.
+ * @returns The heading text.
  */
 function normalizeHeadingText(value: string): string {
   return value
@@ -124,7 +134,9 @@ function normalizeHeadingText(value: string): string {
 }
 
 /**
- * @param content
+ * Process the strip file download boilerplate.
+ * @param content - The content.
+ * @returns The strip file download boilerplate.
  */
 function stripFileDownloadBoilerplate(content: string): string {
   return content.replace(
@@ -139,21 +151,10 @@ const PROMO_CTA_RE =
   /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
 
 /**
- * Final clean-up pass applied to sanitized article HTML before it is stored
- * or returned to the client.  Two things are removed in sequence:
- *
- * 1. Comment-engagement boilerplate — login prompts, "before commenting"
- *    notices, etc. That manipulators sometimes pull in from the comment section.
- * 2. Leading inline bio/profile fragments — linked author bios that appear
- *    before the first paragraph block but are not article content.
- * 3. Nav/footer boilerplate guard — if the whole remaining content still looks
- *    like site chrome (high link density + site-chrome keywords), discard it
- *    entirely so the caller can fall through to a better fallback.
- *
- * `_articleUrl` is reserved for future per-origin cleaning rules but is
- * intentionally unused today to keep the logic domain-agnostic.
- * @param sanitizedContent
- * @param _articleUrl
+ * Process the clean sanitized html.
+ * @param sanitizedContent - The sanitized content.
+ * @param _articleUrl - The article url.
+ * @returns The clean sanitized html.
  */
 export function cleanSanitizedHtml(
   sanitizedContent: string,
@@ -199,17 +200,9 @@ export function cleanSanitizedHtml(
 }
 
 /**
- * Returns true when the content appears to contain a real article body worth
- * showing to the user.  Two independent signals are tried in order:
- *
- * 1. Structural check — 2+ block-level elements (p, headings, blockquote, list)
- *    strongly suggest formatted article prose.
- * 2. Plain-text length check — ≥280 chars of prose (≈2 sentences) as a fallback
- *    for pages that use only inline markup with no block containers.
- *
- * Used by the direct-sanitize fallback to avoid promoting ad fragments or
- * empty boilerplate into the article slot.
- * @param content
+ * Return whether has readable article body.
+ * @param content - The content.
+ * @returns Whether has readable article body.
  */
 export function hasReadableArticleBody(content: string): boolean {
   // Prefer structured markup as the primary signal — fast and reliable.
@@ -226,13 +219,9 @@ export function hasReadableArticleBody(content: string): boolean {
 }
 
 /**
- * Returns true when the sanitized content looks like site navigation or footer
- * boilerplate rather than an article body.  Detection is purely heuristic:
- * it requires at least 2 known site-chrome keyword markers ("privacy",
- * "advertise", "subscribe", etc.) AND a high link + list-item density.  All
- * three conditions must hold to avoid false positives on article content that
- * legitimately mentions those words.
- * @param content
+ * Return whether is likely nav footer boilerplate.
+ * @param content - The content.
+ * @returns Whether is likely nav footer boilerplate.
  */
 export function isLikelyNavFooterBoilerplate(content: string): boolean {
   const lower = content.toLowerCase();
@@ -264,7 +253,9 @@ export function isLikelyNavFooterBoilerplate(content: string): boolean {
 }
 
 /**
- * @param content
+ * Process the strip comment engagement boilerplate.
+ * @param content - The content.
+ * @returns The strip comment engagement boilerplate.
  */
 export function stripCommentEngagementBoilerplate(content: string): string {
   return content
@@ -280,7 +271,9 @@ export function stripCommentEngagementBoilerplate(content: string): string {
 }
 
 /**
- * @param inner
+ * Return whether is promo cta.
+ * @param inner - The inner.
+ * @returns Whether is promo cta.
  */
 function isPromoCta(inner: string): boolean {
   const text = inner
@@ -291,9 +284,9 @@ function isPromoCta(inner: string): boolean {
 }
 
 /**
- * Strip promotional CTA paragraphs and links (e.g. "Add as preferred source on
- * Google", "Follow X on WhatsApp", "You need javascript enabled").
- * @param content
+ * Process the strip promotional cta blocks.
+ * @param content - The content.
+ * @returns The strip promotional cta blocks.
  */
 function stripPromotionalCtaBlocks(content: string): string {
   return content

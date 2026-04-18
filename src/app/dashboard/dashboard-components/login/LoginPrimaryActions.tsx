@@ -13,22 +13,19 @@ interface LoginPrimaryActionsProps {
 }
 
 /**
- * @param root0
- * @param root0.allowSignup
- * @param root0.isSubmitting
- * @param root0.mode
- * @param root0.onEnterPreview
- * @param root0.onSubmit
- * @param root0.onToggleMode
+ * Render the login primary actions component.
+ * @param props - The component props.
+ * @returns The rendered login primary actions component.
  */
-export function LoginPrimaryActions({
-  allowSignup,
-  isSubmitting,
-  mode,
-  onEnterPreview,
-  onSubmit,
-  onToggleMode,
-}: LoginPrimaryActionsProps) {
+export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
+  const {
+    allowSignup,
+    isSubmitting,
+    mode,
+    onEnterPreview,
+    onSubmit,
+    onToggleMode,
+  } = props;
   return (
     <>
       <Button className="w-full" disabled={isSubmitting} onClick={onSubmit}>

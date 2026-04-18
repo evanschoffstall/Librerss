@@ -29,8 +29,10 @@ interface StatusPostDeps {
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -71,7 +73,9 @@ export async function POST(
 }
 
 /**
- * @param data
+ * Parse the status payload.
+ * @param data - The data.
+ * @returns The status payload.
  */
 function parseStatusPayload(
   data: Record<string, unknown>,

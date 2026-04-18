@@ -11,6 +11,10 @@ import { animTransitionColorsClass } from "@/app/dashboard/dashboard-components/
 import { AccordionContent, AccordionItem } from "@/components/ui/accordion";
 import { isSameCategoryLabel } from "@/lib/utils";
 
+interface SettingsCategoryAccordionContentProps {
+  bodyProps: React.ComponentProps<typeof SettingsCategoryAccordionBody>;
+}
+
 interface SettingsCategoryAccordionItemProps
   extends
     SettingsCategoryDraftFeedProps,
@@ -31,8 +35,9 @@ interface SettingsCategoryAccordionItemProps
 }
 
 /**
- * Renders one settings category accordion item, including its feeds and inline editors.
- * @param props
+ * Render the settings category accordion item component.
+ * @param props - The component props.
+ * @returns The rendered settings category accordion item component.
  */
 export function SettingsCategoryAccordionItem(
   props: SettingsCategoryAccordionItemProps,
@@ -82,8 +87,10 @@ export function SettingsCategoryAccordionItem(
 }
 
 /**
- * @param props
- * @param categorySurfaceState
+ * Build the body props.
+ * @param props - The component props.
+ * @param categorySurfaceState - The category surface state.
+ * @returns The body props.
  */
 function buildBodyProps(
   props: SettingsCategoryAccordionItemProps,
@@ -128,8 +135,10 @@ function buildBodyProps(
 }
 
 /**
- * @param categoryDropIndex
- * @param categoryIndex
+ * Resolve the category drop class name.
+ * @param categoryDropIndex - The category drop index value.
+ * @param categoryIndex - The category index value.
+ * @returns The category drop class name.
  */
 function resolveCategoryDropClassName(
   categoryDropIndex: null | number,
@@ -139,9 +148,10 @@ function resolveCategoryDropClassName(
     ? `rounded-md border border-primary bg-primary/5 ${animTransitionColorsClass}`
     : animTransitionColorsClass;
 }
-
 /**
- * @param props
+ * Resolve the category surface state.
+ * @param props - The component props.
+ * @returns The category surface state.
  */
 function resolveCategorySurfaceState(
   props: SettingsCategoryAccordionItemProps,
@@ -158,14 +168,14 @@ function resolveCategorySurfaceState(
 }
 
 /**
- * @param root0
- * @param root0.bodyProps
+ * Render the settings category accordion content component.
+ * @param props - The component props.
+ * @returns The rendered settings category accordion content component.
  */
-function SettingsCategoryAccordionContent({
-  bodyProps,
-}: {
-  bodyProps: React.ComponentProps<typeof SettingsCategoryAccordionBody>;
-}) {
+function SettingsCategoryAccordionContent(
+  props: SettingsCategoryAccordionContentProps,
+) {
+  const { bodyProps } = props;
   return (
     <AccordionContent className="px-3 pb-3">
       <SettingsCategoryAccordionBody {...bodyProps} />

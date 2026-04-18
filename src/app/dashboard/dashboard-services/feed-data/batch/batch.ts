@@ -14,15 +14,13 @@ export interface FeedBatchSource {
 }
 
 /**
- * Maps raw batch-fetch results into a flat, deduplicated, sorted article list.
- *
- * For successful responses, enriches each article with `feedName` / `feedUrl`.
- * Falls back to placeholder data when `usePlaceholderData` is true.
- * @param batchResults
- * @param sourceNameByUrl
- * @param usePlaceholderData
- * @param getPlaceholderArticles
- * @param previousFeed
+ * Process the map batch results to articles.
+ * @param batchResults - The batch results.
+ * @param sourceNameByUrl - The source name by url.
+ * @param usePlaceholderData - The placeholder data.
+ * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param previousFeed - The previous feed.
+ * @returns The map batch results to articles.
  */
 export function mapBatchResultsToArticles(
   batchResults: BatchFeedResponseItem[],
@@ -80,9 +78,11 @@ export function mapBatchResultsToArticles(
 }
 
 /**
- * @param articles
- * @param feedUrl
- * @param feedName
+ * Process the enrich feed articles.
+ * @param articles - The articles.
+ * @param feedUrl - The feed url.
+ * @param feedName - The feed name.
+ * @returns The enrich feed articles.
  */
 function enrichFeedArticles(
   articles: Article[],
@@ -105,9 +105,9 @@ function enrichFeedArticles(
 export const FEED_LOADING_FAILSAFE_MS = BATCH_REQUEST_TIMEOUT_MS + 5_000;
 
 /**
- * Produces a stable string signature for a batch-sources array so callers can
- * detect when the source list has genuinely changed between renders.
- * @param sources
+ * Build the batch request signature.
+ * @param sources - The sources.
+ * @returns The batch request signature.
  */
 export function buildBatchRequestSignature(sources: FeedBatchSource[]): string {
   return sources
@@ -117,9 +117,9 @@ export function buildBatchRequestSignature(sources: FeedBatchSource[]): string {
 }
 
 /**
- * Converts a flat list of category tree leaf nodes into FeedBatchSource records,
- * filtering out any nodes that lack a feed URL.
- * @param nodes
+ * Process the map feed nodes to batch sources.
+ * @param nodes - The nodes.
+ * @returns The map feed nodes to batch sources.
  */
 export function mapFeedNodesToBatchSources(
   nodes: CategoryTreeNode[],
@@ -136,8 +136,9 @@ export function mapFeedNodesToBatchSources(
 }
 
 /**
- * De-duplicates batch sources by URL, preserving first-occurrence order.
- * @param sources
+ * Normalize the feed batch sources.
+ * @param sources - The sources.
+ * @returns The feed batch sources.
  */
 export function normalizeFeedBatchSources(
   sources: FeedBatchSource[],

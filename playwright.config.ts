@@ -28,6 +28,7 @@ const reporter: ReporterDescription[] = [
 /**
  * Uses a higher local worker count for faster e2e runs while capping coverage
  * runs so the dedicated dev server stays stable under load.
+ * @returns The Playwright worker count or worker override for the current run.
  */
 function resolveWorkerCount() {
   if (workerOverride) {

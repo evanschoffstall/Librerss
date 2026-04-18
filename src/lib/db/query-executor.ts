@@ -11,7 +11,8 @@ import { createNodePostgresQueryExecutor } from "./node-postgres-provider";
 type QueryExecutorFactory = () => SqlQueryExecutor;
 
 /**
- *
+ * Process the default query executor factory.
+ * @returns The default query executor factory.
  */
 const defaultQueryExecutorFactory: QueryExecutorFactory = () => {
   assertDatabaseConfigured();
@@ -27,19 +28,24 @@ const defaultQueryExecutorFactory: QueryExecutorFactory = () => {
 
 let queryExecutorFactory: QueryExecutorFactory = defaultQueryExecutorFactory;
 
-/** Creates the provider-appropriate one-shot SQL executor for Bun scripts. */
+/**
+ * Create the sql query executor.
+ * @returns The sql query executor.
+ */
 export function createSqlQueryExecutor(): SqlQueryExecutor {
   return queryExecutorFactory();
 }
 
-/** Restores the default query-executor seam for tests. */
+/**
+ * Process the reset sql query executor factory for testing.
+ */
 export function resetSqlQueryExecutorFactoryForTesting(): void {
   queryExecutorFactory = defaultQueryExecutorFactory;
 }
 
 /**
- * Overrides the query-executor seam for an isolated test module instance.
- * @param factory
+ * Process the set sql query executor factory for testing.
+ * @param factory - The factory.
  */
 export function setSqlQueryExecutorFactoryForTesting(
   factory: QueryExecutorFactory,

@@ -60,12 +60,12 @@ const SIDEBAR_SKELETON_GROUPS: SidebarSkeletonGroupDescriptor[] = [
   },
 ];
 
+interface SidebarFeedRowSkeletonProps {
+  descriptor: SidebarSkeletonRowDescriptor;
+}
 /**
- * Sidebar loading surface that mirrors the real category/feed-row structure.
- *
- * Co-located with the live sidebar content so the handoff is seamless — the
- * skeleton uses the same group, header, and feed-row wrappers, preventing
- * visible reflow when real categories mount.
+ * Render the dashboard sidebar skeleton component.
+ * @returns The rendered dashboard sidebar skeleton component.
  */
 export function DashboardSidebarSkeleton() {
   return (
@@ -90,14 +90,12 @@ export function DashboardSidebarSkeleton() {
 }
 
 /**
- * @param root0
- * @param root0.descriptor
+ * Render the sidebar feed row skeleton component.
+ * @param props - The component props.
+ * @returns The rendered sidebar feed row skeleton component.
  */
-function SidebarFeedRowSkeleton({
-  descriptor,
-}: {
-  descriptor: SidebarSkeletonRowDescriptor;
-}) {
+function SidebarFeedRowSkeleton(props: SidebarFeedRowSkeletonProps) {
+  const { descriptor } = props;
   return (
     <div
       aria-hidden="true"
@@ -128,28 +126,22 @@ function SidebarFeedRowSkeleton({
 
 export const DashboardSidebarContent = memo(
   /**
-   * @param root0
-   * @param root0.isCategoriesLoading
-   * @param root0.isSidebarVisible
-   * @param root0.onCategoryClick
-   * @param root0.onCategoryPrefetch
-   * @param root0.onFeedClick
-   * @param root0.onFeedPrefetch
-   * @param root0.selectedCategory
-   * @param root0.showFavicons
-   * @param root0.sidebarCategories
+   * Render the dashboard sidebar content component.
+   * @param props - The component props.
+   * @returns The rendered dashboard sidebar content component.
    */
-  function DashboardSidebarContent({
-    isCategoriesLoading,
-    isSidebarVisible,
-    onCategoryClick,
-    onCategoryPrefetch,
-    onFeedClick,
-    onFeedPrefetch,
-    selectedCategory,
-    showFavicons,
-    sidebarCategories,
-  }: DashboardSidebarContentProps) {
+  function DashboardSidebarContent(props: DashboardSidebarContentProps) {
+    const {
+      isCategoriesLoading,
+      isSidebarVisible,
+      onCategoryClick,
+      onCategoryPrefetch,
+      onFeedClick,
+      onFeedPrefetch,
+      selectedCategory,
+      showFavicons,
+      sidebarCategories,
+    } = props;
     return (
       <AnimatePresence mode="wait">
         {isCategoriesLoading ? (

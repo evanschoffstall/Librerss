@@ -53,8 +53,10 @@ interface SignupRouteDeps {
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -105,9 +107,11 @@ export async function POST(
 }
 
 /**
- * @param db
- * @param payload
- * @param deps
+ * Create the signup success response.
+ * @param db - The db.
+ * @param payload - The payload.
+ * @param deps - The deps.
+ * @returns The signup success response.
  */
 async function createSignupSuccessResponse(
   db: SignupDb,
@@ -142,7 +146,9 @@ async function createSignupSuccessResponse(
 }
 
 /**
- * @param payload
+ * Parse the signup payload.
+ * @param payload - The payload.
+ * @returns The signup payload.
  */
 function parseSignupPayload(
   payload: Record<string, unknown>,
@@ -183,9 +189,11 @@ function parseSignupPayload(
 }
 
 /**
- * @param db
- * @param email
- * @param appLogger
+ * Resolve the existing user error.
+ * @param db - The db.
+ * @param email - The email.
+ * @param appLogger - The app logger.
+ * @returns The existing user error.
  */
 async function resolveExistingUserError(
   db: SignupDb,
@@ -210,7 +218,9 @@ async function resolveExistingUserError(
 }
 
 /**
- * @param deps
+ * Resolve the signup availability error.
+ * @param deps - The deps.
+ * @returns The signup availability error.
  */
 function resolveSignupAvailabilityError(
   deps: ResolvedSignupRouteDeps,
@@ -232,7 +242,9 @@ function resolveSignupAvailabilityError(
 }
 
 /**
- * @param request
+ * Resolve the signup payload.
+ * @param request - The request.
+ * @returns The signup payload.
  */
 async function resolveSignupPayload(
   request: NextRequest,
@@ -246,8 +258,10 @@ async function resolveSignupPayload(
 }
 
 /**
- * @param request
- * @param deps
+ * Resolve the signup request error.
+ * @param request - The request.
+ * @param deps - The deps.
+ * @returns The signup request error.
  */
 function resolveSignupRequestError(
   request: NextRequest,
@@ -263,7 +277,9 @@ function resolveSignupRequestError(
 }
 
 /**
- * @param deps
+ * Resolve the signup route deps.
+ * @param deps - The deps.
+ * @returns The signup route deps.
  */
 function resolveSignupRouteDeps(
   deps: SignupRouteDeps,

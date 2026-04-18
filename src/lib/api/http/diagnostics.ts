@@ -26,8 +26,10 @@ const SAFE_UPSTREAM_REQUEST_HEADERS = [
 ] as const;
 
 /**
- * @param error
- * @param isApiErrorFn
+ * Build the api failure diagnostics.
+ * @param error - The error.
+ * @param isApiErrorFn - Whether is api error fn.
+ * @returns The api failure diagnostics.
  */
 export function buildApiFailureDiagnostics(
   error: unknown,
@@ -61,7 +63,8 @@ export function buildApiFailureDiagnostics(
 }
 
 /**
- *
+ * Return whether is verbose logging enabled.
+ * @returns Whether is verbose logging enabled.
  */
 export function isVerboseLoggingEnabled(): boolean {
   const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
@@ -77,8 +80,10 @@ export function isVerboseLoggingEnabled(): boolean {
 }
 
 /**
- * @param data
- * @param maxLength
+ * Process the to body snippet.
+ * @param data - The data.
+ * @param maxLength - The max length value.
+ * @returns The to body snippet.
  */
 export function toBodySnippet(
   data: unknown,
@@ -106,8 +111,10 @@ export function toBodySnippet(
 }
 
 /**
- * @param headers
- * @param allowed
+ * Process the pick allowed headers.
+ * @param headers - The headers.
+ * @param allowed - The allowed.
+ * @returns The pick allowed headers.
  */
 function pickAllowedHeaders(
   headers: unknown,
@@ -124,8 +131,10 @@ function pickAllowedHeaders(
 }
 
 /**
- * @param text
- * @param maxLength
+ * Process the to compact snippet.
+ * @param text - The text.
+ * @param maxLength - The max length value.
+ * @returns The to compact snippet.
  */
 function toCompactSnippet(text: string, maxLength: number): string | undefined {
   const compact = text.replace(/\s+/g, " ").trim();
@@ -139,7 +148,9 @@ function toCompactSnippet(text: string, maxLength: number): string | undefined {
 }
 
 /**
- * @param headers
+ * Process the to header record.
+ * @param headers - The headers.
+ * @returns The to header record.
  */
 function toHeaderRecord(headers: unknown): Record<string, string> {
   if (!headers || typeof headers !== "object") {

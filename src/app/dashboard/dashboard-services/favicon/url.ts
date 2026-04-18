@@ -1,7 +1,9 @@
 import { getMergedFaviconCandidates } from "./candidates";
 
 /**
- * @param url
+ * Return the favicon url.
+ * @param url - The url.
+ * @returns The favicon url.
  */
 export const getFaviconUrl = (url: string) => {
   const candidates = getMergedFaviconCandidates(url);

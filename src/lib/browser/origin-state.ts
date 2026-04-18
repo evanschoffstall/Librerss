@@ -25,14 +25,8 @@ type IndexedDbFactoryWithDatabases = IDBFactory & {
 };
 
 /**
- * Clears origin-scoped client persistence.
- *
- * By default the wipe is intentionally dynamic and not tied to application
- * keys: it clears localStorage, sessionStorage, client-visible cookies, Cache
- * Storage, service-worker registrations, and enumerable IndexedDB databases for
- * the active origin. Callers may allowlist a small set of localStorage keys
- * when a full logout-style wipe would be too destructive.
- * @param options
+ * Process the clear client origin state.
+ * @param options - The options used to process the clear client origin state.
  */
 export async function clearClientOriginState(
   options: ClearClientOriginStateOptions = {},
@@ -56,7 +50,7 @@ export async function clearClientOriginState(
 }
 
 /**
- *
+ * Process the clear cache storage.
  */
 async function clearCacheStorage() {
   if (typeof caches === "undefined") return;
@@ -67,7 +61,8 @@ async function clearCacheStorage() {
       cacheNames.map((cacheName) => ({
         operation: "delete cache",
         /**
-         *
+         * Deletes one named Cache Storage entry.
+         * @returns A promise that resolves once the cache has been deleted.
          */
         run: async () => {
           await caches.delete(cacheName);
@@ -81,7 +76,7 @@ async function clearCacheStorage() {
 }
 
 /**
- *
+ * Process the clear document cookies.
  */
 function clearDocumentCookies() {
   if (typeof document === "undefined" || document.cookie.trim() === "") {
@@ -103,7 +98,7 @@ function clearDocumentCookies() {
 }
 
 /**
- *
+ * Process the clear indexed db.
  */
 async function clearIndexedDb() {
   if (typeof indexedDB === "undefined") return;
@@ -115,7 +110,8 @@ async function clearIndexedDb() {
     databaseNames.map((databaseName) => ({
       operation: "delete indexeddb database",
       /**
-       *
+       * Deletes one IndexedDB database by name.
+       * @returns A promise that resolves once the database has been removed.
        */
       run: async () => {
         await deleteIndexedDb(databaseName);
@@ -126,7 +122,7 @@ async function clearIndexedDb() {
 }
 
 /**
- *
+ * Process the clear service workers.
  */
 async function clearServiceWorkers() {
   const serviceWorker = (
@@ -149,7 +145,8 @@ async function clearServiceWorkers() {
       registrations.map((registration, index) => ({
         operation: "unregister service worker",
         /**
-         *
+         * Unregisters one service worker registration.
+         * @returns A promise that resolves once the registration is removed.
          */
         run: async () => {
           await registration.unregister();
@@ -163,7 +160,8 @@ async function clearServiceWorkers() {
 }
 
 /**
- * @param storage
+ * Process the clear web storage.
+ * @param storage - The storage.
  */
 function clearWebStorage(storage: Storage) {
   try {
@@ -174,26 +172,27 @@ function clearWebStorage(storage: Storage) {
 }
 
 /**
- * @param databaseName
+ * Process the delete indexed db.
+ * @param databaseName - The database name.
  */
 function deleteIndexedDb(databaseName: string) {
   return new Promise<void>((resolve, reject) => {
     try {
       const request = indexedDB.deleteDatabase(databaseName);
       /**
-       *
+       * Rejects the delete promise when IndexedDB reports an error.
        */
       request.onerror = () => {
         reject(request.error ?? new Error("IndexedDB delete failed"));
       };
       /**
-       *
+       * Rejects the delete promise when another connection blocks deletion.
        */
       request.onblocked = () => {
         reject(new Error("IndexedDB delete blocked"));
       };
       /**
-       *
+       * Resolves the delete promise once IndexedDB confirms deletion.
        */
       request.onsuccess = () => {
         resolve();
@@ -207,7 +206,9 @@ function deleteIndexedDb(databaseName: string) {
 }
 
 /**
- * @param pathname
+ * Return the cookie paths.
+ * @param pathname - The pathname.
+ * @returns The cookie paths.
  */
 function getCookiePaths(pathname: string) {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
@@ -226,7 +227,9 @@ function getCookiePaths(pathname: string) {
 }
 
 /**
- * @param indexedDbFactory
+ * Process the list indexed db names.
+ * @param indexedDbFactory - The indexed db factory.
+ * @returns The list indexed db names.
  */
 async function listIndexedDbNames(indexedDbFactory: IDBFactory) {
   const indexedDbFactoryWithDatabases =
@@ -250,8 +253,10 @@ async function listIndexedDbNames(indexedDbFactory: IDBFactory) {
 }
 
 /**
- * @param storage
- * @param preserveKeys
+ * Process the read preserved storage entries.
+ * @param storage - The storage.
+ * @param preserveKeys - The preserve keys.
+ * @returns The read preserved storage entries.
  */
 function readPreservedStorageEntries(
   storage: Storage,
@@ -268,8 +273,9 @@ function readPreservedStorageEntries(
 }
 
 /**
- * @param storage
- * @param entries
+ * Process the restore storage entries.
+ * @param storage - The storage.
+ * @param entries - The entries.
  */
 function restoreStorageEntries(
   storage: Storage,
@@ -289,14 +295,14 @@ function restoreStorageEntries(
 }
 
 /**
- * Run cleanup work in a bounded queue so large origins do not fan out unbounded async work.
- * @param tasks
+ * Process the run cleanup tasks.
+ * @param tasks - The tasks.
  */
 async function runCleanupTasks(tasks: readonly CleanupTask[]) {
   let nextTaskIndex = 0;
 
   /**
-   *
+   * Process the worker.
    */
   async function worker() {
     while (nextTaskIndex < tasks.length) {
@@ -325,16 +331,11 @@ async function runCleanupTasks(tasks: readonly CleanupTask[]) {
 }
 
 /**
- * @param root0
- * @param root0.error
- * @param root0.operation
- * @param root0.target
+ * Process the warn cleanup failure.
+ * @param options - The options used to process the warn cleanup failure.
  */
-function warnCleanupFailure({
-  error,
-  operation,
-  target,
-}: CleanupWarningContext) {
+function warnCleanupFailure(options: CleanupWarningContext) {
+  const { error, operation, target } = options;
   console.warn("Client origin cleanup failed", {
     error,
     operation,

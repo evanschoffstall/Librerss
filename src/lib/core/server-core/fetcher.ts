@@ -72,7 +72,9 @@ const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
   diagInfo,
   diagWarn,
   /**
-   * @param args
+   * Resolves and runs the database helper that ensures a feed record exists.
+   * @param args - Arguments forwarded to the lazy-loaded database helper.
+   * @returns The ensured feed record for the requested URL.
    */
   ensureFeedRecordByUrl: async (
     ...args: Parameters<DbMod["ensureFeedRecordByUrl"]>
@@ -95,10 +97,12 @@ const defaultFeedFetcherDependencies: FeedFetcherDependencies = {
 let feedFetcherDependencies = defaultFeedFetcherDependencies;
 
 /**
- * @param db
- * @param userId
- * @param feedUrl
- * @param options
+ * Process the fetch and cache feed articles.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedUrl - The feed url.
+ * @param options - The options used to process the fetch and cache feed articles.
+ * @returns The fetch and cache feed articles.
  */
 export async function fetchAndCacheFeedArticles(
   db: ReturnType<DbMod["getDb"]>,
@@ -128,10 +132,12 @@ export async function fetchAndCacheFeedArticles(
 }
 
 /**
- * @param db
- * @param userId
- * @param feedUrls
- * @param options
+ * Process the fetch and cache feed articles batch.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedUrls - The feed urls.
+ * @param options - The options used to process the fetch and cache feed articles batch.
+ * @returns The fetch and cache feed articles batch.
  */
 export async function fetchAndCacheFeedArticlesBatch(
   db: ReturnType<DbMod["getDb"]>,
@@ -187,14 +193,15 @@ export async function fetchAndCacheFeedArticlesBatch(
 }
 
 /**
- *
+ * Process the reset feed fetcher dependencies for testing.
  */
 export function resetFeedFetcherDependenciesForTesting(): void {
   feedFetcherDependencies = defaultFeedFetcherDependencies;
 }
 
 /**
- * @param overrides
+ * Process the set feed fetcher dependencies for testing.
+ * @param overrides - The overrides.
  */
 export function setFeedFetcherDependenciesForTesting(
   overrides: Partial<FeedFetcherDependencies>,
@@ -206,9 +213,11 @@ export function setFeedFetcherDependenciesForTesting(
 }
 
 /**
- * @param db
- * @param feedId
- * @param userId
+ * Process the query feed articles.
+ * @param db - The db.
+ * @param feedId - The feed id.
+ * @param userId - The r id.
+ * @returns The query feed articles.
  */
 async function queryFeedArticles(
   db: ReturnType<DbMod["getDb"]>,
@@ -242,9 +251,11 @@ async function queryFeedArticles(
 }
 
 /**
- * @param db
- * @param userId
- * @param feedUrl
+ * Process the read authorized feed source.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedUrl - The feed url.
+ * @returns The read authorized feed source.
  */
 async function readAuthorizedFeedSource(
   db: ReturnType<DbMod["getDb"]>,
@@ -274,11 +285,12 @@ async function readAuthorizedFeedSource(
 }
 
 /**
- * @param db
- * @param feed
- * @param feedUrl
- * @param options
- * @param sourceProxyEnabled
+ * Process the refresh single feed if needed.
+ * @param db - The db.
+ * @param feed - The feed.
+ * @param feedUrl - The feed url.
+ * @param options - The options used to process the refresh single feed if needed.
+ * @param sourceProxyEnabled - The source proxy enabled.
  */
 async function refreshSingleFeedIfNeeded(
   db: ReturnType<DbMod["getDb"]>,

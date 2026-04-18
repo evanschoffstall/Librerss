@@ -11,7 +11,8 @@ const authServiceBaseUrl = "/api/auth";
 
 export const AuthService = {
   /**
-   *
+   * Return the session.
+   * @returns The session.
    */
   async getSession(): Promise<AuthSession> {
     const response = await getApiClient().get<AuthSession>(
@@ -21,8 +22,10 @@ export const AuthService = {
   },
 
   /**
-   * @param email
-   * @param password
+   * Process the login.
+   * @param email - The email.
+   * @param password - The password.
+   * @returns The login.
    */
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
@@ -36,15 +39,17 @@ export const AuthService = {
   },
 
   /**
-   *
+   * Process the logout.
    */
   async logout(): Promise<void> {
     await getApiClient().post(`${authServiceBaseUrl}/logout`);
   },
 
   /**
-   * @param email
-   * @param password
+   * Process the signup.
+   * @param email - The email.
+   * @param password - The password.
+   * @returns The signup.
    */
   async signup(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(

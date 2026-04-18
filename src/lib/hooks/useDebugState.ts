@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 
 /**
- * @param initialValue
+ * Manage the debug state.
+ * @param initialValue - The initial value.
+ * @returns The debug state state and callbacks.
  */
 export const useDebugState = (initialValue = false) => {
   const [debugState, setDebugState] = useState(initialValue);
@@ -14,7 +16,7 @@ export const useDebugState = (initialValue = false) => {
   }, []);
 
   /**
-   *
+   * Process the toggle debug.
    */
   const toggleDebug = () => {
     setDebugState((prev) => !prev);

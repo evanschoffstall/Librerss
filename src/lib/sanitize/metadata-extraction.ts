@@ -7,7 +7,9 @@ import {
 import { sanitizeArticleHtml } from "./sanitize";
 
 /**
- * @param rawHtml
+ * Build the metadata image fallback html.
+ * @param rawHtml - The raw html.
+ * @returns The metadata image fallback html.
  */
 export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   const imageUrl = readMetaTagContent(rawHtml, [
@@ -56,8 +58,9 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
 }
 
 /**
- * Parse page title from HTML via og:title, first `<h1>`, or `<title>`.
- * @param html
+ * Parse the page title.
+ * @param html - The html.
+ * @returns The page title.
  */
 export function parsePageTitle(html: string): null | string {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
@@ -79,8 +82,10 @@ export function parsePageTitle(html: string): null | string {
 }
 
 /**
- * @param rawHtml
- * @param keys
+ * Process the read meta tag content.
+ * @param rawHtml - The raw html.
+ * @param keys - The keys.
+ * @returns The read meta tag content.
  */
 export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
@@ -99,7 +104,9 @@ export function readMetaTagContent(rawHtml: string, keys: string[]): string {
 }
 
 /**
- * @param tag
+ * Parse the meta tag attributes.
+ * @param tag - The tag.
+ * @returns The meta tag attributes.
  */
 function parseMetaTagAttributes(tag: string): Record<string, string> {
   const attributes: Record<string, string> = {};
@@ -116,16 +123,20 @@ function parseMetaTagAttributes(tag: string): Record<string, string> {
 }
 
 /**
- * @param tag
- * @param attribute
+ * Process the read meta tag attribute.
+ * @param tag - The tag.
+ * @param attribute - The attribute.
+ * @returns The read meta tag attribute.
  */
 function readMetaTagAttribute(tag: string, attribute: string): string {
   return parseMetaTagAttributes(tag)[attribute.toLowerCase()] ?? "";
 }
 
 /**
- * @param html
- * @param tagName
+ * Process the read tag text.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @returns The read tag text.
  */
 function readTagText(html: string, tagName: "h1" | "title"): string {
   const tagMatch = (

@@ -21,8 +21,10 @@ interface UseViewportRestoreResult {
 }
 
 /**
- * @param sessionKey
- * @param scrollOffset
+ * Manage the viewport restore.
+ * @param sessionKey - The session key.
+ * @param scrollOffset - The scroll offset value.
+ * @returns The viewport restore state and callbacks.
  */
 export function useViewportRestore(
   sessionKey: string,

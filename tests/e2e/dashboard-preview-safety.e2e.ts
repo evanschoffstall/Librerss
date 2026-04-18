@@ -112,7 +112,10 @@ test.describe("dashboard preview safety", () => {
     const expandedMetrics = await readFeedViewportMetrics(page);
     const targetScrollTop = Math.max(
       0,
-      Math.min(900, expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24),
+      Math.min(
+        900,
+        expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24,
+      ),
     );
     await setFeedViewportScrollTop(page, targetScrollTop);
     await expect
@@ -133,10 +136,9 @@ test.describe("dashboard preview safety", () => {
     expect(storageSentinel.localStorageValue).toBeNull();
     expect(storageSentinel.sessionStorageValue).toBeNull();
     expect(await readDashboardPersistence(page)).toEqual(persistedSelection);
-    await expect(page.getByRole("button", { exact: true, name: "all" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(
+      page.getByRole("button", { exact: true, name: "all" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByPlaceholder("Search...")).toHaveValue("");
     await openDashboardSettings(page);
     await expect(
@@ -216,7 +218,10 @@ test.describe("dashboard preview safety", () => {
     const expandedMetrics = await readFeedViewportMetrics(page);
     const targetScrollTop = Math.max(
       0,
-      Math.min(900, expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24),
+      Math.min(
+        900,
+        expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24,
+      ),
     );
     await setFeedViewportScrollTop(page, targetScrollTop);
     await expect
@@ -229,10 +234,9 @@ test.describe("dashboard preview safety", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await expectPreviewDashboard(page);
     expect(await readDashboardPersistence(page)).toEqual(persistedSelection);
-    await expect(page.getByRole("button", { exact: true, name: "all" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(
+      page.getByRole("button", { exact: true, name: "all" }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByPlaceholder("Search...")).toHaveValue("");
     await openDashboardSettings(page);
     await expect(

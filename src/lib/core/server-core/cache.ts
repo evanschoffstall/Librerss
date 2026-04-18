@@ -44,13 +44,13 @@ const userFeedSourceListCaches = new Map<number, CachedFeedSourceListResult>();
 const MAX_ENTRIES_PER_USER = 8;
 
 /**
- * Returns a cached batch result if one exists and is still within TTL.
- * Returns `null` on cache miss or stale entry.
- * @param userId
- * @param urls
- * @param articleFilter
- * @param articleLimit
- * @param searchTerm
+ * Return the cached batch.
+ * @param userId - The r id.
+ * @param urls - The urls.
+ * @param articleFilter - The article filter.
+ * @param articleLimit - The article limit.
+ * @param searchTerm - The search term.
+ * @returns The cached batch.
  */
 export function getCachedBatch(
   userId: number,
@@ -72,8 +72,9 @@ export function getCachedBatch(
 }
 
 /**
- * Returns a cached feed-source list for a user when the entry is still fresh.
- * @param userId
+ * Return the cached feed source list.
+ * @param userId - The r id.
+ * @returns The cached feed source list.
  */
 export function getCachedFeedSourceList(
   userId: number,
@@ -92,32 +93,29 @@ export function getCachedFeedSourceList(
 }
 
 /**
- * Drops all cached batches for a user.
- * Call after any mutation that changes a user's feeds or articles:
- * add/delete/rename feed source, category change, article status change
- * that could affect the returned data, or upstream refresh.
- * @param userId
+ * Process the invalidate user cache.
+ * @param userId - The r id.
  */
 export function invalidateUserCache(userId: number): void {
   userCaches.delete(userId);
 }
 
 /**
- * Drops the cached feed-source list for a user after feed mutations.
- * @param userId
+ * Process the invalidate user feed source list cache.
+ * @param userId - The r id.
  */
 export function invalidateUserFeedSourceListCache(userId: number): void {
   userFeedSourceListCaches.delete(userId);
 }
 
 /**
- * Stores a batch result in the cache. Evicts oldest entries when full.
- * @param userId
- * @param urls
- * @param articleFilter
- * @param articleLimit
- * @param searchTerm
- * @param result
+ * Process the set cached batch.
+ * @param userId - The r id.
+ * @param urls - The urls.
+ * @param articleFilter - The article filter.
+ * @param articleLimit - The article limit.
+ * @param searchTerm - The search term.
+ * @param result - The result.
  */
 export function setCachedBatch(
   userId: number,
@@ -148,9 +146,9 @@ export function setCachedBatch(
 }
 
 /**
- * Stores the current feed-source list for a user in memory.
- * @param userId
- * @param sources
+ * Process the set cached feed source list.
+ * @param userId - The r id.
+ * @param sources - The sources.
  */
 export function setCachedFeedSourceList(
   userId: number,
@@ -165,10 +163,12 @@ export function setCachedFeedSourceList(
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * @param urls
- * @param articleFilter
- * @param articleLimit
- * @param searchTerm
+ * Build the url key.
+ * @param urls - The urls.
+ * @param articleFilter - The article filter.
+ * @param articleLimit - The article limit.
+ * @param searchTerm - The search term.
+ * @returns The url key.
  */
 function buildUrlKey(
   urls: string[],
@@ -180,21 +180,27 @@ function buildUrlKey(
 }
 
 /**
- * @param entry
+ * Return whether is fresh.
+ * @param entry - The entry.
+ * @returns Whether is fresh.
  */
 function isFresh(entry: CacheEntry): boolean {
   return isTimestampFresh(entry.result.cachedAt);
 }
 
 /**
- * @param cachedAt
+ * Return whether is timestamp fresh.
+ * @param cachedAt - The cached at.
+ * @returns Whether is timestamp fresh.
  */
 function isTimestampFresh(cachedAt: number): boolean {
   return Date.now() - cachedAt < ttlMs();
 }
 
 /**
- * @param articleLimit
+ * Normalize the article limit.
+ * @param articleLimit - The article limit.
+ * @returns The article limit.
  */
 function normalizeArticleLimit(articleLimit?: number): number {
   return typeof articleLimit === "number"
@@ -203,7 +209,8 @@ function normalizeArticleLimit(articleLimit?: number): number {
 }
 
 /**
- *
+ * Process the ttl ms.
+ * @returns The ttl ms.
  */
 function ttlMs(): number {
   return CONFIG.FEED_CACHE_TTL_MINUTES * 60_000;

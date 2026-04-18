@@ -20,21 +20,18 @@ import { useLocalStorage } from "@/lib/hooks";
 type DashboardViewProps = DashboardControllerProps;
 
 /**
- * Hydrated dashboard view with shared shell chrome and interactive feed surfaces.
- * @param root0
- * @param root0.backgroundMode
- * @param root0.distillStrategy
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.usePlaceholderData
+ * Render the dashboard view component.
+ * @param props - The component props.
+ * @returns The rendered dashboard view component.
  */
-export const DashboardView = ({
-  backgroundMode,
-  distillStrategy,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  usePlaceholderData,
-}: DashboardViewProps) => {
+export const DashboardView = (props: DashboardViewProps) => {
+  const {
+    backgroundMode,
+    distillStrategy,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    usePlaceholderData,
+  } = props;
   const [mobileGroupedLayout] = useLocalStorage(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
@@ -64,16 +61,34 @@ export const DashboardView = ({
     </>
   );
 };
+interface DashboardFeedSectionProps {
+  feedList: ReturnType<typeof useDashboardController>["feedList"];
+}
+
+interface DashboardFilterSectionProps {
+  filterBar: ReturnType<typeof useDashboardController>["filterBar"];
+}
+interface DashboardShellViewProps {
+  feedList: ReturnType<typeof useDashboardController>["feedList"];
+  filterBar: ReturnType<typeof useDashboardController>["filterBar"];
+  mobileToolbarBottom: boolean;
+  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
+}
+
+interface DashboardSidebarSectionProps {
+  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
+}
+interface DashboardSidebarSheetProps {
+  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
+}
 
 /**
- * @param root0
- * @param root0.feedList
+ * Render the dashboard feed section component.
+ * @param props - The component props.
+ * @returns The rendered dashboard feed section component.
  */
-function DashboardFeedSection({
-  feedList,
-}: {
-  feedList: ReturnType<typeof useDashboardController>["feedList"];
-}) {
+function DashboardFeedSection(props: DashboardFeedSectionProps) {
+  const { feedList } = props;
   return (
     <DashboardFeedViewport>
       <FeedList
@@ -110,16 +125,13 @@ function DashboardFeedSection({
     </DashboardFeedViewport>
   );
 }
-
 /**
- * @param root0
- * @param root0.filterBar
+ * Render the dashboard filter section component.
+ * @param props - The component props.
+ * @returns The rendered dashboard filter section component.
  */
-function DashboardFilterSection({
-  filterBar,
-}: {
-  filterBar: ReturnType<typeof useDashboardController>["filterBar"];
-}) {
+function DashboardFilterSection(props: DashboardFilterSectionProps) {
+  const { filterBar } = props;
   return (
     <DashboardFilterBar
       articleFilter={filterBar.articleFilter}
@@ -133,23 +145,12 @@ function DashboardFilterSection({
 }
 
 /**
- * @param root0
- * @param root0.feedList
- * @param root0.filterBar
- * @param root0.mobileToolbarBottom
- * @param root0.sidebar
+ * Render the dashboard shell view component.
+ * @param props - The component props.
+ * @returns The rendered dashboard shell view component.
  */
-function DashboardShellView({
-  feedList,
-  filterBar,
-  mobileToolbarBottom,
-  sidebar,
-}: {
-  feedList: ReturnType<typeof useDashboardController>["feedList"];
-  filterBar: ReturnType<typeof useDashboardController>["filterBar"];
-  mobileToolbarBottom: boolean;
-  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
-}) {
+function DashboardShellView(props: DashboardShellViewProps) {
+  const { feedList, filterBar, mobileToolbarBottom, sidebar } = props;
   return (
     <DashboardScaffold
       feed={<DashboardFeedSection feedList={feedList} />}
@@ -159,16 +160,13 @@ function DashboardShellView({
     />
   );
 }
-
 /**
- * @param root0
- * @param root0.sidebar
+ * Render the dashboard sidebar section component.
+ * @param props - The component props.
+ * @returns The rendered dashboard sidebar section component.
  */
-function DashboardSidebarSection({
-  sidebar,
-}: {
-  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
-}) {
+function DashboardSidebarSection(props: DashboardSidebarSectionProps) {
+  const { sidebar } = props;
   return (
     <DashboardDesktopSidebar
       isSidebarVisible={sidebar.isSidebarVisible}
@@ -179,14 +177,12 @@ function DashboardSidebarSection({
 }
 
 /**
- * @param root0
- * @param root0.sidebar
+ * Render the dashboard sidebar sheet component.
+ * @param props - The component props.
+ * @returns The rendered dashboard sidebar sheet component.
  */
-function DashboardSidebarSheet({
-  sidebar,
-}: {
-  sidebar: ReturnType<typeof useDashboardController>["sidebar"];
-}) {
+function DashboardSidebarSheet(props: DashboardSidebarSheetProps) {
+  const { sidebar } = props;
   return (
     <DashboardMobileSidebarSheet
       isOpen={sidebar.isMobileSidebarOpen}

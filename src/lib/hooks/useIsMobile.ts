@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 const MOBILE_BREAKPOINT = 640; // matches Tailwind's `sm`
 
 /**
- *
+ * Manage the is mobile.
+ * @returns Whether is mobile.
  */
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
@@ -13,7 +14,7 @@ export function useIsMobile() {
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     /**
-     *
+     * Process the on change.
      */
     const onChange = () => {
       setIsMobile(mql.matches);

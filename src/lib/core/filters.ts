@@ -5,8 +5,9 @@ export const ARTICLE_FILTERS = ["all", "unread", "read", "starred"] as const;
 export type ArticleFilter = (typeof ARTICLE_FILTERS)[number];
 
 /**
- * Runtime guard for validating external article-filter input.
- * @param value
+ * Return whether is article filter.
+ * @param value - The value.
+ * @returns Whether is article filter.
  */
 export function isArticleFilter(value: unknown): value is ArticleFilter {
   return (

@@ -71,9 +71,77 @@ interface ResolvedBatchRequestUrls {
 const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
   serverApi;
 
+interface BatchExecutionPreflightOptions {
+  diagnosticsEnabled: boolean;
+  requestState: ResolvedBatchRequestState;
+}
+interface BatchIntentStateOptions {
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  skipRefresh: boolean;
+  urls: string[];
+}
+
+interface BatchProxyTransportOptions {
+  resolveUserProxyForRoute: NonNullable<
+    ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
+  >;
+  userId: number;
+}
+interface BatchRequestStateForPostOptions {
+  deps: BatchRouteDeps;
+  request: NextRequest;
+}
+
+interface BatchRequestUrlsOptions {
+  diagnosticsEnabled: boolean;
+  urls: string[];
+  userId: number;
+}
+interface BatchSuccessResponseOptionsOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  batchFetchResult: BatchFetchExecutionResult;
+  diagnosticsEnabled: boolean;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  intent: string;
+  invalidUrlCount: number;
+  normalizedUrls: string[];
+  requestSource: string;
+  requestStartedAt: number;
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+  userId: number;
+}
+
+interface ExecuteBatchFetchOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  deps: BatchRouteDeps;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  knownLastFetchedAtByUrl: Map<string, Date>;
+  normalizedUrls: string[];
+  requestSource: string;
+  requestUrls: BatchUrlDescriptor[];
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+  userId: number;
+}
+
+interface HandleResolvedBatchPostRequestOptions {
+  deps: BatchRouteDeps;
+  diagnosticsEnabled: boolean;
+  requestStartedAt: number;
+  requestState: ResolvedBatchRequestState;
+}
+
 /**
- * @param request
- * @param depsOrContext
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
  */
 export async function POST(
   request: NextRequest,
@@ -110,38 +178,13 @@ export async function POST(
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.batchFetchResult
- * @param options.diagnosticsEnabled
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.intent
- * @param options.invalidUrlCount
- * @param options.normalizedUrls
- * @param options.requestSource
- * @param options.requestStartedAt
- * @param options.searchTerm
- * @param options.skipRefresh
- * @param options.userId
+ * Build the batch success response options.
+ * @param options - The options used to build the batch success response options.
+ * @returns The batch success response options.
  */
-function buildBatchSuccessResponseOptions(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  batchFetchResult: BatchFetchExecutionResult;
-  diagnosticsEnabled: boolean;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  intent: string;
-  invalidUrlCount: number;
-  normalizedUrls: string[];
-  requestSource: string;
-  requestStartedAt: number;
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
-  userId: number;
-}): BatchRequestCompletedOptions {
+function buildBatchSuccessResponseOptions(
+  options: BatchSuccessResponseOptionsOptions,
+): BatchRequestCompletedOptions {
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
@@ -166,34 +209,13 @@ function buildBatchSuccessResponseOptions(options: {
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.deps
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.knownLastFetchedAtByUrl
- * @param options.normalizedUrls
- * @param options.requestSource
- * @param options.requestUrls
- * @param options.searchTerm
- * @param options.skipRefresh
- * @param options.userId
+ * Process the execute batch fetch.
+ * @param options - The options used to process the execute batch fetch.
+ * @returns The execute batch fetch.
  */
-async function executeBatchFetch(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  deps: BatchRouteDeps;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  knownLastFetchedAtByUrl: Map<string, Date>;
-  normalizedUrls: string[];
-  requestSource: string;
-  requestUrls: BatchUrlDescriptor[];
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
-  userId: number;
-}): Promise<BatchFetchExecutionResult> {
+async function executeBatchFetch(
+  options: ExecuteBatchFetchOptions,
+): Promise<BatchFetchExecutionResult> {
   const routeDeps = resolveBatchRouteDependencies(options.deps);
   const batchResponse = await routeDeps.fetchAndCacheFeedArticlesBatchForRoute(
     routeDeps.db,
@@ -207,7 +229,8 @@ async function executeBatchFetch(options: {
       knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
       requestSource: options.requestSource,
       /**
-       *
+       * Resolves the proxy transport to use for the current batch request.
+       * @returns The proxy transport promise for the current user.
        */
       resolveProxyTransport: () =>
         resolveBatchProxyTransport({
@@ -234,18 +257,13 @@ async function executeBatchFetch(options: {
 }
 
 /**
- * @param options
- * @param options.deps
- * @param options.diagnosticsEnabled
- * @param options.requestStartedAt
- * @param options.requestState
+ * Process the handle resolved batch post request.
+ * @param options - The options used to process the handle resolved batch post request.
+ * @returns The handle resolved batch post request.
  */
-async function handleResolvedBatchPostRequest(options: {
-  deps: BatchRouteDeps;
-  diagnosticsEnabled: boolean;
-  requestStartedAt: number;
-  requestState: ResolvedBatchRequestState;
-}) {
+async function handleResolvedBatchPostRequest(
+  options: HandleResolvedBatchPostRequestOptions,
+) {
   const {
     articleFilter,
     articleLimit,
@@ -300,10 +318,10 @@ async function handleResolvedBatchPostRequest(options: {
       userId: user.userId,
     }),
   );
-}
-
-/**
- * @param value
+} /**
+ * Parse the article filter.
+ * @param value - The value.
+ * @returns The article filter.
  */
 function parseArticleFilter(value: unknown): ArticleFilter | Response {
   if (value === undefined) {
@@ -323,7 +341,9 @@ function parseArticleFilter(value: unknown): ArticleFilter | Response {
 }
 
 /**
- * @param value
+ * Parse the article limit.
+ * @param value - The value.
+ * @returns The article limit.
  */
 function parseArticleLimit(value: unknown): number | Response | undefined {
   if (value === undefined) {
@@ -340,10 +360,10 @@ function parseArticleLimit(value: unknown): number | Response | undefined {
   }
 
   return Math.min(value, CONFIG.MAX_ALL_ARTICLES_LIMIT);
-}
-
-/**
- * @param value
+} /**
+ * Parse the force resolve upstream.
+ * @param value - The value.
+ * @returns The force resolve upstream.
  */
 function parseForceResolveUpstream(value: unknown): boolean | Response {
   if (value === undefined) {
@@ -363,7 +383,9 @@ function parseForceResolveUpstream(value: unknown): boolean | Response {
 }
 
 /**
- * @param value
+ * Parse the known last fetched at by url.
+ * @param value - The value.
+ * @returns The known last fetched at by url.
  */
 function parseKnownLastFetchedAtByUrl(
   value: unknown,
@@ -403,10 +425,10 @@ function parseKnownLastFetchedAtByUrl(
       (entry): entry is readonly [string, Date] => entry !== null,
     ),
   );
-}
-
-/**
- * @param value
+} /**
+ * Parse the search term.
+ * @param value - The value.
+ * @returns The search term.
  */
 function parseSearchTerm(value: unknown): Response | string | undefined {
   if (value === undefined) {
@@ -440,14 +462,13 @@ function parseSearchTerm(value: unknown): Response | string | undefined {
 }
 
 /**
- * @param options
- * @param options.diagnosticsEnabled
- * @param options.requestState
+ * Resolve the batch execution preflight.
+ * @param options - The options used to resolve the batch execution preflight.
+ * @returns The batch execution preflight.
  */
-function resolveBatchExecutionPreflight(options: {
-  diagnosticsEnabled: boolean;
-  requestState: ResolvedBatchRequestState;
-}) {
+function resolveBatchExecutionPreflight(
+  options: BatchExecutionPreflightOptions,
+) {
   const {
     articleFilter,
     articleLimit,
@@ -496,21 +517,12 @@ function resolveBatchExecutionPreflight(options: {
     ...resolvedRequestUrls,
     intent: batchIntentState.intent,
   };
-}
-
-/**
- * @param options
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.skipRefresh
- * @param options.urls
+} /**
+ * Resolve the batch intent state.
+ * @param options - The options used to resolve the batch intent state.
+ * @returns The batch intent state.
  */
-function resolveBatchIntentState(options: {
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  skipRefresh: boolean;
-  urls: string[];
-}) {
+function resolveBatchIntentState(options: BatchIntentStateOptions) {
   const intent = buildBatchIntent({
     forceRefresh: options.forceRefresh,
     forceResolveUpstream: options.forceResolveUpstream,
@@ -526,16 +538,11 @@ function resolveBatchIntentState(options: {
 }
 
 /**
- * @param options
- * @param options.resolveUserProxyForRoute
- * @param options.userId
+ * Resolve the batch proxy transport.
+ * @param options - The options used to resolve the batch proxy transport.
+ * @returns The batch proxy transport.
  */
-async function resolveBatchProxyTransport(options: {
-  resolveUserProxyForRoute: NonNullable<
-    ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
-  >;
-  userId: number;
-}) {
+async function resolveBatchProxyTransport(options: BatchProxyTransportOptions) {
   let resolvedProxy;
 
   try {
@@ -564,17 +571,14 @@ async function resolveBatchProxyTransport(options: {
     allowInsecureTls: resolvedProxy.allowInsecureTls,
     proxyUrl: resolvedProxy.proxyUrl,
   };
-}
-
-/**
- * @param options
- * @param options.deps
- * @param options.request
+} /**
+ * Resolve the batch request state for post.
+ * @param options - The options used to resolve the batch request state for post.
+ * @returns The batch request state for post.
  */
-async function resolveBatchRequestStateForPost(options: {
-  deps: BatchRouteDeps;
-  request: NextRequest;
-}): Promise<ResolvedBatchRequestState | Response> {
+async function resolveBatchRequestStateForPost(
+  options: BatchRequestStateForPostOptions,
+): Promise<ResolvedBatchRequestState | Response> {
   const requireMutableAuthenticatedUserForRoute =
     options.deps.requireMutableAuthenticatedUserFn ??
     serverApi.requireMutableAuthenticatedUser;
@@ -612,16 +616,13 @@ async function resolveBatchRequestStateForPost(options: {
 }
 
 /**
- * @param options
- * @param options.diagnosticsEnabled
- * @param options.urls
- * @param options.userId
+ * Resolve the batch request urls.
+ * @param options - The options used to resolve the batch request urls.
+ * @returns The batch request urls.
  */
-function resolveBatchRequestUrls(options: {
-  diagnosticsEnabled: boolean;
-  urls: string[];
-  userId: number;
-}): ResolvedBatchRequestUrls | Response {
+function resolveBatchRequestUrls(
+  options: BatchRequestUrlsOptions,
+): ResolvedBatchRequestUrls | Response {
   const maxUrlResponse = ensureBatchUrlCount(options.urls);
   if (maxUrlResponse) {
     return maxUrlResponse;
@@ -644,7 +645,9 @@ function resolveBatchRequestUrls(options: {
 }
 
 /**
- * @param deps
+ * Resolve the batch route dependencies.
+ * @param deps - The deps.
+ * @returns The batch route dependencies.
  */
 function resolveBatchRouteDependencies(deps: BatchRouteDeps) {
   return {

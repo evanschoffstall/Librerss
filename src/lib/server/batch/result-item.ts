@@ -1,20 +1,19 @@
 import type { BatchUrlDescriptor } from "./endpoint";
 
-/**
- * @param options
- * @param options.batchMap
- * @param options.item
- * @param options.lastFetchedByUrl
- * @param options.unchangedUrls
- * @param options.upstreamErrors
- */
-export function buildBatchResultItem(options: {
+interface BatchResultItemOptions {
   batchMap: ReadonlyMap<string, unknown[]>;
   item: BatchUrlDescriptor;
   lastFetchedByUrl: ReadonlyMap<string, Date>;
   unchangedUrls: ReadonlySet<string>;
   upstreamErrors: ReadonlyMap<string, string>;
-}) {
+}
+
+/**
+ * Build the batch result item.
+ * @param options - The options used to build the batch result item.
+ * @returns The batch result item.
+ */
+export function buildBatchResultItem(options: BatchResultItemOptions) {
   if (options.item.kind === "invalid") {
     return {
       articles: [],

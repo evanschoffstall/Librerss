@@ -11,15 +11,12 @@ interface MotionSpinnerProps {
 }
 
 /**
- * Renders a dashboard spinner using Motion instead of CSS keyframe classes.
- * @param root0
- * @param root0.className
- * @param root0.iconClassName
+ * Render the motion spinner component.
+ * @param props - The component props.
+ * @returns The rendered motion spinner component.
  */
-export function MotionSpinner({
-  className,
-  iconClassName,
-}: MotionSpinnerProps) {
+export function MotionSpinner(props: MotionSpinnerProps) {
+  const { className, iconClassName } = props;
   return (
     <motion.span
       animate={{ rotate: 360 }}

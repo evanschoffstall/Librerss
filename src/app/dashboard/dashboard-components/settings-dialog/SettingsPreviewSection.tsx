@@ -8,15 +8,12 @@ interface SettingsPreviewSectionProps {
 }
 
 /**
- * Applies the demo-mode overlay to settings sections that are read-only in preview mode.
- * @param root0
- * @param root0.children
- * @param root0.isPreviewMode
+ * Render the settings preview section component.
+ * @param props - The component props.
+ * @returns The rendered settings preview section component.
  */
-export function SettingsPreviewSection({
-  children,
-  isPreviewMode = false,
-}: SettingsPreviewSectionProps) {
+export function SettingsPreviewSection(props: SettingsPreviewSectionProps) {
+  const { children, isPreviewMode = false } = props;
   return (
     <div className="relative">
       {isPreviewMode && <DemoOverlay />}
@@ -26,7 +23,8 @@ export function SettingsPreviewSection({
 }
 
 /**
- *
+ * Render the demo overlay component.
+ * @returns The rendered demo overlay component.
  */
 function DemoOverlay() {
   return (

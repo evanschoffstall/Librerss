@@ -22,15 +22,17 @@ type DbMod = typeof import("@/lib/db");
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
 /**
- * @param msg
- * @param ctx
+ * Process the diag info.
+ * @param msg - The msg.
+ * @param ctx - The ctx.
  */
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.info(msg, ctx);
 };
 /**
- * @param msg
- * @param ctx
+ * Process the diag warn.
+ * @param msg - The msg.
+ * @param ctx - The ctx.
  */
 export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.warn(msg, ctx);
@@ -96,9 +98,11 @@ interface ResolvedRefreshDeps {
 }
 
 /**
- * @param db
- * @param feed
- * @param deps
+ * Process the refresh feed from upstream.
+ * @param db - The db.
+ * @param feed - The feed.
+ * @param deps - The deps.
+ * @returns The refresh feed from upstream.
  */
 export async function refreshFeedFromUpstream(
   db: ReturnType<DbMod["getDb"]>,
@@ -139,7 +143,9 @@ export async function refreshFeedFromUpstream(
 }
 
 /**
- * @param lastFetched
+ * Return whether should force refresh feed.
+ * @param lastFetched - The last fetched.
+ * @returns Whether should force refresh feed.
  */
 export function shouldForceRefreshFeed(lastFetched: Date): boolean {
   const ageMinutes = getAgeInMinutes(lastFetched);
@@ -147,7 +153,9 @@ export function shouldForceRefreshFeed(lastFetched: Date): boolean {
 }
 
 /**
- * @param lastFetched
+ * Return whether should refresh feed.
+ * @param lastFetched - The last fetched.
+ * @returns Whether should refresh feed.
  */
 export function shouldRefreshFeed(lastFetched: Date): boolean {
   const ageMinutes = getAgeInMinutes(lastFetched);
@@ -155,10 +163,11 @@ export function shouldRefreshFeed(lastFetched: Date): boolean {
 }
 
 /**
- * @param db
- * @param feed
- * @param now
- * @param errorMessage
+ * Process the apply refresh failure cooldown.
+ * @param db - The db.
+ * @param feed - The feed.
+ * @param now - The now.
+ * @param errorMessage - The error message.
  */
 async function applyRefreshFailureCooldown(
   db: ReturnType<DbMod["getDb"]>,
@@ -183,17 +192,20 @@ async function applyRefreshFailureCooldown(
 }
 
 /**
- * @param date
+ * Return the age in minutes.
+ * @param date - The date.
+ * @returns The age in minutes.
  */
 function getAgeInMinutes(date: Date): number {
   return (Date.now() - date.getTime()) / 60_000;
 }
 
 /**
- * @param feed
- * @param parsedItems
- * @param publicationDateRange
- * @param validItems
+ * Process the log parsed refresh result.
+ * @param feed - The feed.
+ * @param parsedItems - The d items.
+ * @param publicationDateRange - The publication date range.
+ * @param validItems - The valid items.
  */
 function logParsedRefreshResult(
   feed: FeedRecord,
@@ -212,8 +224,9 @@ function logParsedRefreshResult(
 }
 
 /**
- * @param feed
- * @param now
+ * Process the log refresh complete.
+ * @param feed - The feed.
+ * @param now - The now.
  */
 function logRefreshComplete(feed: FeedRecord, now: Date): void {
   diagInfo("Upstream refresh completed", {
@@ -224,9 +237,10 @@ function logRefreshComplete(feed: FeedRecord, now: Date): void {
 }
 
 /**
- * @param feed
- * @param proxyTransport
- * @param connectionMode
+ * Process the log refresh start.
+ * @param feed - The feed.
+ * @param proxyTransport - The proxy transport.
+ * @param connectionMode - The connection mode.
  */
 function logRefreshStart(
   feed: FeedRecord,
@@ -246,10 +260,12 @@ function logRefreshStart(
 }
 
 /**
- * @param feed
- * @param now
- * @param proxyTransport
- * @param deps
+ * Parse the refresh items.
+ * @param feed - The feed.
+ * @param now - The now.
+ * @param proxyTransport - The proxy transport.
+ * @param deps - The deps.
+ * @returns The refresh items.
  */
 async function parseRefreshItems(
   feed: FeedRecord,
@@ -273,10 +289,11 @@ async function parseRefreshItems(
 }
 
 /**
- * @param db
- * @param feed
- * @param now
- * @param validItems
+ * Process the persist successful refresh.
+ * @param db - The db.
+ * @param feed - The feed.
+ * @param now - The now.
+ * @param validItems - The valid items.
  */
 async function persistSuccessfulRefresh(
   db: ReturnType<DbMod["getDb"]>,
@@ -320,7 +337,9 @@ async function persistSuccessfulRefresh(
 }
 
 /**
- * @param deps
+ * Resolve the refresh deps.
+ * @param deps - The deps.
+ * @returns The refresh deps.
  */
 function resolveRefreshDeps(
   deps: RefreshDeps | undefined,

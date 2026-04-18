@@ -46,22 +46,7 @@ export type DashboardEventsOptions = Parameters<typeof useDashboardEvents>[0];
 export type DashboardHandlersOptions = Parameters<
   typeof useDashboardHandlers
 >[0];
-
-/**
- * @param options
- * @param options.feed
- * @param options.handleMarkArticlesRead
- * @param options.handleRefreshSelection
- * @param options.selectedCategory
- * @param options.selectedCategoryNode
- * @param options.selectedFeedUrl
- * @param options.setFeed
- * @param options.setIsMobileSidebarOpen
- * @param options.setSearchTerm
- * @param options.setShowSettingsModal
- * @param options.usePlaceholderData
- */
-export function useDashboardControllerEventBindings(options: {
+interface DashboardControllerEventBindingsOptions {
   feed: Article[];
   handleMarkArticlesRead: (articles: Article[]) => Promise<void>;
   handleRefreshSelection: DashboardEventsOptions["onRefresh"];
@@ -73,7 +58,43 @@ export function useDashboardControllerEventBindings(options: {
   setSearchTerm: DashboardEventsOptions["onSearchChange"];
   setShowSettingsModal: () => void;
   usePlaceholderData: boolean;
-}) {
+}
+
+interface DashboardHandlerOptionsOptions {
+  articleLimit: DashboardHandlersOptions["articleLimit"];
+  fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
+  fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
+  fetchFeed: DashboardHandlersOptions["fetchFeed"];
+  prefetchAllFeeds: DashboardHandlersOptions["prefetchAllFeeds"];
+  prefetchCategoryFeeds: DashboardHandlersOptions["prefetchCategoryFeeds"];
+  prefetchFeed: DashboardHandlersOptions["prefetchFeed"];
+  searchTerm: DashboardHandlersOptions["searchTerm"];
+  selectedCategory: DashboardHandlersOptions["selectedCategory"];
+  selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
+  selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
+  setIsMobileSidebarOpen: DashboardHandlersOptions["setIsMobileSidebarOpen"];
+  setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
+}
+
+interface DashboardSharedFetchOptionsOptions {
+  fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
+  fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
+  fetchFeed: DashboardHandlersOptions["fetchFeed"];
+  searchTerm: DashboardHandlersOptions["searchTerm"];
+  selectedCategory: DashboardHandlersOptions["selectedCategory"];
+  selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
+  selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
+  setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
+}
+
+/**
+ * Manage the dashboard controller event bindings.
+ * @param options - The options used to manage the dashboard controller event bindings.
+ */
+export function useDashboardControllerEventBindings(
+  options: DashboardControllerEventBindingsOptions,
+) {
   const handleMarkAllReadLocally = useCallback(() => {
     options.setFeed((currentFeed) =>
       currentFeed.map((article) => ({ ...article, isRead: true })),
@@ -107,9 +128,10 @@ export function useDashboardControllerEventBindings(options: {
     usePlaceholderData: options.usePlaceholderData,
   });
 }
-
 /**
- * @param options
+ * Manage the dashboard controller runtime state.
+ * @param options - The options used to manage the dashboard controller runtime state.
+ * @returns The dashboard controller runtime state state and callbacks.
  */
 export function useDashboardControllerRuntimeState(
   options: DashboardControllerRuntimeStateOptions,
@@ -122,7 +144,9 @@ export function useDashboardControllerRuntimeState(
 }
 
 /**
- * @param options
+ * Create the dashboard effect options.
+ * @param options - The options used to create the dashboard effect options.
+ * @returns The dashboard effect options.
  */
 function createDashboardEffectOptions(
   options: DashboardControllerRuntimeStateOptions,
@@ -145,40 +169,14 @@ function createDashboardEffectOptions(
     timeoutMs: options.timeoutMs,
   } satisfies DashboardEffectsOptions;
 }
-
 /**
- * @param options
- * @param options.articleLimit
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.fetchFeed
- * @param options.prefetchAllFeeds
- * @param options.prefetchCategoryFeeds
- * @param options.prefetchFeed
- * @param options.searchTerm
- * @param options.selectedCategory
- * @param options.selectedCategoryNode
- * @param options.selectedFeedUrl
- * @param options.selectionArticleLimit
- * @param options.setIsMobileSidebarOpen
- * @param options.setSelectedCategory
+ * Create the dashboard handler options.
+ * @param options - The options used to create the dashboard handler options.
+ * @returns The dashboard handler options.
  */
-function createDashboardHandlerOptions(options: {
-  articleLimit: DashboardHandlersOptions["articleLimit"];
-  fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
-  fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
-  fetchFeed: DashboardHandlersOptions["fetchFeed"];
-  prefetchAllFeeds: DashboardHandlersOptions["prefetchAllFeeds"];
-  prefetchCategoryFeeds: DashboardHandlersOptions["prefetchCategoryFeeds"];
-  prefetchFeed: DashboardHandlersOptions["prefetchFeed"];
-  searchTerm: DashboardHandlersOptions["searchTerm"];
-  selectedCategory: DashboardHandlersOptions["selectedCategory"];
-  selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
-  selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
-  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
-  setIsMobileSidebarOpen: DashboardHandlersOptions["setIsMobileSidebarOpen"];
-  setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
-}) {
+function createDashboardHandlerOptions(
+  options: DashboardHandlerOptionsOptions,
+) {
   return {
     ...createDashboardSharedFetchOptions(options),
     articleLimit: options.articleLimit,
@@ -192,26 +190,13 @@ function createDashboardHandlerOptions(options: {
 }
 
 /**
- * @param options
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.fetchFeed
- * @param options.searchTerm
- * @param options.selectedCategory
- * @param options.selectedCategoryNode
- * @param options.selectedFeedUrl
- * @param options.setSelectedCategory
+ * Create the dashboard shared fetch options.
+ * @param options - The options used to create the dashboard shared fetch options.
+ * @returns The dashboard shared fetch options.
  */
-function createDashboardSharedFetchOptions(options: {
-  fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
-  fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
-  fetchFeed: DashboardHandlersOptions["fetchFeed"];
-  searchTerm: DashboardHandlersOptions["searchTerm"];
-  selectedCategory: DashboardHandlersOptions["selectedCategory"];
-  selectedCategoryNode: DashboardHandlersOptions["selectedCategoryNode"];
-  selectedFeedUrl: DashboardHandlersOptions["selectedFeedUrl"];
-  setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
-}) {
+function createDashboardSharedFetchOptions(
+  options: DashboardSharedFetchOptionsOptions,
+) {
   return {
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,

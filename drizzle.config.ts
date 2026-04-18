@@ -4,7 +4,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { normalizePostgresConnectionString } from "./src/lib/db/connection-string";
 
 /**
- * @param filePath
+ * Reads the database URL from a dotenv file without loading the whole file into
+ * process.env.
+ * @param filePath - Dotenv file path to scan for a DATABASE_URL entry.
+ * @returns The unquoted DATABASE_URL value when present.
  */
 function readDatabaseUrlFromEnvFile(filePath: string): null | string {
   if (!existsSync(filePath)) return null;
@@ -23,7 +26,9 @@ function readDatabaseUrlFromEnvFile(filePath: string): null | string {
 }
 
 /**
- *
+ * Resolves the database connection string Drizzle should use for schema
+ * generation and migrations.
+ * @returns The normalized PostgreSQL connection string.
  */
 function resolveDatabaseUrl(): string {
   const envUrl = process.env.DATABASE_URL?.trim();

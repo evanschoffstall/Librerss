@@ -7,16 +7,20 @@ interface RouteContext {
 }
 
 /**
- * @param request
- * @param _context
+ * Render the delete component.
+ * @param request - The request.
+ * @param _context - The context.
+ * @returns The rendered delete component.
  */
 export async function DELETE(request: NextRequest, _context: RouteContext) {
   return feedsRoute.DELETE(request);
 }
 
 /**
- * @param request
- * @param _context
+ * Render the patch component.
+ * @param request - The request.
+ * @param _context - The context.
+ * @returns The rendered patch component.
  */
 export async function PATCH(request: NextRequest, _context: RouteContext) {
   return feedsRoute.PATCH(request);

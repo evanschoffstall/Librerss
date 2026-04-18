@@ -40,16 +40,10 @@ const CONTENT_CLASS_PATTERNS = [
 ] as const;
 
 /**
- * Find the article body container in pre-cleaned HTML.
- * Tries semantic selectors and common CMS class patterns in priority order:
- *
- * 1. `itemprop="articleBody"` (schema.org)
- * 2. Content-indicative CSS class/id patterns
- * 3. `<article>` elements (largest by content length)
- * 4. `role="main"` / `role="article"` attributes
- * 5. `<main>` elements (largest by content length).
- * @param html
- * @param minLength
+ * Process the find article body.
+ * @param html - The html.
+ * @param minLength - The min length value.
+ * @returns The find article body.
  */
 export function findArticleBody(
   html: string,
@@ -83,8 +77,10 @@ export function findArticleBody(
 }
 
 /**
- * @param attrsStr
- * @param segment
+ * Process the class or id contains.
+ * @param attrsStr - The attrs str.
+ * @param segment - The segment.
+ * @returns Whether class or id contains.
  */
 function classOrIdContains(attrsStr: string, segment: string): boolean {
   const classVal = readAttrValue(attrsStr, "class") ?? "";
@@ -93,10 +89,12 @@ function classOrIdContains(attrsStr: string, segment: string): boolean {
 }
 
 /**
- * @param html
- * @param startIdx
- * @param openTagLength
- * @param tagName
+ * Process the extract inner html.
+ * @param html - The html.
+ * @param startIdx - The start idx.
+ * @param openTagLength - The open tag length value.
+ * @param tagName - The tag name.
+ * @returns The extract inner html.
  */
 function extractInnerHtml(
   html: string,
@@ -120,8 +118,10 @@ function extractInnerHtml(
 }
 
 /**
- * @param html
- * @param tagName
+ * Process the find all by tag.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @returns The find all by tag.
  */
 function findAllByTag(html: string, tagName: string): string[] {
   const results: string[] = [];
@@ -137,9 +137,11 @@ function findAllByTag(html: string, tagName: string): string[] {
 }
 
 /**
- * @param html
- * @param attr
- * @param value
+ * Process the find first by attr.
+ * @param html - The html.
+ * @param attr - The attr.
+ * @param value - The value.
+ * @returns The find first by attr.
  */
 function findFirstByAttr(
   html: string,
@@ -156,9 +158,11 @@ function findFirstByAttr(
 }
 
 /**
- * @param html
- * @param patterns
- * @param minLength
+ * Process the find first by class contains.
+ * @param html - The html.
+ * @param patterns - The patterns.
+ * @param minLength - The min length value.
+ * @returns The find first by class contains.
  */
 function findFirstByClassContains(
   html: string,
@@ -178,9 +182,11 @@ function findFirstByClassContains(
 }
 
 /**
- * @param html
- * @param tagName
- * @param minLength
+ * Process the find largest tag body.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @param minLength - The min length value.
+ * @returns The find largest tag body.
  */
 function findLargestTagBody(
   html: string,
@@ -200,8 +206,10 @@ function findLargestTagBody(
 }
 
 /**
- * @param value
- * @param minLength
+ * Process the meets min length.
+ * @param value - The value.
+ * @param minLength - The min length value.
+ * @returns Whether meets min length.
  */
 function meetsMinLength(
   value: null | string,
@@ -211,8 +219,10 @@ function meetsMinLength(
 }
 
 /**
- * @param attrValue
- * @param segment
+ * Process the segment match.
+ * @param attrValue - The attr value.
+ * @param segment - The segment.
+ * @returns Whether segment match.
  */
 function segmentMatch(attrValue: string, segment: string): boolean {
   let start = 0;

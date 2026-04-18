@@ -7,24 +7,23 @@ import * as serverApi from "./server-api";
 
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
+interface RequireMutableFeedAccessOptions {
+  rateLimit?: {
+    key: string;
+    maxAttempts: number;
+    windowMs: number;
+  };
+}
 
 /**
- * @param request
- * @param options
- * @param options.rateLimit
- * @param options.rateLimit.key
- * @param options.rateLimit.maxAttempts
- * @param options.rateLimit.windowMs
+ * Process the require mutable feed access.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable feed access.
+ * @returns The require mutable feed access.
  */
 export async function requireMutableFeedAccess(
   request: NextRequest,
-  options?: {
-    rateLimit?: {
-      key: string;
-      maxAttempts: number;
-      windowMs: number;
-    };
-  },
+  options?: RequireMutableFeedAccessOptions,
 ): Promise<Response | serverApi.AuthenticatedUser> {
   const user = await serverApi.requireMutableAuthenticatedUser(request, {
     rateLimit: options?.rateLimit

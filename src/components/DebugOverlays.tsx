@@ -8,7 +8,8 @@ import { useDebugState } from "@/lib/hooks";
 import "./components.css";
 
 /**
- *
+ * Render the debug border component.
+ * @returns The rendered debug border component.
  */
 export const DebugBorder = () => {
   const { debug, isClient, toggleDebug } = useDebugState();
@@ -25,7 +26,8 @@ export const DebugBorder = () => {
 };
 
 /**
- *
+ * Render the debug grid component.
+ * @returns The rendered debug grid component.
  */
 export const DebugGrid = () => {
   const { debug, isClient, toggleDebug } = useDebugState();

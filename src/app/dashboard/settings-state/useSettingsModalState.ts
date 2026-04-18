@@ -15,34 +15,25 @@ interface UseSettingsModalStateOptions extends SettingsFeedStateOptions {
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.onAddCategory
- * @param root0.onAddFeed
- * @param root0.onDropCategory
- * @param root0.onDropFeed
- * @param root0.onImportOpml
- * @param root0.onRemoveFeed
- * @param root0.onRenameCategory
- * @param root0.onRenameFeed
- * @param root0.onSetFeedEnabled
- * @param root0.onUpdateFeedSettings
- * @param root0.selectedCategory
+ * Manage the settings modal state.
+ * @param options - The options used to manage the settings modal state.
+ * @returns The settings modal state state and callbacks.
  */
-export function useSettingsModalState({
-  categories,
-  onAddCategory,
-  onAddFeed,
-  onDropCategory,
-  onDropFeed,
-  onImportOpml,
-  onRemoveFeed,
-  onRenameCategory,
-  onRenameFeed,
-  onSetFeedEnabled,
-  onUpdateFeedSettings,
-  selectedCategory,
-}: UseSettingsModalStateOptions) {
+export function useSettingsModalState(options: UseSettingsModalStateOptions) {
+  const {
+    categories,
+    onAddCategory,
+    onAddFeed,
+    onDropCategory,
+    onDropFeed,
+    onImportOpml,
+    onRemoveFeed,
+    onRenameCategory,
+    onRenameFeed,
+    onSetFeedEnabled,
+    onUpdateFeedSettings,
+    selectedCategory,
+  } = options;
   const categoryState = useSettingsCategoryState({
     categories,
     onAddCategory,

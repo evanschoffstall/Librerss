@@ -32,9 +32,11 @@ interface StorageSyncDetail {
 }
 
 /**
- * @param getStorage
- * @param key
- * @param defaultValue
+ * Manage the web storage.
+ * @param getStorage - The callback that storage.
+ * @param key - The key.
+ * @param defaultValue - The default value.
+ * @returns The web storage state and callbacks.
  */
 export function useWebStorage<T>(
   getStorage: () => Storage,
@@ -116,11 +118,13 @@ export function useWebStorage<T>(
 }
 
 /**
- * @param defaultValue
- * @param key
- * @param setValue
- * @param shouldSkipNextWriteRef
- * @param isEmittingRef
+ * Create the storage sync handler.
+ * @param defaultValue - The default value.
+ * @param key - The key.
+ * @param setValue - The set value.
+ * @param shouldSkipNextWriteRef - The ref that stores the should skip next write ref.
+ * @param isEmittingRef - The ref that stores the is emitting ref.
+ * @returns The storage sync handler.
  */
 function createStorageSyncHandler<T>(
   defaultValue: T,
@@ -146,8 +150,9 @@ function createStorageSyncHandler<T>(
 }
 
 /**
- * @param key
- * @param value
+ * Process the emit storage sync.
+ * @param key - The key.
+ * @param value - The value.
  */
 function emitStorageSync(key: string, value: string): void {
   window.dispatchEvent(
@@ -158,10 +163,11 @@ function emitStorageSync(key: string, value: string): void {
 }
 
 /**
- * @param getStorage
- * @param isEmittingRef
- * @param key
- * @param value
+ * Process the persist storage value.
+ * @param getStorage - The callback that storage.
+ * @param isEmittingRef - The ref that stores the is emitting ref.
+ * @param key - The key.
+ * @param value - The value.
  */
 function persistStorageValue(
   getStorage: () => Storage,
@@ -181,10 +187,11 @@ function persistStorageValue(
 }
 
 /**
- * Reads and parses the persisted value for a storage key with a safe fallback.
- * @param getStorage
- * @param key
- * @param defaultValue
+ * Process the read stored value.
+ * @param getStorage - The callback that storage.
+ * @param key - The key.
+ * @param defaultValue - The default value.
+ * @returns The read stored value.
  */
 function readStoredValue<T>(
   getStorage: () => Storage,
@@ -200,11 +207,12 @@ function readStoredValue<T>(
 }
 
 /**
- * @param defaultValue
- * @param getStorage
- * @param key
- * @param setValue
- * @param shouldSkipNextWriteRef
+ * Process the restore stored snapshot.
+ * @param defaultValue - The default value.
+ * @param getStorage - The callback that storage.
+ * @param key - The key.
+ * @param setValue - The set value.
+ * @param shouldSkipNextWriteRef - The ref that stores the should skip next write ref.
  */
 function restoreStoredSnapshot<T>(
   defaultValue: T,

@@ -27,8 +27,10 @@ interface FeedSource {
 export { PLACEHOLDER_CATEGORY };
 
 /**
- * @param feedId
- * @param seeds
+ * Create the placeholder articles.
+ * @param feedId - The feed id.
+ * @param seeds - The s.
+ * @returns The placeholder articles.
  */
 const createPlaceholderArticles = (
   feedId: number,
@@ -51,15 +53,19 @@ const createPlaceholderArticles = (
 };
 
 /**
- * @param basePath
- * @param slug
+ * Process the to local placeholder path.
+ * @param basePath - The base path.
+ * @param slug - The slug.
+ * @returns The to local placeholder path.
  */
 const toLocalPlaceholderPath = (basePath: string, slug: string) =>
   `/placeholder-articles/${basePath}/${slug}.html`;
 
 /**
- * @param basePath
- * @param seeds
+ * Build the placeholder snapshot path by url.
+ * @param basePath - The base path.
+ * @param seeds - The s.
+ * @returns The placeholder snapshot path by url.
  */
 const buildPlaceholderSnapshotPathByUrl = (
   basePath: string,
@@ -96,15 +102,17 @@ const PLACEHOLDER_ARTICLES_BY_SOURCE: Record<string, Article[]> =
   );
 
 /**
- * Resolves the article list exposed by one placeholder feed source.
- * @param url
+ * Return the placeholder articles for source.
+ * @param url - The url.
+ * @returns The placeholder articles for source.
  */
 export const getPlaceholderArticlesForSource = (url: string): Article[] =>
   PLACEHOLDER_ARTICLES_BY_SOURCE[tryNormalizeFeedUrl(url)] ?? [];
 
 /**
- * Resolves the bundled local snapshot path for a placeholder article URL.
- * @param url
+ * Return the placeholder snapshot path by article url.
+ * @param url - The url.
+ * @returns The placeholder snapshot path by article url.
  */
 export const getPlaceholderSnapshotPathByArticleUrl = (
   url: string,

@@ -22,9 +22,19 @@ const LEAD_IMAGE_TAG_RE = /<img\b[^>]*>/i;
 const ANCHOR_HREF_RE = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
 const IMAGE_DOWNLOAD_HREF_RE = /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i;
 
+interface RespondToUpstreamExtractErrorOptions {
+  errorLog: typeof logger.error;
+  proxyUrl: string | undefined;
+  safeArticleUrl: null | string;
+  toMessage: (error: unknown) => string;
+  useProxy: boolean;
+  verboseLoggingEnabled: boolean;
+}
+
 export class EarlyResponseError extends Error {
   /**
-   * @param response
+   * Creates an internal control-flow error that carries a prepared response.
+   * @param response - Early response that should short-circuit further processing.
    */
   constructor(public readonly response: Response) {
     super("early-response");
@@ -32,8 +42,10 @@ export class EarlyResponseError extends Error {
 }
 
 /**
- * @param content
- * @param extracted
+ * Create the extract payload.
+ * @param content - The content.
+ * @param extracted - The extracted.
+ * @returns The extract payload.
  */
 export function createExtractPayload(
   content: string,
@@ -47,7 +59,9 @@ export function createExtractPayload(
 }
 
 /**
- * @param request
+ * Create the extract request context.
+ * @param request - The request.
+ * @returns The extract request context.
  */
 export function createExtractRequestContext(
   request: Request,
@@ -67,9 +81,11 @@ export function createExtractRequestContext(
 }
 
 /**
- * @param articleUrl
- * @param shouldUseCache
- * @param getCachedExtractPayload
+ * Return the cached extract response.
+ * @param articleUrl - The article url.
+ * @param shouldUseCache - Whether should use cache.
+ * @param getCachedExtractPayload - The callback that cached extract payload.
+ * @returns The cached extract response.
  */
 export function getCachedExtractResponse(
   articleUrl: string,
@@ -86,7 +102,9 @@ export function getCachedExtractResponse(
 }
 
 /**
- * @param value
+ * Return the request url.
+ * @param value - The value.
+ * @returns The request url.
  */
 export function getRequestUrl(value: unknown): string {
   if (typeof value !== "object" || value === null) {
@@ -98,10 +116,12 @@ export function getRequestUrl(value: unknown): string {
 }
 
 /**
- * @param content
- * @param originalHtml
- * @param articleUrl
- * @param cleanContent
+ * Process the prepend metadata lead image when missing.
+ * @param content - The content.
+ * @param originalHtml - The original html.
+ * @param articleUrl - The article url.
+ * @param cleanContent - The callback that clean content.
+ * @returns The prepend metadata lead image when missing.
  */
 export function prependMetadataLeadImageWhenMissing(
   content: string,
@@ -138,10 +158,12 @@ export function prependMetadataLeadImageWhenMissing(
 }
 
 /**
- * @param extractableHtml
- * @param articleUrl
- * @param sanitizeContent
- * @param cleanContent
+ * Resolve the direct sanitized content.
+ * @param extractableHtml - The extractable html.
+ * @param articleUrl - The article url.
+ * @param sanitizeContent - The callback that sanitize content.
+ * @param cleanContent - The callback that clean content.
+ * @returns The direct sanitized content.
  */
 export function resolveDirectSanitizedContent(
   extractableHtml: string,
@@ -160,8 +182,10 @@ export function resolveDirectSanitizedContent(
 }
 
 /**
- * @param strategy
- * @param distillStrategies
+ * Resolve the distill strategy.
+ * @param strategy - The strategy.
+ * @param distillStrategies - The distill strategies.
+ * @returns The distill strategy.
  */
 export function resolveDistillStrategy(
   strategy: unknown,
@@ -173,14 +197,15 @@ export function resolveDistillStrategy(
 
   return "librerss";
 }
-
 /**
- * @param extractableHtml
- * @param originalHtml
- * @param articleUrl
- * @param extracted
- * @param sanitizeContent
- * @param cleanContent
+ * Resolve the extracted content.
+ * @param extractableHtml - The extractable html.
+ * @param originalHtml - The original html.
+ * @param articleUrl - The article url.
+ * @param extracted - The extracted.
+ * @param sanitizeContent - The callback that sanitize content.
+ * @param cleanContent - The callback that clean content.
+ * @returns The extracted content.
  */
 export function resolveExtractedContent(
   extractableHtml: string,
@@ -221,27 +246,16 @@ export function resolveExtractedContent(
 }
 
 /**
- * @param error
- * @param context
- * @param options
- * @param options.errorLog
- * @param options.proxyUrl
- * @param options.safeArticleUrl
- * @param options.toMessage
- * @param options.useProxy
- * @param options.verboseLoggingEnabled
+ * Process the respond to upstream extract error.
+ * @param error - The error.
+ * @param context - The context used to process the respond to upstream extract error.
+ * @param options - The options used to process the respond to upstream extract error.
+ * @returns The respond to upstream extract error.
  */
 export function respondToUpstreamExtractError(
   error: HttpCloakUpstreamError,
   context: ExtractRequestContext,
-  options: {
-    errorLog: typeof logger.error;
-    proxyUrl: string | undefined;
-    safeArticleUrl: null | string;
-    toMessage: (error: unknown) => string;
-    useProxy: boolean;
-    verboseLoggingEnabled: boolean;
-  },
+  options: RespondToUpstreamExtractErrorOptions,
 ): Response {
   const upstreamStatus = error.statusCode;
   const status = upstreamStatus === 404 ? 422 : 502;
@@ -285,9 +299,10 @@ export function respondToUpstreamExtractError(
 }
 
 /**
- * @param extracted
- * @param warn
- * @param safeUrl
+ * Process the warn on empty extraction.
+ * @param extracted - The extracted.
+ * @param warn - The callback that warn.
+ * @param safeUrl - The safe url.
  */
 export function warnOnEmptyExtraction(
   extracted: DistilledArticle | null | undefined,
@@ -303,7 +318,9 @@ export function warnOnEmptyExtraction(
 }
 
 /**
- * @param content
+ * Process the extract lead image block.
+ * @param content - The content.
+ * @returns The extract lead image block.
  */
 function extractLeadImageBlock(content: string): string {
   const leadImageBlock = LEAD_IMAGE_BLOCK_RE.exec(content)?.[0];
@@ -315,7 +332,9 @@ function extractLeadImageBlock(content: string): string {
 }
 
 /**
- * @param content
+ * Return whether has image download link in content.
+ * @param content - The content.
+ * @returns Whether has image download link in content.
  */
 function hasImageDownloadLinkInContent(content: string): boolean {
   for (const match of content.matchAll(ANCHOR_HREF_RE)) {
@@ -328,9 +347,11 @@ function hasImageDownloadLinkInContent(content: string): boolean {
 }
 
 /**
- * @param originalHtml
- * @param articleUrl
- * @param cleanContent
+ * Resolve the metadata fallback content.
+ * @param originalHtml - The original html.
+ * @param articleUrl - The article url.
+ * @param cleanContent - The callback that clean content.
+ * @returns The metadata fallback content.
  */
 function resolveMetadataFallbackContent(
   originalHtml: string,
@@ -347,8 +368,10 @@ function resolveMetadataFallbackContent(
 }
 
 /**
- * @param value
- * @param maxLen
+ * Process the sanitize header value.
+ * @param value - The value.
+ * @param maxLen - The max len.
+ * @returns The sanitize header value.
  */
 function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {
   if (!value) {

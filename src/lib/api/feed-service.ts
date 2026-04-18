@@ -16,7 +16,9 @@ interface CategoryOrderResponse {
 }
 
 /**
- * @param knownLastFetchedAtByUrl
+ * Process the serialize known last fetched at by url.
+ * @param knownLastFetchedAtByUrl - The known last fetched at by url.
+ * @returns The serialize known last fetched at by url.
  */
 function serializeKnownLastFetchedAtByUrl(
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,
@@ -39,10 +41,28 @@ function serializeKnownLastFetchedAtByUrl(
 }
 
 const feedServiceBaseUrl = "/api";
+interface FeedsBatchOptions {
+  articleFilter?: ArticleFilter;
+  articleLimit?: number;
+  forceRefresh?: boolean;
+  forceResolveUpstream?: boolean;
+  knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
+  requestSource?: string;
+  searchTerm?: string;
+  signal?: AbortSignal;
+  skipRefresh?: boolean;
+}
+
+interface FeedSettingsSettings {
+  extractionDisabled?: boolean;
+  proxyEnabled?: boolean;
+}
 
 export const FeedService = {
   /**
-   * @param source
+   * Create the feed source.
+   * @param source - The source.
+   * @returns The feed source.
    */
   async createFeedSource(
     source: Pick<FeedSource, "name" | "url"> & { category?: string },
@@ -55,7 +75,9 @@ export const FeedService = {
   },
 
   /**
-   * @param id
+   * Process the delete feed source.
+   * @param id - The id.
+   * @returns The delete feed source.
    */
   async deleteFeedSource(id: number): Promise<FeedSource> {
     const response = await getApiClient().delete<FeedSource>(
@@ -65,7 +87,8 @@ export const FeedService = {
   },
 
   /**
-   *
+   * Return the category order.
+   * @returns The category order.
    */
   async getCategoryOrder(): Promise<string[]> {
     const response = await getApiClient().get<CategoryOrderResponse>(
@@ -80,7 +103,9 @@ export const FeedService = {
   },
 
   /**
-   * @param url
+   * Return the feed.
+   * @param url - The url.
+   * @returns The feed.
    */
   async getFeed(url: string): Promise<Article[]> {
     const response = await withRequestDeadline(
@@ -92,21 +117,16 @@ export const FeedService = {
   },
 
   /**
-   * @param urls
-   * @param root0
-   * @param root0.articleFilter
-   * @param root0.articleLimit
-   * @param root0.forceRefresh
-   * @param root0.forceResolveUpstream
-   * @param root0.knownLastFetchedAtByUrl
-   * @param root0.requestSource
-   * @param root0.searchTerm
-   * @param root0.signal
-   * @param root0.skipRefresh
+   * Return the feeds batch.
+   * @param urls - The urls.
+   * @param options - The options used to return the feeds batch.
+   * @returns The feeds batch.
    */
   async getFeedsBatch(
     urls: string[],
-    {
+    options: FeedsBatchOptions = {},
+  ): Promise<BatchFeedResponseItem[]> {
+    const {
       articleFilter = "all",
       articleLimit,
       forceRefresh = false,
@@ -116,18 +136,7 @@ export const FeedService = {
       searchTerm,
       signal,
       skipRefresh = false,
-    }: {
-      articleFilter?: ArticleFilter;
-      articleLimit?: number;
-      forceRefresh?: boolean;
-      forceResolveUpstream?: boolean;
-      knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
-      requestSource?: string;
-      searchTerm?: string;
-      signal?: AbortSignal;
-      skipRefresh?: boolean;
-    } = {},
-  ): Promise<BatchFeedResponseItem[]> {
+    } = options;
     const normalizedUrls = normalizeDistinctUrlList(urls);
     if (normalizedUrls.length === 0) return [];
 
@@ -171,7 +180,8 @@ export const FeedService = {
   },
 
   /**
-   *
+   * Return the feed sources.
+   * @returns The feed sources.
    */
   async getFeedSources(): Promise<FeedSource[]> {
     const response = await withRequestDeadline(
@@ -181,9 +191,11 @@ export const FeedService = {
   },
 
   /**
-   * @param id
-   * @param name
-   * @param url
+   * Process the rename feed source.
+   * @param id - The id.
+   * @param name - The name.
+   * @param url - The url.
+   * @returns The rename feed source.
    */
   async renameFeedSource(
     id: number,
@@ -202,7 +214,8 @@ export const FeedService = {
   },
 
   /**
-   * @param orderedLabels
+   * Process the save category order.
+   * @param orderedLabels - The ordered labels.
    */
   async saveCategoryOrder(orderedLabels: string[]): Promise<void> {
     await getApiClient().put(`${feedServiceBaseUrl}/feeds/category-order`, {
@@ -211,8 +224,10 @@ export const FeedService = {
   },
 
   /**
-   * @param id
-   * @param enabled
+   * Process the set feed source enabled.
+   * @param id - The id.
+   * @param enabled - The enabled.
+   * @returns The set feed source enabled.
    */
   async setFeedSourceEnabled(
     id: number,
@@ -229,14 +244,14 @@ export const FeedService = {
   },
 
   /**
-   * @param id
-   * @param settings
-   * @param settings.extractionDisabled
-   * @param settings.proxyEnabled
+   * Update the feed settings.
+   * @param id - The id.
+   * @param settings - The settings.
+   * @returns The feed settings.
    */
   async updateFeedSettings(
     id: number,
-    settings: { extractionDisabled?: boolean; proxyEnabled?: boolean },
+    settings: FeedSettingsSettings,
   ): Promise<FeedSource> {
     const response = await getApiClient().patch<FeedSource>(
       `${feedServiceBaseUrl}/feeds`,

@@ -25,7 +25,9 @@ const RELATED_HEADING_RELATED_PREFIXES = [
 ] as const;
 
 /**
- * @param attrs
+ * Return whether has ap junk class.
+ * @param attrs - The attrs.
+ * @returns Whether has ap junk class.
  */
 export function hasApJunkClass(attrs: string): boolean {
   const normalized = normalizePhrase(attrs);
@@ -33,7 +35,9 @@ export function hasApJunkClass(attrs: string): boolean {
 }
 
 /**
- * @param headingText
+ * Return whether is related heading.
+ * @param headingText - The heading text.
+ * @returns Whether is related heading.
  */
 export function isRelatedHeading(headingText: string): boolean {
   const normalized = normalizePhrase(headingText);
@@ -63,9 +67,10 @@ export function isRelatedHeading(headingText: string): boolean {
 }
 
 /**
- * Read the value of a named attribute from an HTML open-tag attribute string.
- * @param attrsStr
- * @param attrName
+ * Process the read attr value.
+ * @param attrsStr - The attrs str.
+ * @param attrName - The attr name.
+ * @returns The read attr value.
  */
 export function readAttrValue(
   attrsStr: string,
@@ -80,7 +85,9 @@ export function readAttrValue(
 }
 
 /**
- * @param value
+ * Normalize the phrase.
+ * @param value - The value.
+ * @returns The phrase.
  */
 function normalizePhrase(value: string): string {
   return value

@@ -13,7 +13,9 @@ interface LeadMediaPrefix {
 }
 
 /**
- * @param content
+ * Process the remove leading duplicate image.
+ * @param content - The content.
+ * @returns The remove leading duplicate image.
  */
 export function removeLeadingDuplicateImage(content: string): string {
   const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);
@@ -33,9 +35,11 @@ export function removeLeadingDuplicateImage(content: string): string {
 }
 
 /**
- * @param content
- * @param isShortHeadingLabel
- * @param normalizeHeadingText
+ * Process the strip lead media boilerplate headings.
+ * @param content - The content.
+ * @param isShortHeadingLabel - Whether is short heading label.
+ * @param normalizeHeadingText - The callback that heading text.
+ * @returns The strip lead media boilerplate headings.
  */
 export function stripLeadMediaBoilerplateHeadings(
   content: string,
@@ -63,8 +67,10 @@ export function stripLeadMediaBoilerplateHeadings(
 }
 
 /**
- * @param content
- * @param cursor
+ * Process the consume leading image segment.
+ * @param content - The content.
+ * @param cursor - The cursor.
+ * @returns The consume leading image segment.
  */
 function consumeLeadingImageSegment(
   content: string,
@@ -113,15 +119,19 @@ function consumeLeadingImageSegment(
 }
 
 /**
- * @param source
- * @param tokenRe
+ * Process the consume leading token.
+ * @param source - The source.
+ * @param tokenRe - The token re.
+ * @returns The consume leading token.
  */
 function consumeLeadingToken(source: string, tokenRe: RegExp): string {
   return tokenRe.exec(source)?.[0] ?? "";
 }
 
 /**
- * @param source
+ * Normalize the image source.
+ * @param source - The source.
+ * @returns The image source.
  */
 function normalizeImageSource(source: string): string {
   const normalized = source.trim().replace(/&amp;/g, "&");
@@ -137,7 +147,9 @@ function normalizeImageSource(source: string): string {
 }
 
 /**
- * @param content
+ * Parse the lead media and heading prefix.
+ * @param content - The content.
+ * @returns The lead media and heading prefix.
  */
 function parseLeadMediaAndHeadingPrefix(content: string): LeadMediaPrefix {
   let cursor = 0;
@@ -175,7 +187,9 @@ function parseLeadMediaAndHeadingPrefix(content: string): LeadMediaPrefix {
 }
 
 /**
- * @param content
+ * Process the read first image source.
+ * @param content - The content.
+ * @returns The read first image source.
  */
 function readFirstImageSource(content: string): string {
   const { imagePrefix } = parseLeadMediaAndHeadingPrefix(content);

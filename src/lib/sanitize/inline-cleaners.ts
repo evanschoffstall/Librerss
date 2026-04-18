@@ -15,7 +15,9 @@ interface InlineBioSignals {
 }
 
 /**
- * @param html
+ * Process the strip leading inline bio block.
+ * @param html - The html.
+ * @returns The strip leading inline bio block.
  */
 export function stripLeadingInlineBioBlock(html: string): string {
   const firstBlockIndex = html.search(LEADING_BLOCK_ELEMENT_RE);
@@ -41,8 +43,10 @@ export function stripLeadingInlineBioBlock(html: string): string {
 }
 
 /**
- * @param html
- * @param maxTextLength
+ * Process the strip orphaned inline content.
+ * @param html - The html.
+ * @param maxTextLength - The max text length value.
+ * @returns The strip orphaned inline content.
  */
 export function stripOrphanedInlineContent(
   html: string,
@@ -71,7 +75,9 @@ export function stripOrphanedInlineContent(
 }
 
 /**
- * @param html
+ * Process the strip orphaned related blocks.
+ * @param html - The html.
+ * @returns The strip orphaned related blocks.
  */
 export function stripOrphanedRelatedBlocks(html: string): string {
   const withoutHeadingLists = html.replace(
@@ -90,16 +96,20 @@ export function stripOrphanedRelatedBlocks(html: string): string {
 }
 
 /**
- * @param text
+ * Process the count bio marker hits.
+ * @param text - The text.
+ * @returns The count bio marker hits.
  */
 function countBioMarkerHits(text: string): number {
   return [...text.matchAll(AUTHOR_BIO_MARKER_RE)].length;
 }
 
 /**
- * @param leadingInline
- * @param remainingContent
- * @param linkedContent
+ * Process the read inline bio signals.
+ * @param leadingInline - The leading inline.
+ * @param remainingContent - The remaining content.
+ * @param linkedContent - The linked content.
+ * @returns The read inline bio signals.
  */
 function readInlineBioSignals(
   leadingInline: string,
@@ -123,7 +133,9 @@ function readInlineBioSignals(
 }
 
 /**
- * @param signals
+ * Return whether should strip inline bio.
+ * @param signals - The signals.
+ * @returns Whether should strip inline bio.
  */
 function shouldStripInlineBio(signals: InlineBioSignals): boolean {
   const normalizedLabel = signals.linkedLabel.toLowerCase();
@@ -141,9 +153,11 @@ function shouldStripInlineBio(signals: InlineBioSignals): boolean {
 }
 
 /**
- * @param parts
- * @param originalHtml
- * @param maxTextLength
+ * Process the strip orphaned inline parts.
+ * @param parts - The parts.
+ * @param originalHtml - The original html.
+ * @param maxTextLength - The max text length value.
+ * @returns The strip orphaned inline parts.
  */
 function stripOrphanedInlineParts(
   parts: { content: string; type: "gap" | "tag" }[],
@@ -177,10 +191,12 @@ function stripOrphanedInlineParts(
 }
 
 /**
- * @param content
- * @param depth
- * @param maxTextLength
- * @param prevTagIsImg
+ * Process the strip top level inline gap.
+ * @param content - The content.
+ * @param depth - The depth.
+ * @param maxTextLength - The max text length value.
+ * @param prevTagIsImg - The prev tag is img.
+ * @returns The strip top level inline gap.
  */
 function stripTopLevelInlineGap(
   content: string,
@@ -216,8 +232,10 @@ function stripTopLevelInlineGap(
 }
 
 /**
- * @param tag
- * @param depth
+ * Update the inline gap state.
+ * @param tag - The tag.
+ * @param depth - The depth.
+ * @returns The inline gap state.
  */
 function updateInlineGapState(
   tag: string,

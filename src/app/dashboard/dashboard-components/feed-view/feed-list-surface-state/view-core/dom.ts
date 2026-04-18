@@ -17,8 +17,9 @@ interface VisibleArticleHeaderEntry {
 }
 
 /**
- * Returns article keys whose rows are fully visible inside the current viewport.
- * @param viewport
+ * Process the collect fully visible article keys.
+ * @param viewport - The viewport.
+ * @returns The collect fully visible article keys.
  */
 export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
@@ -39,8 +40,9 @@ export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
 }
 
 /**
- * Resolves the header element used as the inverted scroll lock anchor.
- * @param articleKey
+ * Process the find inverted expansion header anchor.
+ * @param articleKey - The article key.
+ * @returns The find inverted expansion header anchor.
  */
 export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
   if (!articleKey) {
@@ -53,8 +55,9 @@ export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
 }
 
 /**
- * Resolves the lock anchor element for expansion and collapse transitions.
- * @param articleKey
+ * Process the find inverted expansion lock anchor.
+ * @param articleKey - The article key.
+ * @returns The find inverted expansion lock anchor.
  */
 export function findInvertedExpansionLockAnchor(articleKey: null | string) {
   if (!articleKey) {
@@ -66,18 +69,17 @@ export function findInvertedExpansionLockAnchor(articleKey: null | string) {
   );
 }
 
-/** Finds the active feed viewport that owns the inverted expansion lock. */
+/**
+ * Process the find inverted expansion lock viewport.
+ * @returns The find inverted expansion lock viewport.
+ */
 export function findInvertedExpansionLockViewport() {
   return findDashboardFeedViewport();
 }
 
 /**
- * Selects the current topmost visible article header for inverted pagination.
- *
- * Prepend pagination must preserve the row the reader is currently aligned to,
- * even when that header is only partially visible at the top edge. Reusing the
- * unread-removal survivor selector here is wrong because that helper prefers a
- * lower fully visible row, which makes pagination snap back to the wrong item.
+ * Process the find top visible inverted pagination anchor article key.
+ * @returns The find top visible inverted pagination anchor article key.
  */
 export function findTopVisibleInvertedPaginationAnchorArticleKey() {
   const viewport = findInvertedExpansionLockViewport();
@@ -94,8 +96,9 @@ export function findTopVisibleInvertedPaginationAnchorArticleKey() {
 }
 
 /**
- * Selects the visible survivor article whose header should anchor unread-removal scroll compensation.
- * @param excludedArticleKeys
+ * Process the find visible inverted removal anchor article key.
+ * @param excludedArticleKeys - The excluded article keys.
+ * @returns The find visible inverted removal anchor article key.
  */
 export function findVisibleInvertedRemovalAnchorArticleKey(
   excludedArticleKeys: ReadonlySet<string>,
@@ -121,9 +124,10 @@ export function findVisibleInvertedRemovalAnchorArticleKey(
 }
 
 /**
- * Measures an element's top offset relative to the owning viewport.
- * @param element
- * @param viewport
+ * Return the viewport offset top.
+ * @param element - The element.
+ * @param viewport - The viewport.
+ * @returns The viewport offset top.
  */
 export function getViewportOffsetTop(
   element: HTMLElement | null,
@@ -139,28 +143,27 @@ export function getViewportOffsetTop(
 }
 
 /**
- * Detects whether a viewport belongs to the feed surface that supports restore anchors.
- * @param viewport
+ * Return whether is inverted expansion lock viewport.
+ * @param viewport - The viewport.
+ * @returns Whether is inverted expansion lock viewport.
  */
 export function isInvertedExpansionLockViewport(viewport: HTMLElement) {
   return isDashboardFeedViewport(viewport);
 }
 
 /**
- * Watches layout changes that can invalidate an active inverted expansion lock.
- * @param root0
- * @param root0.articleKey
- * @param root0.onLayoutChange
- * @param root0.viewport
+ * Process the observe inverted expansion scroll lock layout.
+ * @param options - The options used to process the observe inverted expansion scroll lock layout.
+ * @returns The observe inverted expansion scroll lock layout.
  */
-export function observeInvertedExpansionScrollLockLayout({
-  articleKey,
-  onLayoutChange,
-  viewport,
-}: InvertedExpansionScrollLockObserverOptions) {
+export function observeInvertedExpansionScrollLockLayout(
+  options: InvertedExpansionScrollLockObserverOptions,
+) {
+  const { articleKey, onLayoutChange, viewport } = options;
   return observeFeedViewportLayout({
     /**
-     *
+     * Resolves the current anchor element for inverted expansion scroll locking.
+     * @returns The best available anchor element for the active article.
      */
     findAnchor: () =>
       findInvertedExpansionHeaderAnchor(articleKey) ??
@@ -171,8 +174,9 @@ export function observeInvertedExpansionScrollLockLayout({
 }
 
 /**
- * Reads the prepared article key from a dashboard custom event payload.
- * @param event
+ * Process the read prepared article key.
+ * @param event - The incoming event.
+ * @returns The read prepared article key.
  */
 export function readPreparedArticleKey(event: Event) {
   if (!(event instanceof CustomEvent)) {
@@ -185,9 +189,10 @@ export function readPreparedArticleKey(event: Event) {
 }
 
 /**
- * Re-resolves the viewport after layout migration or Radix viewport replacement.
- * @param articleKey
- * @param viewport
+ * Resolve the inverted expansion lock viewport.
+ * @param articleKey - The article key.
+ * @param viewport - The viewport.
+ * @returns The inverted expansion lock viewport.
  */
 export function resolveInvertedExpansionLockViewport(
   articleKey: null | string,
@@ -206,19 +211,19 @@ export function resolveInvertedExpansionLockViewport(
 }
 
 /**
- * Determines whether inverted mode should keep anchoring the newest visible row.
- * @param root0
- * @param root0.expandedArticleKey
- * @param root0.hasClaimedInvertedScrollOwnership
- * @param root0.isInvertedScroll
- * @param root0.isUnderfilledInvertedViewport
+ * Return whether should auto anchor inverted scroll viewport.
+ * @param options - The options used to return whether should auto anchor inverted scroll viewport.
+ * @returns Whether should auto anchor inverted scroll viewport.
  */
-export function shouldAutoAnchorInvertedScrollViewport({
-  expandedArticleKey,
-  hasClaimedInvertedScrollOwnership,
-  isInvertedScroll,
-  isUnderfilledInvertedViewport,
-}: ShouldAutoAnchorInvertedScrollViewportOptions) {
+export function shouldAutoAnchorInvertedScrollViewport(
+  options: ShouldAutoAnchorInvertedScrollViewportOptions,
+) {
+  const {
+    expandedArticleKey,
+    hasClaimedInvertedScrollOwnership,
+    isInvertedScroll,
+    isUnderfilledInvertedViewport,
+  } = options;
   return (
     isInvertedScroll &&
     expandedArticleKey === null &&
@@ -227,8 +232,10 @@ export function shouldAutoAnchorInvertedScrollViewport({
 }
 
 /**
- * @param viewport
- * @param excludedArticleKeys
+ * Process the collect visible article header entries.
+ * @param viewport - The viewport.
+ * @param excludedArticleKeys - The excluded article keys.
+ * @returns The collect visible article header entries.
  */
 function collectVisibleArticleHeaderEntries(
   viewport: HTMLElement,

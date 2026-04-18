@@ -9,14 +9,13 @@ interface UseBackgroundCanvasAnimationOptions {
 }
 
 /**
- * @param root0
- * @param root0.onFrame
- * @param root0.onResume
+ * Manage the background canvas animation.
+ * @param options - The options used to manage the background canvas animation.
  */
-export function useBackgroundCanvasAnimation({
-  onFrame,
-  onResume,
-}: UseBackgroundCanvasAnimationOptions) {
+export function useBackgroundCanvasAnimation(
+  options: UseBackgroundCanvasAnimationOptions,
+) {
+  const { onFrame, onResume } = options;
   const lastFrameAtRef = useRef(0);
   const motionEnabledRef = useRef(true);
   const onFrameRef = useRef(onFrame);
@@ -28,7 +27,7 @@ export function useBackgroundCanvasAnimation({
 
   useEffect(() => {
     /**
-     *
+     * Process the sync animation state.
      */
     const syncAnimationState = () => {
       const nextEnabled = shouldRunBackgroundAnimation(
@@ -74,9 +73,11 @@ export function useBackgroundCanvasAnimation({
 }
 
 /**
- * @param lastFrameAt
- * @param now
- * @param targetFrameMs
+ * Return whether should render background canvas frame.
+ * @param lastFrameAt - The last frame at.
+ * @param now - The now.
+ * @param targetFrameMs - The target frame ms value.
+ * @returns Whether should render background canvas frame.
  */
 function shouldRenderBackgroundCanvasFrame(
   lastFrameAt: number,
@@ -87,8 +88,10 @@ function shouldRenderBackgroundCanvasFrame(
 }
 
 /**
- * @param visibilityState
- * @param prefersReducedMotion
+ * Return whether should run background animation.
+ * @param visibilityState - The visibility state.
+ * @param prefersReducedMotion - The prefers reduced motion.
+ * @returns Whether should run background animation.
  */
 function shouldRunBackgroundAnimation(
   visibilityState: DocumentVisibilityState | undefined,

@@ -10,29 +10,28 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 export type { LegalDocumentPageProps, LegalSection };
 
+interface LegalDocumentSectionProps {
+  contactCard: LegalDocumentPageProps["contactCard"];
+  section: LegalSection;
+}
+
 /**
- * @param root0
- * @param root0.contactCard
- * @param root0.eyebrow
- * @param root0.footerLinks
- * @param root0.intro
- * @param root0.lastUpdated
- * @param root0.returnHref
- * @param root0.returnLabel
- * @param root0.sections
- * @param root0.title
+ * Render the legal document page component.
+ * @param props - The component props.
+ * @returns The rendered legal document page component.
  */
-export function LegalDocumentPage({
-  contactCard,
-  eyebrow,
-  footerLinks,
-  intro,
-  lastUpdated,
-  returnHref,
-  returnLabel,
-  sections,
-  title,
-}: LegalDocumentPageProps) {
+export function LegalDocumentPage(props: LegalDocumentPageProps) {
+  const {
+    contactCard,
+    eyebrow,
+    footerLinks,
+    intro,
+    lastUpdated,
+    returnHref,
+    returnLabel,
+    sections,
+    title,
+  } = props;
   return (
     <main className="min-h-dvh overflow-hidden bg-background text-foreground">
       <ScrollArea className="h-dvh">
@@ -41,9 +40,9 @@ export function LegalDocumentPage({
 
           <div
             className="
-              relative mx-auto w-full max-w-5xl px-4 pt-4 pb-8
-              sm:px-6 sm:pt-6 sm:pb-10
-            "
+                  relative mx-auto w-full max-w-5xl px-4 pt-4 pb-8
+                  sm:px-6 sm:pt-6 sm:pb-10
+                "
           >
             <LegalDocumentReturnLink
               returnHref={returnHref}
@@ -68,16 +67,17 @@ export function LegalDocumentPage({
 }
 
 /**
- * @param root0
- * @param root0.contactCard
- * @param root0.footerLinks
- * @param root0.sections
+ * Render the legal document article component.
+ * @param props - The component props.
+ * @returns The rendered legal document article component.
  */
-function LegalDocumentArticle({
-  contactCard,
-  footerLinks,
-  sections,
-}: Pick<LegalDocumentPageProps, "contactCard" | "footerLinks" | "sections">) {
+function LegalDocumentArticle(
+  props: Pick<
+    LegalDocumentPageProps,
+    "contactCard" | "footerLinks" | "sections"
+  >,
+) {
+  const { contactCard, footerLinks, sections } = props;
   return (
     <article
       className="
@@ -99,12 +99,14 @@ function LegalDocumentArticle({
 }
 
 /**
- * @param root0
- * @param root0.footerLinks
+ * Render the legal document footer component.
+ * @param props - The component props.
+ * @returns The rendered legal document footer component.
  */
-function LegalDocumentFooter({
-  footerLinks,
-}: Pick<LegalDocumentPageProps, "footerLinks">) {
+function LegalDocumentFooter(
+  props: Pick<LegalDocumentPageProps, "footerLinks">,
+) {
+  const { footerLinks } = props;
   return (
     <footer
       className="
@@ -128,21 +130,17 @@ function LegalDocumentFooter({
 }
 
 /**
- * @param root0
- * @param root0.eyebrow
- * @param root0.intro
- * @param root0.lastUpdated
- * @param root0.title
+ * Render the legal document header component.
+ * @param props - The component props.
+ * @returns The rendered legal document header component.
  */
-function LegalDocumentHeader({
-  eyebrow,
-  intro,
-  lastUpdated,
-  title,
-}: Pick<
-  LegalDocumentPageProps,
-  "eyebrow" | "intro" | "lastUpdated" | "title"
->) {
+function LegalDocumentHeader(
+  props: Pick<
+    LegalDocumentPageProps,
+    "eyebrow" | "intro" | "lastUpdated" | "title"
+  >,
+) {
+  const { eyebrow, intro, lastUpdated, title } = props;
   return (
     <header
       className="
@@ -192,17 +190,15 @@ function LegalDocumentHeader({
       </div>
     </header>
   );
-}
-
-/**
- * @param root0
- * @param root0.returnHref
- * @param root0.returnLabel
+} /**
+ * Render the legal document return link component.
+ * @param props - The component props.
+ * @returns The rendered legal document return link component.
  */
-function LegalDocumentReturnLink({
-  returnHref,
-  returnLabel,
-}: Pick<LegalDocumentPageProps, "returnHref" | "returnLabel">) {
+function LegalDocumentReturnLink(
+  props: Pick<LegalDocumentPageProps, "returnHref" | "returnLabel">,
+) {
+  const { returnHref, returnLabel } = props;
   return (
     <div
       className="
@@ -228,17 +224,12 @@ function LegalDocumentReturnLink({
 }
 
 /**
- * @param root0
- * @param root0.contactCard
- * @param root0.section
+ * Render the legal document section component.
+ * @param props - The component props.
+ * @returns The rendered legal document section component.
  */
-function LegalDocumentSection({
-  contactCard,
-  section,
-}: {
-  contactCard: LegalDocumentPageProps["contactCard"];
-  section: LegalSection;
-}) {
+function LegalDocumentSection(props: LegalDocumentSectionProps) {
+  const { contactCard, section } = props;
   return (
     <section
       className="
@@ -287,7 +278,8 @@ function LegalDocumentSection({
 }
 
 /**
- *
+ * Render the legal page background component.
+ * @returns The rendered legal page background component.
  */
 function LegalPageBackground() {
   return (

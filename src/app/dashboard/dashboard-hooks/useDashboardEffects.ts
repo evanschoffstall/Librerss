@@ -8,54 +8,31 @@ import { useDashboardInitialization } from "@/app/dashboard/dashboard-hooks/useD
 import { useFeedLoadingTimeout } from "@/app/dashboard/dashboard-hooks/useFeedLoadingTimeout";
 
 /**
- * Runs the dashboard's shared effects from one canonical entry point.
- *
- * Grouping these related effects behind a single exported hook keeps the
- * controller focused on state composition while this module owns the mount,
- * timeout, initialization, and broadcast side effects.
- *
- * @param options - Dashboard effect inputs sourced from controller state.
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.fetchFeed
- * @param options.hasInitializedDashboardRef
- * @param options.initialArticleLimit
- * @param options.isSearchPending
- * @param options.isShellLoading
- * @param options.loadFeedSources
- * @param options.loading
- * @param options.loadingEpoch
- * @param options.onTimeout
- * @param options.searchTerm
- * @param options.selectedCategory
- * @param options.selectedFeed
- * @param options.setIsCategoriesLoading
- * @param options.setIsSidebarVisible
- * @param options.setLoading
- * @param options.setSelectedCategory
- * @param options.timeoutMs
+ * Manage the dashboard effects.
+ * @param options - The options used to manage the dashboard effects.
  */
-export function useDashboardEffects({
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  hasInitializedDashboardRef,
-  initialArticleLimit,
-  isSearchPending,
-  isShellLoading,
-  loadFeedSources,
-  loading,
-  loadingEpoch,
-  onTimeout,
-  searchTerm,
-  selectedCategory,
-  selectedFeed,
-  setIsCategoriesLoading,
-  setIsSidebarVisible,
-  setLoading,
-  setSelectedCategory,
-  timeoutMs,
-}: UseDashboardEffectsOptions) {
+export function useDashboardEffects(options: UseDashboardEffectsOptions) {
+  const {
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    initialArticleLimit,
+    isSearchPending,
+    isShellLoading,
+    loadFeedSources,
+    loading,
+    loadingEpoch,
+    onTimeout,
+    searchTerm,
+    selectedCategory,
+    selectedFeed,
+    setIsCategoriesLoading,
+    setIsSidebarVisible,
+    setLoading,
+    setSelectedCategory,
+    timeoutMs,
+  } = options;
   useFeedLoadingTimeout({
     loading,
     loadingEpoch,
@@ -85,10 +62,7 @@ export function useDashboardEffects({
 }
 
 /**
- * Locks page-level scrolling while the dashboard owns the viewport.
- *
- * The dashboard renders its own nested scroll surfaces, so document scrolling is
- * suppressed to avoid double-scroll behavior and layout jitter on mobile.
+ * Manage the lock document scroll.
  */
 export function useLockDocumentScroll() {
   useEffect(() => {
@@ -106,13 +80,8 @@ export function useLockDocumentScroll() {
 }
 
 /**
- * Reveals the sidebar after the first animation frame.
- *
- * Deferring the visibility flip until the next frame allows entry transitions to
- * run after the initial DOM commit instead of being swallowed by mount-time
- * layout.
- *
- * @param setIsSidebarVisible - Sidebar visibility state setter from the controller.
+ * Manage the reveal sidebar on mount.
+ * @param setIsSidebarVisible - The set is sidebar visible.
  */
 export function useRevealSidebarOnMount(
   setIsSidebarVisible: Dispatch<SetStateAction<boolean>>,

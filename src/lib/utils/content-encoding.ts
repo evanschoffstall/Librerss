@@ -7,10 +7,10 @@ interface DecodeTextBodyOptions {
 }
 
 /**
- * Decodes HTML-like text that may still contain compressed bytes serialized as
- * latin1 text, such as upstream transport responses.
- * @param rawText
- * @param options
+ * Decode the possibly compressed text.
+ * @param rawText - The raw text.
+ * @param options - The options used to decode the possibly compressed text.
+ * @returns The possibly compressed text.
  */
 export async function decodePossiblyCompressedText(
   rawText: string,
@@ -24,11 +24,11 @@ export async function decodePossiblyCompressedText(
 }
 
 /**
- * Decodes a potentially-compressed upstream body into UTF-8 text while
- * enforcing an optional decompressed size ceiling.
- * @param body
- * @param contentEncoding
- * @param options
+ * Decode the text body.
+ * @param body - The body.
+ * @param contentEncoding - The content encoding.
+ * @param options - The options used to decode the text body.
+ * @returns The text body.
  */
 export async function decodeTextBody(
   body: Buffer,
@@ -74,10 +74,11 @@ export async function decodeTextBody(
 }
 
 /**
- * Decompresses a single encoded buffer into UTF-8 text.
- * @param buf
- * @param encoding
- * @param options
+ * Process the decompress body.
+ * @param buf - The buf.
+ * @param encoding - The encoding.
+ * @param options - The options used to process the decompress body.
+ * @returns The decompress body.
  */
 export async function decompressBody(
   buf: Buffer,
@@ -90,8 +91,9 @@ export async function decompressBody(
 }
 
 /**
- * @param output
- * @param maxOutputBytes
+ * Process the assert within output limit.
+ * @param output - The output.
+ * @param maxOutputBytes - The max output bytes.
  */
 function assertWithinOutputLimit(
   output: Buffer | string,
@@ -109,7 +111,9 @@ function assertWithinOutputLimit(
 }
 
 /**
- * @param maxOutputBytes
+ * Build the node zlib options.
+ * @param maxOutputBytes - The max output bytes.
+ * @returns The node zlib options.
  */
 function buildNodeZlibOptions(
   maxOutputBytes: number | undefined,
@@ -120,7 +124,9 @@ function buildNodeZlibOptions(
 }
 
 /**
- * @param maxOutputBytes
+ * Build the node zstd options.
+ * @param maxOutputBytes - The max output bytes.
+ * @returns The node zstd options.
  */
 function buildNodeZstdOptions(
   maxOutputBytes: number | undefined,
@@ -129,9 +135,11 @@ function buildNodeZstdOptions(
 }
 
 /**
- * @param buf
- * @param encoding
- * @param maxOutputBytes
+ * Process the decompress body to buffer.
+ * @param buf - The buf.
+ * @param encoding - The encoding.
+ * @param maxOutputBytes - The max output bytes.
+ * @returns The decompress body to buffer.
  */
 async function decompressBodyToBuffer(
   buf: Buffer,
@@ -179,7 +187,9 @@ async function decompressBodyToBuffer(
 }
 
 /**
- * @param decompress
+ * Process the decompress with node limit.
+ * @param decompress - The callback that decompress.
+ * @returns The decompress with node limit.
  */
 function decompressWithNodeLimit(
   decompress: (callback: zlib.CompressCallback) => void,
@@ -197,8 +207,10 @@ function decompressWithNodeLimit(
 }
 
 /**
- * @param buf
- * @param maxOutputBytes
+ * Process the decompress zstd.
+ * @param buf - The buf.
+ * @param maxOutputBytes - The max output bytes.
+ * @returns The decompress zstd.
  */
 function decompressZstd(buf: Buffer, maxOutputBytes?: number): Promise<Buffer> {
   const nativeDecompress = (zlib as Record<string, unknown>).zstdDecompress as
@@ -215,7 +227,9 @@ function decompressZstd(buf: Buffer, maxOutputBytes?: number): Promise<Buffer> {
 }
 
 /**
- * @param body
+ * Process the detect content encoding from body.
+ * @param body - The body.
+ * @returns The detect content encoding from body.
  */
 function detectContentEncodingFromBody(body: Buffer): string | undefined {
   const firstFourBytes =
@@ -236,7 +250,9 @@ function detectContentEncodingFromBody(body: Buffer): string | undefined {
 }
 
 /**
- * @param output
+ * Return the output byte length.
+ * @param output - The output.
+ * @returns The output byte length.
  */
 function getOutputByteLength(output: Buffer | string): number {
   return typeof output === "string"
@@ -252,7 +268,9 @@ const CONTENT_ENCODING_SIGNATURES: Record<string, string> = {
 };
 
 /**
- * @param error
+ * Return whether is data error.
+ * @param error - The error.
+ * @returns Whether is data error.
  */
 function isDataError(error: unknown): boolean {
   return (
@@ -261,7 +279,9 @@ function isDataError(error: unknown): boolean {
 }
 
 /**
- * @param error
+ * Return whether is too large error.
+ * @param error - The error.
+ * @returns Whether is too large error.
  */
 function isTooLargeError(error: unknown): boolean {
   if (!(error instanceof Error)) {
@@ -276,7 +296,9 @@ function isTooLargeError(error: unknown): boolean {
 }
 
 /**
- * @param body
+ * Process the looks like html document.
+ * @param body - The body.
+ * @returns Whether looks like html document.
  */
 function looksLikeHtmlDocument(body: string): boolean {
   const normalizedBody = body.trimStart().slice(0, 512).toLowerCase();
@@ -288,8 +310,10 @@ function looksLikeHtmlDocument(body: string): boolean {
 }
 
 /**
- * @param contentEncoding
- * @param body
+ * Normalize the content encodings.
+ * @param contentEncoding - The content encoding.
+ * @param body - The body.
+ * @returns The content encodings.
  */
 function normalizeContentEncodings(
   contentEncoding: string | undefined,

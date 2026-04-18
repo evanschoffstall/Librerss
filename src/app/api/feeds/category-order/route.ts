@@ -9,7 +9,9 @@ import {
 } from "@/lib/server";
 
 /**
- * @param request
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +28,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * @param request
+ * Render the put component.
+ * @param request - The request.
+ * @returns The rendered put component.
  */
 export async function PUT(request: NextRequest) {
   try {

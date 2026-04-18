@@ -6,19 +6,7 @@ import type { BatchUrlDescriptor } from "./endpoint";
 
 import { buildBatchResultItem } from "./result-item";
 
-/**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.knownLastFetchedAtByUrl
- * @param options.requestSource
- * @param options.resolveProxyTransport
- * @param options.searchTerm
- * @param options.skipRefresh
- */
-export function buildBatchFetchRequestOptions(options: {
+interface BatchFetchRequestOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
   forceRefresh: boolean;
@@ -28,7 +16,20 @@ export function buildBatchFetchRequestOptions(options: {
   resolveProxyTransport: () => Promise<FeedUpstreamTransport | undefined>;
   searchTerm: string | undefined;
   skipRefresh: boolean;
-}) {
+}
+
+interface BatchFetchResultsOptions {
+  requestUrls: BatchUrlDescriptor[];
+  response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;
+}
+/**
+ * Build the batch fetch request options.
+ * @param options - The options used to build the batch fetch request options.
+ * @returns The batch fetch request options.
+ */
+export function buildBatchFetchRequestOptions(
+  options: BatchFetchRequestOptionsOptions,
+) {
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
@@ -43,14 +44,11 @@ export function buildBatchFetchRequestOptions(options: {
 }
 
 /**
- * @param options
- * @param options.requestUrls
- * @param options.response
+ * Build the batch fetch results.
+ * @param options - The options used to build the batch fetch results.
+ * @returns The batch fetch results.
  */
-export function buildBatchFetchResults(options: {
-  requestUrls: BatchUrlDescriptor[];
-  response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;
-}) {
+export function buildBatchFetchResults(options: BatchFetchResultsOptions) {
   return options.requestUrls.map((item) =>
     buildBatchResultItem({
       batchMap: options.response.articles,

@@ -16,11 +16,12 @@ interface Props {
 }
 
 /**
- * Renders the dark particle dashboard background.
- * @param root0
- * @param root0.quantity
+ * Render the particles background component.
+ * @param props - The component props.
+ * @returns The rendered particles background component.
  */
-export function ParticlesBackground({ quantity = 200 }: Props) {
+export function ParticlesBackground(props: Props) {
+  const { quantity = 200 } = props;
   return (
     <BackgroundLayer
       gradientTone="dark"
@@ -32,11 +33,12 @@ export function ParticlesBackground({ quantity = 200 }: Props) {
 }
 
 /**
- * Renders the light particle dashboard background.
- * @param root0
- * @param root0.quantity
+ * Render the particles background light component.
+ * @param props - The component props.
+ * @returns The rendered particles background light component.
  */
-export function ParticlesBackgroundLight({ quantity = 200 }: Props) {
+export function ParticlesBackgroundLight(props: Props) {
+  const { quantity = 200 } = props;
   return (
     <BackgroundLayer
       gradientTone="light"
@@ -48,11 +50,12 @@ export function ParticlesBackgroundLight({ quantity = 200 }: Props) {
 }
 
 /**
- * Renders the dark starfield dashboard background.
- * @param root0
- * @param root0.quantity
+ * Render the stars background component.
+ * @param props - The component props.
+ * @returns The rendered stars background component.
  */
-export function StarsBackground({ quantity = 200 }: Props) {
+export function StarsBackground(props: Props) {
+  const { quantity = 200 } = props;
   return (
     <BackgroundLayer
       gradientTone="dark"
@@ -64,11 +67,12 @@ export function StarsBackground({ quantity = 200 }: Props) {
 }
 
 /**
- * Renders the light starfield dashboard background.
- * @param root0
- * @param root0.quantity
+ * Render the stars background light component.
+ * @param props - The component props.
+ * @returns The rendered stars background light component.
  */
-export function StarsBackgroundLight({ quantity = 200 }: Props) {
+export function StarsBackgroundLight(props: Props) {
+  const { quantity = 200 } = props;
   return (
     <BackgroundLayer
       gradientTone="light"
@@ -80,20 +84,12 @@ export function StarsBackgroundLight({ quantity = 200 }: Props) {
 }
 
 /**
- * Fades the decorative dashboard background in as a single surface so the
- * gradient and animated canvas appear together after hydration.
- * @param root0
- * @param root0.gradientTone
- * @param root0.particleColor
- * @param root0.quantity
- * @param root0.variant
+ * Render the background layer component.
+ * @param props - The component props.
+ * @returns The rendered background layer component.
  */
-function BackgroundLayer({
-  gradientTone,
-  particleColor,
-  quantity = 200,
-  variant,
-}: BackgroundLayerProps) {
+function BackgroundLayer(props: BackgroundLayerProps) {
+  const { gradientTone, particleColor, quantity = 200, variant } = props;
   const [isClientReady, setIsClientReady] = useState(false);
 
   useEffect(() => {

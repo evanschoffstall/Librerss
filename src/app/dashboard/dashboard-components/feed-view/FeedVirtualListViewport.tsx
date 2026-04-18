@@ -14,6 +14,23 @@ import {
   FeedVirtualListBoundaryRow,
 } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListRows";
 
+interface FeedVirtualizerOptions {
+  entries: FeedVirtualListRuntimeProps["entries"];
+  estimatedItemHeight: number;
+  expandedArticleKey: null | string;
+  feedViewKey: string;
+  isCollapseScrollRestoreActive: boolean;
+  scrollMode: FeedVirtualListRuntimeProps["scrollMode"];
+  scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
+}
+
+interface FeedVirtualListLayoutOptions {
+  entries: FeedVirtualListRuntimeProps["entries"];
+  minimumTotalListHeight: FeedVirtualListRuntimeProps["minimumTotalListHeight"];
+  scrollMode: FeedVirtualListRuntimeProps["scrollMode"];
+  scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
+  virtualizer: Virtualizer<HTMLElement, Element>;
+}
 interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
   entries: ReturnType<typeof buildFeedVirtualListEntries>;
   expandedArticleKey: null | string;
@@ -21,11 +38,25 @@ interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
   isCollapseScrollRestoreActive: boolean;
 }
 
+interface VirtualEntryOptions {
+  entries: FeedVirtualListRuntimeProps["entries"];
+  key: string;
+  loadMoreSentinelRef: FeedVirtualListRuntimeProps["loadMoreSentinelRef"];
+  offsetTop: number;
+  renderArticle: (article: Article) => React.JSX.Element;
+  virtualItem: ReturnType<
+    ReturnType<typeof useVirtualizer>["getVirtualItems"]
+  >[number];
+  virtualizer: Virtualizer<HTMLElement, Element>;
+}
+
 /**
- * Virtualized feed runtime mounted in real browser environments.
- * @param props
+ * Render the feed virtual list runtime component.
+ * @param props - The component props.
+ * @returns The rendered feed virtual list runtime component.
  */
 export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
+  const { onTotalListHeightChange } = props;
   const virtualizer = useFeedVirtualizer({
     entries: props.entries,
     estimatedItemHeight: props.estimatedItemHeight,
@@ -61,8 +92,8 @@ export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
     }
 
     lastReportedTotalSizeRef.current = totalSize;
-    props.onTotalListHeightChange(totalSize);
-  }, [props.onTotalListHeightChange, totalSize]);
+    onTotalListHeightChange(totalSize);
+  }, [onTotalListHeightChange, totalSize]);
 
   return (
     <div
@@ -101,28 +132,12 @@ export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
     </div>
   );
 }
-
 /**
- * @param options
- * @param options.entries
- * @param options.key
- * @param options.loadMoreSentinelRef
- * @param options.offsetTop
- * @param options.renderArticle
- * @param options.virtualItem
- * @param options.virtualizer
+ * Render the virtual entry.
+ * @param options - The options used to render the virtual entry.
+ * @returns The virtual entry.
  */
-function renderVirtualEntry(options: {
-  entries: FeedVirtualListRuntimeProps["entries"];
-  key: string;
-  loadMoreSentinelRef: FeedVirtualListRuntimeProps["loadMoreSentinelRef"];
-  offsetTop: number;
-  renderArticle: (article: Article) => React.JSX.Element;
-  virtualItem: ReturnType<
-    ReturnType<typeof useVirtualizer>["getVirtualItems"]
-  >[number];
-  virtualizer: Virtualizer<HTMLElement, Element>;
-}) {
+function renderVirtualEntry(options: VirtualEntryOptions) {
   const entry = options.entries[options.virtualItem.index];
 
   if (entry.kind === "boundary") {
@@ -152,9 +167,11 @@ function renderVirtualEntry(options: {
 }
 
 /**
- * @param entries
- * @param totalSize
- * @param invertedOffset
+ * Resolve the boundary offset top.
+ * @param entries - The entries.
+ * @param totalSize - The total size.
+ * @param invertedOffset - The inverted offset value.
+ * @returns The boundary offset top.
  */
 function resolveBoundaryOffsetTop(
   entries: FeedVirtualListRuntimeProps["entries"],
@@ -171,26 +188,18 @@ function resolveBoundaryOffsetTop(
 }
 
 /**
- * @param root0
- * @param root0.entries
- * @param root0.minimumTotalListHeight
- * @param root0.scrollMode
- * @param root0.scrollViewport
- * @param root0.virtualizer
+ * Resolve the feed virtual list layout.
+ * @param options - The options used to resolve the feed virtual list layout.
+ * @returns The feed virtual list layout.
  */
-function resolveFeedVirtualListLayout({
-  entries,
-  minimumTotalListHeight,
-  scrollMode,
-  scrollViewport,
-  virtualizer,
-}: {
-  entries: FeedVirtualListRuntimeProps["entries"];
-  minimumTotalListHeight: FeedVirtualListRuntimeProps["minimumTotalListHeight"];
-  scrollMode: FeedVirtualListRuntimeProps["scrollMode"];
-  scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
-  virtualizer: Virtualizer<HTMLElement, Element>;
-}) {
+function resolveFeedVirtualListLayout(options: FeedVirtualListLayoutOptions) {
+  const {
+    entries,
+    minimumTotalListHeight,
+    scrollMode,
+    scrollViewport,
+    virtualizer,
+  } = options;
   const totalSize = Math.ceil(virtualizer.getTotalSize());
   const containerHeight = Math.max(
     totalSize,
@@ -213,9 +222,10 @@ function resolveFeedVirtualListLayout({
     totalSize,
   };
 }
-
 /**
- * @param scrollViewport
+ * Resolve the virtualizer rect.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The virtualizer rect.
  */
 function resolveVirtualizerRect(scrollViewport: HTMLElement) {
   const rect = scrollViewport.getBoundingClientRect();
@@ -226,24 +236,11 @@ function resolveVirtualizerRect(scrollViewport: HTMLElement) {
 }
 
 /**
- * @param options
- * @param options.entries
- * @param options.estimatedItemHeight
- * @param options.expandedArticleKey
- * @param options.feedViewKey
- * @param options.isCollapseScrollRestoreActive
- * @param options.scrollMode
- * @param options.scrollViewport
+ * Manage the feed virtualizer.
+ * @param options - The options used to manage the feed virtualizer.
+ * @returns The feed virtualizer state and callbacks.
  */
-function useFeedVirtualizer(options: {
-  entries: FeedVirtualListRuntimeProps["entries"];
-  estimatedItemHeight: number;
-  expandedArticleKey: null | string;
-  feedViewKey: string;
-  isCollapseScrollRestoreActive: boolean;
-  scrollMode: FeedVirtualListRuntimeProps["scrollMode"];
-  scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
-}) {
+function useFeedVirtualizer(options: FeedVirtualizerOptions) {
   const overscan = useMemo(
     () =>
       resolveFeedVirtualListOverscanCount(
@@ -263,20 +260,25 @@ function useFeedVirtualizer(options: {
   return useVirtualizer({
     count: options.entries.length,
     /**
-     * @param index
+     * Process the estimate size.
+     * @param index - The index.
+     * @returns The estimate size.
      */
     estimateSize: (index) =>
       options.entries[index]?.kind === "boundary"
         ? 1
         : options.estimatedItemHeight,
     /**
-     * @param index
+     * Return the item key.
+     * @param index - The index.
+     * @returns The item key.
      */
     getItemKey: (index) =>
       options.entries[index]?.key ??
       `${options.feedViewKey}:virtual-item:${index}`,
     /**
-     *
+     * Return the scroll element.
+     * @returns The scroll element.
      */
     getScrollElement: () => options.scrollViewport,
     initialRect: resolveVirtualizerRect(options.scrollViewport),

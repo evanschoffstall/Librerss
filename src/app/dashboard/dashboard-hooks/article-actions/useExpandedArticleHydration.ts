@@ -7,6 +7,27 @@ import type { Article } from "@/lib/core";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { type FeedExtractionSettings } from "@/app/dashboard/display-types";
 
+interface ExpandedArticleDistillStrategyEffectOptions {
+  autoHydratedExpandedKeyRef: React.RefObject<null | string>;
+  distillStrategy: string | undefined;
+  expandedArticle: Article | undefined;
+  expandedArticleKey: null | string;
+  getFeedSettings: UseExpandedArticleHydrationOptions["getFeedSettings"];
+  hydrateArticleContent: UseExpandedArticleHydrationOptions["hydrateArticleContent"];
+  hydratingArticleLinks: Record<string, boolean>;
+  previousDistillStrategyRef: React.RefObject<string | undefined>;
+}
+
+interface ExpandedArticleHydrationRestoreEffectOptions {
+  autoHydratedExpandedKeyRef: React.RefObject<null | string>;
+  awaitingExpandedSyncKeyRef: React.RefObject<null | string>;
+  expandedArticle: Article | undefined;
+  expandedArticleKey: null | string;
+  hydrateArticleContent: UseExpandedArticleHydrationOptions["hydrateArticleContent"];
+  hydratedArticleLinks: Record<string, boolean>;
+  hydratingArticleLinks: Record<string, boolean>;
+}
+
 interface UseExpandedArticleHydrationOptions {
   distillStrategy?: string;
   expandedArticleKey: null | string;
@@ -19,31 +40,23 @@ interface UseExpandedArticleHydrationOptions {
   hydratedArticleLinks: Record<string, boolean>;
   hydratingArticleLinks: Record<string, boolean>;
 }
-
 /**
- * Keeps expanded-article hydration state aligned with restored UI expansion.
- *
- * Expanded rows can outlive the in-memory hydration map across refreshes or hot
- * reloads. This hook restores rich-content hydration and retriggers it when the
- * distillation strategy changes.
- * @param root0
- * @param root0.distillStrategy
- * @param root0.expandedArticleKey
- * @param root0.feed
- * @param root0.getFeedSettings
- * @param root0.hydrateArticleContent
- * @param root0.hydratedArticleLinks
- * @param root0.hydratingArticleLinks
+ * Manage the expanded article hydration.
+ * @param options - The options used to manage the expanded article hydration.
+ * @returns The expanded article hydration state and callbacks.
  */
-export function useExpandedArticleHydration({
-  distillStrategy,
-  expandedArticleKey,
-  feed,
-  getFeedSettings,
-  hydrateArticleContent,
-  hydratedArticleLinks,
-  hydratingArticleLinks,
-}: UseExpandedArticleHydrationOptions) {
+export function useExpandedArticleHydration(
+  options: UseExpandedArticleHydrationOptions,
+) {
+  const {
+    distillStrategy,
+    expandedArticleKey,
+    feed,
+    getFeedSettings,
+    hydrateArticleContent,
+    hydratedArticleLinks,
+    hydratingArticleLinks,
+  } = options;
   const autoHydratedExpandedKeyRef = useRef<null | string>(null);
   const awaitingExpandedSyncKeyRef = useRef<null | string>(null);
   const previousDistillStrategyRef = useRef(distillStrategy);
@@ -91,8 +104,10 @@ export function useExpandedArticleHydration({
 }
 
 /**
- * @param feed
- * @param expandedArticleKey
+ * Process the find expanded article.
+ * @param feed - The feed.
+ * @param expandedArticleKey - The expanded article key.
+ * @returns The find expanded article.
  */
 function findExpandedArticle(
   feed: Article[],
@@ -106,37 +121,23 @@ function findExpandedArticle(
     (candidate) => getArticleKey(candidate) === expandedArticleKey,
   );
 }
-
 /**
- * @param root0
- * @param root0.autoHydratedExpandedKeyRef
- * @param root0.distillStrategy
- * @param root0.expandedArticle
- * @param root0.expandedArticleKey
- * @param root0.getFeedSettings
- * @param root0.hydrateArticleContent
- * @param root0.hydratingArticleLinks
- * @param root0.previousDistillStrategyRef
+ * Manage the expanded article distill strategy effect.
+ * @param options - The options used to manage the expanded article distill strategy effect.
  */
-function useExpandedArticleDistillStrategyEffect({
-  autoHydratedExpandedKeyRef,
-  distillStrategy,
-  expandedArticle,
-  expandedArticleKey,
-  getFeedSettings,
-  hydrateArticleContent,
-  hydratingArticleLinks,
-  previousDistillStrategyRef,
-}: {
-  autoHydratedExpandedKeyRef: React.RefObject<null | string>;
-  distillStrategy: string | undefined;
-  expandedArticle: Article | undefined;
-  expandedArticleKey: null | string;
-  getFeedSettings: UseExpandedArticleHydrationOptions["getFeedSettings"];
-  hydrateArticleContent: UseExpandedArticleHydrationOptions["hydrateArticleContent"];
-  hydratingArticleLinks: Record<string, boolean>;
-  previousDistillStrategyRef: React.RefObject<string | undefined>;
-}) {
+function useExpandedArticleDistillStrategyEffect(
+  options: ExpandedArticleDistillStrategyEffectOptions,
+) {
+  const {
+    autoHydratedExpandedKeyRef,
+    distillStrategy,
+    expandedArticle,
+    expandedArticleKey,
+    getFeedSettings,
+    hydrateArticleContent,
+    hydratingArticleLinks,
+    previousDistillStrategyRef,
+  } = options;
   useEffect(() => {
     if (previousDistillStrategyRef.current === distillStrategy) {
       return;
@@ -174,32 +175,21 @@ function useExpandedArticleDistillStrategyEffect({
 }
 
 /**
- * @param root0
- * @param root0.autoHydratedExpandedKeyRef
- * @param root0.awaitingExpandedSyncKeyRef
- * @param root0.expandedArticle
- * @param root0.expandedArticleKey
- * @param root0.hydrateArticleContent
- * @param root0.hydratedArticleLinks
- * @param root0.hydratingArticleLinks
+ * Manage the expanded article hydration restore effect.
+ * @param options - The options used to manage the expanded article hydration restore effect.
  */
-function useExpandedArticleHydrationRestoreEffect({
-  autoHydratedExpandedKeyRef,
-  awaitingExpandedSyncKeyRef,
-  expandedArticle,
-  expandedArticleKey,
-  hydrateArticleContent,
-  hydratedArticleLinks,
-  hydratingArticleLinks,
-}: {
-  autoHydratedExpandedKeyRef: React.RefObject<null | string>;
-  awaitingExpandedSyncKeyRef: React.RefObject<null | string>;
-  expandedArticle: Article | undefined;
-  expandedArticleKey: null | string;
-  hydrateArticleContent: UseExpandedArticleHydrationOptions["hydrateArticleContent"];
-  hydratedArticleLinks: Record<string, boolean>;
-  hydratingArticleLinks: Record<string, boolean>;
-}) {
+function useExpandedArticleHydrationRestoreEffect(
+  options: ExpandedArticleHydrationRestoreEffectOptions,
+) {
+  const {
+    autoHydratedExpandedKeyRef,
+    awaitingExpandedSyncKeyRef,
+    expandedArticle,
+    expandedArticleKey,
+    hydrateArticleContent,
+    hydratedArticleLinks,
+    hydratingArticleLinks,
+  } = options;
   useEffect(() => {
     if (!expandedArticleKey) {
       if (!awaitingExpandedSyncKeyRef.current) {

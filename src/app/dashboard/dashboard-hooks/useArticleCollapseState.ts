@@ -25,6 +25,22 @@ export type CollapsingArticles = Partial<
   Record<string, CollapsingArticleState>
 >;
 
+interface ArticleCollapseScrollRestoreStateOptions {
+  articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>;
+  clearPreExpandSnapshot: () => void;
+  collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
+  setIsCollapseScrollRestoreActive: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+}
+
+interface ArticleRemovalAnimationStateOptions {
+  collapseRemovalTimeoutsRef: React.RefObject<
+    Map<string, RemovalAnimationTimeoutId>
+  >;
+  feed: Article[];
+}
+
 interface CollapsingArticleState {
   article: Article;
   index: number;
@@ -33,13 +49,23 @@ interface CollapsingArticleState {
 
 type RemovalAnimationTimeoutId = number;
 
+interface StartCollapseScrollRestoreOptions {
+  articleKey: string;
+  clearPreExpandSnapshot: () => void;
+  collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
+  setIsCollapseScrollRestoreActive: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+  snapshot: ArticleViewportSnapshot;
+}
+
 interface UseArticleCollapseStateOptions {
   feed: Article[];
 }
-
 /**
- * Returns the mounted lifetime for a staged unread-removal mode.
- * @param mode
+ * Return the article removal animation duration.
+ * @param mode - The mode.
+ * @returns The article removal animation duration.
  */
 export function getArticleRemovalAnimationDuration(
   mode: ArticleRemovalAnimationMode,
@@ -50,16 +76,14 @@ export function getArticleRemovalAnimationDuration(
 }
 
 /**
- * Tracks staged article-removal rows and restores the pre-expand scroll anchor.
- *
- * This isolates DOM snapshotting, exit-row bookkeeping, and viewport scroll
- * restoration from the higher-level article mutation workflow.
- * @param root0
- * @param root0.feed
+ * Manage the article collapse state.
+ * @param options - The options used to manage the article collapse state.
+ * @returns The article collapse state state and callbacks.
  */
-export function useArticleCollapseState({
-  feed,
-}: UseArticleCollapseStateOptions) {
+export function useArticleCollapseState(
+  options: UseArticleCollapseStateOptions,
+) {
+  const { feed } = options;
   const collapseState = useArticleCollapseLifecycleState();
   const snapshotState = useArticleViewportSnapshotState(
     collapseState.articleViewportSnapshotRef,
@@ -91,8 +115,10 @@ export function useArticleCollapseState({
 }
 
 /**
- * @param articleKey
- * @param storedSnapshot
+ * Resolve the collapse scroll snapshot.
+ * @param articleKey - The article key.
+ * @param storedSnapshot - The stored snapshot.
+ * @returns The collapse scroll snapshot.
  */
 function resolveCollapseScrollSnapshot(
   articleKey: string,
@@ -113,30 +139,21 @@ function resolveCollapseScrollSnapshot(
 
   return snapshot;
 }
-
 /**
- * @param root0
- * @param root0.articleKey
- * @param root0.clearPreExpandSnapshot
- * @param root0.collapseScrollRestoreCleanupRef
- * @param root0.setIsCollapseScrollRestoreActive
- * @param root0.snapshot
+ * Process the start collapse scroll restore.
+ * @param options - The options used to process the start collapse scroll restore.
+ * @returns The start collapse scroll restore.
  */
-function startCollapseScrollRestore({
-  articleKey,
-  clearPreExpandSnapshot,
-  collapseScrollRestoreCleanupRef,
-  setIsCollapseScrollRestoreActive,
-  snapshot,
-}: {
-  articleKey: string;
-  clearPreExpandSnapshot: () => void;
-  collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
-  setIsCollapseScrollRestoreActive: React.Dispatch<
-    React.SetStateAction<boolean>
-  >;
-  snapshot: ArticleViewportSnapshot;
-}) {
+function startCollapseScrollRestore(
+  options: StartCollapseScrollRestoreOptions,
+) {
+  const {
+    articleKey,
+    clearPreExpandSnapshot,
+    collapseScrollRestoreCleanupRef,
+    setIsCollapseScrollRestoreActive,
+    snapshot,
+  } = options;
   const runtime = createCollapseScrollRestoreRuntime({
     articleKey,
     clearPreExpandSnapshot,
@@ -153,7 +170,8 @@ function startCollapseScrollRestore({
 }
 
 /**
- *
+ * Manage the article collapse lifecycle state.
+ * @returns The article collapse lifecycle state state and callbacks.
  */
 function useArticleCollapseLifecycleState() {
   const collapseRemovalTimeoutsRef = useRef(
@@ -188,27 +206,20 @@ function useArticleCollapseLifecycleState() {
     setIsCollapseScrollRestoreActive,
   };
 }
-
 /**
- * @param root0
- * @param root0.articleViewportSnapshotRef
- * @param root0.clearPreExpandSnapshot
- * @param root0.collapseScrollRestoreCleanupRef
- * @param root0.setIsCollapseScrollRestoreActive
+ * Manage the article collapse scroll restore state.
+ * @param options - The options used to manage the article collapse scroll restore state.
+ * @returns The article collapse scroll restore state state and callbacks.
  */
-function useArticleCollapseScrollRestoreState({
-  articleViewportSnapshotRef,
-  clearPreExpandSnapshot,
-  collapseScrollRestoreCleanupRef,
-  setIsCollapseScrollRestoreActive,
-}: {
-  articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>;
-  clearPreExpandSnapshot: () => void;
-  collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
-  setIsCollapseScrollRestoreActive: React.Dispatch<
-    React.SetStateAction<boolean>
-  >;
-}) {
+function useArticleCollapseScrollRestoreState(
+  options: ArticleCollapseScrollRestoreStateOptions,
+) {
+  const {
+    articleViewportSnapshotRef,
+    clearPreExpandSnapshot,
+    collapseScrollRestoreCleanupRef,
+    setIsCollapseScrollRestoreActive,
+  } = options;
   const cancelCollapseScrollRestore = useCallback(() => {
     collapseScrollRestoreCleanupRef.current?.();
     collapseScrollRestoreCleanupRef.current = null;
@@ -255,19 +266,14 @@ function useArticleCollapseScrollRestoreState({
 }
 
 /**
- * @param root0
- * @param root0.collapseRemovalTimeoutsRef
- * @param root0.feed
+ * Manage the article removal animation state.
+ * @param options - The options used to manage the article removal animation state.
+ * @returns The article removal animation state state and callbacks.
  */
-function useArticleRemovalAnimationState({
-  collapseRemovalTimeoutsRef,
-  feed,
-}: {
-  collapseRemovalTimeoutsRef: React.RefObject<
-    Map<string, RemovalAnimationTimeoutId>
-  >;
-  feed: Article[];
-}) {
+function useArticleRemovalAnimationState(
+  options: ArticleRemovalAnimationStateOptions,
+) {
+  const { collapseRemovalTimeoutsRef, feed } = options;
   const [collapsingArticles, setCollapsingArticles] =
     useState<CollapsingArticles>({});
 
@@ -327,7 +333,9 @@ function useArticleRemovalAnimationState({
 }
 
 /**
- * @param articleViewportSnapshotRef
+ * Manage the article viewport snapshot state.
+ * @param articleViewportSnapshotRef - The ref that stores the article viewport snapshot ref.
+ * @returns The article viewport snapshot state state and callbacks.
  */
 function useArticleViewportSnapshotState(
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>,

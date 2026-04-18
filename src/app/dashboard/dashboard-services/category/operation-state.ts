@@ -13,10 +13,18 @@ import {
   removeCategoryLabel,
 } from "@/lib/utils";
 
+interface RestoreSelectedCategoryFromSourceUrlOptions {
+  refreshedCategories: CategoryTreeNode[];
+  selectedSourceUrl?: string;
+  setSelectedCategory: Dispatch<SetStateAction<string>>;
+}
+
 /**
- * @param categories
- * @param customCategoryLabels
- * @param labelToRemove
+ * Return the category removal target.
+ * @param categories - The categories.
+ * @param customCategoryLabels - The custom category labels.
+ * @param labelToRemove - The label to remove.
+ * @returns The category removal target.
  */
 export function getCategoryRemovalTarget(
   categories: CategoryTreeNode[],
@@ -29,9 +37,10 @@ export function getCategoryRemovalTarget(
 }
 
 /**
- * @param setCustomCategoryLabels
- * @param setOrderedCategoryLabels
- * @param label
+ * Process the remove category from label collections.
+ * @param setCustomCategoryLabels - The set custom category labels.
+ * @param setOrderedCategoryLabels - The set ordered category labels.
+ * @param label - The label.
  */
 export function removeCategoryFromLabelCollections(
   setCustomCategoryLabels: Dispatch<SetStateAction<string[]>>,
@@ -44,11 +53,12 @@ export function removeCategoryFromLabelCollections(
     (current) => removeCategoryLabel(current, label),
   );
 }
-
 /**
- * @param currentCategories
- * @param labelToRemove
- * @param targetCategory
+ * Process the remove category from local state.
+ * @param currentCategories - The current categories.
+ * @param labelToRemove - The label to remove.
+ * @param targetCategory - The target category.
+ * @returns The remove category from local state.
  */
 export function removeCategoryFromLocalState(
   currentCategories: CategoryTreeNode[],
@@ -101,20 +111,14 @@ export function removeCategoryFromLocalState(
 }
 
 /**
- * @param root0
- * @param root0.refreshedCategories
- * @param root0.selectedSourceUrl
- * @param root0.setSelectedCategory
+ * Process the restore selected category from source url.
+ * @param options - The options used to process the restore selected category from source url.
  */
-export function restoreSelectedCategoryFromSourceUrl({
-  refreshedCategories,
-  selectedSourceUrl,
-  setSelectedCategory,
-}: {
-  refreshedCategories: CategoryTreeNode[];
-  selectedSourceUrl?: string;
-  setSelectedCategory: Dispatch<SetStateAction<string>>;
-}): void {
+export function restoreSelectedCategoryFromSourceUrl(
+  options: RestoreSelectedCategoryFromSourceUrlOptions,
+): void {
+  const { refreshedCategories, selectedSourceUrl, setSelectedCategory } =
+    options;
   if (!selectedSourceUrl) {
     return;
   }
@@ -130,9 +134,10 @@ export function restoreSelectedCategoryFromSourceUrl({
 }
 
 /**
- * @param setCustomCategoryLabels
- * @param setOrderedCategoryLabels
- * @param update
+ * Update the category label collections.
+ * @param setCustomCategoryLabels - The set custom category labels.
+ * @param setOrderedCategoryLabels - The set ordered category labels.
+ * @param update - The callback that .
  */
 export function updateCategoryLabelCollections(
   setCustomCategoryLabels: Dispatch<SetStateAction<string[]>>,

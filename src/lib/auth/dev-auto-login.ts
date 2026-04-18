@@ -16,8 +16,9 @@ interface DevAutoLoginCredentials {
 }
 
 /**
- * Builds the failure redirect used after an env-backed login attempt fails.
- * @param pathname
+ * Build the dev auto login failure path.
+ * @param pathname - The pathname.
+ * @returns The dev auto login failure path.
  */
 export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
   const url = new URL(pathname, "http://localhost");
@@ -30,8 +31,9 @@ export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
 }
 
 /**
- * Builds the same-origin request path for the development auto-login route.
- * @param returnTo
+ * Build the dev auto login request path.
+ * @param returnTo - The return to.
+ * @returns The dev auto login request path.
  */
 export function buildDevAutoLoginRequestPath(returnTo = "/dashboard"): string {
   const searchParams = new URLSearchParams({
@@ -42,11 +44,8 @@ export function buildDevAutoLoginRequestPath(returnTo = "/dashboard"): string {
 }
 
 /**
- * Resolves the optional development-only auto-login credentials.
- *
- * The mode is off unless both env vars are present in development. Partial or
- * malformed configuration is treated as an explicit setup error so it fails
- * loudly instead of silently weakening auth expectations.
+ * Return the dev auto login credentials.
+ * @returns The dev auto login credentials.
  */
 export function getDevAutoLoginCredentials(): DevAutoLoginCredentials | null {
   if (!isDevelopment() || isPlaywrightRuntime()) {
@@ -86,14 +85,18 @@ export function getDevAutoLoginCredentials(): DevAutoLoginCredentials | null {
   };
 }
 
-/** Returns whether the validated development auto-login mode is active. */
+/**
+ * Return whether is dev auto login enabled.
+ * @returns Whether is dev auto login enabled.
+ */
 export function isDevAutoLoginEnabled(): boolean {
   return getDevAutoLoginCredentials() !== null;
 }
 
 /**
- * Detects the dashboard query flag that suppresses auto-login retry loops.
- * @param value
+ * Return whether is dev auto login failure.
+ * @param value - The value.
+ * @returns Whether is dev auto login failure.
  */
 export function isDevAutoLoginFailure(value: string | string[] | undefined) {
   const normalized = Array.isArray(value) ? value[0] : value;
@@ -101,8 +104,8 @@ export function isDevAutoLoginFailure(value: string | string[] | undefined) {
 }
 
 /**
- * Playwright runs against a dedicated ephemeral dev server and relies on the
- * unauthenticated dashboard contract in multiple e2e flows.
+ * Return whether is playwright runtime.
+ * @returns Whether is playwright runtime.
  */
 function isPlaywrightRuntime(): boolean {
   const playwrightDistDir = process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim();

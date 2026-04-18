@@ -14,8 +14,15 @@ interface ArticleStatusDeps {
   warn?: (message: string) => void;
 }
 
+interface UpsertArticleStatusesChanges {
+  isRead?: boolean;
+  isStarred?: boolean;
+}
+
 /**
- * @param deps
+ * Return whether can use article statuses table.
+ * @param deps - The deps.
+ * @returns Whether can use article statuses table.
  */
 export async function canUseArticleStatusesTable(
   deps?: ArticleStatusDeps,
@@ -53,9 +60,8 @@ export async function canUseArticleStatusesTable(
     throw error;
   }
 }
-
 /**
- *
+ * Process the reset article status table state for tests.
  */
 export function resetArticleStatusTableStateForTests(): void {
   articleStatusesTableState = "unknown";
@@ -63,17 +69,16 @@ export function resetArticleStatusTableStateForTests(): void {
 }
 
 /**
- * @param userId
- * @param articleIds
- * @param changes
- * @param changes.isRead
- * @param changes.isStarred
- * @param deps
+ * Process the upsert article statuses.
+ * @param userId - The r id.
+ * @param articleIds - The article ids.
+ * @param changes - The changes.
+ * @param deps - The deps.
  */
 export async function upsertArticleStatuses(
   userId: number,
   articleIds: number[],
-  changes: { isRead?: boolean; isStarred?: boolean },
+  changes: UpsertArticleStatusesChanges,
   deps?: ArticleStatusDeps,
 ): Promise<void> {
   if (articleIds.length === 0) {
@@ -126,7 +131,9 @@ export async function upsertArticleStatuses(
 }
 
 /**
- * @param error
+ * Return whether is missing article statuses table error.
+ * @param error - The error.
+ * @returns Whether is missing article statuses table error.
  */
 function isMissingArticleStatusesTableError(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -154,7 +161,7 @@ function isMissingArticleStatusesTableError(error: unknown): boolean {
 // ── Batch upsert ──────────────────────────────────────────────────────────────
 
 /**
- *
+ * Process the warn missing article statuses table.
  */
 function warnMissingArticleStatusesTable(): void {
   if (warnedMissingArticleStatusesTable) {

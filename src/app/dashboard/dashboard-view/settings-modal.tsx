@@ -5,16 +5,17 @@ import type { useDashboardController } from "@/app/dashboard/dashboard-hooks/das
 import { SettingsPanel } from "@/app/dashboard/dashboard-components/settings-dialog";
 
 type DashboardSettings = ReturnType<typeof useDashboardController>["settings"];
+interface DashboardSettingsModalProps {
+  settings: DashboardSettings;
+}
 
 /**
- * @param root0
- * @param root0.settings
+ * Render the dashboard settings modal component.
+ * @param props - The component props.
+ * @returns The rendered dashboard settings modal component.
  */
-export function DashboardSettingsModal({
-  settings,
-}: {
-  settings: DashboardSettings;
-}) {
+export function DashboardSettingsModal(props: DashboardSettingsModalProps) {
+  const { settings } = props;
   if (!settings.showSettingsModal) {
     return null;
   }

@@ -5,10 +5,12 @@ interface LoginCardHeaderProps {
 }
 
 /**
- * @param root0
- * @param root0.mode
+ * Render the login card header component.
+ * @param props - The component props.
+ * @returns The rendered login card header component.
  */
-export function LoginCardHeader({ mode }: LoginCardHeaderProps) {
+export function LoginCardHeader(props: LoginCardHeaderProps) {
+  const { mode } = props;
   return (
     <CardHeader className="items-center pb-2 text-center">
       <div className="relative mb-3 flex size-14 items-center justify-center">

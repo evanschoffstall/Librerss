@@ -13,15 +13,13 @@ const FEED_LIST_SKELETON_SELECTOR =
   "[data-dashboard-feed-list-skeleton-item='true']";
 
 /**
- * Measures the viewport and first skeleton row so the loading surface fills the fold.
- * @param root0
- * @param root0.listRef
- * @param root0.setSkeletonCount
+ * Manage the feed list skeleton count.
+ * @param options - The options used to manage the feed list skeleton count.
  */
-export function useFeedListSkeletonCount({
-  listRef,
-  setSkeletonCount,
-}: UseFeedListSkeletonCountOptions) {
+export function useFeedListSkeletonCount(
+  options: UseFeedListSkeletonCountOptions,
+) {
+  const { listRef, setSkeletonCount } = options;
   useLayoutEffect(() => {
     if (!listRef.current) {
       return;
@@ -30,13 +28,14 @@ export function useFeedListSkeletonCount({
     let resizeObserver: null | ResizeObserver = null;
     let retryFramesRemaining = 10;
     /**
-     *
+     * Process the measure skeleton count.
+     * @returns Whether measure skeleton count.
      */
     const measureSkeletonCount = () =>
       updateFeedListSkeletonCount(listRef, setSkeletonCount);
 
     /**
-     *
+     * Process the schedule measurement.
      */
     const scheduleMeasurement = () => {
       cancelAnimationFrame(animationFrameId);
@@ -90,7 +89,9 @@ export function useFeedListSkeletonCount({
 }
 
 /**
- * @param listRef
+ * Resolve the feed list skeleton elements.
+ * @param listRef - The ref that stores the list ref.
+ * @returns The feed list skeleton elements.
  */
 function resolveFeedListSkeletonElements(
   listRef: React.RefObject<HTMLDivElement | null>,
@@ -104,7 +105,9 @@ function resolveFeedListSkeletonElements(
 }
 
 /**
- * @param listElement
+ * Resolve the feed list skeleton row gap.
+ * @param listElement - The list element.
+ * @returns The feed list skeleton row gap.
  */
 function resolveFeedListSkeletonRowGap(listElement: HTMLDivElement) {
   const listStyles = getComputedStyle(listElement);
@@ -116,8 +119,10 @@ function resolveFeedListSkeletonRowGap(listElement: HTMLDivElement) {
 }
 
 /**
- * @param listRef
- * @param setSkeletonCount
+ * Update the feed list skeleton count.
+ * @param listRef - The ref that stores the list ref.
+ * @param setSkeletonCount - The set skeleton count value.
+ * @returns Whether feed list skeleton count.
  */
 function updateFeedListSkeletonCount(
   listRef: React.RefObject<HTMLDivElement | null>,

@@ -18,35 +18,19 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { getPlaceholderArticlesForSource } from "@/lib/core";
 
-type BatchResults = Awaited<
-  ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>
->;
-
-/**
- * @param root0
- * @param root0.batchResults
- * @param root0.context
- * @param root0.feedRef
- * @param root0.lastFetchedAtByUrlRef
- * @param root0.logRefreshDiagnostics
- * @param root0.onFeedBatchLoaded
- * @param root0.onNewArticlesArrived
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
- * @param root0.usePlaceholderData
- */
-export function applyFeedBatchResults({
-  batchResults,
-  context,
-  feedRef,
-  lastFetchedAtByUrlRef,
-  logRefreshDiagnostics,
-  onFeedBatchLoaded,
-  onNewArticlesArrived,
-  setExpandedArticleKey,
-  setFeed,
-  usePlaceholderData,
-}: {
+interface ApplyFeedBatchOutcomeMetadataOptions {
+  batchResults: NonNullable<BatchResults>;
+  capturedOutcome: ReturnType<typeof buildFeedBatchOutcome>;
+  context: FeedBatchRequestContext;
+  lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>;
+  logRefreshDiagnostics: (
+    event: string,
+    details: Record<string, unknown>,
+  ) => void;
+  onFeedBatchLoaded?: (timestamp: Date) => void;
+  setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
+}
+interface ApplyFeedBatchResultsOptions {
   batchResults: BatchResults;
   context: FeedBatchRequestContext;
   feedRef: React.RefObject<Article[]>;
@@ -60,7 +44,28 @@ export function applyFeedBatchResults({
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData: boolean;
-}) {
+}
+
+type BatchResults = Awaited<
+  ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>
+>;
+/**
+ * Process the apply feed batch results.
+ * @param options - The options used to process the apply feed batch results.
+ */
+export function applyFeedBatchResults(options: ApplyFeedBatchResultsOptions) {
+  const {
+    batchResults,
+    context,
+    feedRef,
+    lastFetchedAtByUrlRef,
+    logRefreshDiagnostics,
+    onFeedBatchLoaded,
+    onNewArticlesArrived,
+    setExpandedArticleKey,
+    setFeed,
+    usePlaceholderData,
+  } = options;
   if (!batchResults || context.skippedDuplicate) {
     return;
   }
@@ -100,35 +105,21 @@ export function applyFeedBatchResults({
 }
 
 /**
- * @param root0
- * @param root0.batchResults
- * @param root0.capturedOutcome
- * @param root0.context
- * @param root0.lastFetchedAtByUrlRef
- * @param root0.logRefreshDiagnostics
- * @param root0.onFeedBatchLoaded
- * @param root0.setExpandedArticleKey
+ * Process the apply feed batch outcome metadata.
+ * @param options - The options used to process the apply feed batch outcome metadata.
  */
-function applyFeedBatchOutcomeMetadata({
-  batchResults,
-  capturedOutcome,
-  context,
-  lastFetchedAtByUrlRef,
-  logRefreshDiagnostics,
-  onFeedBatchLoaded,
-  setExpandedArticleKey,
-}: {
-  batchResults: NonNullable<BatchResults>;
-  capturedOutcome: ReturnType<typeof buildFeedBatchOutcome>;
-  context: FeedBatchRequestContext;
-  lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>;
-  logRefreshDiagnostics: (
-    event: string,
-    details: Record<string, unknown>,
-  ) => void;
-  onFeedBatchLoaded?: (timestamp: Date) => void;
-  setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
-}) {
+function applyFeedBatchOutcomeMetadata(
+  options: ApplyFeedBatchOutcomeMetadataOptions,
+) {
+  const {
+    batchResults,
+    capturedOutcome,
+    context,
+    lastFetchedAtByUrlRef,
+    logRefreshDiagnostics,
+    onFeedBatchLoaded,
+    setExpandedArticleKey,
+  } = options;
   const { articles, failedFeeds, newestLastFetchedAt, sourceNamesByUrl } =
     capturedOutcome;
 
@@ -163,10 +154,12 @@ function applyFeedBatchOutcomeMetadata({
 }
 
 /**
- * @param batchResults
- * @param context
- * @param feedRef
- * @param usePlaceholderData
+ * Process the capture feed batch outcome.
+ * @param batchResults - The batch results.
+ * @param context - The context used to process the capture feed batch outcome.
+ * @param feedRef - The ref that stores the feed ref.
+ * @param usePlaceholderData - The placeholder data.
+ * @returns The capture feed batch outcome.
  */
 function captureFeedBatchOutcome(
   batchResults: NonNullable<BatchResults>,
@@ -184,10 +177,11 @@ function captureFeedBatchOutcome(
 }
 
 /**
- * @param articles
- * @param keepExistingFeed
- * @param feedRef
- * @param onNewArticlesArrived
+ * Process the notify newly arrived articles.
+ * @param articles - The articles.
+ * @param keepExistingFeed - The keep existing feed.
+ * @param feedRef - The ref that stores the feed ref.
+ * @param onNewArticlesArrived - The callback that on new articles arrived.
  */
 function notifyNewlyArrivedArticles(
   articles: Article[],
@@ -215,8 +209,9 @@ function notifyNewlyArrivedArticles(
 }
 
 /**
- * @param lastFetchedAtByUrlRef
- * @param batchResults
+ * Process the sync last fetched at by url.
+ * @param lastFetchedAtByUrlRef - The ref that stores the last fetched at by url ref.
+ * @param batchResults - The batch results.
  */
 function syncLastFetchedAtByUrl(
   lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>,

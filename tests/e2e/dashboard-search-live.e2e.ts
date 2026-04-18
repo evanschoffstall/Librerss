@@ -8,9 +8,9 @@ import {
 
 /** Returns the search input in the dashboard toolbar. */
 function searchInput(page: import("@playwright/test").Page) {
-  return page.getByRole("textbox", { name: /search/i }).or(
-    page.locator("input[placeholder*='Search']"),
-  );
+  return page
+    .getByRole("textbox", { name: /search/i })
+    .or(page.locator("input[placeholder*='Search']"));
 }
 
 /**
@@ -48,9 +48,7 @@ test.describe("dashboard search live-search UX", () => {
 
     // The toolbar itself must NOT be replaced by its full skeleton (which would
     // unmount the input).  The toolbar root must remain present.
-    await expect(
-      page.locator("[data-dashboard-toolbar='true']"),
-    ).toBeVisible();
+    await expect(page.locator("[data-dashboard-toolbar='true']")).toBeVisible();
   });
 
   test("articles filter instantly (client-side) without waiting for server round-trip", async ({
@@ -112,9 +110,7 @@ test.describe("dashboard search live-search UX", () => {
       )
       .toBeGreaterThanOrEqual(initialCount);
 
-    await expect(
-      page.locator("[data-dashboard-toolbar='true']"),
-    ).toBeVisible();
+    await expect(page.locator("[data-dashboard-toolbar='true']")).toBeVisible();
     await expect(input).toBeVisible();
   });
 
@@ -125,9 +121,7 @@ test.describe("dashboard search live-search UX", () => {
     await waitForPreviewDashboardHydration(page);
 
     // Wait for idle state (no action skeletons visible).
-    await expect
-      .poll(() => toolbarActionSkeletonCount(page))
-      .toBe(0);
+    await expect.poll(() => toolbarActionSkeletonCount(page)).toBe(0);
 
     const input = searchInput(page);
     await input.click();

@@ -9,6 +9,13 @@ import {
   refreshCurrentSelection,
 } from "@/app/dashboard/dashboard-services/selection";
 
+interface DashboardArticleWindowCountsOptions {
+  currentFeedLength: number;
+  isLoadingMoreArticles: boolean;
+  requestedArticleLimit: number;
+  shouldUseArticleWindow: boolean;
+}
+
 interface DashboardArticleWindowHelperOptions {
   prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
   prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
@@ -43,7 +50,6 @@ interface DashboardArticleWindowRefreshOptions extends FeedSelectionFetchers {
   setIsLoadingMoreArticles: React.Dispatch<React.SetStateAction<boolean>>;
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
-
 interface DashboardArticleWindowResetState {
   allowPartialArticleWindowGrowthRef: React.RefObject<boolean>;
   hasStartedArticleWindowSettlementRef: React.RefObject<boolean>;
@@ -56,19 +62,19 @@ interface DashboardArticleWindowResetState {
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
 
-/**
- * @param options
- * @param options.currentFeedLength
- * @param options.isLoadingMoreArticles
- * @param options.requestedArticleLimit
- * @param options.shouldUseArticleWindow
- */
-export function getDashboardArticleWindowCounts(options: {
-  currentFeedLength: number;
-  isLoadingMoreArticles: boolean;
-  requestedArticleLimit: number;
+interface ResetDashboardArticleWindowStateOptions {
+  articlesPerPage: number;
   shouldUseArticleWindow: boolean;
-}) {
+}
+
+/**
+ * Return the dashboard article window counts.
+ * @param options - The options used to return the dashboard article window counts.
+ * @returns The dashboard article window counts.
+ */
+export function getDashboardArticleWindowCounts(
+  options: DashboardArticleWindowCountsOptions,
+) {
   return {
     articleWindowLimit: options.shouldUseArticleWindow
       ? options.requestedArticleLimit
@@ -81,8 +87,9 @@ export function getDashboardArticleWindowCounts(options: {
 }
 
 /**
- * @param nextLimit
- * @param options
+ * Process the prefetch next page for current selection.
+ * @param nextLimit - The next limit.
+ * @param options - The options used to process the prefetch next page for current selection.
  */
 export async function prefetchNextPageForCurrentSelection(
   nextLimit: number,
@@ -123,9 +130,9 @@ export async function prefetchNextPageForCurrentSelection(
     await prefetchCategoryFeeds(selectedCategoryNode, prefetchOptions);
   }
 }
-
 /**
- * @param options
+ * Process the refill dashboard article window.
+ * @param options - The options used to process the refill dashboard article window.
  */
 export function refillDashboardArticleWindow(
   options: DashboardArticleWindowRefillOptions,
@@ -168,17 +175,13 @@ export function refillDashboardArticleWindow(
 }
 
 /**
- * @param state
- * @param options
- * @param options.articlesPerPage
- * @param options.shouldUseArticleWindow
+ * Process the reset dashboard article window state.
+ * @param state - The state.
+ * @param options - The options used to process the reset dashboard article window state.
  */
 export function resetDashboardArticleWindowState(
   state: DashboardArticleWindowResetState,
-  options: {
-    articlesPerPage: number;
-    shouldUseArticleWindow: boolean;
-  },
+  options: ResetDashboardArticleWindowStateOptions,
 ): void {
   const {
     allowPartialArticleWindowGrowthRef,
@@ -204,7 +207,8 @@ export function resetDashboardArticleWindowState(
 }
 
 /**
- * @param options
+ * Process the schedule dashboard article window refresh.
+ * @param options - The options used to process the schedule dashboard article window refresh.
  */
 export function scheduleDashboardArticleWindowRefresh(
   options: DashboardArticleWindowRefreshOptions,

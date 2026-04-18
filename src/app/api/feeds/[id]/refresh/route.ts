@@ -7,8 +7,10 @@ interface RouteContext {
 }
 
 /**
- * @param request
- * @param _context
+ * Render the post component.
+ * @param request - The request.
+ * @param _context - The context.
+ * @returns The rendered post component.
  */
 export async function POST(request: NextRequest, _context?: RouteContext) {
   const auth = await serverApi.requireAuthenticatedUser(request);

@@ -19,6 +19,70 @@ import {
   updateBackgroundStar as updateSceneBackgroundStar,
 } from "@/app/dashboard/dashboard-components/BackgroundStars.scene";
 
+interface BackgroundStarCanvasOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+  initStars: () => void;
+}
+
+interface BackgroundStarCanvasSetupOptions {
+  buildStar: () => Star;
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+  quantity: number;
+  starsRef: React.RefObject<Star[]>;
+}
+interface BackgroundStarPointerHandlerOptions {
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  mouseRef: React.RefObject<{ x: number; y: number }>;
+}
+
+interface BackgroundStarRendererOptions {
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+  drawStar: typeof drawBackgroundStar;
+  ease: number;
+  mouseRef: React.RefObject<{ x: number; y: number }>;
+  starsRef: React.RefObject<Star[]>;
+  staticity: number;
+}
+interface BackgroundStarsFrameOptions {
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+  delta: number;
+  drawStar: typeof drawBackgroundStar;
+  ease: number;
+  mouseRef: React.RefObject<{ x: number; y: number }>;
+  starsRef: React.RefObject<Star[]>;
+  staticity: number;
+}
+
+interface BackgroundStarsOptions {
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+  height: number;
+  stars: Star[];
+  width: number;
+}
+interface BuildBackgroundStarOptions {
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  color: "dark" | "light";
+}
+
+interface RescaleBackgroundStarPositionsOptions {
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  resizeCanvas: () => void;
+  starsRef: React.RefObject<Star[]>;
+}
+interface ResizeBackgroundStarCanvasOptions {
+  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  canvasSize: React.RefObject<{ h: number; w: number }>;
+  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
+}
+
 interface StarsProps {
   className?: string;
   color?: "dark" | "light";
@@ -26,25 +90,20 @@ interface StarsProps {
   quantity?: number;
   refresh?: boolean;
   staticity?: number;
-}
-
-/**
- * @param root0
- * @param root0.className
- * @param root0.color
- * @param root0.ease
- * @param root0.quantity
- * @param root0.refresh
- * @param root0.staticity
+} /**
+ * Render the background stars component.
+ * @param props - The component props.
+ * @returns The rendered background stars component.
  */
-export default function BackgroundStars({
-  className = "",
-  color = "light",
-  ease = 50,
-  quantity = 30,
-  refresh = false,
-  staticity = 50,
-}: StarsProps) {
+export default function BackgroundStars(props: StarsProps) {
+  const {
+    className = "",
+    color = "light",
+    ease = 50,
+    quantity = 30,
+    refresh = false,
+    staticity = 50,
+  } = props;
   const runtime = useBackgroundStarsRuntime({
     color,
     ease,
@@ -84,23 +143,11 @@ export default function BackgroundStars({
 }
 
 /**
- * @param root0
- * @param root0.contextRef
- * @param root0.height
- * @param root0.stars
- * @param root0.width
+ * Draw the background stars.
+ * @param options - The options used to draw the background stars.
  */
-function drawBackgroundStars({
-  contextRef,
-  height,
-  stars,
-  width,
-}: {
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-  height: number;
-  stars: Star[];
-  width: number;
-}) {
+function drawBackgroundStars(options: BackgroundStarsOptions) {
+  const { contextRef, height, stars, width } = options;
   const context = contextRef.current;
   if (!context) {
     return;
@@ -110,23 +157,12 @@ function drawBackgroundStars({
   for (const star of stars) {
     drawBackgroundStar(context, star);
   }
-}
-
-/**
- * @param root0
- * @param root0.canvasRef
- * @param root0.contextRef
- * @param root0.initStars
+} /**
+ * Initialize the background star canvas.
+ * @param options - The options used to initialize the background star canvas.
  */
-function initializeBackgroundStarCanvas({
-  canvasRef,
-  contextRef,
-  initStars,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-  initStars: () => void;
-}) {
+function initializeBackgroundStarCanvas(options: BackgroundStarCanvasOptions) {
+  const { canvasRef, contextRef, initStars } = options;
   const canvas = canvasRef.current;
   if (!canvas) {
     return;
@@ -142,35 +178,20 @@ function initializeBackgroundStarCanvas({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.contextRef
- * @param root0.delta
- * @param root0.drawStar
- * @param root0.ease
- * @param root0.mouseRef
- * @param root0.starsRef
- * @param root0.staticity
+ * Render the background stars frame.
+ * @param options - The options used to render the background stars frame.
  */
-function renderBackgroundStarsFrame({
-  canvasSize,
-  contextRef,
-  delta,
-  drawStar,
-  ease,
-  mouseRef,
-  starsRef,
-  staticity,
-}: {
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-  delta: number;
-  drawStar: typeof drawBackgroundStar;
-  ease: number;
-  mouseRef: React.RefObject<{ x: number; y: number }>;
-  starsRef: React.RefObject<Star[]>;
-  staticity: number;
-}) {
+function renderBackgroundStarsFrame(options: BackgroundStarsFrameOptions) {
+  const {
+    canvasSize,
+    contextRef,
+    delta,
+    drawStar,
+    ease,
+    mouseRef,
+    starsRef,
+    staticity,
+  } = options;
   const context = contextRef.current;
   if (!context) {
     return;
@@ -185,23 +206,14 @@ function renderBackgroundStarsFrame({
     updateSceneBackgroundStar(star, lerpFactor, mouseRef.current, staticity);
     drawStar(context, star);
   }
-}
-
-/**
- * @param root0
- * @param root0.canvasSize
- * @param root0.resizeCanvas
- * @param root0.starsRef
+} /**
+ * Process the rescale background star positions.
+ * @param options - The options used to process the rescale background star positions.
  */
-function rescaleBackgroundStarPositions({
-  canvasSize,
-  resizeCanvas,
-  starsRef,
-}: {
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  resizeCanvas: () => void;
-  starsRef: React.RefObject<Star[]>;
-}) {
+function rescaleBackgroundStarPositions(
+  options: RescaleBackgroundStarPositionsOptions,
+) {
+  const { canvasSize, resizeCanvas, starsRef } = options;
   const oldW = canvasSize.current.w;
   const oldH = canvasSize.current.h;
   resizeCanvas();
@@ -220,23 +232,13 @@ function rescaleBackgroundStarPositions({
 }
 
 /**
- * @param root0
- * @param root0.canvasContainerRef
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.contextRef
+ * Process the resize background star canvas.
+ * @param options - The options used to process the resize background star canvas.
  */
-function resizeBackgroundStarCanvas({
-  canvasContainerRef,
-  canvasRef,
-  canvasSize,
-  contextRef,
-}: {
-  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-}) {
+function resizeBackgroundStarCanvas(
+  options: ResizeBackgroundStarCanvasOptions,
+) {
+  const { canvasContainerRef, canvasRef, canvasSize, contextRef } = options;
   const canvas = canvasRef.current;
   const container = canvasContainerRef.current;
   const context = contextRef.current;
@@ -253,35 +255,23 @@ function resizeBackgroundStarCanvas({
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
-}
-
-/**
- * @param root0
- * @param root0.buildStar
- * @param root0.canvasContainerRef
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.contextRef
- * @param root0.quantity
- * @param root0.starsRef
+} /**
+ * Manage the background star canvas setup.
+ * @param options - The options used to manage the background star canvas setup.
+ * @returns The background star canvas setup state and callbacks.
  */
-function useBackgroundStarCanvasSetup({
-  buildStar,
-  canvasContainerRef,
-  canvasRef,
-  canvasSize,
-  contextRef,
-  quantity,
-  starsRef,
-}: {
-  buildStar: () => Star;
-  canvasContainerRef: React.RefObject<HTMLDivElement | null>;
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-  quantity: number;
-  starsRef: React.RefObject<Star[]>;
-}) {
+function useBackgroundStarCanvasSetup(
+  options: BackgroundStarCanvasSetupOptions,
+) {
+  const {
+    buildStar,
+    canvasContainerRef,
+    canvasRef,
+    canvasSize,
+    contextRef,
+    quantity,
+    starsRef,
+  } = options;
   const resizeCanvas = useCallback(() => {
     resizeBackgroundStarCanvas({
       canvasContainerRef,
@@ -308,20 +298,14 @@ function useBackgroundStarCanvasSetup({
 }
 
 /**
- * @param root0
- * @param root0.canvasRef
- * @param root0.canvasSize
- * @param root0.mouseRef
+ * Manage the background star pointer handler.
+ * @param options - The options used to manage the background star pointer handler.
+ * @returns The background star pointer handler state and callbacks.
  */
-function useBackgroundStarPointerHandler({
-  canvasRef,
-  canvasSize,
-  mouseRef,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>;
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  mouseRef: React.RefObject<{ x: number; y: number }>;
-}) {
+function useBackgroundStarPointerHandler(
+  options: BackgroundStarPointerHandlerOptions,
+) {
+  const { canvasRef, canvasSize, mouseRef } = options;
   return useCallback(
     (event: MouseEvent) => {
       mouseRef.current = resolveBackgroundStarPointerOffset({
@@ -336,32 +320,20 @@ function useBackgroundStarPointerHandler({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.contextRef
- * @param root0.drawStar
- * @param root0.ease
- * @param root0.mouseRef
- * @param root0.starsRef
- * @param root0.staticity
+ * Manage the background star renderer.
+ * @param options - The options used to manage the background star renderer.
+ * @returns The background star renderer state and callbacks.
  */
-function useBackgroundStarRenderer({
-  canvasSize,
-  contextRef,
-  drawStar,
-  ease,
-  mouseRef,
-  starsRef,
-  staticity,
-}: {
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  contextRef: React.RefObject<CanvasRenderingContext2D | null>;
-  drawStar: typeof drawBackgroundStar;
-  ease: number;
-  mouseRef: React.RefObject<{ x: number; y: number }>;
-  starsRef: React.RefObject<Star[]>;
-  staticity: number;
-}) {
+function useBackgroundStarRenderer(options: BackgroundStarRendererOptions) {
+  const {
+    canvasSize,
+    contextRef,
+    drawStar,
+    ease,
+    mouseRef,
+    starsRef,
+    staticity,
+  } = options;
   return useCallback(
     (_now: number, delta: number) => {
       renderBackgroundStarsFrame({
@@ -377,21 +349,17 @@ function useBackgroundStarRenderer({
     },
     [canvasSize, contextRef, drawStar, ease, mouseRef, starsRef, staticity],
   );
-}
-
-/**
- * @param root0
- * @param root0.color
- * @param root0.ease
- * @param root0.quantity
- * @param root0.staticity
+} /**
+ * Manage the background stars runtime.
+ * @param options - The options used to manage the background stars runtime.
+ * @returns The background stars runtime state and callbacks.
  */
-function useBackgroundStarsRuntime({
-  color,
-  ease,
-  quantity,
-  staticity,
-}: Required<Pick<StarsProps, "color" | "ease" | "quantity" | "staticity">>) {
+function useBackgroundStarsRuntime(
+  options: Required<
+    Pick<StarsProps, "color" | "ease" | "quantity" | "staticity">
+  >,
+) {
+  const { color, ease, quantity, staticity } = options;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
@@ -435,17 +403,12 @@ function useBackgroundStarsRuntime({
 }
 
 /**
- * @param root0
- * @param root0.canvasSize
- * @param root0.color
+ * Manage the build background star.
+ * @param options - The options used to manage the build background star.
+ * @returns The build background star state and callbacks.
  */
-function useBuildBackgroundStar({
-  canvasSize,
-  color,
-}: {
-  canvasSize: React.RefObject<{ h: number; w: number }>;
-  color: "dark" | "light";
-}) {
+function useBuildBackgroundStar(options: BuildBackgroundStarOptions) {
+  const { canvasSize, color } = options;
   return useCallback(
     () => buildBackgroundStar(canvasSize.current, color),
     [canvasSize, color],

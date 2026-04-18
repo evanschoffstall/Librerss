@@ -6,14 +6,12 @@ interface LoginSkeletonFieldProps {
 }
 
 /**
- * @param root0
- * @param root0.inputWidth
- * @param root0.labelWidth
+ * Render the login skeleton field component.
+ * @param props - The component props.
+ * @returns The rendered login skeleton field component.
  */
-export function LoginSkeletonField({
-  inputWidth = "w-full",
-  labelWidth,
-}: LoginSkeletonFieldProps) {
+export function LoginSkeletonField(props: LoginSkeletonFieldProps) {
+  const { inputWidth = "w-full", labelWidth } = props;
   return (
     <div className="space-y-1.5">
       <Skeleton

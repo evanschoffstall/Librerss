@@ -8,19 +8,19 @@ export interface EncodedHttpResponse {
   headers: Record<string, string | string[] | undefined>;
   text?: string;
 }
+interface HttpResponseBodyOptions {
+  maxOutputBytes: number;
+}
 
 /**
- * Decode an upstream response body, honoring pre-decoded text and
- * content-encoding headers from HTTPCloak responses.
- * @param response
- * @param options
- * @param options.maxOutputBytes
+ * Decode the http response body.
+ * @param response - The response.
+ * @param options - The options used to decode the http response body.
+ * @returns The http response body.
  */
 export async function decodeHttpResponseBody(
   response: EncodedHttpResponse,
-  options: {
-    maxOutputBytes: number;
-  },
+  options: HttpResponseBodyOptions,
 ): Promise<string> {
   if (typeof response.text === "string") {
     return response.text;
@@ -36,9 +36,10 @@ export async function decodeHttpResponseBody(
 }
 
 /**
- * Read a single header value with exact-then-case-insensitive lookup semantics.
- * @param headers
- * @param headerName
+ * Return the single header value.
+ * @param headers - The headers.
+ * @param headerName - The header name.
+ * @returns The single header value.
  */
 export function getSingleHeaderValue(
   headers: Record<string, string | string[] | undefined>,
@@ -60,7 +61,9 @@ export function getSingleHeaderValue(
 }
 
 /**
- * @param value
+ * Normalize the header value.
+ * @param value - The value.
+ * @returns The header value.
  */
 function normalizeHeaderValue(
   value: string | string[] | undefined,

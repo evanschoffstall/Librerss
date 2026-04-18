@@ -31,8 +31,9 @@ interface DashboardPageProps {
 }
 
 /**
- * Resolves the dashboard route shell and authenticated session state.
- * @param props
+ * Render the dashboard component.
+ * @param props - The component props.
+ * @returns The rendered dashboard component.
  */
 export default async function Dashboard(props: DashboardPageProps) {
   const [cookieStore, searchParams] = await Promise.all([
@@ -77,8 +78,8 @@ export default async function Dashboard(props: DashboardPageProps) {
 }
 
 /**
- * Inline shell skeleton fallback that composes the native component skeletons
- * through the same `DashboardScaffold` used by the hydrated dashboard.
+ * Render the dashboard shell fallback component.
+ * @returns The rendered dashboard shell fallback component.
  */
 function DashboardShellFallback() {
   return (

@@ -29,21 +29,31 @@ export interface DashboardControllerProps {
   usePlaceholderData: boolean;
 }
 
+interface DashboardControllerEffectsOptions {
+  articleFilter: ArticleFilter;
+  categories: typeof INITIAL_CATEGORIES;
+  categoryTree: ReturnType<
+    typeof useDashboardControllerResources
+  >["categoryTree"];
+  selectedCategory: string;
+  setExpandedArticleKey: ReturnType<
+    typeof useDashboardState
+  >["setExpandedArticleKey"];
+}
+
 /**
- * @param root0
- * @param root0.backgroundMode
- * @param root0.distillStrategy
- * @param root0.onBackgroundModeChange
- * @param root0.onDistillStrategyChange
- * @param root0.usePlaceholderData
+ * Manage the dashboard controller.
+ * @param options - The options used to manage the dashboard controller.
+ * @returns The dashboard controller state and callbacks.
  */
-export function useDashboardController({
-  backgroundMode,
-  distillStrategy,
-  onBackgroundModeChange,
-  onDistillStrategyChange,
-  usePlaceholderData,
-}: DashboardControllerProps) {
+export function useDashboardController(options: DashboardControllerProps) {
+  const {
+    backgroundMode,
+    distillStrategy,
+    onBackgroundModeChange,
+    onDistillStrategyChange,
+    usePlaceholderData,
+  } = options;
   const controllerState = useDashboardControllerState({
     distillStrategy,
     usePlaceholderData,
@@ -72,12 +82,12 @@ export function useDashboardController({
     viewModelState: controllerState.viewModelState,
   });
 }
-
 /**
- * @param categories
- * @param customCategoryLabels
- * @param orderedCategoryLabels
- * @param setOrderedCategoryLabels
+ * Manage the dashboard category order effect.
+ * @param categories - The categories.
+ * @param customCategoryLabels - The custom category labels.
+ * @param orderedCategoryLabels - The ordered category labels.
+ * @param setOrderedCategoryLabels - The set ordered category labels.
  */
 function useDashboardCategoryOrderEffect(
   categories: ReturnType<typeof useDashboardState>["categories"],
@@ -117,30 +127,19 @@ function useDashboardCategoryOrderEffect(
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.categories
- * @param root0.categoryTree
- * @param root0.selectedCategory
- * @param root0.setExpandedArticleKey
+ * Manage the dashboard controller effects.
+ * @param options - The options used to manage the dashboard controller effects.
  */
-function useDashboardControllerEffects({
-  articleFilter,
-  categories,
-  categoryTree,
-  selectedCategory,
-  setExpandedArticleKey,
-}: {
-  articleFilter: ArticleFilter;
-  categories: typeof INITIAL_CATEGORIES;
-  categoryTree: ReturnType<
-    typeof useDashboardControllerResources
-  >["categoryTree"];
-  selectedCategory: string;
-  setExpandedArticleKey: ReturnType<
-    typeof useDashboardState
-  >["setExpandedArticleKey"];
-}) {
+function useDashboardControllerEffects(
+  options: DashboardControllerEffectsOptions,
+) {
+  const {
+    articleFilter,
+    categories,
+    categoryTree,
+    selectedCategory,
+    setExpandedArticleKey,
+  } = options;
   useDashboardCategoryOrderEffect(
     categories,
     categoryTree.customCategoryLabels,
@@ -155,14 +154,17 @@ function useDashboardControllerEffects({
 }
 
 /**
- * @param root0
- * @param root0.distillStrategy
- * @param root0.usePlaceholderData
+ * Manage the dashboard controller state.
+ * @param options - The options used to manage the dashboard controller state.
+ * @returns The dashboard controller state state and callbacks.
  */
-function useDashboardControllerState({
-  distillStrategy,
-  usePlaceholderData,
-}: Pick<DashboardControllerProps, "distillStrategy" | "usePlaceholderData">) {
+function useDashboardControllerState(
+  options: Pick<
+    DashboardControllerProps,
+    "distillStrategy" | "usePlaceholderData"
+  >,
+) {
+  const { distillStrategy, usePlaceholderData } = options;
   const refreshState = useDashboardControllerRefreshState(usePlaceholderData);
   const animationState = useDashboardAnimatingArticleState();
   const dashboardState = useDashboardState();
@@ -220,9 +222,10 @@ function useDashboardControllerState({
 }
 
 /**
- * @param articleFilter
- * @param selectedCategory
- * @param setExpandedArticleKey
+ * Manage the dashboard expanded article reset effect.
+ * @param articleFilter - The article filter.
+ * @param selectedCategory - The selected category.
+ * @param setExpandedArticleKey - The set expanded article key.
  */
 function useDashboardExpandedArticleResetEffect(
   articleFilter: ReturnType<typeof useDashboardState>["articleFilter"],

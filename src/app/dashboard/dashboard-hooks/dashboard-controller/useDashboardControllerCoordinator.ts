@@ -23,6 +23,15 @@ import { refreshCurrentSelection } from "@/app/dashboard/dashboard-services/sele
 
 type DashboardArticleFilter = "all" | "read" | "starred" | "unread";
 
+interface DashboardAutoRefreshOptions {
+  autoRefreshFeedList: () => Promise<void>;
+  autoRefreshIntervalMinutes: number;
+  cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
+  setRelativeRefreshTick: ReturnType<
+    typeof useDashboardControllerRefreshState
+  >["setRelativeRefreshTick"];
+}
+
 type UseDashboardControllerRuntimeOptions = Omit<
   DashboardControllerRuntimeStateOptions,
   "articleLimit" | "initialArticleLimit" | "onTimeout"
@@ -46,7 +55,9 @@ type UseDashboardControllerRuntimeOptions = Omit<
 };
 
 /**
- * @param usePlaceholderData
+ * Manage the dashboard controller refresh state.
+ * @param usePlaceholderData - The placeholder data.
+ * @returns The dashboard controller refresh state state and callbacks.
  */
 export function useDashboardControllerRefreshState(
   usePlaceholderData: boolean,
@@ -55,7 +66,9 @@ export function useDashboardControllerRefreshState(
 }
 
 /**
- * @param options
+ * Manage the dashboard controller runtime.
+ * @param options - The options used to manage the dashboard controller runtime.
+ * @returns The dashboard controller runtime state and callbacks.
  */
 export function useDashboardControllerRuntime(
   options: UseDashboardControllerRuntimeOptions,
@@ -110,7 +123,9 @@ export function useDashboardControllerRuntime(
 }
 
 /**
- * @param options
+ * Create the dashboard controller runtime state options.
+ * @param options - The options used to create the dashboard controller runtime state options.
+ * @returns The dashboard controller runtime state options.
  */
 function createDashboardControllerRuntimeStateOptions(
   options: UseDashboardControllerRuntimeOptions,
@@ -145,9 +160,9 @@ function createDashboardControllerRuntimeStateOptions(
     timeoutMs: options.timeoutMs,
   } satisfies Parameters<typeof useDashboardControllerRuntimeState>[0];
 }
-
 /**
- * @param options
+ * Manage the dashboard article filter refresh.
+ * @param options - The options used to manage the dashboard article filter refresh.
  */
 function useDashboardArticleFilterRefresh(
   options: Pick<
@@ -210,20 +225,11 @@ function useDashboardArticleFilterRefresh(
 }
 
 /**
- * @param options
- * @param options.autoRefreshFeedList
- * @param options.autoRefreshIntervalMinutes
- * @param options.cancelPendingRequest
- * @param options.setRelativeRefreshTick
+ * Manage the dashboard auto refresh.
+ * @param options - The options used to manage the dashboard auto refresh.
+ * @returns Whether dashboard auto refresh.
  */
-function useDashboardAutoRefresh(options: {
-  autoRefreshFeedList: () => Promise<void>;
-  autoRefreshIntervalMinutes: number;
-  cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
-  setRelativeRefreshTick: ReturnType<
-    typeof useDashboardControllerRefreshState
-  >["setRelativeRefreshTick"];
-}) {
+function useDashboardAutoRefresh(options: DashboardAutoRefreshOptions) {
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const isAutoRefreshingRef = useRef(false);
 
@@ -267,7 +273,8 @@ function useDashboardAutoRefresh(options: {
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
- * @param options
+ * Manage the dashboard search refresh.
+ * @param options - The options used to manage the dashboard search refresh.
  */
 function useDashboardSearchRefresh(
   options: Pick<

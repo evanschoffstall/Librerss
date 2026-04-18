@@ -9,17 +9,12 @@ interface LoginLegalConsentProps {
 }
 
 /**
- * Renders the signup-only legal consent copy and checkbox.
- * @param root0
- * @param root0.errorMessage
- * @param root0.hasAcceptedLegalTerms
- * @param root0.onAcceptedChange
+ * Render the login legal consent component.
+ * @param props - The component props.
+ * @returns The rendered login legal consent component.
  */
-export function LoginLegalConsent({
-  errorMessage,
-  hasAcceptedLegalTerms,
-  onAcceptedChange,
-}: LoginLegalConsentProps) {
+export function LoginLegalConsent(props: LoginLegalConsentProps) {
+  const { errorMessage, hasAcceptedLegalTerms, onAcceptedChange } = props;
   return (
     <div
       className={

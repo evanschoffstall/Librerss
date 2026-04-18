@@ -32,10 +32,11 @@ interface ObserveViewportRestoreOptions {
 }
 
 /**
- * @param rootNode
- * @param sessionKey
- * @param refs
- * @param restore
+ * Process the apply viewport ref.
+ * @param rootNode - The root node.
+ * @param sessionKey - The session key.
+ * @param refs - The refs.
+ * @param restore - The callback that restore.
  */
 export function applyViewportRef(
   rootNode: HTMLElement | null,
@@ -63,8 +64,10 @@ export function applyViewportRef(
 }
 
 /**
- * @param viewport
- * @param scrollOffset
+ * Build the saved scroll.
+ * @param viewport - The viewport.
+ * @param scrollOffset - The scroll offset value.
+ * @returns The saved scroll.
  */
 export function buildSavedScroll(
   viewport: HTMLElement,
@@ -105,9 +108,10 @@ export function buildSavedScroll(
 }
 
 /**
- * @param sessionKey
- * @param refs
- * @param restore
+ * Process the capture viewport state.
+ * @param sessionKey - The session key.
+ * @param refs - The refs.
+ * @param restore - The callback that restore.
  */
 export function captureViewportState(
   sessionKey: string,
@@ -132,9 +136,11 @@ export function captureViewportState(
 }
 
 /**
- * @param viewport
- * @param target
- * @param scrollOffset
+ * Process the clamp scroll top.
+ * @param viewport - The viewport.
+ * @param target - The target.
+ * @param scrollOffset - The scroll offset value.
+ * @returns The clamp scroll top.
  */
 export function clampScrollTop(
   viewport: HTMLElement,
@@ -147,8 +153,10 @@ export function clampScrollTop(
 }
 
 /**
- * @param viewport
- * @param saved
+ * Process the find saved anchor.
+ * @param viewport - The viewport.
+ * @param saved - The saved.
+ * @returns The find saved anchor.
  */
 export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
   const children = Array.from(viewport.firstElementChild?.children ?? []);
@@ -163,9 +171,10 @@ export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
 }
 
 /**
- * @param sessionKey
- * @param refs
- * @param restore
+ * Process the flush viewport state.
+ * @param sessionKey - The session key.
+ * @param refs - The refs.
+ * @param restore - The callback that restore.
  */
 export function flushViewportState(
   sessionKey: string,
@@ -184,8 +193,10 @@ export function flushViewportState(
 }
 
 /**
- * @param element
- * @param viewport
+ * Return the element offset.
+ * @param element - The element.
+ * @param viewport - The viewport.
+ * @returns The element offset.
  */
 export function getElementOffset(element: Element, viewport: HTMLElement) {
   return (
@@ -196,7 +207,9 @@ export function getElementOffset(element: Element, viewport: HTMLElement) {
 }
 
 /**
- * @param element
+ * Return the scroll anchor key.
+ * @param element - The element.
+ * @returns The scroll anchor key.
  */
 export function getScrollAnchorKey(element: Element) {
   const ownKey = element.getAttribute("data-scroll-restore-key");
@@ -214,9 +227,10 @@ export function getScrollAnchorKey(element: Element) {
 }
 
 /**
- * @param sessionKey
- * @param refs
- * @param stopRestore
+ * Process the invalidate viewport state.
+ * @param sessionKey - The session key.
+ * @param refs - The refs.
+ * @param stopRestore - The callback that stop restore.
  */
 export function invalidateViewportState(
   sessionKey: string,
@@ -233,9 +247,10 @@ export function invalidateViewportState(
 }
 
 /**
- * @param sessionKey
- * @param refs
- * @param applyScrollTop
+ * Process the restore viewport state.
+ * @param sessionKey - The session key.
+ * @param refs - The refs.
+ * @param applyScrollTop - The callback that apply scroll top.
  */
 export function restoreViewportState(
   sessionKey: string,
@@ -269,18 +284,13 @@ export function restoreViewportState(
 }
 
 /**
- * @param root0
- * @param root0.refs
- * @param root0.restore
- * @param root0.sessionKey
- * @param root0.stopRestore
+ * Manage the viewport restore lifecycle.
+ * @param options - The options used to manage the viewport restore lifecycle.
  */
-export function useViewportRestoreLifecycle({
-  refs,
-  restore,
-  sessionKey,
-  stopRestore,
-}: ObserveViewportRestoreOptions): void {
+export function useViewportRestoreLifecycle(
+  options: ObserveViewportRestoreOptions,
+): void {
+  const { refs, restore, sessionKey, stopRestore } = options;
   useEffect(() => {
     const viewport = refs.viewportRef.current;
     if (!viewport) {
@@ -307,7 +317,9 @@ export function useViewportRestoreLifecycle({
 }
 
 /**
- * @param scrollOffset
+ * Manage the viewport restore refs.
+ * @param scrollOffset - The scroll offset value.
+ * @returns The viewport restore refs state and callbacks.
  */
 export function useViewportRestoreRefs(
   scrollOffset: number,

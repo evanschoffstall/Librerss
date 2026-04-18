@@ -22,6 +22,13 @@ import {
   replaceCategoryLabel,
 } from "@/lib/utils";
 
+interface AddCategoryLabelOptions {
+  categories: CategoryTreeNode[];
+  customCategoryLabels: string[];
+  label: string;
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+}
+
 interface CategoryLabelCollectionSetters {
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
@@ -32,6 +39,28 @@ interface CategoryRemovalStateSetters extends CategoryLabelCollectionSetters {
   setPendingCategoryRemovalLabel: React.Dispatch<
     React.SetStateAction<null | string>
   >;
+}
+
+interface CategoryRenameContextOptions {
+  categories: CategoryTreeNode[];
+  normalizedCurrent: string;
+  selectedCategory: string;
+}
+interface CommitCategoryRenameOptions {
+  categories: CategoryTreeNode[];
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  normalizedCurrent: string;
+  normalizedNext: string;
+  renameContext: ReturnType<typeof getCategoryRenameContext>;
+  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+
+interface EnsureCategoriesLoadedForSelectionRestoreOptions {
+  categoriesWereReloaded: boolean;
+  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  refreshedCategories: CategoryTreeNode[];
 }
 
 interface RemoveCategoryAndRefreshOptions extends CategoryRemovalStateSetters {
@@ -57,24 +86,28 @@ interface RenameCategoryAndRefreshOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
-/**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.label
- * @param root0.setCustomCategoryLabels
- */
-export function addCategoryLabel({
-  categories,
-  customCategoryLabels,
-  label,
-  setCustomCategoryLabels,
-}: {
+interface RestoreCategorySelectionAfterRefreshOptions {
   categories: CategoryTreeNode[];
+  refreshedCategories: CategoryTreeNode[];
+  selectedCategory: string;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+}
+
+interface ValidateCategoryRenameOptions {
+  categories: CategoryTreeNode[];
+  currentLabel: string;
   customCategoryLabels: string[];
-  label: string;
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-}): boolean {
+  nextLabel: string;
+}
+
+/**
+ * Process the add category label.
+ * @param options - The options used to process the add category label.
+ * @returns Whether add category label.
+ */
+export function addCategoryLabel(options: AddCategoryLabelOptions): boolean {
+  const { categories, customCategoryLabels, label, setCustomCategoryLabels } =
+    options;
   const normalized = normalizeCategory(label);
   if (!normalized) {
     toast.error("Category name is required.");
@@ -93,9 +126,11 @@ export function addCategoryLabel({
 }
 
 /**
- * @param current
- * @param label
- * @param targetIndex
+ * Process the move category by drop in order.
+ * @param current - The current.
+ * @param label - The label.
+ * @param targetIndex - The target index value.
+ * @returns The move category by drop in order.
  */
 export function moveCategoryByDropInOrder(
   current: string[],
@@ -114,36 +149,28 @@ export function moveCategoryByDropInOrder(
   next.splice(insertionIndex, 0, moved);
   return next;
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.ensureCategoryLabelExists
- * @param root0.label
- * @param root0.loadFeedSources
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setPendingCategoryRemovalLabel
- * @param root0.setSelectedCategory
+ * Process the remove category and refresh.
+ * @param options - The options used to process the remove category and refresh.
+ * @returns The remove category and refresh.
  */
-export async function removeCategoryAndRefresh({
-  categories,
-  customCategoryLabels,
-  ensureCategoryLabelExists,
-  label,
-  loadFeedSources,
-  pendingCategoryRemovalLabel,
-  selectedCategory,
-  setCategories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setPendingCategoryRemovalLabel,
-  setSelectedCategory,
-}: RemoveCategoryAndRefreshOptions): Promise<boolean> {
+export async function removeCategoryAndRefresh(
+  options: RemoveCategoryAndRefreshOptions,
+): Promise<boolean> {
+  const {
+    categories,
+    customCategoryLabels,
+    ensureCategoryLabelExists,
+    label,
+    loadFeedSources,
+    pendingCategoryRemovalLabel,
+    selectedCategory,
+    setCategories,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setPendingCategoryRemovalLabel,
+    setSelectedCategory,
+  } = options;
   const removalState = resolveCategoryRemovalState({
     categories,
     customCategoryLabels,
@@ -186,28 +213,24 @@ export async function removeCategoryAndRefresh({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.currentLabel
- * @param root0.customCategoryLabels
- * @param root0.loadFeedSources
- * @param root0.nextLabel
- * @param root0.selectedCategory
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setSelectedCategory
+ * Process the rename category and refresh.
+ * @param options - The options used to process the rename category and refresh.
+ * @returns The rename category and refresh.
  */
-export async function renameCategoryAndRefresh({
-  categories,
-  currentLabel,
-  customCategoryLabels,
-  loadFeedSources,
-  nextLabel,
-  selectedCategory,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setSelectedCategory,
-}: RenameCategoryAndRefreshOptions): Promise<boolean> {
+export async function renameCategoryAndRefresh(
+  options: RenameCategoryAndRefreshOptions,
+): Promise<boolean> {
+  const {
+    categories,
+    currentLabel,
+    customCategoryLabels,
+    loadFeedSources,
+    nextLabel,
+    selectedCategory,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setSelectedCategory,
+  } = options;
   const renameInput = validateCategoryRename({
     categories,
     currentLabel,
@@ -242,22 +265,20 @@ export async function renameCategoryAndRefresh({
     return false;
   }
 }
-
 /**
- * @param root0
- * @param root0.label
- * @param root0.setCategories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setPendingCategoryRemovalLabel
+ * Process the apply immediate category removal.
+ * @param options - The options used to process the apply immediate category removal.
  */
-function applyImmediateCategoryRemoval({
-  label,
-  setCategories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setPendingCategoryRemovalLabel,
-}: CategoryRemovalStateSetters & { label: string }) {
+function applyImmediateCategoryRemoval(
+  options: CategoryRemovalStateSetters & { label: string },
+) {
+  const {
+    label,
+    setCategories,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setPendingCategoryRemovalLabel,
+  } = options;
   setPendingCategoryRemovalLabel(null);
   setCategories((current) => removeCategoryFromLocalState(current, label));
   removeCategoryFromLabelCollections(
@@ -268,8 +289,9 @@ function applyImmediateCategoryRemoval({
 }
 
 /**
- * @param feedNodes
- * @param targetCategory
+ * Process the assign feeds to category.
+ * @param feedNodes - The feed nodes.
+ * @param targetCategory - The target category.
  */
 async function assignFeedsToCategory(
   feedNodes: CategoryTreeNode[],
@@ -288,45 +310,36 @@ async function assignFeedsToCategory(
     ),
   );
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.ensureCategoryLabelExists
- * @param root0.feedsInCategory
- * @param root0.label
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCategories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setPendingCategoryRemovalLabel
- * @param root0.setSelectedCategory
- * @param root0.targetCategory
+ * Process the commit category removal.
+ * @param options - The options used to process the commit category removal.
  */
-async function commitCategoryRemoval({
-  categories,
-  ensureCategoryLabelExists,
-  feedsInCategory,
-  label,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setPendingCategoryRemovalLabel,
-  setSelectedCategory,
-  targetCategory,
-}: CategoryRemovalStateSetters & {
-  categories: CategoryTreeNode[];
-  ensureCategoryLabelExists: (label: string) => void;
-  feedsInCategory: CategoryTreeNode[];
-  label: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  selectedCategory: string;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  targetCategory: string;
-}) {
+async function commitCategoryRemoval(
+  options: CategoryRemovalStateSetters & {
+    categories: CategoryTreeNode[];
+    ensureCategoryLabelExists: (label: string) => void;
+    feedsInCategory: CategoryTreeNode[];
+    label: string;
+    loadFeedSources: () => Promise<CategoryTreeNode[]>;
+    selectedCategory: string;
+    setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+    targetCategory: string;
+  },
+) {
+  const {
+    categories,
+    ensureCategoryLabelExists,
+    feedsInCategory,
+    label,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setPendingCategoryRemovalLabel,
+    setSelectedCategory,
+    targetCategory,
+  } = options;
   ensureCategoryLabelExists(targetCategory);
   setCategories((current) =>
     removeCategoryFromLocalState(current, label, targetCategory),
@@ -348,35 +361,20 @@ async function commitCategoryRemoval({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.loadFeedSources
- * @param root0.normalizedCurrent
- * @param root0.normalizedNext
- * @param root0.renameContext
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setSelectedCategory
+ * Process the commit category rename.
+ * @param options - The options used to process the commit category rename.
  */
-async function commitCategoryRename({
-  categories,
-  loadFeedSources,
-  normalizedCurrent,
-  normalizedNext,
-  renameContext,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  normalizedCurrent: string;
-  normalizedNext: string;
-  renameContext: ReturnType<typeof getCategoryRenameContext>;
-  setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}) {
+async function commitCategoryRename(options: CommitCategoryRenameOptions) {
+  const {
+    categories,
+    loadFeedSources,
+    normalizedCurrent,
+    normalizedNext,
+    renameContext,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setSelectedCategory,
+  } = options;
   let refreshedCategories: CategoryTreeNode[] = categories;
   let categoriesWereReloaded = false;
 
@@ -408,42 +406,28 @@ async function commitCategoryRename({
 }
 
 /**
- * @param root0
- * @param root0.categoriesWereReloaded
- * @param root0.loadFeedSources
- * @param root0.refreshedCategories
+ * Process the ensure categories loaded for selection restore.
+ * @param options - The options used to process the ensure categories loaded for selection restore.
+ * @returns The ensure categories loaded for selection restore.
  */
-async function ensureCategoriesLoadedForSelectionRestore({
-  categoriesWereReloaded,
-  loadFeedSources,
-  refreshedCategories,
-}: {
-  categoriesWereReloaded: boolean;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  refreshedCategories: CategoryTreeNode[];
-}) {
+async function ensureCategoriesLoadedForSelectionRestore(
+  options: EnsureCategoriesLoadedForSelectionRestoreOptions,
+) {
+  const { categoriesWereReloaded, loadFeedSources, refreshedCategories } =
+    options;
   if (categoriesWereReloaded) {
     return refreshedCategories;
   }
 
   return loadFeedSources();
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.normalizedCurrent
- * @param root0.selectedCategory
+ * Return the category rename context.
+ * @param options - The options used to return the category rename context.
+ * @returns The category rename context.
  */
-function getCategoryRenameContext({
-  categories,
-  normalizedCurrent,
-  selectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  normalizedCurrent: string;
-  selectedCategory: string;
-}) {
+function getCategoryRenameContext(options: CategoryRenameContextOptions) {
+  const { categories, normalizedCurrent, selectedCategory } = options;
   const categoryNode = findCategoryByLabel(categories, normalizedCurrent);
 
   return {
@@ -456,31 +440,18 @@ function getCategoryRenameContext({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.customCategoryLabels
- * @param root0.label
- * @param root0.pendingCategoryRemovalLabel
- * @param root0.setCategories
- * @param root0.setCustomCategoryLabels
- * @param root0.setOrderedCategoryLabels
- * @param root0.setPendingCategoryRemovalLabel
+ * Resolve the category removal state.
+ * @param options - The options used to resolve the category removal state.
+ * @returns The category removal state.
  */
-function resolveCategoryRemovalState({
-  categories,
-  customCategoryLabels,
-  label,
-  pendingCategoryRemovalLabel,
-  setCategories,
-  setCustomCategoryLabels,
-  setOrderedCategoryLabels,
-  setPendingCategoryRemovalLabel,
-}: CategoryRemovalStateSetters & {
-  categories: CategoryTreeNode[];
-  customCategoryLabels: string[];
-  label: string;
-  pendingCategoryRemovalLabel: null | string;
-}):
+function resolveCategoryRemovalState(
+  options: CategoryRemovalStateSetters & {
+    categories: CategoryTreeNode[];
+    customCategoryLabels: string[];
+    label: string;
+    pendingCategoryRemovalLabel: null | string;
+  },
+):
   | null
   | {
       completed: false;
@@ -488,6 +459,16 @@ function resolveCategoryRemovalState({
       targetCategory: string;
     }
   | { completed: true } {
+  const {
+    categories,
+    customCategoryLabels,
+    label,
+    pendingCategoryRemovalLabel,
+    setCategories,
+    setCustomCategoryLabels,
+    setOrderedCategoryLabels,
+    setPendingCategoryRemovalLabel,
+  } = options;
   const feedsInCategory =
     findCategoryByLabel(categories, label)?.children ?? [];
   if (feedsInCategory.length === 0) {
@@ -519,25 +500,19 @@ function resolveCategoryRemovalState({
 
   return { completed: false, feedsInCategory, targetCategory };
 }
-
 /**
- * @param root0
- * @param root0.categories
- * @param root0.refreshedCategories
- * @param root0.selectedCategory
- * @param root0.setSelectedCategory
+ * Process the restore category selection after refresh.
+ * @param options - The options used to process the restore category selection after refresh.
  */
-function restoreCategorySelectionAfterRefresh({
-  categories,
-  refreshedCategories,
-  selectedCategory,
-  setSelectedCategory,
-}: {
-  categories: CategoryTreeNode[];
-  refreshedCategories: CategoryTreeNode[];
-  selectedCategory: string;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}) {
+function restoreCategorySelectionAfterRefresh(
+  options: RestoreCategorySelectionAfterRefreshOptions,
+) {
+  const {
+    categories,
+    refreshedCategories,
+    selectedCategory,
+    setSelectedCategory,
+  } = options;
   const previousSelectedSourceUrl = getFeedUrlBySelectedKey(
     categories,
     selectedCategory,
@@ -551,23 +526,12 @@ function restoreCategorySelectionAfterRefresh({
 }
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.currentLabel
- * @param root0.customCategoryLabels
- * @param root0.nextLabel
+ * Process the validate category rename.
+ * @param options - The options used to process the validate category rename.
+ * @returns The validate category rename.
  */
-function validateCategoryRename({
-  categories,
-  currentLabel,
-  customCategoryLabels,
-  nextLabel,
-}: {
-  categories: CategoryTreeNode[];
-  currentLabel: string;
-  customCategoryLabels: string[];
-  nextLabel: string;
-}) {
+function validateCategoryRename(options: ValidateCategoryRenameOptions) {
+  const { categories, currentLabel, customCategoryLabels, nextLabel } = options;
   const normalizedCurrent = normalizeCategory(currentLabel);
   const normalizedNext = normalizeCategory(nextLabel);
   if (!normalizedCurrent || !normalizedNext) {

@@ -3,11 +3,12 @@ interface LoginFieldErrorProps {
 }
 
 /**
- * Inline validation error shown beneath the relevant form field group.
- * @param root0
- * @param root0.message
+ * Render the login field error component.
+ * @param props - The component props.
+ * @returns The rendered login field error component.
  */
-export function LoginFieldError({ message }: LoginFieldErrorProps) {
+export function LoginFieldError(props: LoginFieldErrorProps) {
+  const { message } = props;
   if (!message) {
     return null;
   }

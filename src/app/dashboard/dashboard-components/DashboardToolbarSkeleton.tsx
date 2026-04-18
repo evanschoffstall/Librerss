@@ -9,18 +9,16 @@ interface DashboardToolbarSkeletonProps {
   mobileToolbarMirror: boolean;
 }
 
+interface ToolbarDesktopActionsProps {
+  desktopActionCount: number;
+}
 /**
- * Mirrors the full toolbar footprint while the dashboard shell is still hydrating.
- * @param root0
- * @param root0.isDevelopmentMode
- * @param root0.mobileToolbarBottom
- * @param root0.mobileToolbarMirror
+ * Render the dashboard toolbar skeleton component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar skeleton component.
  */
-export function DashboardToolbarSkeleton({
-  isDevelopmentMode,
-  mobileToolbarBottom,
-  mobileToolbarMirror,
-}: DashboardToolbarSkeletonProps) {
+export function DashboardToolbarSkeleton(props: DashboardToolbarSkeletonProps) {
+  const { isDevelopmentMode, mobileToolbarBottom, mobileToolbarMirror } = props;
   const desktopActionCount = isDevelopmentMode ? 7 : 5;
 
   return (
@@ -70,14 +68,12 @@ export function DashboardToolbarSkeleton({
 }
 
 /**
- * @param root0
- * @param root0.desktopActionCount
+ * Render the toolbar desktop actions component.
+ * @param props - The component props.
+ * @returns The rendered toolbar desktop actions component.
  */
-function ToolbarDesktopActions({
-  desktopActionCount,
-}: {
-  desktopActionCount: number;
-}) {
+function ToolbarDesktopActions(props: ToolbarDesktopActionsProps) {
+  const { desktopActionCount } = props;
   return (
     <div
       className="
@@ -103,7 +99,8 @@ function ToolbarDesktopActions({
 }
 
 /**
- *
+ * Render the toolbar mobile actions component.
+ * @returns The rendered toolbar mobile actions component.
  */
 function ToolbarMobileActions() {
   return (
@@ -131,7 +128,8 @@ function ToolbarMobileActions() {
 }
 
 /**
- *
+ * Render the toolbar mobile edge action component.
+ * @returns The rendered toolbar mobile edge action component.
  */
 function ToolbarMobileEdgeAction() {
   return (
@@ -147,7 +145,8 @@ function ToolbarMobileEdgeAction() {
 }
 
 /**
- *
+ * Render the toolbar search skeleton component.
+ * @returns The rendered toolbar search skeleton component.
  */
 function ToolbarSearchSkeleton() {
   return (
@@ -161,7 +160,8 @@ function ToolbarSearchSkeleton() {
 }
 
 /**
- *
+ * Render the toolbar title skeleton component.
+ * @returns The rendered toolbar title skeleton component.
  */
 function ToolbarTitleSkeleton() {
   return (

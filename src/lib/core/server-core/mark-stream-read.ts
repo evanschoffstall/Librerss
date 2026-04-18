@@ -18,6 +18,17 @@ interface ArticleIdRow {
   articleId: number;
 }
 
+interface ArticleIdsForStreamOptions {
+  beforeDate: Date | undefined;
+  db: DbInstance;
+  enabledJoin: ReturnType<typeof and>;
+  stream: string;
+  tables: DbTables;
+  useArticleStatuses: boolean;
+  userId: number;
+  userLabel: null | string;
+}
+
 interface MarkStreamAsReadDeps {
   beforeMs?: number;
   canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;
@@ -26,13 +37,10 @@ interface MarkStreamAsReadDeps {
 }
 
 /**
- * Mark all articles in a stream as read for the given user.
- *
- * Shared by mark-all-read flows that operate on feed, label, or starred
- * streams.
- * @param userId
- * @param stream
- * @param deps
+ * Process the mark stream as read.
+ * @param userId - The r id.
+ * @param stream - The stream.
+ * @param deps - The deps.
  */
 export async function markStreamAsRead(
   userId: number,
@@ -77,8 +85,10 @@ export async function markStreamAsRead(
 }
 
 /**
- * @param userId
- * @param tables
+ * Build the enabled feed join.
+ * @param userId - The r id.
+ * @param tables - The tables.
+ * @returns The enabled feed join.
  */
 function buildEnabledFeedJoin(userId: number, tables: DbTables) {
   return and(
@@ -89,9 +99,11 @@ function buildEnabledFeedJoin(userId: number, tables: DbTables) {
 }
 
 /**
- * @param db
- * @param enabledJoin
- * @param tables
+ * Create the base article id query.
+ * @param db - The db.
+ * @param enabledJoin - The enabled join.
+ * @param tables - The tables.
+ * @returns The base article id query.
  */
 function createBaseArticleIdQuery(
   db: DbInstance,
@@ -106,10 +118,12 @@ function createBaseArticleIdQuery(
 }
 
 /**
- * @param db
- * @param enabledJoin
- * @param tables
- * @param beforeDate
+ * Process the list all stream article ids.
+ * @param db - The db.
+ * @param enabledJoin - The enabled join.
+ * @param tables - The tables.
+ * @param beforeDate - The before date.
+ * @returns The list all stream article ids.
  */
 function listAllStreamArticleIds(
   db: DbInstance,
@@ -125,11 +139,13 @@ function listAllStreamArticleIds(
 }
 
 /**
- * @param db
- * @param enabledJoin
- * @param tables
- * @param feedUrl
- * @param beforeDate
+ * Process the list feed stream article ids.
+ * @param db - The db.
+ * @param enabledJoin - The enabled join.
+ * @param tables - The tables.
+ * @param feedUrl - The feed url.
+ * @param beforeDate - The before date.
+ * @returns The list feed stream article ids.
  */
 function listFeedStreamArticleIds(
   db: DbInstance,
@@ -151,12 +167,14 @@ function listFeedStreamArticleIds(
 }
 
 /**
- * @param db
- * @param enabledJoin
- * @param tables
- * @param userId
- * @param userLabel
- * @param beforeDate
+ * Process the list label stream article ids.
+ * @param db - The db.
+ * @param enabledJoin - The enabled join.
+ * @param tables - The tables.
+ * @param userId - The r id.
+ * @param userLabel - The r label.
+ * @param beforeDate - The before date.
+ * @returns The list label stream article ids.
  */
 function listLabelStreamArticleIds(
   db: DbInstance,
@@ -180,13 +198,14 @@ function listLabelStreamArticleIds(
     )
     .limit(MARK_ALL_READ_LIMIT);
 }
-
 /**
- * @param db
- * @param enabledJoin
- * @param tables
- * @param userId
- * @param beforeDate
+ * Process the list starred stream article ids.
+ * @param db - The db.
+ * @param enabledJoin - The enabled join.
+ * @param tables - The tables.
+ * @param userId - The r id.
+ * @param beforeDate - The before date.
+ * @returns The list starred stream article ids.
  */
 function listStarredStreamArticleIds(
   db: DbInstance,
@@ -215,35 +234,23 @@ function listStarredStreamArticleIds(
 }
 
 /**
- * @param root0
- * @param root0.beforeDate
- * @param root0.db
- * @param root0.enabledJoin
- * @param root0.stream
- * @param root0.tables
- * @param root0.useArticleStatuses
- * @param root0.userId
- * @param root0.userLabel
+ * Resolve the article ids for stream.
+ * @param options - The options used to resolve the article ids for stream.
+ * @returns The article ids for stream.
  */
-async function resolveArticleIdsForStream({
-  beforeDate,
-  db,
-  enabledJoin,
-  stream,
-  tables,
-  useArticleStatuses,
-  userId,
-  userLabel,
-}: {
-  beforeDate: Date | undefined;
-  db: DbInstance;
-  enabledJoin: ReturnType<typeof and>;
-  stream: string;
-  tables: DbTables;
-  useArticleStatuses: boolean;
-  userId: number;
-  userLabel: null | string;
-}): Promise<ArticleIdRow[]> {
+async function resolveArticleIdsForStream(
+  options: ArticleIdsForStreamOptions,
+): Promise<ArticleIdRow[]> {
+  const {
+    beforeDate,
+    db,
+    enabledJoin,
+    stream,
+    tables,
+    useArticleStatuses,
+    userId,
+    userLabel,
+  } = options;
   if (stream.startsWith(FEED_STREAM_PREFIX)) {
     return listFeedStreamArticleIds(
       db,
@@ -275,8 +282,10 @@ async function resolveArticleIdsForStream({
 }
 
 /**
- * @param deps
- * @param getDbFn
+ * Resolve the mark stream as read deps.
+ * @param deps - The deps.
+ * @param getDbFn - The callback that db fn.
+ * @returns The mark stream as read deps.
  */
 function resolveMarkStreamAsReadDeps(
   deps: MarkStreamAsReadDeps | undefined,

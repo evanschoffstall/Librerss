@@ -63,6 +63,11 @@ export interface NormalizedBatchUrls {
   requestUrls: BatchUrlDescriptor[];
 }
 
+interface BatchIntentOptions {
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  skipRefresh: boolean;
+}
 interface BatchRequestStateParsers {
   parseArticleFilter: (value: unknown) => ArticleFilter | Response;
   parseArticleLimit: (value: unknown) => number | Response | undefined;
@@ -73,17 +78,86 @@ interface BatchRequestStateParsers {
   parseSearchTerm: (value: unknown) => Response | string | undefined;
 }
 
-/**
- * @param options
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.skipRefresh
- */
-export function buildBatchIntent(options: {
+interface InvalidBatchResultResponseOptions {
+  diagnosticsEnabled: boolean;
+  invalidUrlCount: number;
+  requestUrls: BatchUrlDescriptor[];
+  userId: number;
+}
+interface LogBatchDiagnosticsOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
+  invalidUrlCount: number;
+  normalizedUrls: string[];
+  requestSource: string | undefined;
+  results: { articles: unknown[]; ok: boolean }[];
+  searchTerm: string | undefined;
   skipRefresh: boolean;
-}) {
+  upstreamErrors: Map<string, string>;
+  userId: number;
+}
+
+interface LogBatchRequestReceivedOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  requestSource: string | undefined;
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+  urls: string[];
+  userId: number;
+}
+
+interface LogBatchRequestReceivedWhenEnabledOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  diagnosticsEnabled: boolean;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  requestSource: string;
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+  urls: string[];
+  userId: number;
+}
+
+interface LogBatchStatusSummaryOptions {
+  cachedCount: number;
+  cooldownLimitedCount: number;
+  intent: string;
+  normalizedUrls: string[];
+  refreshedCount: number;
+  requestStartedAt: number;
+  resolution: string;
+}
+interface LogBatchWarningsOptions {
+  invalidUrlCount: number;
+  upstreamErrors: Map<string, string>;
+}
+
+interface NormalizedBatchUrlsOptions {
+  normalizeFeedUrl: (url: string) => string;
+  urls: string[];
+}
+
+interface ValidatedBatchRequestStateOptions {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  body: BatchRequestBody;
+  forceResolveUpstream: boolean;
+  knownLastFetchedAtByUrl: Map<string, Date>;
+  normalizeDistinctUrlList: (value: unknown) => string[];
+  searchTerm: string | undefined;
+}
+/**
+ * Build the batch intent.
+ * @param options - The options used to build the batch intent.
+ * @returns The batch intent.
+ */
+export function buildBatchIntent(options: BatchIntentOptions) {
   return options.forceResolveUpstream
     ? "dev-force"
     : options.forceRefresh
@@ -94,18 +168,13 @@ export function buildBatchIntent(options: {
 }
 
 /**
- * @param options
- * @param options.diagnosticsEnabled
- * @param options.invalidUrlCount
- * @param options.requestUrls
- * @param options.userId
+ * Build the invalid batch result response.
+ * @param options - The options used to build the invalid batch result response.
+ * @returns The invalid batch result response.
  */
-export function buildInvalidBatchResultResponse(options: {
-  diagnosticsEnabled: boolean;
-  invalidUrlCount: number;
-  requestUrls: BatchUrlDescriptor[];
-  userId: number;
-}) {
+export function buildInvalidBatchResultResponse(
+  options: InvalidBatchResultResponseOptions,
+) {
   if (options.diagnosticsEnabled) {
     logger.info("Feed batch request had no valid URLs after normalization", {
       invalidUrlCount: options.invalidUrlCount,
@@ -123,9 +192,10 @@ export function buildInvalidBatchResultResponse(options: {
     { status: 207 },
   );
 }
-
 /**
- * @param options
+ * Create the batch success response.
+ * @param options - The options used to create the batch success response.
+ * @returns The batch success response.
  */
 export function createBatchSuccessResponse(
   options: BatchRequestCompletedOptions,
@@ -136,7 +206,9 @@ export function createBatchSuccessResponse(
 }
 
 /**
- * @param urls
+ * Process the ensure batch url count.
+ * @param urls - The urls.
+ * @returns The ensure batch url count.
  */
 export function ensureBatchUrlCount(urls: string[]) {
   if (urls.length <= CONFIG.FEED_BATCH_MAX_URLS) {
@@ -150,36 +222,11 @@ export function ensureBatchUrlCount(urls: string[]) {
     { status: 400 },
   );
 }
-
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.invalidUrlCount
- * @param options.normalizedUrls
- * @param options.requestSource
- * @param options.results
- * @param options.searchTerm
- * @param options.skipRefresh
- * @param options.upstreamErrors
- * @param options.userId
+ * Process the log batch diagnostics.
+ * @param options - The options used to process the log batch diagnostics.
  */
-export function logBatchDiagnostics(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  invalidUrlCount: number;
-  normalizedUrls: string[];
-  requestSource: string | undefined;
-  results: { articles: unknown[]; ok: boolean }[];
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
-  upstreamErrors: Map<string, string>;
-  userId: number;
-}) {
+export function logBatchDiagnostics(options: LogBatchDiagnosticsOptions) {
   logger.info("Feed batch request completed", {
     ...buildBatchRequestLogFields(options),
     invalidUrlCount: options.invalidUrlCount,
@@ -199,7 +246,9 @@ export function logBatchDiagnostics(options: {
 }
 
 /**
- * @param options
+ * Process the log batch request completed.
+ * @param options - The options used to process the log batch request completed.
+ * @returns The log batch request completed.
  */
 export function logBatchRequestCompleted(
   options: BatchRequestCompletedOptions,
@@ -215,30 +264,13 @@ export function logBatchRequestCompleted(
 
   return hasRequestErrors || hasUpstreamErrors ? 207 : 200;
 }
-
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.requestSource
- * @param options.searchTerm
- * @param options.skipRefresh
- * @param options.urls
- * @param options.userId
+ * Process the log batch request received.
+ * @param options - The options used to process the log batch request received.
  */
-export function logBatchRequestReceived(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  requestSource: string | undefined;
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
-  urls: string[];
-  userId: number;
-}) {
+export function logBatchRequestReceived(
+  options: LogBatchRequestReceivedOptions,
+) {
   logger.info("Feed batch request received", {
     ...buildBatchRequestLogFields(options),
     requestedUrlCount: options.urls.length,
@@ -250,30 +282,12 @@ export function logBatchRequestReceived(options: {
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.diagnosticsEnabled
- * @param options.forceRefresh
- * @param options.forceResolveUpstream
- * @param options.requestSource
- * @param options.searchTerm
- * @param options.skipRefresh
- * @param options.urls
- * @param options.userId
+ * Process the log batch request received when enabled.
+ * @param options - The options used to process the log batch request received when enabled.
  */
-export function logBatchRequestReceivedWhenEnabled(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  diagnosticsEnabled: boolean;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  requestSource: string;
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
-  urls: string[];
-  userId: number;
-}) {
+export function logBatchRequestReceivedWhenEnabled(
+  options: LogBatchRequestReceivedWhenEnabledOptions,
+) {
   if (!options.diagnosticsEnabled) {
     return;
   }
@@ -290,26 +304,11 @@ export function logBatchRequestReceivedWhenEnabled(options: {
     userId: options.userId,
   });
 }
-
 /**
- * @param options
- * @param options.cachedCount
- * @param options.cooldownLimitedCount
- * @param options.intent
- * @param options.normalizedUrls
- * @param options.refreshedCount
- * @param options.requestStartedAt
- * @param options.resolution
+ * Process the log batch status summary.
+ * @param options - The options used to process the log batch status summary.
  */
-export function logBatchStatusSummary(options: {
-  cachedCount: number;
-  cooldownLimitedCount: number;
-  intent: string;
-  normalizedUrls: string[];
-  refreshedCount: number;
-  requestStartedAt: number;
-  resolution: string;
-}) {
+export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
   const n = options.normalizedUrls.length;
   const plural = n !== 1 ? "s" : "";
   const cooldownNote =
@@ -324,14 +323,10 @@ export function logBatchStatusSummary(options: {
 }
 
 /**
- * @param options
- * @param options.invalidUrlCount
- * @param options.upstreamErrors
+ * Process the log batch warnings.
+ * @param options - The options used to process the log batch warnings.
  */
-export function logBatchWarnings(options: {
-  invalidUrlCount: number;
-  upstreamErrors: Map<string, string>;
-}) {
+export function logBatchWarnings(options: LogBatchWarningsOptions) {
   if (options.upstreamErrors.size > 0) {
     const failures = [...options.upstreamErrors.entries()].map(
       ([url, err]) => `  • ${url}: ${err}`,
@@ -349,14 +344,13 @@ export function logBatchWarnings(options: {
 }
 
 /**
- * @param options
- * @param options.normalizeFeedUrl
- * @param options.urls
+ * Resolve the normalized batch urls.
+ * @param options - The options used to resolve the normalized batch urls.
+ * @returns The normalized batch urls.
  */
-export function resolveNormalizedBatchUrls(options: {
-  normalizeFeedUrl: (url: string) => string;
-  urls: string[];
-}): NormalizedBatchUrls {
+export function resolveNormalizedBatchUrls(
+  options: NormalizedBatchUrlsOptions,
+): NormalizedBatchUrls {
   const requestUrls: BatchUrlDescriptor[] = [];
   const seenNormalizedUrls = new Set<string>();
 
@@ -380,9 +374,10 @@ export function resolveNormalizedBatchUrls(options: {
     requestUrls,
   };
 }
-
 /**
- * @param options
+ * Process the validate batch request state.
+ * @param options - The options used to process the validate batch request state.
+ * @returns The validate batch request state.
  */
 export function validateBatchRequestState(
   options: BatchRequestStateParsers & {
@@ -407,24 +402,13 @@ export function validateBatchRequestState(
 }
 
 /**
- * @param options
- * @param options.articleFilter
- * @param options.articleLimit
- * @param options.body
- * @param options.forceResolveUpstream
- * @param options.knownLastFetchedAtByUrl
- * @param options.normalizeDistinctUrlList
- * @param options.searchTerm
+ * Build the validated batch request state.
+ * @param options - The options used to build the validated batch request state.
+ * @returns The validated batch request state.
  */
-function buildValidatedBatchRequestState(options: {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  body: BatchRequestBody;
-  forceResolveUpstream: boolean;
-  knownLastFetchedAtByUrl: Map<string, Date>;
-  normalizeDistinctUrlList: (value: unknown) => string[];
-  searchTerm: string | undefined;
-}) {
+function buildValidatedBatchRequestState(
+  options: ValidatedBatchRequestStateOptions,
+) {
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
@@ -442,7 +426,9 @@ function buildValidatedBatchRequestState(options: {
 }
 
 /**
- * @param options
+ * Parse the batch request state fields.
+ * @param options - The options used to parse the batch request state fields.
+ * @returns The batch request state fields.
  */
 function parseBatchRequestStateFields(
   options: BatchRequestStateParsers & { body: BatchRequestBody },

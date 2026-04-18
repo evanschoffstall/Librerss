@@ -31,6 +31,13 @@ import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types"
 import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
+interface ApplyReadSwipeActionOptions {
+  article: Article;
+  isExpanded: boolean;
+  onExpandedSwipeRead: (article: Article) => void;
+  onSwipeRead?: ((article: Article) => void) | undefined;
+  onToggleRead: (article: Article) => void;
+}
 interface ArticleCardProps {
   article: Article;
   articleKey: string;
@@ -52,26 +59,17 @@ interface ArticleCardProps {
 }
 
 /**
- * @param root0
- * @param root0.article
- * @param root0.isExpanded
- * @param root0.onExpandedSwipeRead
- * @param root0.onSwipeRead
- * @param root0.onToggleRead
+ * Process the apply read swipe action.
+ * @param options - The options used to process the apply read swipe action.
  */
-export function applyReadSwipeAction({
-  article,
-  isExpanded,
-  onExpandedSwipeRead,
-  onSwipeRead,
-  onToggleRead,
-}: {
-  article: Article;
-  isExpanded: boolean;
-  onExpandedSwipeRead: (article: Article) => void;
-  onSwipeRead?: ((article: Article) => void) | undefined;
-  onToggleRead: (article: Article) => void;
-}) {
+export function applyReadSwipeAction(options: ApplyReadSwipeActionOptions) {
+  const {
+    article,
+    isExpanded,
+    onExpandedSwipeRead,
+    onSwipeRead,
+    onToggleRead,
+  } = options;
   if (isExpanded) {
     onExpandedSwipeRead(article);
     return;
@@ -102,44 +100,30 @@ const COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 24;
 /** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(
   /**
-   * @param root0
-   * @param root0.article
-   * @param root0.articleKey
-   * @param root0.hasScrapedContent
-   * @param root0.isDark
-   * @param root0.isExpanded
-   * @param root0.isHydrating
-   * @param root0.isMobile
-   * @param root0.isUpdatingState
-   * @param root0.onExpandedSwipeRead
-   * @param root0.onPrepareExpand
-   * @param root0.onSwipeRead
-   * @param root0.onToggle
-   * @param root0.onToggleRead
-   * @param root0.onToggleStarred
-   * @param root0.removalAnimationMode
-   * @param root0.showFavicon
-   * @param root0.useRichFormatting
+   * Render the article card component.
+   * @param props - The component props.
+   * @returns The rendered article card component.
    */
-  function ArticleCard({
-    article,
-    articleKey,
-    hasScrapedContent,
-    isDark,
-    isExpanded,
-    isHydrating,
-    isMobile,
-    isUpdatingState,
-    onExpandedSwipeRead,
-    onPrepareExpand,
-    onSwipeRead,
-    onToggle,
-    onToggleRead,
-    onToggleStarred,
-    removalAnimationMode = null,
-    showFavicon,
-    useRichFormatting,
-  }: ArticleCardProps) {
+  function ArticleCard(props: ArticleCardProps) {
+    const {
+      article,
+      articleKey,
+      hasScrapedContent,
+      isDark,
+      isExpanded,
+      isHydrating,
+      isMobile,
+      isUpdatingState,
+      onExpandedSwipeRead,
+      onPrepareExpand,
+      onSwipeRead,
+      onToggle,
+      onToggleRead,
+      onToggleStarred,
+      removalAnimationMode = null,
+      showFavicon,
+      useRichFormatting,
+    } = props;
     const [isRawHtmlOpen, setIsRawHtmlOpen] = useState(false);
     const [isCopyLinkOpen, setIsCopyLinkOpen] = useState(false);
     const isGradientTrackedRef = useRef(isExpanded);
@@ -271,7 +255,7 @@ export const ArticleCard = memo(
       }
 
       /**
-       *
+       * Update the height.
        */
       const updateHeight = () => {
         setExpandedBodyHeight(
@@ -442,20 +426,23 @@ export const ArticleCard = memo(
     }, []);
 
     /**
-     *
+     * Return whether should block article interaction.
+     * @returns Whether should block article interaction.
      */
     const shouldBlockArticleInteraction = () =>
       Date.now() < interactionBlockUntilRef.current;
 
     /**
-     *
+     * Process the block article interaction temporarily.
      */
     const blockArticleInteractionTemporarily = () => {
       interactionBlockUntilRef.current = Date.now() + 200;
     };
 
     /**
-     * @param setter
+     * Process the make open change handler.
+     * @param setter - The setter.
+     * @returns The make open change handler.
      */
     const makeOpenChangeHandler =
       (setter: React.Dispatch<React.SetStateAction<boolean>>) =>
@@ -479,7 +466,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param e
+     * Process the handle pointer down.
+     * @param e - The e.
      */
     const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
       if (
@@ -501,7 +489,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param e
+     * Process the handle pointer move.
+     * @param e - The e.
      */
     const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -516,7 +505,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param e
+     * Process the handle pointer end.
+     * @param e - The e.
      */
     const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -527,7 +517,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param e
+     * Process the handle pointer cancel.
+     * @param e - The e.
      */
     const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -538,7 +529,7 @@ export const ArticleCard = memo(
     };
 
     /**
-     *
+     * Process the reset press pointer state.
      */
     function resetPressPointerState() {
       pressPointerIdRef.current = null;
@@ -547,14 +538,17 @@ export const ArticleCard = memo(
     }
 
     /**
-     * @param target
+     * Return whether should ignore press pointer target.
+     * @param target - The target.
+     * @returns Whether should ignore press pointer target.
      */
     function shouldIgnorePressPointerTarget(target: EventTarget | null) {
       return isExpandedBodyTarget(target) || isInteractiveControlTarget(target);
     }
 
     /**
-     * @param e
+     * Process the toggle expanded.
+     * @param e - The e.
      */
     const toggleExpanded = (e: React.MouseEvent) => {
       if (ignoreNextClickRef.current) {
@@ -610,7 +604,8 @@ export const ArticleCard = memo(
     );
 
     /**
-     * @param event
+     * Process the handle key down.
+     * @param event - The event.
      */
     const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
       if (isInteractiveControlTarget(event.target)) {
@@ -630,7 +625,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param event
+     * Process the handle share.
+     * @param event - The event.
      */
     const handleShare = async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
@@ -652,7 +648,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param event
+     * Process the handle select raw html.
+     * @param event - The event.
      */
     const handleSelectRawHtml = (
       event: React.MouseEvent<HTMLButtonElement>,
@@ -663,7 +660,7 @@ export const ArticleCard = memo(
     };
 
     /**
-     *
+     * Process the select raw html.
      */
     const selectRawHtml = () => {
       const textarea = rawHtmlTextAreaRef.current;
@@ -679,7 +676,7 @@ export const ArticleCard = memo(
     const encodedShareTitle = encodeURIComponent(article.title || "");
 
     /**
-     *
+     * Process the select share link.
      */
     const selectShareLink = () => {
       const input = copyLinkInputRef.current;
@@ -691,7 +688,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * @param event
+     * Process the handle select share link.
+     * @param event - The event.
      */
     const handleSelectShareLink = (
       event: React.MouseEvent<HTMLButtonElement>,

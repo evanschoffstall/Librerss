@@ -30,35 +30,31 @@ interface ArticleCardDialogsProps {
   shareUrl: string;
 }
 
+interface RawHtmlHeaderContentProps {
+  onSelectRawHtml: ArticleCardDialogsProps["onSelectRawHtml"];
+  title: string;
+}
+
 /**
- * @param root0
- * @param root0.copyLinkInputRef
- * @param root0.isCopyLinkOpen
- * @param root0.isDevelopment
- * @param root0.isMobile
- * @param root0.isRawHtmlOpen
- * @param root0.normalizedHtml
- * @param root0.onCopyLinkOpenChange
- * @param root0.onRawHtmlOpenChange
- * @param root0.onSelectRawHtml
- * @param root0.onSelectShareLink
- * @param root0.rawHtmlTextAreaRef
- * @param root0.shareUrl
+ * Render the article card dialogs component.
+ * @param props - The component props.
+ * @returns The rendered article card dialogs component.
  */
-export function ArticleCardDialogs({
-  copyLinkInputRef,
-  isCopyLinkOpen,
-  isDevelopment,
-  isMobile,
-  isRawHtmlOpen,
-  normalizedHtml,
-  onCopyLinkOpenChange,
-  onRawHtmlOpenChange,
-  onSelectRawHtml,
-  onSelectShareLink,
-  rawHtmlTextAreaRef,
-  shareUrl,
-}: ArticleCardDialogsProps) {
+export function ArticleCardDialogs(props: ArticleCardDialogsProps) {
+  const {
+    copyLinkInputRef,
+    isCopyLinkOpen,
+    isDevelopment,
+    isMobile,
+    isRawHtmlOpen,
+    normalizedHtml,
+    onCopyLinkOpenChange,
+    onRawHtmlOpenChange,
+    onSelectRawHtml,
+    onSelectShareLink,
+    rawHtmlTextAreaRef,
+    shareUrl,
+  } = props;
   return (
     <>
       <RawHtmlDialog
@@ -83,30 +79,29 @@ export function ArticleCardDialogs({
 }
 
 /**
- * @param root0
- * @param root0.copyLinkInputRef
- * @param root0.isCopyLinkOpen
- * @param root0.isMobile
- * @param root0.onCopyLinkOpenChange
- * @param root0.onSelectShareLink
- * @param root0.shareUrl
+ * Render the copy link dialog component.
+ * @param props - The component props.
+ * @returns The rendered copy link dialog component.
  */
-function CopyLinkDialog({
-  copyLinkInputRef,
-  isCopyLinkOpen,
-  isMobile,
-  onCopyLinkOpenChange,
-  onSelectShareLink,
-  shareUrl,
-}: Pick<
-  ArticleCardDialogsProps,
-  | "copyLinkInputRef"
-  | "isCopyLinkOpen"
-  | "isMobile"
-  | "onCopyLinkOpenChange"
-  | "onSelectShareLink"
-  | "shareUrl"
->) {
+function CopyLinkDialog(
+  props: Pick<
+    ArticleCardDialogsProps,
+    | "copyLinkInputRef"
+    | "isCopyLinkOpen"
+    | "isMobile"
+    | "onCopyLinkOpenChange"
+    | "onSelectShareLink"
+    | "shareUrl"
+  >,
+) {
+  const {
+    copyLinkInputRef,
+    isCopyLinkOpen,
+    isMobile,
+    onCopyLinkOpenChange,
+    onSelectShareLink,
+    shareUrl,
+  } = props;
   if (!isCopyLinkOpen) {
     return null;
   }
@@ -149,14 +144,14 @@ function CopyLinkDialog({
 }
 
 /**
- * @param root0
- * @param root0.copyLinkInputRef
- * @param root0.shareUrl
+ * Render the copy link input block component.
+ * @param props - The component props.
+ * @returns The rendered copy link input block component.
  */
-function CopyLinkInputBlock({
-  copyLinkInputRef,
-  shareUrl,
-}: Pick<ArticleCardDialogsProps, "copyLinkInputRef" | "shareUrl">) {
+function CopyLinkInputBlock(
+  props: Pick<ArticleCardDialogsProps, "copyLinkInputRef" | "shareUrl">,
+) {
+  const { copyLinkInputRef, shareUrl } = props;
   return (
     <div className="rounded-md border bg-muted/30 p-2">
       <Input
@@ -177,12 +172,14 @@ function CopyLinkInputBlock({
 }
 
 /**
- * @param root0
- * @param root0.onSelectShareLink
+ * Render the copy link select action component.
+ * @param props - The component props.
+ * @returns The rendered copy link select action component.
  */
-function CopyLinkSelectAction({
-  onSelectShareLink,
-}: Pick<ArticleCardDialogsProps, "onSelectShareLink">) {
+function CopyLinkSelectAction(
+  props: Pick<ArticleCardDialogsProps, "onSelectShareLink">,
+) {
+  const { onSelectShareLink } = props;
   return (
     <div className="flex justify-end">
       <Button
@@ -198,14 +195,14 @@ function CopyLinkSelectAction({
 }
 
 /**
- * @param root0
- * @param root0.normalizedHtml
- * @param root0.rawHtmlTextAreaRef
+ * Render the raw html content component.
+ * @param props - The component props.
+ * @returns The rendered raw html content component.
  */
-function RawHtmlContent({
-  normalizedHtml,
-  rawHtmlTextAreaRef,
-}: Pick<ArticleCardDialogsProps, "normalizedHtml" | "rawHtmlTextAreaRef">) {
+function RawHtmlContent(
+  props: Pick<ArticleCardDialogsProps, "normalizedHtml" | "rawHtmlTextAreaRef">,
+) {
+  const { normalizedHtml, rawHtmlTextAreaRef } = props;
   return (
     <div className="rounded-md border bg-muted/40 p-3">
       <textarea
@@ -227,33 +224,31 @@ function RawHtmlContent({
 }
 
 /**
- * @param root0
- * @param root0.isDevelopment
- * @param root0.isMobile
- * @param root0.isRawHtmlOpen
- * @param root0.normalizedHtml
- * @param root0.onRawHtmlOpenChange
- * @param root0.onSelectRawHtml
- * @param root0.rawHtmlTextAreaRef
+ * Render the raw html dialog component.
+ * @param props - The component props.
+ * @returns The rendered raw html dialog component.
  */
-function RawHtmlDialog({
-  isDevelopment,
-  isMobile,
-  isRawHtmlOpen,
-  normalizedHtml,
-  onRawHtmlOpenChange,
-  onSelectRawHtml,
-  rawHtmlTextAreaRef,
-}: Pick<
-  ArticleCardDialogsProps,
-  | "isDevelopment"
-  | "isMobile"
-  | "isRawHtmlOpen"
-  | "normalizedHtml"
-  | "onRawHtmlOpenChange"
-  | "onSelectRawHtml"
-  | "rawHtmlTextAreaRef"
->) {
+function RawHtmlDialog(
+  props: Pick<
+    ArticleCardDialogsProps,
+    | "isDevelopment"
+    | "isMobile"
+    | "isRawHtmlOpen"
+    | "normalizedHtml"
+    | "onRawHtmlOpenChange"
+    | "onSelectRawHtml"
+    | "rawHtmlTextAreaRef"
+  >,
+) {
+  const {
+    isDevelopment,
+    isMobile,
+    isRawHtmlOpen,
+    normalizedHtml,
+    onRawHtmlOpenChange,
+    onSelectRawHtml,
+    rawHtmlTextAreaRef,
+  } = props;
   if (!isDevelopment || !isRawHtmlOpen) {
     return null;
   }
@@ -283,12 +278,14 @@ function RawHtmlDialog({
 }
 
 /**
- * @param root0
- * @param root0.onSelectRawHtml
+ * Render the raw html dialog header component.
+ * @param props - The component props.
+ * @returns The rendered raw html dialog header component.
  */
-function RawHtmlDialogHeader({
-  onSelectRawHtml,
-}: Pick<ArticleCardDialogsProps, "onSelectRawHtml">) {
+function RawHtmlDialogHeader(
+  props: Pick<ArticleCardDialogsProps, "onSelectRawHtml">,
+) {
+  const { onSelectRawHtml } = props;
   return (
     <DialogHeader className="space-y-2 text-left">
       <RawHtmlHeaderContent
@@ -298,14 +295,15 @@ function RawHtmlDialogHeader({
     </DialogHeader>
   );
 }
-
 /**
- * @param root0
- * @param root0.onSelectRawHtml
+ * Render the raw html drawer header component.
+ * @param props - The component props.
+ * @returns The rendered raw html drawer header component.
  */
-function RawHtmlDrawerHeader({
-  onSelectRawHtml,
-}: Pick<ArticleCardDialogsProps, "onSelectRawHtml">) {
+function RawHtmlDrawerHeader(
+  props: Pick<ArticleCardDialogsProps, "onSelectRawHtml">,
+) {
+  const { onSelectRawHtml } = props;
   return (
     <DrawerHeader className="space-y-2 text-left">
       <RawHtmlHeaderContent
@@ -317,17 +315,12 @@ function RawHtmlDrawerHeader({
 }
 
 /**
- * @param root0
- * @param root0.onSelectRawHtml
- * @param root0.title
+ * Render the raw html header content component.
+ * @param props - The component props.
+ * @returns The rendered raw html header content component.
  */
-function RawHtmlHeaderContent({
-  onSelectRawHtml,
-  title,
-}: {
-  onSelectRawHtml: ArticleCardDialogsProps["onSelectRawHtml"];
-  title: string;
-}) {
+function RawHtmlHeaderContent(props: RawHtmlHeaderContentProps) {
+  const { onSelectRawHtml, title } = props;
   return (
     <div className="flex w-full flex-col gap-3 pr-12 text-left">
       <div className="min-w-0 text-left">
@@ -353,7 +346,8 @@ function RawHtmlHeaderContent({
 }
 
 /**
- * @param event
+ * Process the stop dialog propagation.
+ * @param event - The event.
  */
 function stopDialogPropagation(event: React.MouseEvent<HTMLElement>) {
   event.stopPropagation();

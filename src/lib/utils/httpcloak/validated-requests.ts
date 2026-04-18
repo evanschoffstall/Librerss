@@ -37,6 +37,11 @@ interface HttpCloakSessionLike {
   ) => Promise<HttpCloakResponseLike>;
 }
 
+interface RequestHttpCloakHopTransport {
+  session: HttpCloakSessionLike | null;
+  timeoutSeconds: number;
+}
+
 interface RequestWithHttpCloakDeps {
   createSessionFn?: (options: SessionOptions) => HttpCloakSessionLike;
   requestFn?: ValidatedHttpCloakRequestFn;
@@ -57,9 +62,9 @@ interface RequestWithHttpCloakOptions {
 }
 
 /**
- * Retains only the upstream headers that are useful for compatibility and
- * vendor compatibility diagnostics.
- * @param headers
+ * Process the pick diagnostic headers.
+ * @param headers - The headers.
+ * @returns The pick diagnostic headers.
  */
 export function pickDiagnosticHeaders(
   headers: Record<string, string | string[] | undefined> | undefined,
@@ -100,7 +105,9 @@ export function pickDiagnosticHeaders(
 }
 
 /**
- * @param proxyUrl
+ * Process the promote http cloak proxy url.
+ * @param proxyUrl - The proxy url.
+ * @returns The promote http cloak proxy url.
  */
 export function promoteHttpCloakProxyUrl(
   proxyUrl: string | undefined,
@@ -129,8 +136,10 @@ export function promoteHttpCloakProxyUrl(
 }
 
 /**
- * @param options
- * @param deps
+ * Process the request with http cloak validated redirects.
+ * @param options - The options used to process the request with http cloak validated redirects.
+ * @param deps - The deps.
+ * @returns The request with http cloak validated redirects.
  */
 export async function requestWithHttpCloakValidatedRedirects(
   options: RequestWithHttpCloakOptions,
@@ -173,8 +182,10 @@ export async function requestWithHttpCloakValidatedRedirects(
 }
 
 /**
- * @param url
- * @param proxyUrl
+ * Resolve the http cloak connect to.
+ * @param url - The url.
+ * @param proxyUrl - The proxy url.
+ * @returns The http cloak connect to.
  */
 export async function resolveHttpCloakConnectTo(
   url: string,
@@ -216,18 +227,21 @@ export async function resolveHttpCloakConnectTo(
 }
 
 /**
- * @param options
+ * Create the session.
+ * @param options - The options used to create the session.
+ * @returns The session.
  */
 function createSession(options: SessionOptions): HttpCloakSessionLike {
   return new Session(options);
 }
-
 /**
- * @param currentUrl
- * @param requestHeaders
- * @param requestFn
- * @param session
- * @param timeoutSeconds
+ * Process the execute http cloak request.
+ * @param currentUrl - The current url.
+ * @param requestHeaders - The request headers.
+ * @param requestFn - The request fn.
+ * @param session - The session.
+ * @param timeoutSeconds - The timeout seconds.
+ * @returns The execute http cloak request.
  */
 async function executeHttpCloakRequest(
   currentUrl: string,
@@ -250,19 +264,16 @@ async function executeHttpCloakRequest(
 }
 
 /**
- * @param currentUrl
- * @param deps
- * @param transport
- * @param transport.session
- * @param transport.timeoutSeconds
+ * Process the request http cloak hop.
+ * @param currentUrl - The current url.
+ * @param deps - The deps.
+ * @param transport - The transport.
+ * @returns The request http cloak hop.
  */
 async function requestHttpCloakHop(
   currentUrl: string,
   deps: RequestWithHttpCloakDeps | undefined,
-  transport: {
-    session: HttpCloakSessionLike | null;
-    timeoutSeconds: number;
-  },
+  transport: RequestHttpCloakHopTransport,
 ): Promise<{
   requestHeaders: Record<string, string>;
   response: HttpCloakResponseLike;
@@ -285,9 +296,11 @@ async function requestHttpCloakHop(
 }
 
 /**
- * @param options
- * @param deps
- * @param url
+ * Resolve the http cloak transport.
+ * @param options - The options used to resolve the http cloak transport.
+ * @param deps - The deps.
+ * @param url - The url.
+ * @returns The http cloak transport.
  */
 async function resolveHttpCloakTransport(
   options: RequestWithHttpCloakOptions,
@@ -323,8 +336,10 @@ async function resolveHttpCloakTransport(
 }
 
 /**
- * @param responseHeaders
- * @param currentUrl
+ * Resolve the redirect target.
+ * @param responseHeaders - The response headers.
+ * @param currentUrl - The current url.
+ * @returns The redirect target.
  */
 function resolveRedirectTarget(
   responseHeaders: Record<string, string | string[] | undefined>,
@@ -343,10 +358,12 @@ function resolveRedirectTarget(
 }
 
 /**
- * @param response
- * @param responseHeaders
- * @param redirectHop
- * @param requestHeaders
+ * Process the to validated http cloak response.
+ * @param response - The response.
+ * @param responseHeaders - The response headers.
+ * @param redirectHop - The redirect hop.
+ * @param requestHeaders - The request headers.
+ * @returns The to validated http cloak response.
  */
 function toValidatedHttpCloakResponse(
   response: HttpCloakResponseLike,
@@ -373,7 +390,9 @@ export const SOCKS_PROTOCOLS = new Set([
 ]);
 
 /**
- * @param headers
+ * Normalize the response headers.
+ * @param headers - The headers.
+ * @returns The response headers.
  */
 function normalizeResponseHeaders(
   headers: Record<string, string | string[] | undefined>,
@@ -388,7 +407,9 @@ function normalizeResponseHeaders(
 }
 
 /**
- * @param data
+ * Process the to buffer.
+ * @param data - The data.
+ * @returns The to buffer.
  */
 function toBuffer(data: Buffer | string): Buffer {
   if (Buffer.isBuffer(data)) {

@@ -21,8 +21,9 @@ export class HttpCloakUpstreamError extends Error {
   readonly statusCode: number;
 
   /**
-   * @param options
-   * @param message
+   * Creates an error wrapper for HTTPCloak upstream failures.
+   * @param options - Upstream request and response metadata captured for diagnostics.
+   * @param message - Optional custom error message overriding the default status-based message.
    */
   constructor(options: HttpCloakUpstreamErrorOptions, message?: string) {
     const resolvedMessage =

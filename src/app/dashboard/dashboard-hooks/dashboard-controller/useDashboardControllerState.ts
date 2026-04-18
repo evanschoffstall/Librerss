@@ -18,6 +18,12 @@ import {
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections";
 import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
 
+interface DashboardRuntimeSetterStateOptions {
+  dashboardState: ReturnType<typeof useDashboardState>;
+  feedLoader: ReturnType<typeof useFeedLoader>;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+}
+
 interface DashboardRuntimeStateOptions {
   articleActions: ReturnType<typeof useArticleActions>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
@@ -33,28 +39,24 @@ interface DashboardRuntimeStateOptions {
 }
 
 /**
- * @param root0
- * @param root0.articleActions
- * @param root0.articleWindowState
- * @param root0.dashboardState
- * @param root0.feedLoader
- * @param root0.loadingState
- * @param root0.refreshState
- * @param root0.selectedCategoryNode
- * @param root0.usePlaceholderData
- * @param root0.viewModelState
+ * Manage the dashboard runtime state.
+ * @param options - The options used to manage the dashboard runtime state.
+ * @returns The dashboard runtime state state and callbacks.
  */
-export function useDashboardRuntimeState({
-  articleActions,
-  articleWindowState,
-  dashboardState,
-  feedLoader,
-  loadingState,
-  refreshState,
-  selectedCategoryNode,
-  usePlaceholderData,
-  viewModelState,
-}: DashboardRuntimeStateOptions) {
+export function useDashboardRuntimeState(
+  options: DashboardRuntimeStateOptions,
+) {
+  const {
+    articleActions,
+    articleWindowState,
+    dashboardState,
+    feedLoader,
+    loadingState,
+    refreshState,
+    selectedCategoryNode,
+    usePlaceholderData,
+    viewModelState,
+  } = options;
   const appliedBatchArticleFilterRef = useRef(dashboardState.articleFilter);
   const appliedBatchSearchTermRef = useRef(
     loadingState.deferredSearchTerm.trim(),
@@ -63,13 +65,15 @@ export function useDashboardRuntimeState({
     articleFilter: dashboardState.articleFilter,
     capturePreExpandSnapshot: articleActions.capturePreExpandSnapshot,
     /**
-     * @param article
+     * Process the handle article toggle.
+     * @param article - The article.
      */
     handleArticleToggle: (article) => {
       void articleActions.handleArticleToggle(article);
     },
     /**
-     * @param article
+     * Process the handle expanded swipe read.
+     * @param article - The article.
      */
     handleExpandedSwipeRead: (article) => {
       void articleActions.handleExpandedSwipeRead(article);
@@ -104,28 +108,24 @@ export function useDashboardRuntimeState({
     runtime,
   };
 }
-
 /**
- * @param root0
- * @param root0.articleActions
- * @param root0.articleWindowState
- * @param root0.dashboardState
- * @param root0.feedLoader
- * @param root0.loadingState
- * @param root0.selectedCategoryNode
- * @param root0.usePlaceholderData
- * @param root0.viewModelState
+ * Build the dashboard runtime data state.
+ * @param options - The options used to build the dashboard runtime data state.
+ * @returns The dashboard runtime data state.
  */
-function buildDashboardRuntimeDataState({
-  articleActions,
-  articleWindowState,
-  dashboardState,
-  feedLoader,
-  loadingState,
-  selectedCategoryNode,
-  usePlaceholderData,
-  viewModelState,
-}: Omit<DashboardRuntimeStateOptions, "refreshState">) {
+function buildDashboardRuntimeDataState(
+  options: Omit<DashboardRuntimeStateOptions, "refreshState">,
+) {
+  const {
+    articleActions,
+    articleWindowState,
+    dashboardState,
+    feedLoader,
+    loadingState,
+    selectedCategoryNode,
+    usePlaceholderData,
+    viewModelState,
+  } = options;
   return {
     articleFilter: dashboardState.articleFilter,
     articleWindowLimit: articleWindowState.articleWindowLimit,
@@ -149,20 +149,14 @@ function buildDashboardRuntimeDataState({
 }
 
 /**
- * @param root0
- * @param root0.dashboardState
- * @param root0.feedLoader
- * @param root0.refreshState
+ * Build the dashboard runtime setter state.
+ * @param options - The options used to build the dashboard runtime setter state.
+ * @returns The dashboard runtime setter state.
  */
-function buildDashboardRuntimeSetterState({
-  dashboardState,
-  feedLoader,
-  refreshState,
-}: {
-  dashboardState: ReturnType<typeof useDashboardState>;
-  feedLoader: ReturnType<typeof useFeedLoader>;
-  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
-}) {
+function buildDashboardRuntimeSetterState(
+  options: DashboardRuntimeSetterStateOptions,
+) {
+  const { dashboardState, feedLoader, refreshState } = options;
   return {
     cancelPendingRequest: feedLoader.cancelPendingRequest,
     fetchAllFeeds: feedLoader.fetchAllFeeds,
@@ -181,7 +175,7 @@ function buildDashboardRuntimeSetterState({
     setSearchTerm: dashboardState.setSearchTerm,
     setSelectedCategory: dashboardState.setSelectedCategory,
     /**
-     *
+     * Process the set show settings modal.
      */
     setShowSettingsModal: () => {
       dashboardState.setShowSettingsModal(true);

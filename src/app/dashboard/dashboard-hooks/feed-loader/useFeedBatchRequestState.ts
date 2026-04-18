@@ -25,6 +25,14 @@ type BeginFeedRequestResult =
 
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
+interface FeedBatchRequestActionsOptions {
+  loadingRef: React.RefObject<boolean>;
+  queryClient: QueryClient;
+  requestRefs: ReturnType<typeof useFeedBatchRequestRefs>;
+  setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
+  syncLoading: (value: boolean) => void;
+}
+
 interface FeedBatchRequestState {
   beginFeedRequest: (
     options: BeginFeedRequestOptions,
@@ -37,24 +45,32 @@ interface FeedBatchRequestState {
   loadingEpoch: number;
 }
 
+interface StartNextFeedRequestOptions {
+  activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>;
+  activeRequestSignatureRef: React.RefObject<null | string>;
+  currentRequestIdRef: React.RefObject<number>;
+  isBackground: boolean;
+  queryClient: QueryClient;
+  queryKey: FeedBatchQueryKey;
+  requestSignature: string;
+  setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
+  syncLoading: (value: boolean) => void;
+}
+
 interface UseFeedBatchRequestStateOptions {
   queryClient: QueryClient;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 /**
- * Tracks the active dashboard feed request and mirrors foreground loading state.
- *
- * The feed loader uses this hook as the single authority for request IDs,
- * duplicate-request suppression, TanStack cancellation, and shared loading epochs.
- * @param root0
- * @param root0.queryClient
- * @param root0.setLoading
+ * Manage the feed batch request state.
+ * @param options - The options used to manage the feed batch request state.
+ * @returns The feed batch request state state and callbacks.
  */
-export function useFeedBatchRequestState({
-  queryClient,
-  setLoading,
-}: UseFeedBatchRequestStateOptions): FeedBatchRequestState {
+export function useFeedBatchRequestState(
+  options: UseFeedBatchRequestStateOptions,
+): FeedBatchRequestState {
+  const { queryClient, setLoading } = options;
   const { loading, loadingEpoch, loadingRef, setLoadingEpoch, syncLoading } =
     useFeedBatchLoadingState(setLoading);
   const requestRefs = useFeedBatchRequestRefs();
@@ -72,10 +88,10 @@ export function useFeedBatchRequestState({
     loadingEpoch,
   };
 }
-
 /**
- * @param activeRequestQueryKeyRef
- * @param queryClient
+ * Process the cancel active feed batch query.
+ * @param activeRequestQueryKeyRef - The ref that stores the active request query key ref.
+ * @param queryClient - The query client.
  */
 function cancelActiveFeedBatchQuery(
   activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>,
@@ -102,8 +118,9 @@ function cancelActiveFeedBatchQuery(
 }
 
 /**
- * @param requestRefs
- * @param syncLoading
+ * Process the reset active feed request.
+ * @param requestRefs - The request refs.
+ * @param syncLoading - The callback that sync loading.
  */
 function resetActiveFeedRequest(
   requestRefs: ReturnType<typeof useFeedBatchRequestRefs>,
@@ -115,38 +132,22 @@ function resetActiveFeedRequest(
 }
 
 /**
- * @param root0
- * @param root0.activeRequestQueryKeyRef
- * @param root0.activeRequestSignatureRef
- * @param root0.currentRequestIdRef
- * @param root0.isBackground
- * @param root0.queryClient
- * @param root0.queryKey
- * @param root0.requestSignature
- * @param root0.setLoadingEpoch
- * @param root0.syncLoading
+ * Process the start next feed request.
+ * @param options - The options used to process the start next feed request.
+ * @returns The start next feed request.
  */
-function startNextFeedRequest({
-  activeRequestQueryKeyRef,
-  activeRequestSignatureRef,
-  currentRequestIdRef,
-  isBackground,
-  queryClient,
-  queryKey,
-  requestSignature,
-  setLoadingEpoch,
-  syncLoading,
-}: {
-  activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>;
-  activeRequestSignatureRef: React.RefObject<null | string>;
-  currentRequestIdRef: React.RefObject<number>;
-  isBackground: boolean;
-  queryClient: QueryClient;
-  queryKey: FeedBatchQueryKey;
-  requestSignature: string;
-  setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
-  syncLoading: (value: boolean) => void;
-}) {
+function startNextFeedRequest(options: StartNextFeedRequestOptions) {
+  const {
+    activeRequestQueryKeyRef,
+    activeRequestSignatureRef,
+    currentRequestIdRef,
+    isBackground,
+    queryClient,
+    queryKey,
+    requestSignature,
+    setLoadingEpoch,
+    syncLoading,
+  } = options;
   currentRequestIdRef.current += 1;
   const requestId = currentRequestIdRef.current;
 
@@ -161,9 +162,10 @@ function startNextFeedRequest({
 
   return requestId;
 }
-
 /**
- * @param setLoading
+ * Manage the feed batch loading state.
+ * @param setLoading - The set loading.
+ * @returns The feed batch loading state state and callbacks.
  */
 function useFeedBatchLoadingState(
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,
@@ -184,20 +186,11 @@ function useFeedBatchLoadingState(
 }
 
 /**
- * @param options
- * @param options.loadingRef
- * @param options.queryClient
- * @param options.requestRefs
- * @param options.setLoadingEpoch
- * @param options.syncLoading
+ * Manage the feed batch request actions.
+ * @param options - The options used to manage the feed batch request actions.
+ * @returns The feed batch request actions state and callbacks.
  */
-function useFeedBatchRequestActions(options: {
-  loadingRef: React.RefObject<boolean>;
-  queryClient: QueryClient;
-  requestRefs: ReturnType<typeof useFeedBatchRequestRefs>;
-  setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
-  syncLoading: (value: boolean) => void;
-}) {
+function useFeedBatchRequestActions(options: FeedBatchRequestActionsOptions) {
   const { loadingRef, queryClient, requestRefs, setLoadingEpoch, syncLoading } =
     options;
   const beginFeedRequest = useCallback(
@@ -270,7 +263,8 @@ function useFeedBatchRequestActions(options: {
 }
 
 /**
- *
+ * Manage the feed batch request refs.
+ * @returns The feed batch request refs state and callbacks.
  */
 function useFeedBatchRequestRefs() {
   return {

@@ -16,26 +16,21 @@ interface LoginInputFieldProps {
 }
 
 /**
- * @param root0
- * @param root0.error
- * @param root0.fieldId
- * @param root0.label
- * @param root0.onChange
- * @param root0.onKeyDown
- * @param root0.placeholder
- * @param root0.type
- * @param root0.value
+ * Render the login input field component.
+ * @param props - The component props.
+ * @returns The rendered login input field component.
  */
-export function LoginInputField({
-  error,
-  fieldId,
-  label,
-  onChange,
-  onKeyDown,
-  placeholder,
-  type,
-  value,
-}: LoginInputFieldProps) {
+export function LoginInputField(props: LoginInputFieldProps) {
+  const {
+    error,
+    fieldId,
+    label,
+    onChange,
+    onKeyDown,
+    placeholder,
+    type,
+    value,
+  } = props;
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground" htmlFor={fieldId}>

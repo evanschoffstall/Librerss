@@ -31,28 +31,34 @@ interface FeedVirtualListTestSurfaceProps {
 
 type MeasuredTestSurfaceOptions = Parameters<typeof reportMeasuredTotalSize>[0];
 
+interface ReportMeasuredTotalSizeOptions {
+  containerRef: RefObject<HTMLDivElement | null>;
+  estimatedItemHeight: number;
+  estimatedTotalSize: number;
+  isMountedRef: RefObject<boolean>;
+  lastReportedTotalSizeRef: RefObject<null | number>;
+  onTotalListHeightChange: (nextTotalListHeight: number) => void;
+  scrollViewport: HTMLElement;
+}
+
 /**
- * Non-virtualized fallback surface used by tests where DOM measurement is synthetic.
- * @param root0
- * @param root0.className
- * @param root0.entries
- * @param root0.estimatedItemHeight
- * @param root0.loadMoreSentinelRef
- * @param root0.minimumTotalListHeight
- * @param root0.onTotalListHeightChange
- * @param root0.renderArticle
- * @param root0.scrollViewport
+ * Render the feed virtual list test surface component.
+ * @param props - The component props.
+ * @returns The rendered feed virtual list test surface component.
  */
-export function FeedVirtualListTestSurface({
-  className,
-  entries,
-  estimatedItemHeight,
-  loadMoreSentinelRef,
-  minimumTotalListHeight,
-  onTotalListHeightChange,
-  renderArticle,
-  scrollViewport,
-}: FeedVirtualListTestSurfaceProps) {
+export function FeedVirtualListTestSurface(
+  props: FeedVirtualListTestSurfaceProps,
+) {
+  const {
+    className,
+    entries,
+    estimatedItemHeight,
+    loadMoreSentinelRef,
+    minimumTotalListHeight,
+    onTotalListHeightChange,
+    renderArticle,
+    scrollViewport,
+  } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isMountedRef = useRef(true);
   const lastReportedTotalSizeRef = useRef<null | number>(null);
@@ -115,12 +121,13 @@ export function FeedVirtualListTestSurface({
     </div>
   );
 }
-
 /**
- * @param container
- * @param estimatedItemHeight
- * @param estimatedTotalSize
- * @param scrollViewport
+ * Process the measure test surface total size.
+ * @param container - The container.
+ * @param estimatedItemHeight - The estimated item height value.
+ * @param estimatedTotalSize - The estimated total size.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The measure test surface total size.
  */
 function measureTestSurfaceTotalSize(
   container: HTMLDivElement | null,
@@ -160,32 +167,19 @@ function measureTestSurfaceTotalSize(
 }
 
 /**
- * @param root0
- * @param root0.containerRef
- * @param root0.estimatedItemHeight
- * @param root0.estimatedTotalSize
- * @param root0.isMountedRef
- * @param root0.lastReportedTotalSizeRef
- * @param root0.onTotalListHeightChange
- * @param root0.scrollViewport
+ * Process the report measured total size.
+ * @param options - The options used to process the report measured total size.
  */
-function reportMeasuredTotalSize({
-  containerRef,
-  estimatedItemHeight,
-  estimatedTotalSize,
-  isMountedRef,
-  lastReportedTotalSizeRef,
-  onTotalListHeightChange,
-  scrollViewport,
-}: {
-  containerRef: RefObject<HTMLDivElement | null>;
-  estimatedItemHeight: number;
-  estimatedTotalSize: number;
-  isMountedRef: RefObject<boolean>;
-  lastReportedTotalSizeRef: RefObject<null | number>;
-  onTotalListHeightChange: (nextTotalListHeight: number) => void;
-  scrollViewport: HTMLElement;
-}) {
+function reportMeasuredTotalSize(options: ReportMeasuredTotalSizeOptions) {
+  const {
+    containerRef,
+    estimatedItemHeight,
+    estimatedTotalSize,
+    isMountedRef,
+    lastReportedTotalSizeRef,
+    onTotalListHeightChange,
+    scrollViewport,
+  } = options;
   if (!isMountedRef.current) {
     return;
   }
@@ -205,7 +199,8 @@ function reportMeasuredTotalSize({
 }
 
 /**
- * @param options
+ * Manage the measured test surface total size.
+ * @param options - The options used to manage the measured test surface total size.
  */
 function useMeasuredTestSurfaceTotalSize(options: MeasuredTestSurfaceOptions) {
   const {

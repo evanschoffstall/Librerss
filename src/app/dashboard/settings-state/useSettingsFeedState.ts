@@ -6,31 +6,23 @@ import { useSettingsFeedEditorState } from "@/app/dashboard/settings-state/useSe
 import { useSettingsOpmlImportState } from "@/app/dashboard/settings-state/useSettingsOpmlImportState";
 
 /**
- * Composes feed editing with OPML import state for the settings modal.
- * @param root0
- * @param root0.categories
- * @param root0.onAddFeed
- * @param root0.onDropCategory
- * @param root0.onDropFeed
- * @param root0.onImportOpml
- * @param root0.onRemoveFeed
- * @param root0.onRenameFeed
- * @param root0.onSetFeedEnabled
- * @param root0.onUpdateFeedSettings
- * @param root0.selectedCategory
+ * Manage the settings feed state.
+ * @param options - The options used to manage the settings feed state.
+ * @returns The settings feed state state and callbacks.
  */
-export function useSettingsFeedState({
-  categories,
-  onAddFeed,
-  onDropCategory,
-  onDropFeed,
-  onImportOpml,
-  onRemoveFeed,
-  onRenameFeed,
-  onSetFeedEnabled,
-  onUpdateFeedSettings,
-  selectedCategory,
-}: SettingsFeedStateOptions) {
+export function useSettingsFeedState(options: SettingsFeedStateOptions) {
+  const {
+    categories,
+    onAddFeed,
+    onDropCategory,
+    onDropFeed,
+    onImportOpml,
+    onRemoveFeed,
+    onRenameFeed,
+    onSetFeedEnabled,
+    onUpdateFeedSettings,
+    selectedCategory,
+  } = options;
   const feedEditorState = useSettingsFeedEditorState({
     categories,
     onAddFeed,

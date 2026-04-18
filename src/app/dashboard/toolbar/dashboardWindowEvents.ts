@@ -7,9 +7,9 @@ export {
 } from "@/app/dashboard/toolbar/useDashboardShellLoadingState";
 
 /**
- * Dispatches a dashboard-scoped custom event with an optional detail payload.
- * @param eventName
- * @param detail
+ * Process the dispatch dashboard window event.
+ * @param eventName - The event name.
+ * @param detail - The detail.
  */
 export function dispatchDashboardWindowEvent(
   eventName: string,
@@ -20,7 +20,10 @@ export function dispatchDashboardWindowEvent(
   );
 }
 
-/** Returns whether the active dashboard URL is explicitly in explore mode. */
+/**
+ * Process the read dashboard preview mode from location.
+ * @returns Whether read dashboard preview mode from location.
+ */
 export function readDashboardPreviewModeFromLocation() {
   if (typeof window === "undefined") {
     return false;

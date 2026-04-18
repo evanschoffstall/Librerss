@@ -23,21 +23,14 @@ export const toolbarActionButtonLayoutClassName =
 export const toolbarActionSkeletonClassName = "size-4 rounded-sm";
 
 /**
- * Renders a canonical icon button for dashboard toolbar actions.
- * @param root0
- * @param root0.ariaLabel
- * @param root0.className
- * @param root0.icon
- * @param root0.isPending
- * @param root0.onClick
+ * Render the dashboard toolbar action button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar action button component.
  */
-export function DashboardToolbarActionButton({
-  ariaLabel,
-  className,
-  icon,
-  isPending,
-  onClick,
-}: DashboardToolbarActionButtonProps) {
+export function DashboardToolbarActionButton(
+  props: DashboardToolbarActionButtonProps,
+) {
+  const { ariaLabel, className, icon, isPending, onClick } = props;
   return (
     <button
       aria-busy={isPending}
@@ -61,15 +54,14 @@ export function DashboardToolbarActionButton({
 }
 
 /**
- * Swaps a toolbar icon for a skeleton while its action is active.
- * @param root0
- * @param root0.icon
- * @param root0.isPending
+ * Render the dashboard toolbar action icon component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar action icon component.
  */
-export function DashboardToolbarActionIcon({
-  icon: Icon,
-  isPending,
-}: DashboardToolbarActionIconProps) {
+export function DashboardToolbarActionIcon(
+  props: DashboardToolbarActionIconProps,
+) {
+  const { icon: Icon, isPending } = props;
   if (isPending) {
     return (
       <Skeleton

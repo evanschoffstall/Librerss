@@ -5,7 +5,9 @@ import { maxArticleConsecutiveBlankLines } from "@/lib";
 let _maxConsecutiveBlankLines: number | undefined;
 
 /**
- * @param html
+ * Process the collapse excess newlines.
+ * @param html - The html.
+ * @returns The collapse excess newlines.
  */
 export function collapseExcessNewlines(html: string): string {
   const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
@@ -35,7 +37,9 @@ export function collapseExcessNewlines(html: string): string {
 }
 
 /**
- * @param value
+ * Decode the html entities.
+ * @param value - The value.
+ * @returns The html entities.
  */
 export function decodeHtmlEntities(value: string): string {
   return value.replace(
@@ -56,14 +60,18 @@ export function decodeHtmlEntities(value: string): string {
 }
 
 /**
- * @param html
+ * Normalize the inline text.
+ * @param html - The html.
+ * @returns The inline text.
  */
 export function normalizeInlineText(html: string): string {
   return toPlainText(html).replace(/\s+/g, " ").trim();
 }
 
 /**
- * @param rawHtml
+ * Normalize the noscript for manipulation.
+ * @param rawHtml - The raw html.
+ * @returns The noscript for manipulation.
  */
 export function normalizeNoscriptForManipulation(rawHtml: string): string {
   return rawHtml.replace(
@@ -82,7 +90,9 @@ export function normalizeNoscriptForManipulation(rawHtml: string): string {
 }
 
 /**
- * @param html
+ * Process the strip embedded media blocks.
+ * @param html - The html.
+ * @returns The strip embedded media blocks.
  */
 export function stripEmbeddedMediaBlocks(html: string): string {
   return html
@@ -91,7 +101,9 @@ export function stripEmbeddedMediaBlocks(html: string): string {
 }
 
 /**
- * @param value
+ * Process the to plain text.
+ * @param value - The value.
+ * @returns The to plain text.
  */
 export function toPlainText(value: string): string {
   const maxConsecutiveBlankLines = getMaxConsecutiveBlankLines();
@@ -105,9 +117,11 @@ export function toPlainText(value: string): string {
 }
 
 /**
- * @param value
- * @param maxConsecutiveBlankLines
- * @param minOverflowRun
+ * Process the collapse overflow blank lines.
+ * @param value - The value.
+ * @param maxConsecutiveBlankLines - The max consecutive blank lines.
+ * @param minOverflowRun - The min overflow run.
+ * @returns The collapse overflow blank lines.
  */
 function collapseOverflowBlankLines(
   value: string,
@@ -138,8 +152,10 @@ function collapseOverflowBlankLines(
 }
 
 /**
- * @param raw
- * @param radix
+ * Decode the numeric entity.
+ * @param raw - The raw.
+ * @param radix - The radix.
+ * @returns The numeric entity.
  */
 function decodeNumericEntity(raw: string, radix: 10 | 16): string {
   try {
@@ -150,16 +166,19 @@ function decodeNumericEntity(raw: string, radix: 10 | 16): string {
 }
 
 /**
- *
+ * Return the max consecutive blank lines.
+ * @returns The max consecutive blank lines.
  */
 function getMaxConsecutiveBlankLines(): number {
   return (_maxConsecutiveBlankLines ??= maxArticleConsecutiveBlankLines());
 }
 
 /**
- * @param tagStripped
- * @param maxConsecutiveBlankLines
- * @param minOverflowRun
+ * Normalize the plain text output.
+ * @param tagStripped - The tag stripped.
+ * @param maxConsecutiveBlankLines - The max consecutive blank lines.
+ * @param minOverflowRun - The min overflow run.
+ * @returns The plain text output.
  */
 function normalizePlainTextOutput(
   tagStripped: string,
@@ -179,7 +198,9 @@ function normalizePlainTextOutput(
 }
 
 /**
- * @param value
+ * Process the strip html for plain text.
+ * @param value - The value.
+ * @returns The strip html for plain text.
  */
 function stripHtmlForPlainText(value: string): string {
   return stripEmbeddedMediaBlocks(value)

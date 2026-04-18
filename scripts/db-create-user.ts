@@ -27,7 +27,7 @@ if (!password || password.length < 8) {
 }
 
 /**
- *
+ * Process the ensure database url.
  */
 function ensureDatabaseUrl(): void {
   if (process.env.DATABASE_URL?.trim()) {
@@ -43,7 +43,9 @@ function ensureDatabaseUrl(): void {
 }
 
 /**
- * @param pw
+ * Process the hash password.
+ * @param pw - The pw.
+ * @returns The hash password.
  */
 async function hashPassword(pw: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
@@ -52,7 +54,7 @@ async function hashPassword(pw: string): Promise<string> {
 }
 
 /**
- *
+ * Process the main.
  */
 async function main(): Promise<void> {
   ensureDatabaseUrl();

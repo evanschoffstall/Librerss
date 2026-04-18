@@ -1,3 +1,11 @@
+interface ShouldSkipNormalViewportResetOptions {
+  hasResolvedInitialViewport: boolean;
+  isCollapseScrollRestoreActive: boolean;
+  isInvertedScroll: boolean;
+  scrollViewport: HTMLElement;
+  viewportIntentChanged: boolean;
+}
+
 interface SyncNormalViewportResetOptions {
   feedViewKey: string;
   hasResolvedInitialViewport: boolean;
@@ -11,8 +19,9 @@ interface SyncNormalViewportResetOptions {
 }
 
 /**
- * Resolves the owning feed viewport from the mounted surface host node.
- * @param node
+ * Resolve the feed scroll viewport.
+ * @param node - The node.
+ * @returns The feed scroll viewport.
  */
 export function resolveFeedScrollViewport(node: HTMLDivElement | null) {
   return (
@@ -23,29 +32,24 @@ export function resolveFeedScrollViewport(node: HTMLDivElement | null) {
 }
 
 /**
- * Decides whether normal mode should reset and temporarily top-lock the viewport.
- * @param root0
- * @param root0.feedViewKey
- * @param root0.hasResolvedInitialViewport
- * @param root0.isCollapseScrollRestoreActive
- * @param root0.isInvertedScroll
- * @param root0.previousFeedViewKey
- * @param root0.previousIsInvertedScroll
- * @param root0.previousRefreshEpoch
- * @param root0.refreshEpoch
- * @param root0.scrollViewport
+ * Process the sync normal viewport reset.
+ * @param options - The options used to process the sync normal viewport reset.
+ * @returns Whether sync normal viewport reset.
  */
-export function syncNormalViewportReset({
-  feedViewKey,
-  hasResolvedInitialViewport,
-  isCollapseScrollRestoreActive,
-  isInvertedScroll,
-  previousFeedViewKey,
-  previousIsInvertedScroll,
-  previousRefreshEpoch,
-  refreshEpoch,
-  scrollViewport,
-}: SyncNormalViewportResetOptions) {
+export function syncNormalViewportReset(
+  options: SyncNormalViewportResetOptions,
+) {
+  const {
+    feedViewKey,
+    hasResolvedInitialViewport,
+    isCollapseScrollRestoreActive,
+    isInvertedScroll,
+    previousFeedViewKey,
+    previousIsInvertedScroll,
+    previousRefreshEpoch,
+    refreshEpoch,
+    scrollViewport,
+  } = options;
   const viewportIntentChanged = didViewportIntentChange({
     feedViewKey,
     isInvertedScroll,
@@ -75,29 +79,27 @@ export function syncNormalViewportReset({
   scrollViewport.scrollTop = 0;
   return true;
 }
-
 /**
- * @param root0
- * @param root0.feedViewKey
- * @param root0.isInvertedScroll
- * @param root0.previousFeedViewKey
- * @param root0.previousIsInvertedScroll
- * @param root0.previousRefreshEpoch
- * @param root0.refreshEpoch
+ * Process the did viewport intent change.
+ * @param options - The options used to process the did viewport intent change.
+ * @returns Whether did viewport intent change.
  */
-function didViewportIntentChange({
-  feedViewKey,
-  isInvertedScroll,
-  previousFeedViewKey,
-  previousIsInvertedScroll,
-  previousRefreshEpoch,
-  refreshEpoch,
-}: Omit<
-  SyncNormalViewportResetOptions,
-  | "hasResolvedInitialViewport"
-  | "isCollapseScrollRestoreActive"
-  | "scrollViewport"
->) {
+function didViewportIntentChange(
+  options: Omit<
+    SyncNormalViewportResetOptions,
+    | "hasResolvedInitialViewport"
+    | "isCollapseScrollRestoreActive"
+    | "scrollViewport"
+  >,
+) {
+  const {
+    feedViewKey,
+    isInvertedScroll,
+    previousFeedViewKey,
+    previousIsInvertedScroll,
+    previousRefreshEpoch,
+    refreshEpoch,
+  } = options;
   return (
     previousFeedViewKey !== feedViewKey ||
     previousRefreshEpoch !== refreshEpoch ||
@@ -106,26 +108,20 @@ function didViewportIntentChange({
 }
 
 /**
- * @param root0
- * @param root0.hasResolvedInitialViewport
- * @param root0.isCollapseScrollRestoreActive
- * @param root0.isInvertedScroll
- * @param root0.scrollViewport
- * @param root0.viewportIntentChanged
+ * Return whether should skip normal viewport reset.
+ * @param options - The options used to return whether should skip normal viewport reset.
+ * @returns Whether should skip normal viewport reset.
  */
-function shouldSkipNormalViewportReset({
-  hasResolvedInitialViewport,
-  isCollapseScrollRestoreActive,
-  isInvertedScroll,
-  scrollViewport,
-  viewportIntentChanged,
-}: {
-  hasResolvedInitialViewport: boolean;
-  isCollapseScrollRestoreActive: boolean;
-  isInvertedScroll: boolean;
-  scrollViewport: HTMLElement;
-  viewportIntentChanged: boolean;
-}) {
+function shouldSkipNormalViewportReset(
+  options: ShouldSkipNormalViewportResetOptions,
+) {
+  const {
+    hasResolvedInitialViewport,
+    isCollapseScrollRestoreActive,
+    isInvertedScroll,
+    scrollViewport,
+    viewportIntentChanged,
+  } = options;
   const shouldResetInitialViewportScroll =
     !hasResolvedInitialViewport && !isCollapseScrollRestoreActive;
   if (

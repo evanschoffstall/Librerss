@@ -40,7 +40,8 @@ describe("article-window prefetch tracking", () => {
     });
 
     for (const [stepIndex, nextLimit] of [8, 12, 16, 20].entries()) {
-      const previousLimit = stepIndex === 0 ? 0 : [8, 12, 16, 20][stepIndex - 1];
+      const previousLimit =
+        stepIndex === 0 ? 0 : [8, 12, 16, 20][stepIndex - 1];
       const pendingPrefetch = prefetchArticleWindowLimitIfNeeded(
         nextLimit,
         refs,

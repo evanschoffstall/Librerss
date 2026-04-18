@@ -3,9 +3,14 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+interface SourcePathInfo {
+  distFile?: string;
+}
+
 if (typeof globalThis.gc !== "function") {
   /**
-   *
+   * Provides a no-op GC hook in environments where `--expose-gc` is disabled.
+   * @returns A promise that resolves immediately.
    */
   globalThis.gc = async () => undefined;
 }
@@ -51,9 +56,9 @@ interface V8CoverageEntry {
 }
 
 /**
- * Rejects bundle-only output so the coverage check cannot silently regress back to generated assets.
- * @param reportDirectoryPath
- * @param projectSourceFilePathSet
+ * Process the assert source mapped coverage.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
  */
 async function assertSourceMappedCoverage(
   reportDirectoryPath: string,
@@ -79,8 +84,10 @@ async function assertSourceMappedCoverage(
 }
 
 /**
- * @param summaryEntry
- * @param metricKey
+ * Return the summary metric.
+ * @param summaryEntry - The summary entry.
+ * @param metricKey - The metric key.
+ * @returns The summary metric.
  */
 function getSummaryMetric(
   summaryEntry: CoverageSummaryEntry,
@@ -90,16 +97,19 @@ function getSummaryMetric(
 }
 
 /**
- * Narrows unknown JSON objects so the script can reject invalid payloads early.
- * @param value
+ * Return whether is record.
+ * @param value - The value.
+ * @returns Whether is record.
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
 /**
- * @param sourcePath
- * @param projectSourceFilePathSet
+ * Return whether is tracked project source file.
+ * @param sourcePath - The source path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ * @returns Whether is tracked project source file.
  */
 function isTrackedProjectSourceFile(
   sourcePath: string,
@@ -109,16 +119,18 @@ function isTrackedProjectSourceFile(
 }
 
 /**
- * Checks the minimal V8 entry shape Monocart expects from Playwright raw coverage dumps.
- * @param value
+ * Return whether is v8 coverage entry.
+ * @param value - The value.
+ * @returns Whether is v8 coverage entry.
  */
 function isV8CoverageEntry(value: unknown): value is V8CoverageEntry {
   return isRecord(value) && typeof value.url === "string";
 }
 
 /**
- * Recursively lists files beneath a directory without relying on shell utilities.
- * @param directoryPath
+ * Process the list files recursively.
+ * @param directoryPath - The directory path.
+ * @returns The list files recursively.
  */
 async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   const directoryEntries = await readdir(directoryPath, {
@@ -138,7 +150,9 @@ async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   return nestedFiles.flat();
 }
 
-/** Creates the Playwright-to-source coverage reports used by the repo checks. */
+/**
+ * Process the main.
+ */
 async function main(): Promise<void> {
   const monocartModule =
     (await import("monocart-coverage-reports")) as unknown as {
@@ -182,16 +196,19 @@ async function main(): Promise<void> {
       ["lcovonly", { file: "lcov.info" }],
     ],
     /**
-     * @param sourcePath
+     * Process the source filter.
+     * @param sourcePath - The source path.
+     * @returns Whether source filter.
      */
     sourceFilter: (sourcePath: string) =>
       isTrackedProjectSourceFile(sourcePath, projectSourceFilePathSet),
     /**
-     * @param sourcePath
-     * @param info
-     * @param info.distFile
+     * Process the source path.
+     * @param sourcePath - The source path.
+     * @param info - The info.
+     * @returns The source path.
      */
-    sourcePath: (sourcePath: string, info: { distFile?: string }) =>
+    sourcePath: (sourcePath: string, info: SourcePathInfo) =>
       normalizeCoveragePath(sourcePath, info.distFile),
   });
 
@@ -223,8 +240,10 @@ async function main(): Promise<void> {
 }
 
 /**
- * @param summaryEntries
- * @param metricKey
+ * Process the merge coverage metric.
+ * @param summaryEntries - The summary entries.
+ * @param metricKey - The metric key.
+ * @returns The merge coverage metric.
  */
 function mergeCoverageMetric(
   summaryEntries: CoverageSummaryEntry[],
@@ -252,8 +271,10 @@ function mergeCoverageMetric(
 }
 
 /**
- * @param sourcePath
- * @param distFilePath
+ * Normalize the coverage path.
+ * @param sourcePath - The source path.
+ * @param distFilePath - The dist file path.
+ * @returns The coverage path.
  */
 function normalizeCoveragePath(
   sourcePath: string,
@@ -285,16 +306,19 @@ function normalizeCoveragePath(
 }
 
 /**
- * @param distFilePath
+ * Normalize the dist file path.
+ * @param distFilePath - The dist file path.
+ * @returns The dist file path.
  */
 function normalizeDistFilePath(distFilePath?: string): string {
   return distFilePath?.replaceAll("\\", "/") ?? "";
 }
 
 /**
- * Validates the parsed raw coverage payload before it reaches Monocart.
- * @param rawCoverageJson
- * @param rawCoverageFilePath
+ * Parse the raw coverage data.
+ * @param rawCoverageJson - The raw coverage json.
+ * @param rawCoverageFilePath - The raw coverage file path.
+ * @returns The raw coverage data.
  */
 function parseRawCoverageData(
   rawCoverageJson: string,
@@ -322,8 +346,9 @@ function parseRawCoverageData(
 }
 
 /**
- * @param reportDirectoryPath
- * @param projectSourceFilePathSet
+ * Process the rewrite coverage artifacts.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
  */
 async function rewriteCoverageArtifacts(
   reportDirectoryPath: string,
@@ -336,8 +361,9 @@ async function rewriteCoverageArtifacts(
 }
 
 /**
- * @param reportDirectoryPath
- * @param projectSourceFilePathSet
+ * Process the rewrite lcov file.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
  */
 async function rewriteLcovFile(
   reportDirectoryPath: string,
@@ -369,8 +395,9 @@ async function rewriteLcovFile(
 }
 
 /**
- * @param reportDirectoryPath
- * @param projectSourceFilePathSet
+ * Process the rewrite summary file.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
  */
 async function rewriteSummaryFile(
   reportDirectoryPath: string,

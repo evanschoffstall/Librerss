@@ -1,5 +1,6 @@
 /**
- *
+ * Render the login background decoration component.
+ * @returns The rendered login background decoration component.
  */
 export function LoginBackgroundDecoration() {
   return (

@@ -22,30 +22,54 @@ interface ManualDashboardRefreshContext extends DashboardRefreshContext {
   forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
 }
 
+interface PrefetchDashboardCategoryOptions {
+  articleLimit?: FeedFetchOptions["articleLimit"];
+  prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
+  prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
+  searchTerm?: FeedFetchOptions["searchTerm"];
+  selectedCategory: string;
+}
+interface PrefetchDashboardFeedOptions {
+  articleLimit?: FeedFetchOptions["articleLimit"];
+  prefetchFeed: FeedSelectionFetchers["fetchFeed"];
+  searchTerm?: FeedFetchOptions["searchTerm"];
+  selectedCategory: string;
+}
+
+interface SelectDashboardCategoryOptions {
+  articleLimit?: FeedFetchOptions["articleLimit"];
+  fetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
+  fetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
+  searchTerm?: FeedFetchOptions["searchTerm"];
+  setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  setSelectedCategory: Dispatch<SetStateAction<string>>;
+}
+interface SelectDashboardFeedOptions {
+  articleLimit?: FeedFetchOptions["articleLimit"];
+  fetchFeed: FeedSelectionFetchers["fetchFeed"];
+  searchTerm?: FeedFetchOptions["searchTerm"];
+  setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
+  setSelectedCategory: Dispatch<SetStateAction<string>>;
+}
+
 /**
- * Performs the interval-driven refresh for the current dashboard selection.
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.onBeforeRefresh
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
+ * Process the auto refresh dashboard selection.
+ * @param options - The options used to process the auto refresh dashboard selection.
  */
-export async function autoRefreshDashboardSelection({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  onBeforeRefresh,
-  searchTerm,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-}: DashboardRefreshContext) {
+export async function autoRefreshDashboardSelection(
+  options: DashboardRefreshContext,
+) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    onBeforeRefresh,
+    searchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+  } = options;
   onBeforeRefresh?.();
   await refreshCurrentSelection({
     articleLimit,
@@ -63,24 +87,13 @@ export async function autoRefreshDashboardSelection({
 }
 
 /**
- * Prefetches a category or synthetic all-feeds node when it is not already active.
- * @param categoryNode
- * @param options
- * @param options.articleLimit
- * @param options.prefetchAllFeeds
- * @param options.prefetchCategoryFeeds
- * @param options.searchTerm
- * @param options.selectedCategory
+ * Process the prefetch dashboard category.
+ * @param categoryNode - The category node.
+ * @param options - The options used to process the prefetch dashboard category.
  */
 export function prefetchDashboardCategory(
   categoryNode: CategoryTreeNode,
-  options: {
-    articleLimit?: FeedFetchOptions["articleLimit"];
-    prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
-    prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
-    searchTerm?: FeedFetchOptions["searchTerm"];
-    selectedCategory: string;
-  },
+  options: PrefetchDashboardCategoryOptions,
 ) {
   const {
     articleLimit,
@@ -108,24 +121,14 @@ export function prefetchDashboardCategory(
     searchTerm,
   });
 }
-
 /**
- * Prefetches a concrete feed node unless it is already selected or disabled.
- * @param feedNode
- * @param options
- * @param options.articleLimit
- * @param options.prefetchFeed
- * @param options.searchTerm
- * @param options.selectedCategory
+ * Process the prefetch dashboard feed.
+ * @param feedNode - The feed node.
+ * @param options - The options used to process the prefetch dashboard feed.
  */
 export function prefetchDashboardFeed(
   feedNode: CategoryTreeNode,
-  options: {
-    articleLimit?: FeedFetchOptions["articleLimit"];
-    prefetchFeed: FeedSelectionFetchers["fetchFeed"];
-    searchTerm?: FeedFetchOptions["searchTerm"];
-    selectedCategory: string;
-  },
+  options: PrefetchDashboardFeedOptions,
 ) {
   const { articleLimit, prefetchFeed, searchTerm, selectedCategory } = options;
   if (
@@ -144,31 +147,24 @@ export function prefetchDashboardFeed(
 }
 
 /**
- * Performs the explicit user-initiated refresh for the current dashboard selection.
- * @param root0
- * @param root0.articleLimit
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.forceResolveUpstream
- * @param root0.onBeforeRefresh
- * @param root0.searchTerm
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
+ * Process the refresh dashboard selection.
+ * @param options - The options used to process the refresh dashboard selection.
  */
-export async function refreshDashboardSelection({
-  articleLimit,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  forceResolveUpstream,
-  onBeforeRefresh,
-  searchTerm,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-}: ManualDashboardRefreshContext) {
+export async function refreshDashboardSelection(
+  options: ManualDashboardRefreshContext,
+) {
+  const {
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    forceResolveUpstream,
+    onBeforeRefresh,
+    searchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+  } = options;
   onBeforeRefresh?.();
   await refreshCurrentSelection({
     articleLimit,
@@ -185,28 +181,14 @@ export async function refreshDashboardSelection({
     selectedFeedUrl,
   });
 }
-
 /**
- * Switches to a category or the synthetic all-feeds node and fetches its surface.
- * @param categoryNode
- * @param options
- * @param options.articleLimit
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.searchTerm
- * @param options.setIsMobileSidebarOpen
- * @param options.setSelectedCategory
+ * Process the select dashboard category.
+ * @param categoryNode - The category node.
+ * @param options - The options used to process the select dashboard category.
  */
 export function selectDashboardCategory(
   categoryNode: CategoryTreeNode,
-  options: {
-    articleLimit?: FeedFetchOptions["articleLimit"];
-    fetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
-    fetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
-    searchTerm?: FeedFetchOptions["searchTerm"];
-    setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
-    setSelectedCategory: Dispatch<SetStateAction<string>>;
-  },
+  options: SelectDashboardCategoryOptions,
 ) {
   const {
     articleLimit,
@@ -237,24 +219,13 @@ export function selectDashboardCategory(
 }
 
 /**
- * Switches to a concrete feed node and fetches it when the source is enabled.
- * @param feedNode
- * @param options
- * @param options.articleLimit
- * @param options.fetchFeed
- * @param options.searchTerm
- * @param options.setIsMobileSidebarOpen
- * @param options.setSelectedCategory
+ * Process the select dashboard feed.
+ * @param feedNode - The feed node.
+ * @param options - The options used to process the select dashboard feed.
  */
 export function selectDashboardFeed(
   feedNode: CategoryTreeNode,
-  options: {
-    articleLimit?: FeedFetchOptions["articleLimit"];
-    fetchFeed: FeedSelectionFetchers["fetchFeed"];
-    searchTerm?: FeedFetchOptions["searchTerm"];
-    setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
-    setSelectedCategory: Dispatch<SetStateAction<string>>;
-  },
+  options: SelectDashboardFeedOptions,
 ) {
   const {
     articleLimit,

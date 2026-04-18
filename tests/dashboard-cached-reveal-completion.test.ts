@@ -18,10 +18,12 @@ interface MockRAFQueue {
   request: (cb: FrameRequestCallback) => number;
 }
 
-function buildDefaultOptions(overrides?: Partial<{
-  isCachedPageRevealing: boolean;
-  isInvertedScroll: boolean;
-}>) {
+function buildDefaultOptions(
+  overrides?: Partial<{
+    isCachedPageRevealing: boolean;
+    isInvertedScroll: boolean;
+  }>,
+) {
   const maybeLoadNextPage = mock((_trigger: "scroll" | "sentinel") => {});
 
   return {

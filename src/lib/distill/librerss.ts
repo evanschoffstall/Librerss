@@ -14,9 +14,11 @@ import { findArticleBody } from "./body-selection";
 const DEFAULT_MIN_BODY_LENGTH = 100;
 
 /**
- * @param html
- * @param url
- * @param options
+ * Process the librerss distill.
+ * @param html - The html.
+ * @param url - The url.
+ * @param options - The options used to process the librerss distill.
+ * @returns The librerss distill.
  */
 export function librerssDistill(
   html: string,

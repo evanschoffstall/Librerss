@@ -13,23 +13,32 @@ import {
 } from "@/app/dashboard/settings-state";
 import { Separator } from "@/components/ui/separator";
 
-/**
- * @param root0
- * @param root0.isPreviewMode
- */
-export function SettingsProxySection({
-  isPreviewMode = false,
-}: {
+interface SettingsProxySectionProps {
   isPreviewMode?: boolean;
-}) {
+}
+
+interface ShouldShowProxyStatusBadgesOptions {
+  badgeStatus: ReturnType<typeof getProxyBadgeStatus>;
+  hasProxy: boolean;
+  proxyRoutingCheck: UseSettingsProxyStateResult["proxyRoutingCheck"];
+}
+
+/**
+ * Render the settings proxy section component.
+ * @param props - The component props.
+ * @returns The rendered settings proxy section component.
+ */
+export function SettingsProxySection(props: SettingsProxySectionProps) {
+  const { isPreviewMode = false } = props;
   const proxyState = useSettingsProxyState({ enabled: !isPreviewMode });
 
   return <SettingsProxySectionContent {...proxyState} />;
 }
 
 /**
- * Renders the proxy settings surface from an already-owned proxy state model.
- * @param proxyState
+ * Render the settings proxy section content component.
+ * @param proxyState - The proxy state.
+ * @returns The rendered settings proxy section content component.
  */
 export function SettingsProxySectionContent(
   proxyState: UseSettingsProxyStateResult,
@@ -102,48 +111,45 @@ export function SettingsProxySectionContent(
 }
 
 /**
- * @param proxyStatus
+ * Return the proxy badge status.
+ * @param proxyStatus - The proxy status.
+ * @returns The proxy badge status.
  */
 function getProxyBadgeStatus(
   proxyStatus: UseSettingsProxyStateResult["proxyStatus"],
 ) {
   return proxyStatus === "loading" ? null : proxyStatus;
 }
-
 /**
- * @param root0
- * @param root0.hasProxy
- * @param root0.hasProxyPassword
- * @param root0.isInitialProxyLoadPending
- * @param root0.proxyPassword
- * @param root0.proxyRoutingCheck
- * @param root0.proxyStatus
- * @param root0.proxyUrl
- * @param root0.proxyUsername
- * @param root0.saving
+ * Return the proxy section view state.
+ * @param options - The options used to return the proxy section view state.
+ * @returns The proxy section view state.
  */
-function getProxySectionViewState({
-  hasProxy,
-  hasProxyPassword,
-  isInitialProxyLoadPending,
-  proxyPassword,
-  proxyRoutingCheck,
-  proxyStatus,
-  proxyUrl,
-  proxyUsername,
-  saving,
-}: Pick<
-  UseSettingsProxyStateResult,
-  | "hasProxy"
-  | "hasProxyPassword"
-  | "isInitialProxyLoadPending"
-  | "proxyPassword"
-  | "proxyRoutingCheck"
-  | "proxyStatus"
-  | "proxyUrl"
-  | "proxyUsername"
-  | "saving"
->) {
+function getProxySectionViewState(
+  options: Pick<
+    UseSettingsProxyStateResult,
+    | "hasProxy"
+    | "hasProxyPassword"
+    | "isInitialProxyLoadPending"
+    | "proxyPassword"
+    | "proxyRoutingCheck"
+    | "proxyStatus"
+    | "proxyUrl"
+    | "proxyUsername"
+    | "saving"
+  >,
+) {
+  const {
+    hasProxy,
+    hasProxyPassword,
+    isInitialProxyLoadPending,
+    proxyPassword,
+    proxyRoutingCheck,
+    proxyStatus,
+    proxyUrl,
+    proxyUsername,
+    saving,
+  } = options;
   const isLoading = isInitialProxyLoadPending;
   const badgeStatus = getProxyBadgeStatus(proxyStatus);
   const showStatusBadges = shouldShowProxyStatusBadges({
@@ -166,20 +172,14 @@ function getProxySectionViewState({
 }
 
 /**
- * @param root0
- * @param root0.badgeStatus
- * @param root0.hasProxy
- * @param root0.proxyRoutingCheck
+ * Return whether should show proxy status badges.
+ * @param options - The options used to return whether should show proxy status badges.
+ * @returns Whether should show proxy status badges.
  */
-function shouldShowProxyStatusBadges({
-  badgeStatus,
-  hasProxy,
-  proxyRoutingCheck,
-}: {
-  badgeStatus: ReturnType<typeof getProxyBadgeStatus>;
-  hasProxy: boolean;
-  proxyRoutingCheck: UseSettingsProxyStateResult["proxyRoutingCheck"];
-}) {
+function shouldShowProxyStatusBadges(
+  options: ShouldShowProxyStatusBadgesOptions,
+) {
+  const { badgeStatus, hasProxy, proxyRoutingCheck } = options;
   return (
     badgeStatus !== null &&
     (badgeStatus !== "none" || proxyRoutingCheck !== null || hasProxy)

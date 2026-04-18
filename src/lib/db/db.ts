@@ -34,8 +34,9 @@ type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
 const defaultDbDependencies: DbDependencies = {
   createDatabaseProvider: createRuntimeDatabaseProvider,
   /**
-   * @param message
-   * @param context
+   * Process the warn.
+   * @param message - The message.
+   * @param context - The context used to process the warn.
    */
   warn: (message, context) => {
     logger.warn(message, context);
@@ -44,7 +45,10 @@ const defaultDbDependencies: DbDependencies = {
 
 let dbDependencies: DbDependencies = defaultDbDependencies;
 
-/** Returns the singleton Drizzle instance for the active database driver. */
+/**
+ * Return the db.
+ * @returns The db.
+ */
 export function getDb() {
   if (globalForDb.db) {
     return globalForDb.db;
@@ -63,28 +67,34 @@ export function getDb() {
 }
 
 /**
- * @param error
+ * Return whether is foreign key error.
+ * @param error - The error.
+ * @returns Whether is foreign key error.
  */
 export function isForeignKeyError(error: unknown): boolean {
   return hasDbErrorCode(error, "23503");
 }
 
 /**
- * @param error
+ * Return whether is unique constraint error.
+ * @param error - The error.
+ * @returns Whether is unique constraint error.
  */
 export function isUniqueConstraintError(error: unknown): boolean {
   return hasDbErrorCode(error, "23505");
 }
 
-/** Restores the default DB seams and clears cached singleton state. */
+/**
+ * Process the reset db dependencies for testing.
+ */
 export function resetDbDependenciesForTesting(): void {
   dbDependencies = defaultDbDependencies;
   clearDbSingletonState();
 }
 
 /**
- * Overrides DB seams for an isolated test module instance.
- * @param dependencies
+ * Process the set db dependencies for testing.
+ * @param dependencies - The dependencies.
  */
 export function setDbDependenciesForTesting(
   dependencies: Partial<DbDependencies>,
@@ -98,7 +108,7 @@ export function setDbDependenciesForTesting(
 // ─── DB error utilities ─────────────────────────────────────────────────────
 
 /**
- *
+ * Process the clear db singleton state.
  */
 function clearDbSingletonState(): void {
   delete globalForDb.pool;
@@ -107,7 +117,10 @@ function clearDbSingletonState(): void {
   delete globalForDb.hasRunInitialDbConnectivityCheck;
 }
 
-/** Loads only the provider module needed for the active runtime driver. */
+/**
+ * Create the runtime database provider.
+ * @returns The runtime database provider.
+ */
 function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   assertDatabaseConfigured();
 
@@ -125,15 +138,19 @@ function createRuntimeDatabaseProvider(): DatabaseProviderResult {
 }
 
 /**
- * @param error
+ * Return the error message.
+ * @param error - The error.
+ * @returns The error message.
  */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * @param error
- * @param code
+ * Return whether has db error code.
+ * @param error - The error.
+ * @param code - The code.
+ * @returns Whether has db error code.
  */
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
@@ -144,7 +161,8 @@ function hasDbErrorCode(error: unknown, code: string): boolean {
 }
 
 /**
- * @param pool
+ * Process the run initial db connectivity check.
+ * @param pool - The pool.
  */
 function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   if (globalForDb.hasRunInitialDbConnectivityCheck) {
@@ -169,7 +187,9 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
 }
 
 /**
- * @param pool
+ * Process the to connectivity check pool.
+ * @param pool - The pool.
+ * @returns The to connectivity check pool.
  */
 function toConnectivityCheckPool(pool: DatabasePool): ConnectivityCheckPool {
   return pool as unknown as ConnectivityCheckPool;

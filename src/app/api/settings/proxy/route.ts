@@ -13,10 +13,10 @@ export const dynamic = "force-dynamic";
 export type { ProxyRouteDeps } from "@/lib/outbound-proxy";
 
 /**
- * Returns the saved proxy configuration for the authenticated user and probes
- * the current endpoint with any stored credentials applied.
- * @param request
- * @param depsOrContext
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
  */
 export async function GET(
   request: NextRequest,
@@ -26,9 +26,10 @@ export async function GET(
 }
 
 /**
- * Validates and stores proxy settings for the authenticated user.
- * @param request
- * @param depsOrContext
+ * Render the put component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered put component.
  */
 export async function PUT(
   request: NextRequest,
@@ -40,7 +41,9 @@ export async function PUT(
 }
 
 /**
- * @param request
+ * Parse the proxy settings body.
+ * @param request - The request.
+ * @returns The proxy settings body.
  */
 async function parseProxySettingsBody(
   request: NextRequest,

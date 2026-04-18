@@ -6,9 +6,10 @@ const FEED_VIEWPORT_SELECTOR = "[data-radix-scroll-area-viewport]";
 const VIEWPORT_ARTICLE_SELECTOR = "article[data-article-key]";
 
 /**
- * Resolves unread articles whose cards are completely visible inside the active viewport.
- * @param feed
- * @param viewport
+ * Process the collect fully visible unread articles.
+ * @param feed - The feed.
+ * @param viewport - The viewport.
+ * @returns The collect fully visible unread articles.
  */
 export function collectFullyVisibleUnreadArticles(
   feed: Article[],
@@ -27,15 +28,9 @@ export function collectFullyVisibleUnreadArticles(
 }
 
 /**
- * Collects article keys whose rendered card is fully contained inside the feed viewport.
- *
- * Any article clipped by even a single pixel on any edge is excluded so the
- * header action only affects cards that are completely visible to the reader.
- *
- * Articles whose row is still mid-entrance-animation (`data-article-entering="true"` on
- * an ancestor) are also excluded — they should not count as visible until the space-making
- * animation finishes and they are fully settled in their final position.
- * @param viewport
+ * Process the collect fully visible article keys.
+ * @param viewport - The viewport.
+ * @returns The collect fully visible article keys.
  */
 function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
   const viewportRect = viewport.getBoundingClientRect();
@@ -63,11 +58,9 @@ function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
 }
 
 /**
- * Returns the active dashboard feed viewport when the article surface is mounted.
- *
- * The dashboard can render several Radix scroll areas at once, so this helper
- * narrows the selection to the viewport that currently owns article cards.
- * @param root
+ * Process the find dashboard feed viewport.
+ * @param root - The root.
+ * @returns The find dashboard feed viewport.
  */
 function findDashboardFeedViewport(root: ParentNode = document) {
   const viewports = root.querySelectorAll<HTMLElement>(FEED_VIEWPORT_SELECTOR);

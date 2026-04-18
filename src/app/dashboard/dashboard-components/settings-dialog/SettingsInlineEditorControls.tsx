@@ -1,10 +1,17 @@
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import { Button } from "@/components/ui/button";
 
+interface SettingsInlineEditorControlsProps {
+  disabled: boolean;
+  isSaving: boolean;
+  onCancel: () => void;
+  onSave: () => void;
+}
 /**
- * @param event
- * @param onSave
- * @param onCancel
+ * Process the handle inline editor key down.
+ * @param event - The event.
+ * @param onSave - The callback that on save.
+ * @param onCancel - The callback that on cancel.
  */
 export function handleInlineEditorKeyDown(
   event: React.KeyboardEvent<HTMLInputElement>,
@@ -16,23 +23,14 @@ export function handleInlineEditorKeyDown(
 }
 
 /**
- * @param root0
- * @param root0.disabled
- * @param root0.isSaving
- * @param root0.onCancel
- * @param root0.onSave
+ * Render the settings inline editor controls component.
+ * @param props - The component props.
+ * @returns The rendered settings inline editor controls component.
  */
-export function SettingsInlineEditorControls({
-  disabled,
-  isSaving,
-  onCancel,
-  onSave,
-}: {
-  disabled: boolean;
-  isSaving: boolean;
-  onCancel: () => void;
-  onSave: () => void;
-}) {
+export function SettingsInlineEditorControls(
+  props: SettingsInlineEditorControlsProps,
+) {
+  const { disabled, isSaving, onCancel, onSave } = props;
   return (
     <>
       <Button

@@ -15,6 +15,11 @@ import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
 
 const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
 
+interface DashboardFilterBarFrameProps {
+  children: React.ReactNode;
+  skeleton?: boolean;
+}
+
 /** Presentation props for the dashboard filter bar controls and refresh status. */
 interface DashboardFilterBarProps {
   articleFilter: ArticleFilter;
@@ -24,8 +29,10 @@ interface DashboardFilterBarProps {
   loading: boolean;
   onArticleFilterChange: (value: ArticleFilter) => void;
 }
-
-/** Loading skeleton aligned with the dashboard filter strip. */
+/**
+ * Render the dashboard filter bar skeleton component.
+ * @returns The rendered dashboard filter bar skeleton component.
+ */
 export function DashboardFilterBarSkeleton() {
   return (
     <DashboardFilterBarFrame skeleton>
@@ -86,17 +93,12 @@ export function DashboardFilterBarSkeleton() {
 }
 
 /**
- * @param root0
- * @param root0.children
- * @param root0.skeleton
+ * Render the dashboard filter bar frame component.
+ * @param props - The component props.
+ * @returns The rendered dashboard filter bar frame component.
  */
-function DashboardFilterBarFrame({
-  children,
-  skeleton = false,
-}: {
-  children: React.ReactNode;
-  skeleton?: boolean;
-}) {
+function DashboardFilterBarFrame(props: DashboardFilterBarFrameProps) {
+  const { children, skeleton = false } = props;
   return (
     <div
       className="sticky top-0 z-40 shrink-0 py-1"
@@ -111,22 +113,19 @@ function DashboardFilterBarFrame({
 /** Renders the quick article filter strip and refresh status indicator. */
 export const DashboardFilterBar = memo(
   /**
-   * @param root0
-   * @param root0.articleFilter
-   * @param root0.isSearchPending
-   * @param root0.isShellLoading
-   * @param root0.lastRefreshLabel
-   * @param root0.loading
-   * @param root0.onArticleFilterChange
+   * Render the dashboard filter bar component.
+   * @param props - The component props.
+   * @returns The rendered dashboard filter bar component.
    */
-  function DashboardFilterBar({
-    articleFilter,
-    isSearchPending = false,
-    isShellLoading = false,
-    lastRefreshLabel,
-    loading,
-    onArticleFilterChange,
-  }: DashboardFilterBarProps) {
+  function DashboardFilterBar(props: DashboardFilterBarProps) {
+    const {
+      articleFilter,
+      isSearchPending = false,
+      isShellLoading = false,
+      lastRefreshLabel,
+      loading,
+      onArticleFilterChange,
+    } = props;
     if (isShellLoading) {
       return <DashboardFilterBarSkeleton />;
     }

@@ -1,6 +1,7 @@
 /**
- * Calculates the current maximum scrollTop for a viewport.
- * @param viewport
+ * Process the read viewport max scroll top.
+ * @param viewport - The viewport.
+ * @returns The read viewport max scroll top.
  */
 export function readViewportMaxScrollTop(viewport: HTMLElement) {
   try {
@@ -11,8 +12,9 @@ export function readViewportMaxScrollTop(viewport: HTMLElement) {
 }
 
 /**
- * Pins the viewport to its current bottom edge when it is not already there.
- * @param viewport
+ * Process the sync viewport to bottom if needed.
+ * @param viewport - The viewport.
+ * @returns Whether sync viewport to bottom if needed.
  */
 export function syncViewportToBottomIfNeeded(viewport: HTMLElement) {
   const maxScrollTop = readViewportMaxScrollTop(viewport);

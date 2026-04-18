@@ -101,25 +101,17 @@ interface DashboardSidebarState<SidebarScrollRef> {
 }
 
 /**
- * Builds the grouped controller contract consumed by the dashboard view.
- * @param root0
- * @param root0.feedList
- * @param root0.filterBar
- * @param root0.settings
- * @param root0.sidebar
+ * Build the dashboard controller state.
+ * @param options - The options used to build the dashboard controller state.
+ * @returns The dashboard controller state.
  */
 export function buildDashboardControllerState<
   CategoryTreeController,
   SidebarScrollRef,
->({
-  feedList,
-  filterBar,
-  settings,
-  sidebar,
-}: DashboardControllerState<
-  CategoryTreeController,
-  SidebarScrollRef
->): DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
+>(
+  options: DashboardControllerState<CategoryTreeController, SidebarScrollRef>,
+): DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
+  const { feedList, filterBar, settings, sidebar } = options;
   return {
     feedList,
     filterBar,
@@ -129,29 +121,24 @@ export function buildDashboardControllerState<
 }
 
 /**
- * Builds the memoized sidebar content prop bag shared by desktop and mobile rails.
- * @param root0
- * @param root0.isCategoriesLoading
- * @param root0.isSidebarVisible
- * @param root0.onCategoryClick
- * @param root0.onCategoryPrefetch
- * @param root0.onFeedClick
- * @param root0.onFeedPrefetch
- * @param root0.selectedCategory
- * @param root0.showFavicons
- * @param root0.sidebarCategories
+ * Build the dashboard sidebar content props.
+ * @param options - The options used to build the dashboard sidebar content props.
+ * @returns The dashboard sidebar content props.
  */
-export function buildDashboardSidebarContentProps({
-  isCategoriesLoading,
-  isSidebarVisible,
-  onCategoryClick,
-  onCategoryPrefetch,
-  onFeedClick,
-  onFeedPrefetch,
-  selectedCategory,
-  showFavicons,
-  sidebarCategories,
-}: DashboardSidebarContentState): DashboardSidebarContentState {
+export function buildDashboardSidebarContentProps(
+  options: DashboardSidebarContentState,
+): DashboardSidebarContentState {
+  const {
+    isCategoriesLoading,
+    isSidebarVisible,
+    onCategoryClick,
+    onCategoryPrefetch,
+    onFeedClick,
+    onFeedPrefetch,
+    selectedCategory,
+    showFavicons,
+    sidebarCategories,
+  } = options;
   return {
     isCategoriesLoading,
     isSidebarVisible,

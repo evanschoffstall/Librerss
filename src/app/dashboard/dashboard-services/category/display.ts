@@ -8,9 +8,11 @@ import {
 import { normalizeCategoryLabelKey } from "@/lib/utils";
 
 /**
- * @param categories
- * @param customCategoryLabels
- * @param orderedCategoryLabels
+ * Build the display categories.
+ * @param categories - The categories.
+ * @param customCategoryLabels - The custom category labels.
+ * @param orderedCategoryLabels - The ordered category labels.
+ * @returns The display categories.
  */
 export function buildDisplayCategories(
   categories: CategoryTreeNode[],
@@ -39,9 +41,11 @@ export function buildDisplayCategories(
 }
 
 /**
- * @param categories
- * @param customCategoryLabels
- * @param currentLabels
+ * Process the compute next ordered category labels.
+ * @param categories - The categories.
+ * @param customCategoryLabels - The custom category labels.
+ * @param currentLabels - The current labels.
+ * @returns The compute next ordered category labels.
  */
 export function computeNextOrderedCategoryLabels(
   categories: CategoryTreeNode[],

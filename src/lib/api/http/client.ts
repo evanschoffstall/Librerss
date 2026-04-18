@@ -53,12 +53,13 @@ export class ApiError<T = unknown> extends Error {
   readonly isApiError = true;
 
   /**
-   * @param message
-   * @param code
-   * @param method
-   * @param requestHeaders
-   * @param response
-   * @param url
+   * Creates a structured error for failed API requests.
+   * @param message - Human-readable failure message exposed to callers.
+   * @param code - Optional machine-readable error code returned by the server.
+   * @param method - HTTP method used for the failed request.
+   * @param requestHeaders - Request headers that were sent with the request.
+   * @param response - Parsed response metadata when the server replied.
+   * @param url - Request URL that produced the failure.
    */
   constructor(
     message: string,
@@ -74,7 +75,9 @@ export class ApiError<T = unknown> extends Error {
 }
 
 /**
- * @param error
+ * Return whether is api error.
+ * @param error - The error.
+ * @returns Whether is api error.
  */
 export function isApiError<T = unknown>(error: unknown): error is ApiError<T> {
   return (
@@ -86,10 +89,9 @@ export function isApiError<T = unknown>(error: unknown): error is ApiError<T> {
 }
 
 /**
- * Computes the client-side batch deadline from the server's own batch shape so
- * valid 207 Multi-Status responses are not preempted by an earlier client
- * timeout.
- * @param urlCount
+ * Resolve the batch request timeout ms.
+ * @param urlCount - The url count value.
+ * @returns The batch request timeout ms.
  */
 export function resolveBatchRequestTimeoutMs(urlCount: number): number {
   const normalizedUrlCount = Math.max(
@@ -114,40 +116,52 @@ export const BATCH_REQUEST_TIMEOUT_MS = resolveBatchRequestTimeoutMs(
 let api: ApiClient = createApiClient();
 
 /**
- * @param fetchFn
+ * Create the api client.
+ * @param fetchFn - The fetch fn.
+ * @returns The api client.
  */
 export function createApiClient(fetchFn: typeof fetch = fetch): ApiClient {
   return {
     /**
-     * @param url
-     * @param config
+     * Process the delete.
+     * @param url - The url.
+     * @param config - The config.
+     * @returns The delete.
      */
     delete: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "DELETE", url, undefined, config),
     /**
-     * @param url
-     * @param config
+     * Return the .
+     * @param url - The url.
+     * @param config - The config.
+     * @returns The .
      */
     get: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "GET", url, undefined, config),
     /**
-     * @param url
-     * @param data
-     * @param config
+     * Process the patch.
+     * @param url - The url.
+     * @param data - The data.
+     * @param config - The config.
+     * @returns The patch.
      */
     patch: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PATCH", url, data, config),
     /**
-     * @param url
-     * @param data
-     * @param config
+     * Process the post.
+     * @param url - The url.
+     * @param data - The data.
+     * @param config - The config.
+     * @returns The post.
      */
     post: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "POST", url, data, config),
     /**
-     * @param url
-     * @param data
-     * @param config
+     * Process the put.
+     * @param url - The url.
+     * @param data - The data.
+     * @param config - The config.
+     * @returns The put.
      */
     put: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PUT", url, data, config),
@@ -155,7 +169,9 @@ export function createApiClient(fetchFn: typeof fetch = fetch): ApiClient {
 }
 
 /**
- * @param signal
+ * Create the linked abort controller.
+ * @param signal - The signal.
+ * @returns The linked abort controller.
  */
 export function createLinkedAbortController(signal?: AbortSignal): {
   controller: AbortController;
@@ -167,7 +183,8 @@ export function createLinkedAbortController(signal?: AbortSignal): {
     return {
       controller,
       /**
-       *
+       * Provides a no-op cleanup callback when no external signal is linked.
+       * @returns Nothing.
        */
       dispose: () => undefined,
     };
@@ -178,14 +195,15 @@ export function createLinkedAbortController(signal?: AbortSignal): {
     return {
       controller,
       /**
-       *
+       * Provides a no-op cleanup callback when the external signal is already aborted.
+       * @returns Nothing.
        */
       dispose: () => undefined,
     };
   }
 
   /**
-   *
+   * Process the handle abort.
    */
   const handleAbort = () => {
     controller.abort(signal.reason);
@@ -195,7 +213,7 @@ export function createLinkedAbortController(signal?: AbortSignal): {
   return {
     controller,
     /**
-     *
+     * Process the dispose.
      */
     dispose: () => {
       signal.removeEventListener("abort", handleAbort);
@@ -204,30 +222,34 @@ export function createLinkedAbortController(signal?: AbortSignal): {
 }
 
 /**
- *
+ * Return the api client.
+ * @returns The api client.
  */
 export function getApiClient(): ApiClient {
   return api;
 }
 
 /**
- *
+ * Process the reset api client for testing.
  */
 export function resetApiClientForTesting(): void {
   api = createApiClient();
 }
 
 /**
- * @param client
+ * Process the set api client for testing.
+ * @param client - The client.
  */
 export function setApiClientForTesting(client: ApiClient): void {
   api = client;
 }
 
 /**
- * @param request
- * @param timeoutMs
- * @param onTimeout
+ * Process the with request deadline.
+ * @param request - The request.
+ * @param timeoutMs - The timeout ms value.
+ * @param onTimeout - The callback that on timeout.
+ * @returns The with request deadline.
  */
 export async function withRequestDeadline<T>(
   request: Promise<T>,
@@ -251,15 +273,19 @@ export async function withRequestDeadline<T>(
 }
 
 /**
- * @param headers
+ * Process the headers to record.
+ * @param headers - The headers.
+ * @returns The headers to record.
  */
 function headersToRecord(headers: Headers): Record<string, string> {
   return Object.fromEntries(headers.entries());
 }
 
 /**
- * @param response
- * @param responseType
+ * Parse the response body.
+ * @param response - The response.
+ * @param responseType - The response type.
+ * @returns The response body.
  */
 async function parseResponseBody<T>(
   response: Response,
@@ -289,11 +315,13 @@ async function parseResponseBody<T>(
 }
 
 /**
- * @param fetchFn
- * @param method
- * @param url
- * @param data
- * @param config
+ * Process the request.
+ * @param fetchFn - The fetch fn.
+ * @param method - The method.
+ * @param url - The url.
+ * @param data - The data.
+ * @param config - The config.
+ * @returns The request.
  */
 async function request<T>(
   fetchFn: typeof fetch,
@@ -354,8 +382,10 @@ async function request<T>(
 }
 
 /**
- * @param response
- * @param responseType
+ * Process the to api response.
+ * @param response - The response.
+ * @param responseType - The response type.
+ * @returns The to api response.
  */
 async function toApiResponse<T>(
   response: Response,

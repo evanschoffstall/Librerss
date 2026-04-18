@@ -50,16 +50,12 @@ interface FeedRowActionsProps {
 }
 
 /**
- * @param root0
- * @param root0.isMobile
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed row actions component.
+ * @param props - The component props.
+ * @returns The rendered feed row actions component.
  */
-export function FeedRowActions({
-  isMobile,
-  rowProps,
-  rowState,
-}: FeedRowActionsProps) {
+export function FeedRowActions(props: FeedRowActionsProps) {
+  const { isMobile, rowProps, rowState } = props;
   return isMobile ? (
     <MobileFeedActions rowProps={rowProps} rowState={rowState} />
   ) : (
@@ -68,14 +64,12 @@ export function FeedRowActions({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the desktop feed actions component.
+ * @param props - The component props.
+ * @returns The rendered desktop feed actions component.
  */
-function DesktopFeedActions({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function DesktopFeedActions(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <div className="flex shrink-0 items-center gap-1">
       <FeedEditButton rowProps={rowProps} rowState={rowState} />
@@ -89,14 +83,12 @@ function DesktopFeedActions({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed edit button component.
+ * @param props - The component props.
+ * @returns The rendered feed edit button component.
  */
-function FeedEditButton({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedEditButton(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <SettingsIconButton
       ariaLabel={`Edit ${rowProps.feedNode.label}`}
@@ -115,14 +107,12 @@ function FeedEditButton({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed enabled button component.
+ * @param props - The component props.
+ * @returns The rendered feed enabled button component.
  */
-function FeedEnabledButton({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedEnabledButton(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <SettingsIconButton
       disabled={
@@ -145,14 +135,12 @@ function FeedEnabledButton({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed enabled menu item component.
+ * @param props - The component props.
+ * @returns The rendered feed enabled menu item component.
  */
-function FeedEnabledMenuItem({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedEnabledMenuItem(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <DropdownMenuItem
       disabled={rowState.isTogglingEnabled || rowState.isDeleting}
@@ -173,14 +161,12 @@ function FeedEnabledMenuItem({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed extraction button component.
+ * @param props - The component props.
+ * @returns The rendered feed extraction button component.
  */
-function FeedExtractionButton({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedExtractionButton(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <SettingsIconButton
       className={
@@ -215,14 +201,12 @@ function FeedExtractionButton({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed extraction menu item component.
+ * @param props - The component props.
+ * @returns The rendered feed extraction menu item component.
  */
-function FeedExtractionMenuItem({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedExtractionMenuItem(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <DropdownMenuItem
       disabled={rowState.settingsBusy}
@@ -252,14 +236,12 @@ function FeedExtractionMenuItem({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed proxy button component.
+ * @param props - The component props.
+ * @returns The rendered feed proxy button component.
  */
-function FeedProxyButton({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedProxyButton(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <SettingsIconButton
       className={
@@ -290,14 +272,12 @@ function FeedProxyButton({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed proxy menu item component.
+ * @param props - The component props.
+ * @returns The rendered feed proxy menu item component.
  */
-function FeedProxyMenuItem({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedProxyMenuItem(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <DropdownMenuItem
       disabled={rowState.settingsBusy}
@@ -325,14 +305,12 @@ function FeedProxyMenuItem({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed remove button component.
+ * @param props - The component props.
+ * @returns The rendered feed remove button component.
  */
-function FeedRemoveButton({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedRemoveButton(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <SettingsIconButton
       className="
@@ -357,14 +335,12 @@ function FeedRemoveButton({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the feed remove menu item component.
+ * @param props - The component props.
+ * @returns The rendered feed remove menu item component.
  */
-function FeedRemoveMenuItem({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function FeedRemoveMenuItem(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <DropdownMenuItem
       className="
@@ -387,14 +363,12 @@ function FeedRemoveMenuItem({
 }
 
 /**
- * @param root0
- * @param root0.rowProps
- * @param root0.rowState
+ * Render the mobile feed actions component.
+ * @param props - The component props.
+ * @returns The rendered mobile feed actions component.
  */
-function MobileFeedActions({
-  rowProps,
-  rowState,
-}: Omit<FeedRowActionsProps, "isMobile">) {
+function MobileFeedActions(props: Omit<FeedRowActionsProps, "isMobile">) {
+  const { rowProps, rowState } = props;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -428,10 +402,12 @@ function MobileFeedActions({
 }
 
 /**
- * @param isUpdatingSettings
- * @param pendingSetting
- * @param setting
- * @param icon
+ * Render the settings progress icon.
+ * @param isUpdatingSettings - Whether is updating settings.
+ * @param pendingSetting - The pending setting.
+ * @param setting - The setting.
+ * @param icon - The icon.
+ * @returns The settings progress icon.
  */
 function renderSettingsProgressIcon(
   isUpdatingSettings: boolean,

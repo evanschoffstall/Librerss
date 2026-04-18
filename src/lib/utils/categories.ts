@@ -8,9 +8,10 @@ import type { CategoryTreeNode } from "@/lib/types";
 export const DEFAULT_CATEGORY_LABEL = "My Feeds";
 
 /**
- * Compares category labels with consistent trimming/case-folding.
- * @param left
- * @param right
+ * Return whether is same category label.
+ * @param left - The left.
+ * @param right - The right.
+ * @returns Whether is same category label.
  */
 export function isSameCategoryLabel(
   left?: null | string,
@@ -20,24 +21,27 @@ export function isSameCategoryLabel(
 }
 
 /**
- * Stable key used for case-insensitive category label comparisons.
- * @param label
+ * Normalize the category label key.
+ * @param label - The label.
+ * @returns The category label key.
  */
 export function normalizeCategoryLabelKey(label?: null | string): string {
   return label?.trim().toLowerCase() ?? "";
 }
 
 /**
- * Returns a non-empty category label, defaulting to the canonical label.
- * @param label
+ * Process the to category label or default.
+ * @param label - The label.
+ * @returns The to category label or default.
  */
 export function toCategoryLabelOrDefault(label?: null | string): string {
   return toOptionalCategoryLabel(label) ?? DEFAULT_CATEGORY_LABEL;
 }
 
 /**
- * Trims category labels and returns null when empty/missing.
- * @param label
+ * Process the to optional category label.
+ * @param label - The label.
+ * @returns The to optional category label.
  */
 function toOptionalCategoryLabel(label?: null | string): null | string {
   const trimmed = label?.trim();
@@ -58,9 +62,9 @@ const UNCATEGORIZED_VARIANTS = new Set([
 ]);
 
 /**
- * Normalizes category labels consistently across the application.
- * @param label - Raw category label.
- * @returns Normalized category label.
+ * Normalize the category.
+ * @param label - The label.
+ * @returns The category.
  */
 export function normalizeCategory(label?: null | string): string {
   const trimmed = toOptionalCategoryLabel(label);
@@ -81,8 +85,10 @@ export function normalizeCategory(label?: null | string): string {
 // ── Array helper methods for category operations ────────────────────────────
 
 /**
- * @param labels
- * @param target
+ * Process the includes category label.
+ * @param labels - The labels.
+ * @param target - The target.
+ * @returns Whether includes category label.
  */
 export const includesCategoryLabel = (
   labels: readonly string[],
@@ -90,9 +96,11 @@ export const includesCategoryLabel = (
 ): boolean => labels.some((label) => isSameCategoryLabel(label, target));
 
 /**
- * @param labels
- * @param currentLabel
- * @param nextLabel
+ * Process the replace category label.
+ * @param labels - The labels.
+ * @param currentLabel - The current label.
+ * @param nextLabel - The next label.
+ * @returns The replace category label.
  */
 export const replaceCategoryLabel = (
   labels: readonly string[],
@@ -104,8 +112,10 @@ export const replaceCategoryLabel = (
   );
 
 /**
- * @param labels
- * @param target
+ * Process the remove category label.
+ * @param labels - The labels.
+ * @param target - The target.
+ * @returns The remove category label.
  */
 export const removeCategoryLabel = (
   labels: readonly string[],
@@ -113,8 +123,10 @@ export const removeCategoryLabel = (
 ): string[] => labels.filter((label) => !isSameCategoryLabel(label, target));
 
 /**
- * @param categories
- * @param label
+ * Process the find category by label.
+ * @param categories - The categories.
+ * @param label - The label.
+ * @returns The find category by label.
  */
 export const findCategoryByLabel = (
   categories: readonly CategoryTreeNode[],

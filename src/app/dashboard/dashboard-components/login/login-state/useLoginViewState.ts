@@ -14,6 +14,12 @@ interface AuthErrorResponse {
   error?: unknown;
 }
 
+interface SubmitAuthenticationRequestOptions {
+  email: string;
+  mode: "login" | "signup";
+  password: string;
+}
+
 interface UseLoginViewStateOptions {
   allowSignup: boolean;
   initialFormError?: string;
@@ -21,16 +27,12 @@ interface UseLoginViewStateOptions {
 }
 
 /**
- * @param root0
- * @param root0.allowSignup
- * @param root0.initialFormError
- * @param root0.onAuthenticated
+ * Manage the login view state.
+ * @param options - The options used to manage the login view state.
+ * @returns The login view state state and callbacks.
  */
-export function useLoginViewState({
-  allowSignup,
-  initialFormError,
-  onAuthenticated,
-}: UseLoginViewStateOptions) {
+export function useLoginViewState(options: UseLoginViewStateOptions) {
+  const { allowSignup, initialFormError, onAuthenticated } = options;
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,7 +44,8 @@ export function useLoginViewState({
   );
 
   /**
-   * @param field
+   * Process the clear field error.
+   * @param field - The field.
    */
   const clearFieldError = (field: keyof LoginFieldErrors) => {
     setFieldErrors((current) => {
@@ -53,7 +56,7 @@ export function useLoginViewState({
   };
 
   /**
-   *
+   * Process the handle submit.
    */
   const handleSubmit = async () => {
     const errors = validateLoginFields({
@@ -85,13 +88,15 @@ export function useLoginViewState({
   };
 
   /**
-   * @param event
+   * Process the handle key down.
+   * @param event - The event.
+   * @returns Nothing.
    */
   const handleKeyDown = (event: KeyboardEvent) =>
     event.key === "Enter" ? void handleSubmit() : undefined;
 
   /**
-   *
+   * Process the toggle mode.
    */
   const toggleMode = () => {
     setMode((current) => (current === "login" ? "signup" : "login"));
@@ -115,9 +120,10 @@ export function useLoginViewState({
     toggleMode,
   };
 }
-
 /**
- * @param error
+ * Resolve the authentication error message.
+ * @param error - The error.
+ * @returns The authentication error message.
  */
 function resolveAuthenticationErrorMessage(error: unknown) {
   return isApiError<AuthErrorResponse>(error) &&
@@ -127,20 +133,14 @@ function resolveAuthenticationErrorMessage(error: unknown) {
 }
 
 /**
- * @param root0
- * @param root0.email
- * @param root0.mode
- * @param root0.password
+ * Process the submit authentication request.
+ * @param options - The options used to process the submit authentication request.
+ * @returns The submit authentication request.
  */
-async function submitAuthenticationRequest({
-  email,
-  mode,
-  password,
-}: {
-  email: string;
-  mode: "login" | "signup";
-  password: string;
-}) {
+async function submitAuthenticationRequest(
+  options: SubmitAuthenticationRequestOptions,
+) {
+  const { email, mode, password } = options;
   return mode === "signup"
     ? AuthService.signup(email.trim(), password)
     : AuthService.login(email.trim(), password);

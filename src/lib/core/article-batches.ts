@@ -17,10 +17,11 @@ import {
 type DbMod = typeof import("@/lib/db");
 
 /**
- * Maps the ranked article query rows back to their owning feed URLs.
- * @param rows
- * @param feedByUrl
- * @param allowedUrls
+ * Process the map rows to article map.
+ * @param rows - The rows.
+ * @param feedByUrl - The feed by url.
+ * @param allowedUrls - The allowed urls.
+ * @returns The map rows to article map.
  */
 export function mapRowsToArticleMap(
   rows: RankedRow[],
@@ -59,17 +60,14 @@ export function mapRowsToArticleMap(
 }
 
 /**
- * Queries one global page of preview article rows for the requested feed IDs.
- *
- * The filter is applied before the global limit so unread, read, and starred
- * views page through the correct database result set instead of filtering a
- * smaller per-feed preview window after the fact.
- * @param db
- * @param userId
- * @param feedIds
- * @param articleFilter
- * @param articleLimit
- * @param searchTerm
+ * Process the query top articles per feed.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedIds - The feed ids.
+ * @param articleFilter - The article filter.
+ * @param articleLimit - The article limit.
+ * @param searchTerm - The search term.
+ * @returns The query top articles per feed.
  */
 export async function queryTopArticlesPerFeed(
   db: ReturnType<DbMod["getDb"]>,
@@ -134,7 +132,9 @@ export async function queryTopArticlesPerFeed(
 }
 
 /**
- * @param articleFilter
+ * Build the article filter condition.
+ * @param articleFilter - The article filter.
+ * @returns The article filter condition.
  */
 function buildArticleFilterCondition(articleFilter: ArticleFilter) {
   switch (articleFilter) {
@@ -157,7 +157,9 @@ function buildArticleFilterCondition(articleFilter: ArticleFilter) {
 }
 
 /**
- * @param searchPattern
+ * Build the article search condition.
+ * @param searchPattern - The search pattern.
+ * @returns The article search condition.
  */
 function buildArticleSearchCondition(searchPattern: string | undefined) {
   if (!searchPattern) {
@@ -171,8 +173,10 @@ function buildArticleSearchCondition(searchPattern: string | undefined) {
 }
 
 /**
- * @param feedByUrl
- * @param allowedUrls
+ * Build the feed url id map.
+ * @param feedByUrl - The feed by url.
+ * @param allowedUrls - The allowed urls.
+ * @returns The feed url id map.
  */
 function buildFeedUrlIdMap(
   feedByUrl: Map<string, FeedRecord>,
@@ -189,7 +193,9 @@ function buildFeedUrlIdMap(
 }
 
 /**
- * @param value
+ * Process the escape like pattern.
+ * @param value - The value.
+ * @returns The escape like pattern.
  */
 function escapeLikePattern(value: string) {
   return value
@@ -199,22 +205,28 @@ function escapeLikePattern(value: string) {
 }
 
 /**
- * @param value
+ * Process the read row text.
+ * @param value - The value.
+ * @returns The read row text.
  */
 function readRowText(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
 
 /**
- * @param value
+ * Process the strip preview span wrappers.
+ * @param value - The value.
+ * @returns The strip preview span wrappers.
  */
 function stripPreviewSpanWrappers(value: string): string {
   return value.replace(/<\/?span\b[^>]*>/gi, "");
 }
 
 /**
- * @param row
- * @param feedId
+ * Process the to article row.
+ * @param row - The row.
+ * @param feedId - The feed id.
+ * @returns The to article row.
  */
 function toArticleRow(row: RankedRow, feedId: number): ArticleRow | null {
   const id = toFiniteNumber(row.id);
@@ -238,7 +250,9 @@ function toArticleRow(row: RankedRow, feedId: number): ArticleRow | null {
 }
 
 /**
- * @param value
+ * Process the to finite number.
+ * @param value - The value.
+ * @returns The to finite number.
  */
 function toFiniteNumber(value: unknown): null | number {
   const numberValue = Number(value);

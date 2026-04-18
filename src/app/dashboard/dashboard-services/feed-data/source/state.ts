@@ -15,8 +15,10 @@ type FeedRemovalResolution =
   | { type: "none" };
 
 /**
- * @param name
- * @param url
+ * Normalize the feed source input.
+ * @param name - The name.
+ * @param url - The url.
+ * @returns The feed source input.
  */
 export function normalizeFeedSourceInput(name: string, url: string) {
   return {
@@ -26,11 +28,13 @@ export function normalizeFeedSourceInput(name: string, url: string) {
 }
 
 /**
- * @param nextCategories
- * @param selectedCategory
- * @param sourceUrl
- * @param enabled
- * @param key
+ * Resolve the post enabled toggle selection.
+ * @param nextCategories - The next categories.
+ * @param selectedCategory - The selected category.
+ * @param sourceUrl - The source url.
+ * @param enabled - The enabled.
+ * @param key - The key.
+ * @returns The post enabled toggle selection.
  */
 export function resolvePostEnabledToggleSelection(
   nextCategories: CategoryTreeNode[],
@@ -57,9 +61,11 @@ export function resolvePostEnabledToggleSelection(
 }
 
 /**
- * @param nextCategories
- * @param selectedCategory
- * @param removedFeedKey
+ * Resolve the post removal selection.
+ * @param nextCategories - The next categories.
+ * @param selectedCategory - The selected category.
+ * @param removedFeedKey - The removed feed key.
+ * @returns The post removal selection.
  */
 export function resolvePostRemovalSelection(
   nextCategories: CategoryTreeNode[],

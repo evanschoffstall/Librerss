@@ -12,9 +12,10 @@ const DEFAULT_AUTO_REFRESH_INTERVAL_MINUTES = 30;
 export const MANUAL_REFRESH_INTERVAL_MINUTES = 5;
 
 /**
- * Normalizes a user-provided automatic refresh interval to the supported floor.
- * @param value
- * @param fallback
+ * Normalize the auto refresh interval minutes.
+ * @param value - The value.
+ * @param fallback - The fallback.
+ * @returns The auto refresh interval minutes.
  */
 export function normalizeAutoRefreshIntervalMinutes(
   value: number,
@@ -32,8 +33,9 @@ export function normalizeAutoRefreshIntervalMinutes(
 }
 
 /**
- * Resolves the initial automatic refresh interval from runtime config.
- * @param configuredMinutes
+ * Resolve the default auto refresh interval minutes.
+ * @param configuredMinutes - The configured minutes.
+ * @returns The default auto refresh interval minutes.
  */
 export function resolveDefaultAutoRefreshIntervalMinutes(
   configuredMinutes: number,
@@ -42,8 +44,9 @@ export function resolveDefaultAutoRefreshIntervalMinutes(
 }
 
 /**
- * Converts the normalized automatic refresh interval to milliseconds.
- * @param minutes
+ * Process the to auto refresh interval ms.
+ * @param minutes - The minutes.
+ * @returns The to auto refresh interval ms.
  */
 export function toAutoRefreshIntervalMs(minutes: number): number {
   return normalizeAutoRefreshIntervalMinutes(minutes) * 60_000;

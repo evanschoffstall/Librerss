@@ -27,8 +27,10 @@ const FEED_ARTICLE_ROW_PROP_KEYS = [
 ] as const satisfies readonly (keyof FeedArticleRowProps)[];
 
 /**
- * @param previousProps
- * @param nextProps
+ * Process the are feed article row props equal.
+ * @param previousProps - The previous props.
+ * @param nextProps - The next props.
+ * @returns Whether are feed article row props equal.
  */
 function areFeedArticleRowPropsEqual(
   previousProps: FeedArticleRowProps,
@@ -41,50 +43,34 @@ function areFeedArticleRowPropsEqual(
 
 export const FeedArticleRow = memo(
   /**
-   * @param root0
-   * @param root0.article
-   * @param root0.articleKey
-   * @param root0.hasScrapedContent
-   * @param root0.isDark
-   * @param root0.isEntering
-   * @param root0.isExpanded
-   * @param root0.isHydrating
-   * @param root0.isLastRow
-   * @param root0.isMobile
-   * @param root0.isUpdatingState
-   * @param root0.onEnteringDone
-   * @param root0.onExpandedSwipeRead
-   * @param root0.onPrepareExpand
-   * @param root0.onSwipeRead
-   * @param root0.onToggle
-   * @param root0.onToggleRead
-   * @param root0.onToggleStarred
-   * @param root0.removalAnimationMode
-   * @param root0.showFavicons
-   * @param root0.useRichFormatting
+   * Renders one memoized article row inside the virtualized feed list.
+   * @param props - Row props forwarded to the list row shell and article card.
+   * @returns The rendered feed row.
    */
-  function FeedArticleRow({
-    article,
-    articleKey,
-    hasScrapedContent,
-    isDark,
-    isEntering,
-    isExpanded,
-    isHydrating,
-    isLastRow,
-    isMobile,
-    isUpdatingState,
-    onEnteringDone,
-    onExpandedSwipeRead,
-    onPrepareExpand,
-    onSwipeRead,
-    onToggle,
-    onToggleRead,
-    onToggleStarred,
-    removalAnimationMode = null,
-    showFavicons,
-    useRichFormatting,
-  }: FeedArticleRowProps) {
+  function FeedArticleRow(props: FeedArticleRowProps) {
+    const {
+      article,
+      articleKey,
+      hasScrapedContent,
+      isDark,
+      isEntering,
+      isExpanded,
+      isHydrating,
+      isLastRow,
+      isMobile,
+      isUpdatingState,
+      onEnteringDone,
+      onExpandedSwipeRead,
+      onPrepareExpand,
+      onSwipeRead,
+      onToggle,
+      onToggleRead,
+      onToggleStarred,
+      removalAnimationMode = null,
+      showFavicons,
+      useRichFormatting,
+    } = props;
+
     return (
       <FeedListRow
         articleKey={articleKey}

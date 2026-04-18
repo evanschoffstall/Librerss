@@ -13,8 +13,10 @@ const ARTICLE_EXPAND_DURATION_MS = 160;
 const ARTICLE_COLLAPSE_DURATION_MS = 130;
 
 /**
- * @param isExpanded
- * @param isHydrating
+ * Manage the article expansion.
+ * @param isExpanded - Whether is expanded.
+ * @param isHydrating - Whether is hydrating.
+ * @returns The article expansion state and callbacks.
  */
 export function useArticleExpansion(isExpanded: boolean, isHydrating: boolean) {
   const [phase, setPhase] = useState<ExpansionPhase>(

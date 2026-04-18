@@ -8,14 +8,13 @@ interface UseBackgroundCanvasWindowEventsOptions {
 }
 
 /**
- * @param root0
- * @param root0.onMouseMove
- * @param root0.onResize
+ * Manage the background canvas window events.
+ * @param options - The options used to manage the background canvas window events.
  */
-export function useBackgroundCanvasWindowEvents({
-  onMouseMove,
-  onResize,
-}: UseBackgroundCanvasWindowEventsOptions) {
+export function useBackgroundCanvasWindowEvents(
+  options: UseBackgroundCanvasWindowEventsOptions,
+) {
+  const { onMouseMove, onResize } = options;
   useEffect(() => {
     window.addEventListener("mousemove", onMouseMove, { passive: true });
     window.addEventListener("resize", onResize);

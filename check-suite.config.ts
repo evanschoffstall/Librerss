@@ -116,24 +116,37 @@ interface PurgeCssConfig {
 // ── Helper functions ──────────────────────────────────────────────────────────
 const BUN_LINE_COVERAGE_PATTERN =
   /(?:^|\n)\s*[│|]\s*Lines\s*[│|]\s*([\d.]+)\s*%\s*[│|]\s*([\d,]+)\s*[│|]\s*[\d,]+\s*[│|]\s*([\d,]+)\s*[│|]/u;
-/**
- * @param root0
- * @param root0.config
- * @param root0.cwd
- * @param root0.importModule
- * @param root0.joinPath
- */
-async function analyzePurgeCss({
-  config,
-  cwd,
-  importModule,
-  joinPath,
-}: {
+interface CollectLineCoverageOptions {
+  coveragePath: string;
+  excludedFiles: ReadonlySet<string>;
+  excludedPaths: string[];
+  existsSync: InlineTypeScriptPostProcessContext["existsSync"];
+  includedPaths: string[];
+  readFileSync: InlineTypeScriptPostProcessContext["readFileSync"];
+}
+
+interface CoverageCheckResultInput {
+  coverageLabel: string;
+  coveragePath?: string;
+  coverageThreshold: number;
+  totals: CoverageTotals | null;
+}
+interface PurgeCssOptions {
   config: PurgeCssConfig;
   cwd: string;
   importModule: (specifier: string) => Promise<unknown>;
   joinPath: InlineTypeScriptContext["join"];
-}): Promise<PurgeCssCheckResult> {
+}
+
+/**
+ * Analyze the purge css.
+ * @param options - The options used to analyze the purge css.
+ * @returns The purge css.
+ */
+async function analyzePurgeCss(
+  options: PurgeCssOptions,
+): Promise<PurgeCssCheckResult> {
+  const { config, cwd, importModule, joinPath } = options;
   if (!config.safelists.every((pattern) => isSafeRegExpPattern(pattern)))
     return {
       kind: "invalid-safelist",
@@ -176,21 +189,14 @@ async function analyzePurgeCss({
   };
 }
 /**
- * @param input
- * @param input.coverageLabel
- * @param input.coveragePath
- * @param input.coverageThreshold
- * @param input.totals
- * @param messages
- * @param extraChecks
+ * Append the coverage check result.
+ * @param input - The input used to append the coverage check result.
+ * @param messages - The messages.
+ * @param extraChecks - The extra checks.
+ * @returns Whether coverage check result.
  */
 function appendCoverageCheckResult(
-  input: {
-    coverageLabel: string;
-    coveragePath?: string;
-    coverageThreshold: number;
-    totals: CoverageTotals | null;
-  },
+  input: CoverageCheckResultInput,
   messages: PostProcessMessage[],
   extraChecks: ProcessedCheck[],
 ): boolean {
@@ -223,10 +229,12 @@ function appendCoverageCheckResult(
   return status === "fail";
 }
 /**
- * @param executionReport
- * @param sections
- * @param failedTitle
- * @param skippedTitle
+ * Append the execution result sections.
+ * @param executionReport - The execution report.
+ * @param sections - The sections.
+ * @param failedTitle - The failed title.
+ * @param skippedTitle - The skipped title.
+ * @returns Whether execution result sections.
  */
 function appendExecutionResultSections(
   executionReport: Pick<ExecutionReport, "failedItems" | "skippedItems">,
@@ -252,8 +260,9 @@ function appendExecutionResultSections(
   return hasFailures;
 }
 /**
- * @param messages
- * @param reportPath
+ * Append the missing report message.
+ * @param messages - The messages.
+ * @param reportPath - The report path.
  */
 function appendMissingReportMessage(
   messages: PostProcessMessage[],
@@ -265,9 +274,11 @@ function appendMissingReportMessage(
   });
 }
 /**
- * @param data
- * @param resolveTokenString
- * @param defaultThreshold
+ * Build the common coverage state.
+ * @param data - The data.
+ * @param resolveTokenString - The callback that token string.
+ * @param defaultThreshold - The default threshold value.
+ * @returns The common coverage state.
  */
 function buildCommonCoverageState(
   data: Record<string, unknown>,
@@ -317,7 +328,9 @@ function buildCommonCoverageState(
   };
 }
 /**
- * @param commandOutput
+ * Build the console only execution report.
+ * @param commandOutput - The command output.
+ * @returns The console only execution report.
  */
 function buildConsoleOnlyExecutionReport(
   commandOutput: string,
@@ -331,7 +344,9 @@ function buildConsoleOnlyExecutionReport(
   };
 }
 /**
- * @param options
+ * Build the coverage report post process.
+ * @param options - The options used to build the coverage report post process.
+ * @returns The coverage report post process.
  */
 function buildCoverageReportPostProcess(
   options: CoverageReportPostProcessOptions,
@@ -416,9 +431,11 @@ function buildCoverageReportPostProcess(
   };
 }
 /**
- * @param executionReport
- * @param exitCode
- * @param coverageTotals
+ * Build the execution summary.
+ * @param executionReport - The execution report.
+ * @param exitCode - The exit code.
+ * @param coverageTotals - The coverage totals.
+ * @returns The execution summary.
  */
 function buildExecutionSummary(
   executionReport: Pick<ExecutionReport, "failed" | "passed" | "skipped">,
@@ -426,10 +443,11 @@ function buildExecutionSummary(
   coverageTotals: CoverageTotals | null,
 ): string {
   return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${formatExecutionSummaryCoverage(coverageTotals)}${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
-}
-/**
- * @param report
- * @param resultType
+} /**
+ * Process the collect case results.
+ * @param report - The report.
+ * @param resultType - The result type.
+ * @returns The collect case results.
  */
 function collectCaseResults(
   report: string,
@@ -445,23 +463,15 @@ function collectCaseResults(
   }
   return collected;
 }
+
 /**
- * @param options
- * @param options.coveragePath
- * @param options.excludedFiles
- * @param options.excludedPaths
- * @param options.existsSync
- * @param options.includedPaths
- * @param options.readFileSync
+ * Process the collect line coverage.
+ * @param options - The options used to process the collect line coverage.
+ * @returns The collect line coverage.
  */
-function collectLineCoverage(options: {
-  coveragePath: string;
-  excludedFiles: ReadonlySet<string>;
-  excludedPaths: string[];
-  existsSync: InlineTypeScriptPostProcessContext["existsSync"];
-  includedPaths: string[];
-  readFileSync: InlineTypeScriptPostProcessContext["readFileSync"];
-}): CoverageTotals | null {
+function collectLineCoverage(
+  options: CollectLineCoverageOptions,
+): CoverageTotals | null {
   if (!options.coveragePath || !options.existsSync(options.coveragePath))
     return null;
   const lineHitCounts = new Map<string, number>();
@@ -498,11 +508,13 @@ function collectLineCoverage(options: {
   return { covered, found, pct: found > 0 ? (covered / found) * 100 : 0 };
 }
 /**
- * @param key
- * @param args
- * @param coverage
- * @param defaultThreshold
- * @param options
+ * Create the coverage step.
+ * @param key - The key.
+ * @param args - The args.
+ * @param coverage - The coverage.
+ * @param defaultThreshold - The default threshold value.
+ * @param options - The options used to create the coverage step.
+ * @returns The coverage step.
  */
 function createCoverageStep(
   key: string,
@@ -537,7 +549,9 @@ function createCoverageStep(
   });
 }
 /**
- * @param input
+ * Process the define coverage command step.
+ * @param input - The input used to process the define coverage command step.
+ * @returns The define coverage command step.
  */
 function defineCoverageCommandStep(
   input: CoverageCommandStepOptions,
@@ -574,8 +588,10 @@ function defineCoverageCommandStep(
   return step;
 }
 /**
- * @param match
- * @param body
+ * Process the format case result.
+ * @param match - The match.
+ * @param body - The body.
+ * @returns The format case result.
  */
 function formatCaseResult(match: RegExpMatchArray, body: string): string {
   const failure = readXmlAttributes(
@@ -585,7 +601,9 @@ function formatCaseResult(match: RegExpMatchArray, body: string): string {
   return `${test.file ?? "unknown-file"}${test.line ? `:${test.line}` : ""} - ${test.classname ? `${test.classname} > ` : ""}${test.name ?? "(unnamed test)"}${failure.message ? ` [${failure.message}]` : ""}`;
 }
 /**
- * @param coverageTotals
+ * Process the format execution summary coverage.
+ * @param coverageTotals - The coverage totals.
+ * @returns The format execution summary coverage.
  */
 function formatExecutionSummaryCoverage(
   coverageTotals: CoverageTotals | null,
@@ -594,21 +612,27 @@ function formatExecutionSummaryCoverage(
   return ` · coverage ${coverageTotals.pct.toFixed(2)}% (${coverageTotals.covered}/${coverageTotals.found})`;
 }
 /**
- * @param unusedSelectors
+ * Process the format unused selector output.
+ * @param unusedSelectors - The unused selectors.
+ * @returns The format unused selector output.
  */
 function formatUnusedSelectorOutput(unusedSelectors: string[]): string {
   return `${unusedSelectors.map((selector) => `  unused: ${selector}`).join("\n")}\nfound ${unusedSelectors.length} unused CSS selector(s)\n`;
 }
 /**
- * @param filePath
- * @param matcherPath
+ * Process the matches coverage path.
+ * @param filePath - The file path.
+ * @param matcherPath - The matcher path.
+ * @returns Whether matches coverage path.
  */
 function matchesCoveragePath(filePath: string, matcherPath: string): boolean {
   return filePath === matcherPath || filePath.startsWith(`${matcherPath}/`);
 }
 /**
- * @param body
- * @param resultType
+ * Process the matches result type.
+ * @param body - The body.
+ * @param resultType - The result type.
+ * @returns Whether matches result type.
  */
 function matchesResultType(
   body: string,
@@ -620,7 +644,9 @@ function matchesResultType(
         (body.includes("<failure") || body.includes("<error"));
 }
 /**
- * @param value
+ * Normalize the coverage file path.
+ * @param value - The value.
+ * @returns The coverage file path.
  */
 function normalizeCoverageFilePath(value: string): string {
   return value
@@ -630,8 +656,10 @@ function normalizeCoverageFilePath(value: string): string {
     .replace(/\/$/u, "");
 }
 /**
- * @param commandOutput
- * @param label
+ * Parse the console count.
+ * @param commandOutput - The command output.
+ * @param label - The label.
+ * @returns The console count.
  */
 function parseConsoleCount(
   commandOutput: string,
@@ -647,10 +675,12 @@ function parseConsoleCount(
   return match ? Number.parseInt(match[1], 10) : 0;
 }
 /**
- * @param reportPath
- * @param commandOutput
- * @param existsSync
- * @param readFileSync
+ * Parse the junit execution report.
+ * @param reportPath - The report path.
+ * @param commandOutput - The command output.
+ * @param existsSync - The exists sync.
+ * @param readFileSync - The read file sync.
+ * @returns The junit execution report.
  */
 function parseJunitExecutionReport(
   reportPath: string,
@@ -674,8 +704,10 @@ function parseJunitExecutionReport(
   };
 }
 /**
- * @param displayOutput
- * @param pattern
+ * Parse the table line coverage.
+ * @param displayOutput - The display output.
+ * @param pattern - The pattern.
+ * @returns The table line coverage.
  */
 function parseTableLineCoverage(
   displayOutput: string,
@@ -691,11 +723,15 @@ function parseTableLineCoverage(
     : null;
 }
 /**
- * @param data
+ * Process the read purge css config.
+ * @param data - The data.
+ * @returns The read purge css config.
  */
 function readPurgeCssConfig(data: unknown): null | PurgeCssConfig {
   /**
-   * @param entry
+   * Returns whether a config entry is an array of string values.
+   * @param entry - Candidate value read from the config object.
+   * @returns Whether the entry is a string array.
    */
   const hasStringList = (entry: unknown): entry is string[] =>
       Array.isArray(entry) && entry.every((item) => typeof item === "string"),
@@ -717,7 +753,9 @@ function readPurgeCssConfig(data: unknown): null | PurgeCssConfig {
   };
 }
 /**
- * @param raw
+ * Process the read xml attributes.
+ * @param raw - The raw.
+ * @returns The read xml attributes.
  */
 function readXmlAttributes(raw: string): Partial<Record<string, string>> {
   return Object.fromEntries(
@@ -725,9 +763,11 @@ function readXmlAttributes(raw: string): Partial<Record<string, string>> {
   );
 }
 /**
- * @param values
- * @param includePaths
- * @param resolveTokenString
+ * Resolve the coverage matchers.
+ * @param values - The values.
+ * @param includePaths - The include paths.
+ * @param resolveTokenString - The callback that token string.
+ * @returns The coverage matchers.
  */
 function resolveCoverageMatchers(
   values: unknown,
@@ -761,12 +801,14 @@ function resolveCoverageMatchers(
   ];
 }
 /**
- * @param options
- * @param coverageState
- * @param displayOutput
- * @param messages
- * @param existsSync
- * @param readFileSync
+ * Resolve the coverage totals.
+ * @param options - The options used to resolve the coverage totals.
+ * @param coverageState - The coverage state.
+ * @param displayOutput - The display output.
+ * @param messages - The messages.
+ * @param existsSync - The exists sync.
+ * @param readFileSync - The read file sync.
+ * @returns The coverage totals.
  */
 function resolveCoverageTotals(
   options: CoverageReportPostProcessOptions,
@@ -799,11 +841,13 @@ function resolveCoverageTotals(
   });
 }
 /**
- * @param options
- * @param executionReport
- * @param messages
- * @param reportPath
- * @param currentStatus
+ * Resolve the missing report status.
+ * @param options - The options used to resolve the missing report status.
+ * @param executionReport - The execution report.
+ * @param messages - The messages.
+ * @param reportPath - The report path.
+ * @param currentStatus - The current status.
+ * @returns The missing report status.
  */
 function resolveMissingReportStatus(
   options: CoverageReportPostProcessOptions,
@@ -827,10 +871,12 @@ function resolveMissingReportStatus(
   return executionReport.failed > 0 ? "fail" : currentStatus;
 }
 /**
- * @param filePath
- * @param includedPaths
- * @param excludedFiles
- * @param excludedPaths
+ * Return whether should include coverage file.
+ * @param filePath - The file path.
+ * @param includedPaths - The included paths.
+ * @param excludedFiles - The excluded files.
+ * @param excludedPaths - The excluded paths.
+ * @returns Whether should include coverage file.
  */
 function shouldIncludeCoverageFile(
   filePath: string,
@@ -855,8 +901,10 @@ function shouldIncludeCoverageFile(
 
 // ── Summary helpers ───────────────────────────────────────────────────────────
 /**
- * @param defaultValue
- * @param patterns
+ * Process the pat.
+ * @param defaultValue - The default value.
+ * @param patterns - The patterns.
+ * @returns The pat.
  */
 const pat = (
   defaultValue: string,
@@ -1000,7 +1048,16 @@ const architecture = defineStep({
       "dependency-policy-fan-out": { maxDependencies: 5 },
       "directory-depth": { maxDepth: 3 },
       "junk-drawer-file": {
-        fileNamePatterns: ["*helper*", "*Helper*", "*runtime*", "*Runtime*", "*util*", "*Util*", "*support*", "*Support*"],
+        fileNamePatterns: [
+          "*helper*",
+          "*Helper*",
+          "*runtime*",
+          "*Runtime*",
+          "*util*",
+          "*Util*",
+          "*support*",
+          "*Support*",
+        ],
       },
       "mixed-file-name-case": { enabled: true, ignoreFileGlobs: ["index.ts"] },
       "public-surface-purity": {},
@@ -1016,18 +1073,12 @@ const architecture = defineStep({
   failMsg: "architecture violations found",
   label: "architecture",
   /**
-   * @param root0
-   * @param root0.cwd
-   * @param root0.data
-   * @param root0.fail
-   * @param root0.ok
+   * Runs the architecture check with the inline TypeScript step context.
+   * @param context - Inline TypeScript context for the current step execution.
+   * @returns The command result consumed by the check-suite runner.
    */
-  source: async ({
-    cwd,
-    data,
-    fail,
-    ok,
-  }: InlineTypeScriptContext): Promise<Command> => {
+  source: async (context: InlineTypeScriptContext): Promise<Command> => {
+    const { cwd, data, fail, ok } = context;
     const result = await runArchitectureCheck(cwd, data);
     return result.exitCode === 0 ? ok(result.output) : fail(result.output);
   },
@@ -1065,22 +1116,12 @@ const purgeCss = defineStep({
   failMsg: "unused CSS selectors found",
   label: "purgecss",
   /**
-   * @param root0
-   * @param root0.cwd
-   * @param root0.data
-   * @param root0.fail
-   * @param root0.importModule
-   * @param root0.join
-   * @param root0.ok
+   * Runs the PurgeCSS step with the inline TypeScript step context.
+   * @param context - Inline TypeScript context for the current step execution.
+   * @returns The command result consumed by the check-suite runner.
    */
-  source: async ({
-    cwd,
-    data,
-    fail,
-    importModule,
-    join,
-    ok,
-  }: InlineTypeScriptContext) => {
+  source: async (context: InlineTypeScriptContext) => {
+    const { cwd, data, fail, importModule, join, ok } = context;
     const config = readPurgeCssConfig(data);
     if (!config) return fail("purgecss config is invalid\n");
     const result = await analyzePurgeCss({
@@ -1099,11 +1140,12 @@ const secretlint = defineStep({
   failMsg: "secretlint failed",
   label: "secretlint",
   /**
-   * @param root0
-   * @param root0.cwd
+   * Runs secretlint against tracked files from the current working tree.
+   * @param context - Inline TypeScript context for the current step execution.
+   * @returns The command result consumed by the check-suite runner.
    */
-  source: async ({ cwd }: InlineTypeScriptContext) =>
-    runGitFileScan(cwd, {
+  source: async (context: InlineTypeScriptContext) =>
+    runGitFileScan(context.cwd, {
       command: "bunx",
       fallbackArgs: [
         "secretlint",
@@ -1215,16 +1257,19 @@ const lizard = defineStep({
   failMsg: "complexity limits exceeded",
   label: "lizard",
   /**
-   * @param root0
-   * @param root0.fail
-   * @param root0.ok
+   * Runs the lizard complexity step with the inline TypeScript context.
+   * @param context - Inline TypeScript context for the current step execution.
+   * @returns The command result consumed by the check-suite runner.
    */
-  source: async ({ fail, ok }: InlineTypeScriptContext): Promise<Command> => {
+  source: async (context: InlineTypeScriptContext): Promise<Command> => {
+    const { fail, ok } = context;
     const result = await runComplexityCheck({
       analyzer: createSpawnComplexityAdapter({
         /**
-         * @param targets
-         * @param excluded
+         * Builds the lizard CLI argument list for the requested targets.
+         * @param targets - Source targets that should be analyzed.
+         * @param excluded - Glob patterns that should be excluded from analysis.
+         * @returns CLI arguments for invoking lizard.
          */
         buildArgs: (
           targets: readonly string[],
@@ -1244,7 +1289,9 @@ const lizard = defineStep({
         failureLabel: "complexity",
         installHint: "python3 -m pip install lizard",
         /**
-         * @param output
+         * Parses CSV output emitted by lizard into complexity rows.
+         * @param output - Raw CSV output captured from the lizard process.
+         * @returns Parsed complexity rows for threshold evaluation.
          */
         parseOutput: (output: string) =>
           parseCsvComplexityRows(output, {
@@ -1326,7 +1373,9 @@ const playwright = createCoverageStep(
     enabled: hasPackageScript("test:e2e:coverage"),
     failMsg: "playwright e2e failed",
     /**
-     * @param output
+     * Parses the Playwright coverage summary emitted to stdout.
+     * @param output - Console output captured from the Playwright coverage run.
+     * @returns Parsed line-coverage totals when the summary table is present.
      */
     parseConsoleCoverage: (output) =>
       parseTableLineCoverage(output, BUN_LINE_COVERAGE_PATTERN),

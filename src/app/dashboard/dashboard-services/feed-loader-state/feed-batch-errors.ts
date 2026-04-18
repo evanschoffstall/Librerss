@@ -10,11 +10,9 @@ interface FeedBatchErrorToast {
 }
 
 /**
- * Classifies an error from a feed batch request into a user-actionable toast.
- *
- * The classifier duck-types the error shape to avoid coupling the dashboard
- * service layer to a specific HTTP client implementation.
- * @param error
+ * Process the classify feed batch error.
+ * @param error - The error.
+ * @returns The classify feed batch error.
  */
 export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
   const status = extractHttpStatus(error);
@@ -69,10 +67,9 @@ export function classifyFeedBatchError(error: unknown): FeedBatchErrorToast {
 }
 
 /**
- * Recognizes expected request-cancellation variants from browser aborts and
- * TanStack Query internals so overlapping pagination requests do not surface
- * as user-visible failures.
- * @param error
+ * Return whether is canceled batch request.
+ * @param error - The error.
+ * @returns Whether is canceled batch request.
  */
 export function isCanceledBatchRequest(error: unknown): boolean {
   if (!error || typeof error !== "object") {
@@ -90,9 +87,9 @@ export function isCanceledBatchRequest(error: unknown): boolean {
 }
 
 /**
- * Returns whether a batch failure is already classified and user-actionable,
- * so callers can avoid duplicating noisy console errors for expected states.
- * @param error
+ * Return whether is handled feed batch error.
+ * @param error - The error.
+ * @returns Whether is handled feed batch error.
  */
 export function isHandledFeedBatchError(error: unknown): boolean {
   const status = extractHttpStatus(error);
@@ -108,21 +105,27 @@ export function isHandledFeedBatchError(error: unknown): boolean {
 }
 
 /**
- * @param error
+ * Process the extract error code.
+ * @param error - The error.
+ * @returns The extract error code.
  */
 function extractErrorCode(error: unknown): string | undefined {
   return readStringProperty(error, "code");
 }
 
 /**
- * @param error
+ * Process the extract error reason.
+ * @param error - The error.
+ * @returns The extract error reason.
  */
 function extractErrorReason(error: unknown): string | undefined {
   return readStringProperty(extractHttpResponseData(error), "reason");
 }
 
 /**
- * @param error
+ * Process the extract http response.
+ * @param error - The error.
+ * @returns The extract http response.
  */
 function extractHttpResponse(error: unknown): null | Record<string, unknown> {
   if (
@@ -139,7 +142,9 @@ function extractHttpResponse(error: unknown): null | Record<string, unknown> {
 }
 
 /**
- * @param error
+ * Process the extract http response data.
+ * @param error - The error.
+ * @returns The extract http response data.
  */
 function extractHttpResponseData(
   error: unknown,
@@ -159,7 +164,9 @@ function extractHttpResponseData(
 }
 
 /**
- * @param error
+ * Process the extract http status.
+ * @param error - The error.
+ * @returns The extract http status.
  */
 function extractHttpStatus(error: unknown): number | undefined {
   const response = extractHttpResponse(error);
@@ -172,8 +179,10 @@ function extractHttpStatus(error: unknown): number | undefined {
 }
 
 /**
- * @param value
- * @param key
+ * Process the read string property.
+ * @param value - The value.
+ * @param key - The key.
+ * @returns The read string property.
  */
 function readStringProperty(value: unknown, key: string): string | undefined {
   if (value && typeof value === "object" && key in value) {

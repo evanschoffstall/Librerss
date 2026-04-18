@@ -76,47 +76,33 @@ type DashboardToolbarMobileMenuContentProps = Pick<
 };
 
 /**
- * Renders the mobile toolbar actions using the desktop uncondensed icon treatment.
- * @param root0
- * @param root0.handleMarkAllRead
- * @param root0.handleMarkViewportRead
- * @param root0.handleOpenSettings
- * @param root0.handleRefresh
- * @param root0.handleRefreshFromUpstream
- * @param root0.handleReset
- * @param root0.handleSignOut
- * @param root0.handleToggleTheme
- * @param root0.isDark
- * @param root0.isDevelopmentMode
- * @param root0.isMarkingAllRead
- * @param root0.isRefreshing
- * @param root0.isResetting
- * @param root0.isSigningOut
- * @param root0.isToolbarActionPending
- * @param root0.mobileToolbarMirror
- * @param root0.mounted
- * @param root0.themeToggleLabel
+ * Render the dashboard toolbar mobile actions component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar mobile actions component.
  */
-export function DashboardToolbarMobileActions({
-  handleMarkAllRead,
-  handleMarkViewportRead,
-  handleOpenSettings,
-  handleRefresh,
-  handleRefreshFromUpstream,
-  handleReset,
-  handleSignOut,
-  handleToggleTheme,
-  isDark,
-  isDevelopmentMode,
-  isMarkingAllRead,
-  isRefreshing,
-  isResetting,
-  isSigningOut,
-  isToolbarActionPending,
-  mobileToolbarMirror,
-  mounted,
-  themeToggleLabel,
-}: DashboardToolbarMobileActionsProps) {
+export function DashboardToolbarMobileActions(
+  props: DashboardToolbarMobileActionsProps,
+) {
+  const {
+    handleMarkAllRead,
+    handleMarkViewportRead,
+    handleOpenSettings,
+    handleRefresh,
+    handleRefreshFromUpstream,
+    handleReset,
+    handleSignOut,
+    handleToggleTheme,
+    isDark,
+    isDevelopmentMode,
+    isMarkingAllRead,
+    isRefreshing,
+    isResetting,
+    isSigningOut,
+    isToolbarActionPending,
+    mobileToolbarMirror,
+    mounted,
+    themeToggleLabel,
+  } = props;
   return (
     <DropdownMenu>
       <div
@@ -163,15 +149,17 @@ export function DashboardToolbarMobileActions({
 }
 
 /**
- * @param root0
- * @param root0.handleOpenFeedsSidebar
+ * Render the dashboard toolbar mobile menu button component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar mobile menu button component.
  */
-export function DashboardToolbarMobileMenuButton({
-  handleOpenFeedsSidebar,
-}: Pick<
-  ReturnType<typeof useDashboardToolbarState>,
-  "handleOpenFeedsSidebar"
->) {
+export function DashboardToolbarMobileMenuButton(
+  props: Pick<
+    ReturnType<typeof useDashboardToolbarState>,
+    "handleOpenFeedsSidebar"
+  >,
+) {
+  const { handleOpenFeedsSidebar } = props;
   return (
     <button
       aria-label="Open feeds"
@@ -191,67 +179,79 @@ export function DashboardToolbarMobileMenuButton({
 const DashboardToolbarMobileActionsTrigger = React.forwardRef<
   HTMLButtonElement,
   React.ComponentPropsWithoutRef<"button">
-> /**
- * @param root0
- * @param root0.className
- * @param root0.type
- * @param ref
- */(function DashboardToolbarMobileActionsTrigger(
-  { className, type = "button", ...props },
-  ref,
-) {
-  return (
-    <button
-      aria-label="Open actions menu"
-      className={`
+>(
+  /**
+   * Render the dashboard toolbar mobile actions trigger component.
+   * @param props - The component props.
+   * @param ref - The ref.
+   * @returns The rendered dashboard toolbar mobile actions trigger component.
+   */
+  function DashboardToolbarMobileActionsTrigger(
+    props: React.ComponentPropsWithoutRef<"button">,
+    ref,
+  ) {
+    const { className, type = "button", ...buttonProps } = props;
+
+    return (
+      <button
+        aria-label="Open actions menu"
+        className={`
         ${toolbarButtonClassName}
         ${toolbarIconButtonLayoutClassName}
         ${className ?? ""}
       `}
-      ref={ref}
-      type={type}
-      {...props}
-    >
-      <EllipsisVertical className="size-4" />
-    </button>
-  );
-});
+        ref={ref}
+        type={type}
+        {...buttonProps}
+      >
+        <EllipsisVertical className="size-4" />
+      </button>
+    );
+  },
+);
 
+interface DashboardToolbarMobileQuickActionProps {
+  ariaLabel: string;
+  icon: typeof RefreshCw;
+  isPending: boolean;
+  onClick: () => void;
+}
+interface DashboardToolbarResetMenuItemProps {
+  handleReset: () => Promise<void>;
+  isDevelopmentMode: boolean;
+  isResetting: boolean;
+}
+
+interface DashboardToolbarUpstreamRefreshMenuItemProps {
+  handleRefreshFromUpstream: () => void;
+  isDevelopmentMode: boolean;
+  isRefreshing: boolean;
+}
 /**
- * @param root0
- * @param root0.handleMarkAllRead
- * @param root0.handleOpenSettings
- * @param root0.handleRefreshFromUpstream
- * @param root0.handleReset
- * @param root0.handleSignOut
- * @param root0.handleToggleTheme
- * @param root0.isDark
- * @param root0.isDevelopmentMode
- * @param root0.isMarkingAllRead
- * @param root0.isRefreshing
- * @param root0.isResetting
- * @param root0.isSigningOut
- * @param root0.mobileToolbarMirror
- * @param root0.mounted
- * @param root0.themeToggleLabel
+ * Render the dashboard toolbar mobile menu content component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar mobile menu content component.
  */
-function DashboardToolbarMobileMenuContent({
-  handleMarkAllRead,
-  handleOpenSettings,
-  handleRefreshFromUpstream,
-  handleReset,
-  handleSignOut,
-  handleToggleTheme,
-  isDark,
-  isDevelopmentMode,
-  isMarkingAllRead,
-  isRefreshing,
-  isResetting,
-  isSigningOut,
-  mobileToolbarMirror,
-  mounted,
-  themeToggleLabel,
-}: DashboardToolbarMobileMenuContentProps) {
+function DashboardToolbarMobileMenuContent(
+  props: DashboardToolbarMobileMenuContentProps,
+) {
+  const {
+    handleMarkAllRead,
+    handleOpenSettings,
+    handleRefreshFromUpstream,
+    handleReset,
+    handleSignOut,
+    handleToggleTheme,
+    isDark,
+    isDevelopmentMode,
+    isMarkingAllRead,
+    isRefreshing,
+    isResetting,
+    isSigningOut,
+    mobileToolbarMirror,
+    mounted,
+    themeToggleLabel,
+  } = props;
   return (
     <DropdownMenuContent
       align={mobileToolbarMirror ? "start" : "end"}
@@ -303,24 +303,14 @@ function DashboardToolbarMobileMenuContent({
 }
 
 /**
- * Uses the shared desktop-sized quick-action footprint on mobile.
- * @param root0
- * @param root0.ariaLabel
- * @param root0.icon
- * @param root0.isPending
- * @param root0.onClick
+ * Render the dashboard toolbar mobile quick action component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar mobile quick action component.
  */
-function DashboardToolbarMobileQuickAction({
-  ariaLabel,
-  icon,
-  isPending,
-  onClick,
-}: {
-  ariaLabel: string;
-  icon: typeof RefreshCw;
-  isPending: boolean;
-  onClick: () => void;
-}) {
+function DashboardToolbarMobileQuickAction(
+  props: DashboardToolbarMobileQuickActionProps,
+) {
+  const { ariaLabel, icon, isPending, onClick } = props;
   return (
     <DashboardToolbarActionButton
       ariaLabel={ariaLabel}
@@ -331,22 +321,15 @@ function DashboardToolbarMobileQuickAction({
     />
   );
 }
-
 /**
- * @param root0
- * @param root0.handleReset
- * @param root0.isDevelopmentMode
- * @param root0.isResetting
+ * Render the dashboard toolbar reset menu item component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar reset menu item component.
  */
-function DashboardToolbarResetMenuItem({
-  handleReset,
-  isDevelopmentMode,
-  isResetting,
-}: {
-  handleReset: () => Promise<void>;
-  isDevelopmentMode: boolean;
-  isResetting: boolean;
-}) {
+function DashboardToolbarResetMenuItem(
+  props: DashboardToolbarResetMenuItemProps,
+) {
+  const { handleReset, isDevelopmentMode, isResetting } = props;
   return isDevelopmentMode ? (
     <DropdownMenuItem
       disabled={isResetting}
@@ -359,20 +342,14 @@ function DashboardToolbarResetMenuItem({
 }
 
 /**
- * @param root0
- * @param root0.handleRefreshFromUpstream
- * @param root0.isDevelopmentMode
- * @param root0.isRefreshing
+ * Render the dashboard toolbar upstream refresh menu item component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar upstream refresh menu item component.
  */
-function DashboardToolbarUpstreamRefreshMenuItem({
-  handleRefreshFromUpstream,
-  isDevelopmentMode,
-  isRefreshing,
-}: {
-  handleRefreshFromUpstream: () => void;
-  isDevelopmentMode: boolean;
-  isRefreshing: boolean;
-}) {
+function DashboardToolbarUpstreamRefreshMenuItem(
+  props: DashboardToolbarUpstreamRefreshMenuItemProps,
+) {
+  const { handleRefreshFromUpstream, isDevelopmentMode, isRefreshing } = props;
   return isDevelopmentMode ? (
     <DropdownMenuItem
       disabled={isRefreshing}

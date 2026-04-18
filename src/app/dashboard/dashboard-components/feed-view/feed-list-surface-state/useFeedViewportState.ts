@@ -6,6 +6,24 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedViewportLifecycle";
 import { type FeedViewportResolutionState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+interface FeedViewportHistoryOptions {
+  feedViewKey: string;
+  hasResolvedInitialViewportRef: React.RefObject<boolean>;
+  isInvertedScroll: boolean;
+  previousFeedViewKeyRef: React.RefObject<string>;
+  previousIsInvertedRef: React.RefObject<boolean>;
+  previousRefreshEpochRef: React.RefObject<number>;
+  refreshEpoch: number;
+}
+
+interface FeedViewportHostRefOptions {
+  isMountedRef: React.RefObject<boolean>;
+  setScrollViewport: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
+  setViewportResolutionState: React.Dispatch<
+    React.SetStateAction<FeedViewportResolutionState>
+  >;
+  viewportResolutionRequestRef: React.RefObject<number>;
+}
 interface UseFeedViewportStateOptions {
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;
@@ -14,23 +32,17 @@ interface UseFeedViewportStateOptions {
 }
 
 /**
- * Owns viewport discovery plus the normal-mode top-lock used during feed swaps.
- *
- * The feed surface renders inside the owning scroll viewport, which is resolved
- * after mount. This hook keeps that lookup and the normal-mode initial scroll
- * reset isolated from the higher-level feed state coordinator.
- * @param root0
- * @param root0.feedViewKey
- * @param root0.isCollapseScrollRestoreActive
- * @param root0.isInvertedScroll
- * @param root0.refreshEpoch
+ * Manage the feed viewport state.
+ * @param options - The options used to manage the feed viewport state.
+ * @returns The feed viewport state state and callbacks.
  */
-export function useFeedViewportState({
-  feedViewKey,
-  isCollapseScrollRestoreActive,
-  isInvertedScroll,
-  refreshEpoch,
-}: UseFeedViewportStateOptions) {
+export function useFeedViewportState(options: UseFeedViewportStateOptions) {
+  const {
+    feedViewKey,
+    isCollapseScrollRestoreActive,
+    isInvertedScroll,
+    refreshEpoch,
+  } = options;
   const [scrollViewport, setScrollViewport] = useState<HTMLElement | null>(
     null,
   );
@@ -100,26 +112,11 @@ export function useFeedViewportState({
     viewportResolutionState,
   };
 }
-
 /**
- * @param options
- * @param options.feedViewKey
- * @param options.hasResolvedInitialViewportRef
- * @param options.isInvertedScroll
- * @param options.previousFeedViewKeyRef
- * @param options.previousIsInvertedRef
- * @param options.previousRefreshEpochRef
- * @param options.refreshEpoch
+ * Update the feed viewport history.
+ * @param options - The options used to update the feed viewport history.
  */
-function updateFeedViewportHistory(options: {
-  feedViewKey: string;
-  hasResolvedInitialViewportRef: React.RefObject<boolean>;
-  isInvertedScroll: boolean;
-  previousFeedViewKeyRef: React.RefObject<string>;
-  previousIsInvertedRef: React.RefObject<boolean>;
-  previousRefreshEpochRef: React.RefObject<number>;
-  refreshEpoch: number;
-}) {
+function updateFeedViewportHistory(options: FeedViewportHistoryOptions) {
   options.hasResolvedInitialViewportRef.current = true;
   options.previousFeedViewKeyRef.current = options.feedViewKey;
   options.previousRefreshEpochRef.current = options.refreshEpoch;
@@ -127,20 +124,11 @@ function updateFeedViewportHistory(options: {
 }
 
 /**
- * @param options
- * @param options.isMountedRef
- * @param options.setScrollViewport
- * @param options.setViewportResolutionState
- * @param options.viewportResolutionRequestRef
+ * Manage the feed viewport host ref.
+ * @param options - The options used to manage the feed viewport host ref.
+ * @returns The feed viewport host ref state and callbacks.
  */
-function useFeedViewportHostRef(options: {
-  isMountedRef: React.RefObject<boolean>;
-  setScrollViewport: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
-  setViewportResolutionState: React.Dispatch<
-    React.SetStateAction<FeedViewportResolutionState>
-  >;
-  viewportResolutionRequestRef: React.RefObject<number>;
-}) {
+function useFeedViewportHostRef(options: FeedViewportHostRefOptions) {
   return useCallback(
     (node: HTMLDivElement | null) => {
       options.viewportResolutionRequestRef.current += 1;
@@ -159,8 +147,9 @@ function useFeedViewportHostRef(options: {
 }
 
 /**
- * @param isMountedRef
- * @param viewportResolutionRequestRef
+ * Manage the feed viewport mount state.
+ * @param isMountedRef - The ref that stores the is mounted ref.
+ * @param viewportResolutionRequestRef - The ref that stores the viewport resolution request ref.
  */
 function useFeedViewportMountState(
   isMountedRef: React.RefObject<boolean>,

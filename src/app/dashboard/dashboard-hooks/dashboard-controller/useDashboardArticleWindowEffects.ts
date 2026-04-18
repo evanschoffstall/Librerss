@@ -76,34 +76,26 @@ interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
 }
 
 /**
- * @param root0
- * @param root0.allowPartialArticleWindowGrowthRef
- * @param root0.currentFeedLength
- * @param root0.hasMoreServerArticles
- * @param root0.hasStartedArticleWindowSettlementRef
- * @param root0.isAwaitingArticleWindowSettlementRef
- * @param root0.isLoading
- * @param root0.isLoadingMoreArticlesRef
- * @param root0.previousAwaitedFeedLengthRef
- * @param root0.requestedArticleLimit
- * @param root0.setHasMoreServerArticles
- * @param root0.setIsLoadingMoreArticles
- * @param root0.shouldUseArticleWindow
+ * Manage the article window availability.
+ * @param options - The options used to manage the article window availability.
  */
-export function useArticleWindowAvailability({
-  allowPartialArticleWindowGrowthRef,
-  currentFeedLength,
-  hasMoreServerArticles,
-  hasStartedArticleWindowSettlementRef,
-  isAwaitingArticleWindowSettlementRef,
-  isLoading,
-  isLoadingMoreArticlesRef,
-  previousAwaitedFeedLengthRef,
-  requestedArticleLimit,
-  setHasMoreServerArticles,
-  setIsLoadingMoreArticles,
-  shouldUseArticleWindow,
-}: UseArticleWindowAvailabilityOptions): void {
+export function useArticleWindowAvailability(
+  options: UseArticleWindowAvailabilityOptions,
+): void {
+  const {
+    allowPartialArticleWindowGrowthRef,
+    currentFeedLength,
+    hasMoreServerArticles,
+    hasStartedArticleWindowSettlementRef,
+    isAwaitingArticleWindowSettlementRef,
+    isLoading,
+    isLoadingMoreArticlesRef,
+    previousAwaitedFeedLengthRef,
+    requestedArticleLimit,
+    setHasMoreServerArticles,
+    setIsLoadingMoreArticles,
+    shouldUseArticleWindow,
+  } = options;
   useEffect(() => {
     const nextAvailability = resolveArticleWindowAvailability({
       allowPartialFeedGrowth: allowPartialArticleWindowGrowthRef.current,
@@ -158,40 +150,29 @@ export function useArticleWindowAvailability({
 }
 
 /**
- * @param root0
- * @param root0.allowPartialArticleWindowGrowthRef
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.hasStartedArticleWindowSettlementRef
- * @param root0.inFlightPrefetchedLimitRef
- * @param root0.isAwaitingArticleWindowSettlementRef
- * @param root0.isLoadingMoreArticlesRef
- * @param root0.isRefillingDepletedUnreadWindowRef
- * @param root0.lastPrefetchedLimitRef
- * @param root0.previousAwaitedFeedLengthRef
- * @param root0.selectedCategory
- * @param root0.setHasMoreServerArticles
- * @param root0.setIsLoadingMoreArticles
- * @param root0.setRequestedArticleLimit
- * @param root0.shouldUseArticleWindow
+ * Manage the reset article window on selection change.
+ * @param options - The options used to manage the reset article window on selection change.
  */
-export function useResetArticleWindowOnSelectionChange({
-  allowPartialArticleWindowGrowthRef,
-  articleFilter,
-  articlesPerPage,
-  hasStartedArticleWindowSettlementRef,
-  inFlightPrefetchedLimitRef,
-  isAwaitingArticleWindowSettlementRef,
-  isLoadingMoreArticlesRef,
-  isRefillingDepletedUnreadWindowRef,
-  lastPrefetchedLimitRef,
-  previousAwaitedFeedLengthRef,
-  selectedCategory,
-  setHasMoreServerArticles,
-  setIsLoadingMoreArticles,
-  setRequestedArticleLimit,
-  shouldUseArticleWindow,
-}: UseResetArticleWindowOptions): void {
+export function useResetArticleWindowOnSelectionChange(
+  options: UseResetArticleWindowOptions,
+): void {
+  const {
+    allowPartialArticleWindowGrowthRef,
+    articleFilter,
+    articlesPerPage,
+    hasStartedArticleWindowSettlementRef,
+    inFlightPrefetchedLimitRef,
+    isAwaitingArticleWindowSettlementRef,
+    isLoadingMoreArticlesRef,
+    isRefillingDepletedUnreadWindowRef,
+    lastPrefetchedLimitRef,
+    previousAwaitedFeedLengthRef,
+    selectedCategory,
+    setHasMoreServerArticles,
+    setIsLoadingMoreArticles,
+    setRequestedArticleLimit,
+    shouldUseArticleWindow,
+  } = options;
   useEffect(() => {
     resetArticleWindowPrefetchState({
       inFlightPrefetchedLimitRef,
@@ -234,48 +215,33 @@ export function useResetArticleWindowOnSelectionChange({
 }
 
 /**
- * @param root0
- * @param root0.allowPartialArticleWindowGrowthRef
- * @param root0.articleFilter
- * @param root0.articlesPerPage
- * @param root0.currentFeedLength
- * @param root0.currentFilteredFeedLength
- * @param root0.fetchAllFeeds
- * @param root0.fetchCategoryFeeds
- * @param root0.fetchFeed
- * @param root0.hasMoreServerArticles
- * @param root0.hasStartedArticleWindowSettlementRef
- * @param root0.isAwaitingArticleWindowSettlementRef
- * @param root0.isLoading
- * @param root0.isRefillingDepletedUnreadWindowRef
- * @param root0.previousAwaitedFeedLengthRef
- * @param root0.requestedArticleLimit
- * @param root0.selectedCategory
- * @param root0.selectedCategoryNode
- * @param root0.selectedFeedUrl
- * @param root0.shouldUseArticleWindow
+ * Manage the unread window refill.
+ * @param options - The options used to manage the unread window refill.
  */
-export function useUnreadWindowRefill({
-  allowPartialArticleWindowGrowthRef,
-  articleFilter,
-  articlesPerPage,
-  currentFeedLength,
-  currentFilteredFeedLength,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  hasMoreServerArticles,
-  hasStartedArticleWindowSettlementRef,
-  isAwaitingArticleWindowSettlementRef,
-  isLoading,
-  isRefillingDepletedUnreadWindowRef,
-  previousAwaitedFeedLengthRef,
-  requestedArticleLimit,
-  selectedCategory,
-  selectedCategoryNode,
-  selectedFeedUrl,
-  shouldUseArticleWindow,
-}: UseUnreadWindowRefillOptions): void {
+export function useUnreadWindowRefill(
+  options: UseUnreadWindowRefillOptions,
+): void {
+  const {
+    allowPartialArticleWindowGrowthRef,
+    articleFilter,
+    articlesPerPage,
+    currentFeedLength,
+    currentFilteredFeedLength,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasMoreServerArticles,
+    hasStartedArticleWindowSettlementRef,
+    isAwaitingArticleWindowSettlementRef,
+    isLoading,
+    isRefillingDepletedUnreadWindowRef,
+    previousAwaitedFeedLengthRef,
+    requestedArticleLimit,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    shouldUseArticleWindow,
+  } = options;
   useEffect(() => {
     if (
       !shouldRefillDepletedUnreadWindow({

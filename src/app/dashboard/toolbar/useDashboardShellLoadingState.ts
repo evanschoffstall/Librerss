@@ -4,11 +4,20 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+interface DashboardShellLoadingStateOptions {
+  hasReceivedShellLoadingEvent: boolean;
+  readyState: DocumentReadyState;
+  shellLoadingFromDocument: boolean | null;
+}
+
 interface ShellLoadingEventDetail {
   loading?: boolean;
 }
 
-/** Reads the shell-loading dataset flag from the current document root. */
+/**
+ * Process the read dashboard shell loading from document.
+ * @returns The read dashboard shell loading from document.
+ */
 export function readDashboardShellLoadingFromDocument() {
   const shellLoading = document.documentElement.dataset.dashboardShellLoading;
 
@@ -22,10 +31,10 @@ export function readDashboardShellLoadingFromDocument() {
 
   return null;
 }
-
 /**
- * Resolves the next shell-loading state from an incoming dashboard event.
- * @param event
+ * Process the read dashboard shell loading from event.
+ * @param event - The incoming event.
+ * @returns Whether read dashboard shell loading from event.
  */
 export function readDashboardShellLoadingFromEvent(event: Event) {
   const detail = (event as CustomEvent<ShellLoadingEventDetail>).detail;
@@ -34,21 +43,15 @@ export function readDashboardShellLoadingFromEvent(event: Event) {
 }
 
 /**
- * Resolves the current shell-loading state from document readiness and events.
- * @param root0
- * @param root0.hasReceivedShellLoadingEvent
- * @param root0.readyState
- * @param root0.shellLoadingFromDocument
+ * Resolve the dashboard shell loading state.
+ * @param options - The options used to resolve the dashboard shell loading state.
+ * @returns The dashboard shell loading state.
  */
-export function resolveDashboardShellLoadingState({
-  hasReceivedShellLoadingEvent,
-  readyState,
-  shellLoadingFromDocument,
-}: {
-  hasReceivedShellLoadingEvent: boolean;
-  readyState: DocumentReadyState;
-  shellLoadingFromDocument: boolean | null;
-}) {
+export function resolveDashboardShellLoadingState(
+  options: DashboardShellLoadingStateOptions,
+) {
+  const { hasReceivedShellLoadingEvent, readyState, shellLoadingFromDocument } =
+    options;
   if (shellLoadingFromDocument !== null) {
     return shellLoadingFromDocument;
   }
@@ -61,8 +64,9 @@ export function resolveDashboardShellLoadingState({
 }
 
 /**
- * Synchronizes toolbar shell-loading state with the dashboard event bus.
- * @param startInShellLoading
+ * Manage the dashboard shell loading state.
+ * @param startInShellLoading - The start in shell loading.
+ * @returns Whether dashboard shell loading state.
  */
 export function useDashboardShellLoadingState(startInShellLoading: boolean) {
   const hasReceivedShellLoadingEventRef = useRef(false);
@@ -70,7 +74,8 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
 
   useLayoutEffect(() => {
     /**
-     *
+     * Process the sync shell loading from document.
+     * @returns Whether sync shell loading from document.
      */
     const syncShellLoadingFromDocument = () => {
       const shellLoading = readDashboardShellLoadingFromDocument();
@@ -85,7 +90,7 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
     };
 
     /**
-     *
+     * Process the settle optimistic shell loading.
      */
     const settleOptimisticShellLoading = () => {
       const shellLoading = resolveDashboardShellLoadingState({
@@ -101,7 +106,8 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
     };
 
     /**
-     * @param event
+     * Process the handle shell loading.
+     * @param event - The incoming event.
      */
     const handleShellLoading = (event: Event) => {
       hasReceivedShellLoadingEventRef.current = true;
@@ -109,7 +115,7 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
     };
 
     /**
-     *
+     * Process the handle ready state change.
      */
     const handleReadyStateChange = () => {
       settleOptimisticShellLoading();

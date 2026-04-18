@@ -22,18 +22,13 @@ const LOGIN_CARD_TRANSITION = {
 };
 
 /**
- * @param root0
- * @param root0.allowSignup
- * @param root0.initialFormError
- * @param root0.onAuthenticated
- * @param root0.onEnterPreview
+ * Render the login view component.
+ * @param props - The component props.
+ * @returns The rendered login view component.
  */
-export const LoginView = ({
-  allowSignup,
-  initialFormError,
-  onAuthenticated,
-  onEnterPreview,
-}: LoginViewProps) => {
+export const LoginView = (props: LoginViewProps) => {
+  const { allowSignup, initialFormError, onAuthenticated, onEnterPreview } =
+    props;
   const loginViewState = useLoginViewState({
     allowSignup,
     initialFormError,

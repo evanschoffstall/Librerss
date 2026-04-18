@@ -16,6 +16,12 @@ import {
 
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 
+interface CollectImportedFeedResultsOptions {
+  importedCategoryLabels: Set<string>;
+  importResults: PromiseSettledResult<{ category: string; url: string }>[];
+  successfulUrls: string[];
+}
+
 interface ImportOpmlFeedsOptions {
   categories: CategoryTreeNode[];
   entries: OpmlFeedImportEntry[];
@@ -25,26 +31,30 @@ interface ImportOpmlFeedsOptions {
   setCustomCategoryLabels: CategoryLabelListSetter;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
+interface RefreshImportedSelectionOptions {
+  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
+  nextCategories: CategoryTreeNode[];
+  previousSelectedSourceUrl: null | string | undefined;
+  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
+  successfulUrls: string[];
+}
 
 /**
- * @param root0
- * @param root0.categories
- * @param root0.entries
- * @param root0.fetchFeed
- * @param root0.loadFeedSources
- * @param root0.selectedCategory
- * @param root0.setCustomCategoryLabels
- * @param root0.setSelectedCategory
+ * Process the import opml feeds and refresh.
+ * @param options - The options used to process the import opml feeds and refresh.
  */
-export async function importOpmlFeedsAndRefresh({
-  categories,
-  entries,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setCustomCategoryLabels,
-  setSelectedCategory,
-}: ImportOpmlFeedsOptions) {
+export async function importOpmlFeedsAndRefresh(
+  options: ImportOpmlFeedsOptions,
+) {
+  const {
+    categories,
+    entries,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCustomCategoryLabels,
+    setSelectedCategory,
+  } = options;
   if (entries.length === 0) {
     toast.error("No valid feeds found in OPML file.");
     return;
@@ -109,22 +119,15 @@ export async function importOpmlFeedsAndRefresh({
       : `Imported ${importedCount} feeds from OPML.`,
   );
 }
-
 /**
- * @param root0
- * @param root0.importedCategoryLabels
- * @param root0.importResults
- * @param root0.successfulUrls
+ * Process the collect imported feed results.
+ * @param options - The options used to process the collect imported feed results.
+ * @returns The collect imported feed results.
  */
-function collectImportedFeedResults({
-  importedCategoryLabels,
-  importResults,
-  successfulUrls,
-}: {
-  importedCategoryLabels: Set<string>;
-  importResults: PromiseSettledResult<{ category: string; url: string }>[];
-  successfulUrls: string[];
-}) {
+function collectImportedFeedResults(
+  options: CollectImportedFeedResultsOptions,
+) {
+  const { importedCategoryLabels, importResults, successfulUrls } = options;
   let importedCount = 0;
   let failedCount = 0;
 
@@ -144,26 +147,19 @@ function collectImportedFeedResults({
 }
 
 /**
- * @param root0
- * @param root0.fetchFeed
- * @param root0.nextCategories
- * @param root0.previousSelectedSourceUrl
- * @param root0.setSelectedCategory
- * @param root0.successfulUrls
+ * Process the refresh imported selection.
+ * @param options - The options used to process the refresh imported selection.
  */
-async function refreshImportedSelection({
-  fetchFeed,
-  nextCategories,
-  previousSelectedSourceUrl,
-  setSelectedCategory,
-  successfulUrls,
-}: {
-  fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  nextCategories: CategoryTreeNode[];
-  previousSelectedSourceUrl: null | string | undefined;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-  successfulUrls: string[];
-}) {
+async function refreshImportedSelection(
+  options: RefreshImportedSelectionOptions,
+) {
+  const {
+    fetchFeed,
+    nextCategories,
+    previousSelectedSourceUrl,
+    setSelectedCategory,
+    successfulUrls,
+  } = options;
   const restoredSelection = previousSelectedSourceUrl
     ? findFeedNodeByUrl(nextCategories, previousSelectedSourceUrl)
     : null;

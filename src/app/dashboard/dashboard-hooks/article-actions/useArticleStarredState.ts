@@ -20,23 +20,13 @@ interface UseArticleStarredStateOptions {
 }
 
 /**
- * Owns optimistic starred-state mutations and rollback behavior.
- *
- * Starred toggles update the visible feed immediately, then either confirm the
- * server mutation or roll back the optimistic change with the correct filter-aware
- * list restoration.
- * @param root0
- * @param root0.articleFilter
- * @param root0.mutationTracker
- * @param root0.setFeed
- * @param root0.usePlaceholderData
+ * Manage the article starred state.
+ * @param options - The options used to manage the article starred state.
+ * @returns The article starred state state and callbacks.
  */
-export function useArticleStarredState({
-  articleFilter,
-  mutationTracker,
-  setFeed,
-  usePlaceholderData,
-}: UseArticleStarredStateOptions) {
+export function useArticleStarredState(options: UseArticleStarredStateOptions) {
+  const { articleFilter, mutationTracker, setFeed, usePlaceholderData } =
+    options;
   /** Toggles the article's starred state with optimistic UI and rollback. */
   const handleToggleStarredState = useCallback(
     async (article: Article) => {
@@ -44,8 +34,10 @@ export function useArticleStarredState({
 
       await runOptimisticArticleStatusMutation({
         /**
-         * @param currentFeed
-         * @param _articleMap
+         * Process the apply optimistic update.
+         * @param currentFeed - The current feed.
+         * @param _articleMap - The article map.
+         * @returns The apply optimistic update.
          */
         applyOptimisticUpdate: (currentFeed, _articleMap) => {
           const articleKey = getArticleKey(article);
@@ -67,15 +59,17 @@ export function useArticleStarredState({
         errorLogLabel: "Toggle starred state error",
         mutationTracker,
         /**
-         *
+         * Process the on error.
          */
         onError: () => {
           toast.error("Unable to update starred state right now.");
         },
         /**
-         * @param currentFeed
-         * @param articleMap
-         * @param failedArticleKeys
+         * Process the restore update.
+         * @param currentFeed - The current feed.
+         * @param articleMap - The article map.
+         * @param failedArticleKeys - The failed article keys.
+         * @returns The restore update.
          */
         restoreUpdate: (currentFeed, articleMap, failedArticleKeys) => {
           const articleKey = getArticleKey(article);
@@ -110,7 +104,8 @@ export function useArticleStarredState({
         },
         setFeed,
         /**
-         *
+         * Process the status patch for article.
+         * @returns The status patch for article.
          */
         statusPatchForArticle: () => ({ isStarred: nextStarredState }),
         usePlaceholderData,

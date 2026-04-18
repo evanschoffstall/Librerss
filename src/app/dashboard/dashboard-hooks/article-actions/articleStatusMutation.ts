@@ -55,29 +55,24 @@ interface OptimisticArticleStatusMutationOptions {
 }
 
 /**
- * Shared optimistic mutation pipeline for dashboard article read/star state.
- * @param root0
- * @param root0.applyOptimisticUpdate
- * @param root0.articles
- * @param root0.errorLogLabel
- * @param root0.mutationTracker
- * @param root0.onError
- * @param root0.restoreUpdate
- * @param root0.setFeed
- * @param root0.statusPatchForArticle
- * @param root0.usePlaceholderData
+ * Process the run optimistic article status mutation.
+ * @param options - The options used to process the run optimistic article status mutation.
+ * @returns The run optimistic article status mutation.
  */
-export async function runOptimisticArticleStatusMutation({
-  applyOptimisticUpdate,
-  articles,
-  errorLogLabel,
-  mutationTracker,
-  onError,
-  restoreUpdate,
-  setFeed,
-  statusPatchForArticle,
-  usePlaceholderData,
-}: OptimisticArticleStatusMutationOptions): Promise<OptimisticArticleStatusMutationResult> {
+export async function runOptimisticArticleStatusMutation(
+  options: OptimisticArticleStatusMutationOptions,
+): Promise<OptimisticArticleStatusMutationResult> {
+  const {
+    applyOptimisticUpdate,
+    articles,
+    errorLogLabel,
+    mutationTracker,
+    onError,
+    restoreUpdate,
+    setFeed,
+    statusPatchForArticle,
+    usePlaceholderData,
+  } = options;
   const articlesByKey = createArticleMap(articles);
   if (articlesByKey.size === 0) {
     return { attemptedCount: 0, failedArticleKeys: new Set<string>() };
@@ -120,8 +115,8 @@ export async function runOptimisticArticleStatusMutation({
 }
 
 /**
- * Build the shared updating-state controller used by dashboard article
- * mutations so overlapping operations keep one authoritative in-flight map.
+ * Manage the article mutation tracker.
+ * @returns The article mutation tracker state and callbacks.
  */
 export function useArticleMutationTracker(): ArticleMutationTracker {
   const [updatingArticleCounts, setUpdatingArticleCounts] = useState<
@@ -165,9 +160,11 @@ export function useArticleMutationTracker(): ArticleMutationTracker {
 }
 
 /**
- * @param current
- * @param articleKeys
- * @param delta
+ * Process the apply updating article delta.
+ * @param current - The current.
+ * @param articleKeys - The article keys.
+ * @param delta - The delta.
+ * @returns The apply updating article delta.
  */
 function applyUpdatingArticleDelta(
   current: Record<string, number>,
@@ -194,7 +191,9 @@ function applyUpdatingArticleDelta(
 }
 
 /**
- * @param articles
+ * Create the article map.
+ * @param articles - The articles.
+ * @returns The article map.
  */
 function createArticleMap(articles: Article[]): Map<string, Article> {
   const articleMap = new Map<string, Article>();
@@ -207,9 +206,11 @@ function createArticleMap(articles: Article[]): Map<string, Article> {
 }
 
 /**
- * @param articleEntries
- * @param statusPatchForArticle
- * @param usePlaceholderData
+ * Process the persist article status mutations.
+ * @param articleEntries - The article entries.
+ * @param statusPatchForArticle - The callback that status patch for article.
+ * @param usePlaceholderData - The placeholder data.
+ * @returns The persist article status mutations.
  */
 async function persistArticleStatusMutations(
   articleEntries: [string, Article][],

@@ -27,6 +27,57 @@ interface PendingInvertedPaginationAnchorSnapshot {
 
 const INVERTED_PAGINATION_ANCHOR_SYNC_WINDOW_MS = 1_500;
 
+interface CapturePendingInvertedPaginationAnchorSnapshotOptions {
+  isInvertedScroll: boolean;
+  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  scrollViewport: HTMLElement | null;
+}
+
+interface InvertedPaginationAnchorBoundaryCallbacksOptions {
+  hasRequestedServerLoadRef: React.RefObject<boolean>;
+  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
+  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
+  isInvertedScroll: boolean;
+  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  scrollViewport: HTMLElement | null;
+}
+
+interface InvertedPaginationAnchorScrollCallbacksOptions {
+  hasRequestedServerLoadRef: React.RefObject<boolean>;
+  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
+  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
+  isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
+  isInvertedScroll: boolean;
+  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  lastInvertedScrollTopRef: React.RefObject<null | number>;
+  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  scrollViewport: HTMLElement | null;
+}
+interface InvertedPaginationAnchorSyncOptions {
+  hasRequestedServerLoadRef: React.RefObject<boolean>;
+  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
+  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
+  isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
+  scrollViewport: HTMLElement | null;
+}
+
+interface PrimeInvertedPaginationAnchorOptions {
+  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
+  isInvertedScroll: boolean;
+  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  lastInvertedScrollTopRef: React.RefObject<null | number>;
+  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  scrollViewport: HTMLElement | null;
+  syncInvertedPaginationAnchor: () => number | undefined;
+}
+interface SelectedAnchorSnapshotOptions {
+  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  scrollViewport: HTMLElement;
+}
+
 interface SyncPaginationAnchorOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
@@ -43,18 +94,19 @@ interface UseInvertedPaginationAnchorOptions {
 }
 
 /**
- * @param root0
- * @param root0.hasRequestedServerLoadRef
- * @param root0.isInvertedLoadBoundaryArmedRef
- * @param root0.isInvertedScroll
- * @param root0.scrollViewport
+ * Manage the inverted pagination anchor.
+ * @param options - The options used to manage the inverted pagination anchor.
+ * @returns The inverted pagination anchor state and callbacks.
  */
-export function useInvertedPaginationAnchor({
-  hasRequestedServerLoadRef,
-  isInvertedLoadBoundaryArmedRef,
-  isInvertedScroll,
-  scrollViewport,
-}: UseInvertedPaginationAnchorOptions) {
+export function useInvertedPaginationAnchor(
+  options: UseInvertedPaginationAnchorOptions,
+) {
+  const {
+    hasRequestedServerLoadRef,
+    isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll,
+    scrollViewport,
+  } = options;
   const {
     invertedPaginationAnchorFrameRef,
     invertedPaginationAnchorRef,
@@ -102,18 +154,13 @@ export function useInvertedPaginationAnchor({
 }
 
 /**
- * @param options
- * @param options.isInvertedScroll
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.scrollViewport
+ * Create the capture pending inverted pagination anchor snapshot.
+ * @param options - The options used to create the capture pending inverted pagination anchor snapshot.
+ * @returns The capture pending inverted pagination anchor snapshot.
  */
-function createCapturePendingInvertedPaginationAnchorSnapshot(options: {
-  isInvertedScroll: boolean;
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement | null;
-}) {
+function createCapturePendingInvertedPaginationAnchorSnapshot(
+  options: CapturePendingInvertedPaginationAnchorSnapshotOptions,
+) {
   return () => {
     if (!options.isInvertedScroll || !options.scrollViewport) {
       return;
@@ -141,24 +188,13 @@ function createCapturePendingInvertedPaginationAnchorSnapshot(options: {
 }
 
 /**
- * @param options
- * @param options.invertedPaginationAnchorRef
- * @param options.isInvertedScroll
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.lastInvertedScrollTopRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.scrollViewport
- * @param options.syncInvertedPaginationAnchor
+ * Create the prime inverted pagination anchor.
+ * @param options - The options used to create the prime inverted pagination anchor.
+ * @returns The prime inverted pagination anchor.
  */
-function createPrimeInvertedPaginationAnchor(options: {
-  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
-  isInvertedScroll: boolean;
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  lastInvertedScrollTopRef: React.RefObject<null | number>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement | null;
-  syncInvertedPaginationAnchor: () => number | undefined;
-}) {
+function createPrimeInvertedPaginationAnchor(
+  options: PrimeInvertedPaginationAnchorOptions,
+) {
   return () => {
     if (!options.isInvertedScroll || !options.scrollViewport) {
       return;
@@ -209,8 +245,10 @@ function createPrimeInvertedPaginationAnchor(options: {
 }
 
 /**
- * @param invertedPaginationAnchorFrameRef
- * @param invertedPaginationAnchorRef
+ * Create the release inverted pagination anchor.
+ * @param invertedPaginationAnchorFrameRef - The ref that stores the inverted pagination anchor frame ref.
+ * @param invertedPaginationAnchorRef - The ref that stores the inverted pagination anchor ref.
+ * @returns The release inverted pagination anchor.
  */
 function createReleaseInvertedPaginationAnchor(
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>,
@@ -225,24 +263,24 @@ function createReleaseInvertedPaginationAnchor(
     }
   };
 }
-
 /**
- * @param root0
- * @param root0.hasRequestedServerLoadRef
- * @param root0.invertedPaginationAnchorFrameRef
- * @param root0.invertedPaginationAnchorRef
- * @param root0.isInvertedLoadBoundaryArmedRef
- * @param root0.scrollViewport
+ * Create the sync inverted pagination anchor.
+ * @param options - The options used to create the sync inverted pagination anchor.
+ * @returns The sync inverted pagination anchor.
  */
-function createSyncInvertedPaginationAnchor({
-  hasRequestedServerLoadRef,
-  invertedPaginationAnchorFrameRef,
-  invertedPaginationAnchorRef,
-  isInvertedLoadBoundaryArmedRef,
-  scrollViewport,
-}: SyncPaginationAnchorOptions) {
+function createSyncInvertedPaginationAnchor(
+  options: SyncPaginationAnchorOptions,
+) {
+  const {
+    hasRequestedServerLoadRef,
+    invertedPaginationAnchorFrameRef,
+    invertedPaginationAnchorRef,
+    isInvertedLoadBoundaryArmedRef,
+    scrollViewport,
+  } = options;
   /**
-   *
+   * Process the sync inverted pagination anchor.
+   * @returns The sync inverted pagination anchor.
    */
   const syncInvertedPaginationAnchor = () => {
     const anchorState = invertedPaginationAnchorRef.current;
@@ -284,10 +322,11 @@ function createSyncInvertedPaginationAnchor({
 }
 
 /**
- * @param hasRequestedServerLoadRef
- * @param isInvertedLoadBoundaryArmedRef
- * @param anchorInitialScrollTop
- * @param nextScrollTop
+ * Process the rearm inverted load boundary.
+ * @param hasRequestedServerLoadRef - The ref that stores the has requested server load ref.
+ * @param isInvertedLoadBoundaryArmedRef - The ref that stores the is inverted load boundary armed ref.
+ * @param anchorInitialScrollTop - The anchor initial scroll top.
+ * @param nextScrollTop - The next scroll top.
  */
 function rearmInvertedLoadBoundary(
   hasRequestedServerLoadRef: React.RefObject<boolean>,
@@ -305,8 +344,10 @@ function rearmInvertedLoadBoundary(
 }
 
 /**
- * @param anchorState
- * @param scrollViewport
+ * Resolve the next pagination scroll top.
+ * @param anchorState - The anchor state.
+ * @param scrollViewport - The scroll viewport.
+ * @returns The next pagination scroll top.
  */
 function resolveNextPaginationScrollTop(
   anchorState: InvertedPaginationAnchorState,
@@ -335,7 +376,9 @@ function resolveNextPaginationScrollTop(
 }
 
 /**
- * @param anchorArticleKey
+ * Resolve the pagination anchor element.
+ * @param anchorArticleKey - The anchor article key.
+ * @returns The pagination anchor element.
  */
 function resolvePaginationAnchorElement(anchorArticleKey: null | string) {
   return (
@@ -343,18 +386,12 @@ function resolvePaginationAnchorElement(anchorArticleKey: null | string) {
     findInvertedExpansionHeaderAnchor(anchorArticleKey)
   );
 }
-
 /**
- * @param options
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.scrollViewport
+ * Resolve the selected anchor snapshot.
+ * @param options - The options used to resolve the selected anchor snapshot.
+ * @returns The selected anchor snapshot.
  */
-function resolveSelectedAnchorSnapshot(options: {
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement;
-}) {
+function resolveSelectedAnchorSnapshot(options: SelectedAnchorSnapshotOptions) {
   const pendingAnchorSnapshot =
     options.pendingInvertedPaginationAnchorSnapshotRef.current;
   const lastAwayBoundarySnapshot =
@@ -375,8 +412,9 @@ function resolveSelectedAnchorSnapshot(options: {
 }
 
 /**
- * @param invertedPaginationAnchorFrameRef
- * @param syncInvertedPaginationAnchor
+ * Process the schedule inverted pagination anchor sync.
+ * @param invertedPaginationAnchorFrameRef - The ref that stores the inverted pagination anchor frame ref.
+ * @param syncInvertedPaginationAnchor - The callback that sync inverted pagination anchor.
  */
 function scheduleInvertedPaginationAnchorSync(
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>,
@@ -395,31 +433,21 @@ function scheduleInvertedPaginationAnchorSync(
 }
 
 /**
- * @param releaseAt
+ * Return whether should release pagination anchor.
+ * @param releaseAt - The release at.
+ * @returns Whether should release pagination anchor.
  */
 function shouldReleasePaginationAnchor(releaseAt: number) {
   return performance.now() >= releaseAt;
 }
-
 /**
- * @param options
- * @param options.hasRequestedServerLoadRef
- * @param options.invertedPaginationAnchorFrameRef
- * @param options.invertedPaginationAnchorRef
- * @param options.isInvertedScroll
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.scrollViewport
+ * Manage the inverted pagination anchor boundary callbacks.
+ * @param options - The options used to manage the inverted pagination anchor boundary callbacks.
+ * @returns The inverted pagination anchor boundary callbacks state and callbacks.
  */
-function useInvertedPaginationAnchorBoundaryCallbacks(options: {
-  hasRequestedServerLoadRef: React.RefObject<boolean>;
-  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
-  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
-  isInvertedScroll: boolean;
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement | null;
-}) {
+function useInvertedPaginationAnchorBoundaryCallbacks(
+  options: InvertedPaginationAnchorBoundaryCallbacksOptions,
+) {
   const releaseInvertedPaginationAnchor = useMemo(
     () =>
       createReleaseInvertedPaginationAnchor(
@@ -457,7 +485,8 @@ function useInvertedPaginationAnchorBoundaryCallbacks(options: {
 }
 
 /**
- *
+ * Manage the inverted pagination anchor refs.
+ * @returns The inverted pagination anchor refs state and callbacks.
  */
 function useInvertedPaginationAnchorRefs() {
   return {
@@ -472,30 +501,14 @@ function useInvertedPaginationAnchorRefs() {
       useRef<null | PendingInvertedPaginationAnchorSnapshot>(null),
   };
 }
-
 /**
- * @param options
- * @param options.hasRequestedServerLoadRef
- * @param options.invertedPaginationAnchorFrameRef
- * @param options.invertedPaginationAnchorRef
- * @param options.isInvertedLoadBoundaryArmedRef
- * @param options.isInvertedScroll
- * @param options.lastInvertedAwayBoundarySnapshotRef
- * @param options.lastInvertedScrollTopRef
- * @param options.pendingInvertedPaginationAnchorSnapshotRef
- * @param options.scrollViewport
+ * Manage the inverted pagination anchor scroll callbacks.
+ * @param options - The options used to manage the inverted pagination anchor scroll callbacks.
+ * @returns The inverted pagination anchor scroll callbacks state and callbacks.
  */
-function useInvertedPaginationAnchorScrollCallbacks(options: {
-  hasRequestedServerLoadRef: React.RefObject<boolean>;
-  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
-  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
-  isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
-  isInvertedScroll: boolean;
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  lastInvertedScrollTopRef: React.RefObject<null | number>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement | null;
-}) {
+function useInvertedPaginationAnchorScrollCallbacks(
+  options: InvertedPaginationAnchorScrollCallbacksOptions,
+) {
   const syncInvertedPaginationAnchor = useInvertedPaginationAnchorSync(options);
   const primeInvertedPaginationAnchor = useMemo(
     () =>
@@ -528,20 +541,13 @@ function useInvertedPaginationAnchorScrollCallbacks(options: {
 }
 
 /**
- * @param options
- * @param options.hasRequestedServerLoadRef
- * @param options.invertedPaginationAnchorFrameRef
- * @param options.invertedPaginationAnchorRef
- * @param options.isInvertedLoadBoundaryArmedRef
- * @param options.scrollViewport
+ * Manage the inverted pagination anchor sync.
+ * @param options - The options used to manage the inverted pagination anchor sync.
+ * @returns The inverted pagination anchor sync state and callbacks.
  */
-function useInvertedPaginationAnchorSync(options: {
-  hasRequestedServerLoadRef: React.RefObject<boolean>;
-  invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
-  invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
-  isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
-  scrollViewport: HTMLElement | null;
-}) {
+function useInvertedPaginationAnchorSync(
+  options: InvertedPaginationAnchorSyncOptions,
+) {
   return useMemo(
     () =>
       createSyncInvertedPaginationAnchor({

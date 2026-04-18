@@ -31,8 +31,16 @@ interface DashboardPageBootstrapDeps {
   sessionCookieName: string;
 }
 
+interface DashboardPageBootstrapInput {
+  cookieStore: DashboardCookieStore;
+  deps: DashboardPageBootstrapDeps;
+  searchParams: DashboardPageSearchParams;
+}
+
 /**
- * @param runtimeFlags
+ * Build the anonymous dashboard session.
+ * @param runtimeFlags - The runtime flags.
+ * @returns The anonymous dashboard session.
  */
 export function buildAnonymousDashboardSession(
   runtimeFlags: Pick<AuthSession, "allowSignup" | "usePlaceholderData">,
@@ -46,8 +54,10 @@ export function buildAnonymousDashboardSession(
 }
 
 /**
- * @param cookieStore
- * @param deps
+ * Return the initial dashboard session.
+ * @param cookieStore - The cookie store.
+ * @param deps - The deps.
+ * @returns The initial dashboard session.
  */
 export async function getInitialDashboardSession(
   cookieStore: DashboardCookieStore,
@@ -77,25 +87,23 @@ export async function getInitialDashboardSession(
     return buildAnonymousDashboardSession(deps.runtimeFlags);
   }
 }
-
 /**
- * @param value
+ * Return the search param value.
+ * @param value - The value.
+ * @returns The search param value.
  */
 export function getSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
 /**
- * @param input
- * @param input.cookieStore
- * @param input.deps
- * @param input.searchParams
+ * Resolve the dashboard page bootstrap.
+ * @param input - The input used to resolve the dashboard page bootstrap.
+ * @returns The dashboard page bootstrap.
  */
-export async function resolveDashboardPageBootstrap(input: {
-  cookieStore: DashboardCookieStore;
-  deps: DashboardPageBootstrapDeps;
-  searchParams: DashboardPageSearchParams;
-}): Promise<DashboardPageBootstrapState> {
+export async function resolveDashboardPageBootstrap(
+  input: DashboardPageBootstrapInput,
+): Promise<DashboardPageBootstrapState> {
   const hasPreviewQuery =
     getSearchParamValue(input.searchParams.explore) === "1";
   const hasDevAutoLoginFailure = input.deps.isDevAutoLoginFailure(

@@ -20,18 +20,12 @@ interface FeedLoadMoreSkeletonRowsProps {
 }
 
 /**
- * Article-list loading surface that mirrors the collapsed article-card DOM.
- *
- * Each placeholder card copies the collapsed `ArticleCard` header/body anatomy
- * — meta row (date + dot + favicon + source + action buttons), two-line title,
- * and single-line preview — so the first hydrated frame does not shift wrapper
- * spacing, header rails, or preview rhythm when real articles replace them.
- * @param root0
- * @param root0.isInvertedScroll
+ * Render the feed list skeleton component.
+ * @param props - The component props.
+ * @returns The rendered feed list skeleton component.
  */
-export function FeedListSkeleton({
-  isInvertedScroll = false,
-}: FeedListSkeletonProps) {
+export function FeedListSkeleton(props: FeedListSkeletonProps) {
+  const { isInvertedScroll = false } = props;
   const listRef = useRef<HTMLDivElement | null>(null);
   const [usesMobileBottomUpFallback, setUsesMobileBottomUpFallback] =
     useState(true);
@@ -62,16 +56,12 @@ export function FeedListSkeleton({
 }
 
 /**
- * Reuses the article-card skeleton anatomy for incremental page loads.
- *
- * The placeholder count is caller-controlled so load-more flows can reserve the
- * exact next page footprint and grow the scrollbar immediately.
- * @param root0
- * @param root0.count
+ * Render the feed load more skeleton rows component.
+ * @param props - The component props.
+ * @returns The rendered feed load more skeleton rows component.
  */
-export function FeedLoadMoreSkeletonRows({
-  count,
-}: FeedLoadMoreSkeletonRowsProps) {
+export function FeedLoadMoreSkeletonRows(props: FeedLoadMoreSkeletonRowsProps) {
+  const { count } = props;
   return Array.from({ length: count }, (_value, index) => {
     const descriptor =
       FEED_ARTICLE_SKELETONS[index % FEED_ARTICLE_SKELETONS.length];

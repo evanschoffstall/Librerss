@@ -10,6 +10,14 @@ import {
   FEED_LOAD_MORE_THRESHOLD_PX,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+interface FeedPaginationCleanupEffectOptions {
+  clearServerLoadCooldown: () => void;
+  hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
+  invertedPaginationAnchorFrameRef: { current: null | number };
+  normalScrollIntentSuppressionFrameRef: { current: null | number };
+  paginationFrameRef: { current: null | number };
+}
+
 interface FeedPaginationIntentBindingOptions {
   capturePendingInvertedPaginationAnchorSnapshot: () => void;
   clearInitialNormalScrollLock: () => void;
@@ -27,6 +35,12 @@ interface FeedPaginationIntentBindingOptions {
   scrollViewport: HTMLElement | null;
 }
 
+interface FeedPaginationScrollPositionPrimingOptions {
+  isInvertedScroll: boolean;
+  lastInvertedScrollTopRef: { current: null | number };
+  lastStandardScrollTopRef: { current: null | number };
+  scrollViewport: HTMLElement | null;
+}
 interface FeedPaginationSentinelLoadOptions {
   clearInitialNormalScrollLock: () => void;
   hasUserScrolledRef: { current: boolean };
@@ -44,24 +58,12 @@ interface FeedPaginationSentinelObserverOptions extends FeedPaginationSentinelLo
 }
 
 /**
- * @param options
- * @param options.clearServerLoadCooldown
- * @param options.hasPendingBoundaryRearmAfterCooldownRef
- * @param options.hasPendingBoundaryRearmAfterCooldownRef.current
- * @param options.invertedPaginationAnchorFrameRef
- * @param options.invertedPaginationAnchorFrameRef.current
- * @param options.normalScrollIntentSuppressionFrameRef
- * @param options.normalScrollIntentSuppressionFrameRef.current
- * @param options.paginationFrameRef
- * @param options.paginationFrameRef.current
+ * Manage the feed pagination cleanup effect.
+ * @param options - The options used to manage the feed pagination cleanup effect.
  */
-export function useFeedPaginationCleanupEffect(options: {
-  clearServerLoadCooldown: () => void;
-  hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
-  invertedPaginationAnchorFrameRef: { current: null | number };
-  normalScrollIntentSuppressionFrameRef: { current: null | number };
-  paginationFrameRef: { current: null | number };
-}) {
+export function useFeedPaginationCleanupEffect(
+  options: FeedPaginationCleanupEffectOptions,
+) {
   const {
     clearServerLoadCooldown,
     hasPendingBoundaryRearmAfterCooldownRef,
@@ -99,9 +101,9 @@ export function useFeedPaginationCleanupEffect(options: {
     paginationFrameRef,
   ]);
 }
-
 /**
- * @param options
+ * Manage the feed pagination intent bindings.
+ * @param options - The options used to manage the feed pagination intent bindings.
  */
 export function useFeedPaginationIntentBindings(
   options: FeedPaginationIntentBindingOptions,
@@ -163,20 +165,12 @@ export function useFeedPaginationIntentBindings(
 }
 
 /**
- * @param options
- * @param options.isInvertedScroll
- * @param options.lastInvertedScrollTopRef
- * @param options.lastInvertedScrollTopRef.current
- * @param options.lastStandardScrollTopRef
- * @param options.lastStandardScrollTopRef.current
- * @param options.scrollViewport
+ * Manage the feed pagination scroll position priming.
+ * @param options - The options used to manage the feed pagination scroll position priming.
  */
-export function useFeedPaginationScrollPositionPriming(options: {
-  isInvertedScroll: boolean;
-  lastInvertedScrollTopRef: { current: null | number };
-  lastStandardScrollTopRef: { current: null | number };
-  scrollViewport: HTMLElement | null;
-}) {
+export function useFeedPaginationScrollPositionPriming(
+  options: FeedPaginationScrollPositionPrimingOptions,
+) {
   useEffect(() => {
     if (!options.scrollViewport) {
       return;
@@ -197,7 +191,8 @@ export function useFeedPaginationScrollPositionPriming(options: {
 }
 
 /**
- * @param options
+ * Manage the feed pagination sentinel observer.
+ * @param options - The options used to manage the feed pagination sentinel observer.
  */
 export function useFeedPaginationSentinelObserver(
   options: FeedPaginationSentinelObserverOptions,
@@ -275,7 +270,8 @@ export function useFeedPaginationSentinelObserver(
 }
 
 /**
- * @param options
+ * Manage the feed pagination viewport scroll binding.
+ * @param options - The options used to manage the feed pagination viewport scroll binding.
  */
 export function useFeedPaginationViewportScrollBinding(
   options: ViewportScrollBindingOptions,
@@ -358,7 +354,9 @@ export function useFeedPaginationViewportScrollBinding(
 }
 
 /**
- * @param options
+ * Create the scroll intent handler.
+ * @param options - The options used to create the scroll intent handler.
+ * @returns The scroll intent handler.
  */
 function createScrollIntentHandler(
   options: FeedPaginationIntentBindingOptions & { scrollViewport: HTMLElement },
@@ -392,7 +390,8 @@ function createScrollIntentHandler(
 }
 
 /**
- * @param options
+ * Process the handle sentinel intersection.
+ * @param options - The options used to process the handle sentinel intersection.
  */
 function handleSentinelIntersection(
   options: FeedPaginationSentinelLoadOptions & {
@@ -434,7 +433,9 @@ function handleSentinelIntersection(
 }
 
 /**
- * @param options
+ * Return whether should suppress initial sentinel load.
+ * @param options - The options used to return whether should suppress initial sentinel load.
+ * @returns Whether should suppress initial sentinel load.
  */
 function shouldSuppressInitialSentinelLoad(
   options: Pick<

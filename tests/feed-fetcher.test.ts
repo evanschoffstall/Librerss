@@ -8,10 +8,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { FeedRecord } from "@/lib/core/refresher";
 import type { getDb } from "@/lib/db/db";
 
-import {
-  isAllowedFeedUrl,
-  PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core";
+import { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "@/lib/core";
 import {
   fetchAndCacheFeedArticles,
   fetchAndCacheFeedArticlesBatch,

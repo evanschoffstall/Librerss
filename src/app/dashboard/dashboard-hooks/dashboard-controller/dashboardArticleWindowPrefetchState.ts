@@ -8,14 +8,11 @@ export interface ArticleWindowPrefetchStateRefs {
 }
 
 /**
- * Starts a next-page prefetch only when that limit is neither cached already
- * nor actively being prefetched.
- *
- * The completed-prefetch ref advances only after a successful prefetch so a
- * failed background request never masquerades as a warm cache hit.
- * @param nextLimit
- * @param refs
- * @param prefetchNextPage
+ * Process the prefetch article window limit if needed.
+ * @param nextLimit - The next limit.
+ * @param refs - The refs.
+ * @param prefetchNextPage - The callback that prefetch next page.
+ * @returns The prefetch article window limit if needed.
  */
 export async function prefetchArticleWindowLimitIfNeeded(
   nextLimit: number,
@@ -46,8 +43,8 @@ export async function prefetchArticleWindowLimitIfNeeded(
 }
 
 /**
- * Resets both the completed and in-flight prefetch trackers.
- * @param refs
+ * Process the reset article window prefetch state.
+ * @param refs - The refs.
  */
 export function resetArticleWindowPrefetchState(
   refs: ArticleWindowPrefetchStateRefs,

@@ -14,6 +14,10 @@ import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/lib/hooks";
 
+interface DashboardToolbarContentProps {
+  toolbar: ReturnType<typeof useDashboardToolbarPresentationState>;
+}
+
 interface DashboardToolbarProps {
   /**
    * When supplied by a parent controller, this value overrides the event-based
@@ -24,17 +28,22 @@ interface DashboardToolbarProps {
   isShellLoading?: boolean;
   startInShellLoading?: boolean;
 }
+interface DashboardToolbarShellProps {
+  children: React.ReactNode;
+  mobileToolbarBottom: boolean;
+  mobileToolbarMirror: boolean;
+}
 
 /**
- * Renders the persistent dashboard toolbar with search, feed actions, and settings controls.
- * @param root0
- * @param root0.isShellLoading
- * @param root0.startInShellLoading
+ * Render the dashboard toolbar component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar component.
  */
-export function DashboardToolbar({
-  isShellLoading: controlledIsShellLoading,
-  startInShellLoading = false,
-}: DashboardToolbarProps) {
+export function DashboardToolbar(props: DashboardToolbarProps) {
+  const {
+    isShellLoading: controlledIsShellLoading,
+    startInShellLoading = false,
+  } = props;
   const toolbar = useDashboardToolbarPresentationState(
     startInShellLoading,
     controlledIsShellLoading,
@@ -54,14 +63,12 @@ export function DashboardToolbar({
 }
 
 /**
- * @param root0
- * @param root0.toolbar
+ * Render the dashboard toolbar content component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar content component.
  */
-function DashboardToolbarContent({
-  toolbar,
-}: {
-  toolbar: ReturnType<typeof useDashboardToolbarPresentationState>;
-}) {
+function DashboardToolbarContent(props: DashboardToolbarContentProps) {
+  const { toolbar } = props;
   return (
     <DashboardToolbarShell
       mobileToolbarBottom={toolbar.mobileToolbarBottom}
@@ -115,22 +122,18 @@ function DashboardToolbarContent({
       />
     </DashboardToolbarShell>
   );
-}
-
-/**
- * @param root0
- * @param root0.handleSearchChange
- * @param root0.isSearchPending
- * @param root0.search
+} /**
+ * Render the dashboard toolbar search component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar search component.
  */
-function DashboardToolbarSearch({
-  handleSearchChange,
-  isSearchPending,
-  search,
-}: Pick<
-  ReturnType<typeof useDashboardToolbarState>,
-  "handleSearchChange" | "isSearchPending" | "search"
->) {
+function DashboardToolbarSearch(
+  props: Pick<
+    ReturnType<typeof useDashboardToolbarState>,
+    "handleSearchChange" | "isSearchPending" | "search"
+  >,
+) {
+  const { handleSearchChange, isSearchPending, search } = props;
   return (
     <div className="relative min-w-0 flex-1">
       {isSearchPending ? (
@@ -165,20 +168,12 @@ function DashboardToolbarSearch({
 }
 
 /**
- * @param root0
- * @param root0.children
- * @param root0.mobileToolbarBottom
- * @param root0.mobileToolbarMirror
+ * Render the dashboard toolbar shell component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar shell component.
  */
-function DashboardToolbarShell({
-  children,
-  mobileToolbarBottom,
-  mobileToolbarMirror,
-}: {
-  children: React.ReactNode;
-  mobileToolbarBottom: boolean;
-  mobileToolbarMirror: boolean;
-}) {
+function DashboardToolbarShell(props: DashboardToolbarShellProps) {
+  const { children, mobileToolbarBottom, mobileToolbarMirror } = props;
   return (
     <div
       className={
@@ -221,12 +216,14 @@ function DashboardToolbarShell({
 }
 
 /**
- * @param root0
- * @param root0.title
+ * Render the dashboard toolbar title component.
+ * @param props - The component props.
+ * @returns The rendered dashboard toolbar title component.
  */
-function DashboardToolbarTitle({
-  title,
-}: Pick<ReturnType<typeof useDashboardToolbarState>, "title">) {
+function DashboardToolbarTitle(
+  props: Pick<ReturnType<typeof useDashboardToolbarState>, "title">,
+) {
+  const { title } = props;
   return (
     <h1
       className="
@@ -241,8 +238,10 @@ function DashboardToolbarTitle({
 }
 
 /**
- * @param startInShellLoading
- * @param controlledIsShellLoading
+ * Manage the dashboard toolbar presentation state.
+ * @param startInShellLoading - The start in shell loading.
+ * @param controlledIsShellLoading - The controlled is shell loading.
+ * @returns The dashboard toolbar presentation state state and callbacks.
  */
 function useDashboardToolbarPresentationState(
   startInShellLoading: boolean,

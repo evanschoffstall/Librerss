@@ -79,15 +79,19 @@ interface ExtractRuntimeDeps {
 }
 
 /**
- * @param url
+ * Return the hostname.
+ * @param url - The url.
+ * @returns The hostname.
  */
 export function getHostname(url: string): string {
   return tryGetUrlHostname(url) ?? "";
 }
 
 /**
- * @param request
- * @param depsOrContext
+ * Process the handle article extract post.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The handle article extract post.
  */
 export async function handleArticleExtractPost(
   request: NextRequest,
@@ -111,8 +115,10 @@ export async function handleArticleExtractPost(
 }
 
 /**
- * @param requestResolution
- * @param deps
+ * Build the extract payload.
+ * @param requestResolution - The request resolution.
+ * @param deps - The deps.
+ * @returns The extract payload.
  */
 async function buildExtractPayload(
   requestResolution: ExtractRequestResolution,
@@ -162,10 +168,12 @@ async function buildExtractPayload(
 }
 
 /**
- * @param error
- * @param context
- * @param deps
- * @param requestResolution
+ * Process the handle extract failure.
+ * @param error - The error.
+ * @param context - The context used to process the handle extract failure.
+ * @param deps - The deps.
+ * @param requestResolution - The request resolution.
+ * @returns The handle extract failure.
  */
 function handleExtractFailure(
   error: unknown,
@@ -216,8 +224,10 @@ function handleExtractFailure(
 }
 
 /**
- * @param requestResolution
- * @param deps
+ * Resolve the article html.
+ * @param requestResolution - The request resolution.
+ * @param deps - The deps.
+ * @returns The article html.
  */
 async function resolveArticleHtml(
   requestResolution: ExtractRequestResolution,
@@ -247,9 +257,11 @@ async function resolveArticleHtml(
 }
 
 /**
- * @param request
- * @param requireAuth
- * @param isLocalPlaceholderRequest
+ * Resolve the authenticated user id.
+ * @param request - The request.
+ * @param requireAuth - The require auth.
+ * @param isLocalPlaceholderRequest - Whether is local placeholder request.
+ * @returns The authenticated user id.
  */
 async function resolveAuthenticatedUserId(
   request: NextRequest,
@@ -275,8 +287,10 @@ async function resolveAuthenticatedUserId(
 }
 
 /**
- * @param request
- * @param deps
+ * Resolve the extract request.
+ * @param request - The request.
+ * @param deps - The deps.
+ * @returns The extract request.
  */
 async function resolveExtractRequest(
   request: NextRequest,
@@ -326,9 +340,11 @@ async function resolveExtractRequest(
 }
 
 /**
- * @param authUserId
- * @param resolveUserProxy
- * @param useProxy
+ * Resolve the proxy request.
+ * @param authUserId - The auth user id.
+ * @param resolveUserProxy - The callback that user proxy.
+ * @param useProxy - The proxy.
+ * @returns The proxy request.
  */
 async function resolveProxyRequest(
   authUserId: number | undefined,
@@ -364,7 +380,9 @@ async function resolveProxyRequest(
 }
 
 /**
- * @param strategy
+ * Resolve the supported distill strategy.
+ * @param strategy - The strategy.
+ * @returns The supported distill strategy.
  */
 function resolveSupportedDistillStrategy(strategy: unknown): DistillStrategy {
   return resolveDistillStrategy(

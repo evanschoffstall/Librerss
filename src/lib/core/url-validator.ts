@@ -13,8 +13,9 @@ import {
 import { resolvesToBlockedAddress } from "./dns-cache";
 
 /**
- * Returns true if `host` is a valid IPv4 or IPv6 literal.
- * @param host
+ * Return whether is ip address.
+ * @param host - The host.
+ * @returns Whether is ip address.
  */
 function isIPAddress(host: string): boolean {
   if (host.includes(":")) {
@@ -31,7 +32,9 @@ export const PUBLIC_FEED_URL_ERROR =
   "Feed URL must use http or https and resolve to a public host";
 
 /**
- * @param raw
+ * Return whether is allowed feed url.
+ * @param raw - The raw.
+ * @returns Whether is allowed feed url.
  */
 export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
   try {
@@ -43,7 +46,8 @@ export async function isAllowedFeedUrl(raw: string): Promise<boolean> {
 }
 
 /**
- * @param rawUrl
+ * Process the assert public feed url.
+ * @param rawUrl - The raw url.
  */
 async function assertPublicFeedUrl(rawUrl: string): Promise<void> {
   if (!isValidUrl(rawUrl)) {

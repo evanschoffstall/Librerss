@@ -33,7 +33,9 @@ interface UseDashboardArticleWindowLoadMoreOptions {
 const SERVER_LOAD_MORE_PAGE_BATCH = 1;
 
 /**
- * @param options
+ * Manage the dashboard article window load more.
+ * @param options - The options used to manage the dashboard article window load more.
+ * @returns The dashboard article window load more state and callbacks.
  */
 export function useDashboardArticleWindowLoadMore(
   options: UseDashboardArticleWindowLoadMoreOptions,

@@ -33,8 +33,9 @@ export class Logger {
   ]);
 
   /**
-   * @param message
-   * @param context
+   * Process the debug.
+   * @param message - The message.
+   * @param context - The context used to process the debug.
    */
   debug(message: string, context?: LogContext): void {
     if (!isDevelopment() || this.getCurrentLogLevel() !== "verbose") return;
@@ -43,8 +44,9 @@ export class Logger {
   }
 
   /**
-   * @param message
-   * @param context
+   * Process the error.
+   * @param message - The message.
+   * @param context - The context used to process the error.
    */
   error(message: string, context?: LogContext): void {
     if (this.getCurrentLogLevel() === "none") return;
@@ -54,8 +56,9 @@ export class Logger {
   }
 
   /**
-   * @param message
-   * @param context
+   * Process the info.
+   * @param message - The message.
+   * @param context - The context used to process the info.
    */
   info(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
@@ -69,8 +72,9 @@ export class Logger {
   }
 
   /**
-   * @param message
-   * @param context
+   * Process the warn.
+   * @param message - The message.
+   * @param context - The context used to process the warn.
    */
   warn(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
@@ -81,7 +85,9 @@ export class Logger {
   }
 
   /**
-   * @param contextJson
+   * Process the format context block.
+   * @param contextJson - The context json.
+   * @returns The format context block.
    */
   private formatContextBlock(contextJson: string): string {
     const lines = contextJson.split("\n");
@@ -100,9 +106,11 @@ export class Logger {
   }
 
   /**
-   * @param level
-   * @param message
-   * @param context
+   * Process the format message.
+   * @param level - The level.
+   * @param message - The message.
+   * @param context - The context used to process the format message.
+   * @returns The format message.
    */
   private formatMessage(
     level: LogLevel,
@@ -127,21 +135,25 @@ export class Logger {
   }
 
   /**
-   *
+   * Return the current log level.
+   * @returns The current log level.
    */
   private getCurrentLogLevel(): "error" | "info" | "none" | "verbose" | "warn" {
     return CONFIG.LOG_LEVEL;
   }
 
   /**
-   *
+   * Return whether is color enabled by env.
+   * @returns Whether is color enabled by env.
    */
   private isColorEnabledByEnv(): boolean {
     return envBooleanOptional("LOG_COLORS_ENABLED", true);
   }
 
   /**
-   * @param email
+   * Process the redact email.
+   * @param email - The email.
+   * @returns The redact email.
    */
   private redactEmail(email: string): string {
     const atIdx = email.lastIndexOf("@");
@@ -155,7 +167,9 @@ export class Logger {
   }
 
   /**
-   * @param context
+   * Process the sanitize context.
+   * @param context - The context used to process the sanitize context.
+   * @returns The sanitize context.
    */
   private sanitizeContext(context?: LogContext): LogContext | undefined {
     if (!context) return undefined;
@@ -166,7 +180,9 @@ export class Logger {
   }
 
   /**
-   * @param value
+   * Process the sanitize error value.
+   * @param value - The value.
+   * @returns The sanitize error value.
    */
   private sanitizeErrorValue(value: Error): {
     message: string;
@@ -178,8 +194,10 @@ export class Logger {
   }
 
   /**
-   * @param value
-   * @param depth
+   * Process the sanitize object value.
+   * @param value - The value.
+   * @param depth - The depth.
+   * @returns The sanitize object value.
    */
   private sanitizeObjectValue(
     value: Record<string, unknown>,
@@ -208,8 +226,10 @@ export class Logger {
   }
 
   /**
-   * @param value
-   * @param depth
+   * Process the sanitize value.
+   * @param value - The value.
+   * @param depth - The depth.
+   * @returns The sanitize value.
    */
   private sanitizeValue(value: unknown, depth: number): unknown {
     if (depth > 6) {
@@ -236,7 +256,8 @@ export class Logger {
   }
 
   /**
-   *
+   * Return whether should emit to console.
+   * @returns Whether should emit to console.
    */
   private shouldEmitToConsole(): boolean {
     if (process.env.NODE_ENV !== "test") {
@@ -247,7 +268,8 @@ export class Logger {
   }
 
   /**
-   *
+   * Process the supports color.
+   * @returns Whether supports color.
    */
   private supportsColor(): boolean {
     if (process.env.NODE_ENV === "test") return false;

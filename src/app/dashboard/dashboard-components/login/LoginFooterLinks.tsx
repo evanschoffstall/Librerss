@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 /**
- *
+ * Render the login footer links component.
+ * @returns The rendered login footer links component.
  */
 export function LoginFooterLinks() {
   return (

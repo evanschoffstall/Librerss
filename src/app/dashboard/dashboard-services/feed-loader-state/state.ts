@@ -8,19 +8,21 @@ import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
 
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
+interface IsFreshFeedBatchQueryQueryClient {
+  getQueryState: (
+    queryKey: FeedBatchQueryKey,
+  ) => undefined | { dataUpdatedAt: number; status?: string };
+}
 
 /**
- * @param queryClient
- * @param queryClient.getQueryState
- * @param queryKey
- * @param staleTime
+ * Return whether is fresh feed batch query.
+ * @param queryClient - The query client.
+ * @param queryKey - The query key.
+ * @param staleTime - The stale time.
+ * @returns Whether is fresh feed batch query.
  */
 export function isFreshFeedBatchQuery(
-  queryClient: {
-    getQueryState: (
-      queryKey: FeedBatchQueryKey,
-    ) => undefined | { dataUpdatedAt: number; status?: string };
-  },
+  queryClient: IsFreshFeedBatchQueryQueryClient,
   queryKey: FeedBatchQueryKey,
   staleTime: number,
 ) {
@@ -37,10 +39,11 @@ export function isFreshFeedBatchQuery(
 }
 
 /**
- * @param failedFeeds
- * @param totalFeedCount
- * @param sourceNamesByUrl
- * @param formatFeedFailureLabel
+ * Process the notify feed failures.
+ * @param failedFeeds - The failed feeds.
+ * @param totalFeedCount - The total feed count value.
+ * @param sourceNamesByUrl - The source names by url.
+ * @param formatFeedFailureLabel - The callback that format feed failure label.
  */
 export function notifyFeedFailures(
   failedFeeds: FeedBatchResult[],
@@ -69,7 +72,9 @@ export function notifyFeedFailures(
 }
 
 /**
- * @param options
+ * Resolve the feed batch stale time.
+ * @param options - The options used to resolve the feed batch stale time.
+ * @returns The feed batch stale time.
  */
 export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
   if (options?.forceRefresh === true) {
@@ -91,11 +96,10 @@ export function resolveFeedBatchStaleTime(options?: FeedFetchOptions) {
 }
 
 /**
- * Skip-refresh requests intentionally reuse cached feed state, so foreground
- * failure toasts should stay silent even if cached metadata still includes
- * upstream errors from an earlier refresh.
- * @param options
- * @param isBackground
+ * Return whether should notify feed failure toast.
+ * @param options - The options used to return whether should notify feed failure toast.
+ * @param isBackground - Whether is background.
+ * @returns Whether should notify feed failure toast.
  */
 export function shouldNotifyFeedFailureToast(
   options?: FeedFetchOptions,

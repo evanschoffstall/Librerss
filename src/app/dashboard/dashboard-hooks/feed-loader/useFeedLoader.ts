@@ -25,6 +25,18 @@ import { loadFeedSourceTree } from "@/app/dashboard/dashboard-services/feed-data
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 
+interface FeedLoaderSelectionStateOptions {
+  categoriesRef: RefObject<CategoryTreeNode[]>;
+  fetchFeedBatch: ReturnType<typeof useFeedBatchFetcher>;
+  prefetchFeedBatch: ReturnType<typeof useFeedBatchQuery>["prefetchFeedBatch"];
+}
+
+interface FeedSourceTreeLoaderOptions {
+  queryClient: ReturnType<typeof useQueryClient>;
+  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
+  usePlaceholderData: boolean;
+}
+
 interface UseFeedLoaderOptions {
   articleFilter: ArticleFilter;
   categoriesRef: RefObject<CategoryTreeNode[]>;
@@ -39,30 +51,23 @@ interface UseFeedLoaderOptions {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.categoriesRef
- * @param root0.feedRef
- * @param root0.onFeedBatchLoaded
- * @param root0.onNewArticlesArrived
- * @param root0.setCategories
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
- * @param root0.setLoading
- * @param root0.usePlaceholderData
+ * Manage the feed loader.
+ * @param options - The options used to manage the feed loader.
+ * @returns The feed loader state and callbacks.
  */
-export function useFeedLoader({
-  articleFilter,
-  categoriesRef,
-  feedRef,
-  onFeedBatchLoaded,
-  onNewArticlesArrived,
-  setCategories,
-  setExpandedArticleKey,
-  setFeed,
-  setLoading,
-  usePlaceholderData,
-}: UseFeedLoaderOptions) {
+export function useFeedLoader(options: UseFeedLoaderOptions) {
+  const {
+    articleFilter,
+    categoriesRef,
+    feedRef,
+    onFeedBatchLoaded,
+    onNewArticlesArrived,
+    setCategories,
+    setExpandedArticleKey,
+    setFeed,
+    setLoading,
+    usePlaceholderData,
+  } = options;
   const loaderResources = useFeedLoaderResources({
     articleFilter,
     feedRef,
@@ -100,8 +105,10 @@ export function useFeedLoader({
 }
 
 /**
- * @param articleFilter
- * @param lastFetchedAtByUrlRef
+ * Manage the feed batch request helpers.
+ * @param articleFilter - The article filter.
+ * @param lastFetchedAtByUrlRef - The ref that stores the last fetched at by url ref.
+ * @returns The feed batch request helpers state and callbacks.
  */
 function useFeedBatchRequestHelpers(
   articleFilter: ArticleFilter,
@@ -143,9 +150,9 @@ function useFeedBatchRequestHelpers(
     getKnownLastFetchedAtByUrl,
   };
 }
-
 /**
- *
+ * Manage the feed loader diagnostics.
+ * @returns The feed loader diagnostics state and callbacks.
  */
 function useFeedLoaderDiagnostics() {
   return useCallback((event: string, details: Record<string, unknown>) => {
@@ -165,28 +172,24 @@ function useFeedLoaderDiagnostics() {
 }
 
 /**
- * @param root0
- * @param root0.articleFilter
- * @param root0.feedRef
- * @param root0.onFeedBatchLoaded
- * @param root0.onNewArticlesArrived
- * @param root0.setCategories
- * @param root0.setExpandedArticleKey
- * @param root0.setFeed
- * @param root0.setLoading
- * @param root0.usePlaceholderData
+ * Manage the feed loader resources.
+ * @param options - The options used to manage the feed loader resources.
+ * @returns The feed loader resources state and callbacks.
  */
-function useFeedLoaderResources({
-  articleFilter,
-  feedRef,
-  onFeedBatchLoaded,
-  onNewArticlesArrived,
-  setCategories,
-  setExpandedArticleKey,
-  setFeed,
-  setLoading,
-  usePlaceholderData,
-}: Omit<UseFeedLoaderOptions, "categoriesRef">) {
+function useFeedLoaderResources(
+  options: Omit<UseFeedLoaderOptions, "categoriesRef">,
+) {
+  const {
+    articleFilter,
+    feedRef,
+    onFeedBatchLoaded,
+    onNewArticlesArrived,
+    setCategories,
+    setExpandedArticleKey,
+    setFeed,
+    setLoading,
+    usePlaceholderData,
+  } = options;
   const queryClient = useQueryClient();
   const lastFetchedAtByUrlRef = useRef(new Map<string, Date>());
   const requestHelpers = useFeedBatchRequestHelpers(
@@ -229,22 +232,13 @@ function useFeedLoaderResources({
     requestState,
   };
 }
-
 /**
- * @param root0
- * @param root0.categoriesRef
- * @param root0.fetchFeedBatch
- * @param root0.prefetchFeedBatch
+ * Manage the feed loader selection state.
+ * @param options - The options used to manage the feed loader selection state.
+ * @returns The feed loader selection state state and callbacks.
  */
-function useFeedLoaderSelectionState({
-  categoriesRef,
-  fetchFeedBatch,
-  prefetchFeedBatch,
-}: {
-  categoriesRef: RefObject<CategoryTreeNode[]>;
-  fetchFeedBatch: ReturnType<typeof useFeedBatchFetcher>;
-  prefetchFeedBatch: ReturnType<typeof useFeedBatchQuery>["prefetchFeedBatch"];
-}) {
+function useFeedLoaderSelectionState(options: FeedLoaderSelectionStateOptions) {
+  const { categoriesRef, fetchFeedBatch, prefetchFeedBatch } = options;
   const selectionFetchers = useFeedSelectionFetchers({
     categoriesRef,
     fetchFeedBatch,
@@ -261,24 +255,17 @@ function useFeedLoaderSelectionState({
 }
 
 /**
- * @param root0
- * @param root0.queryClient
- * @param root0.setCategories
- * @param root0.usePlaceholderData
+ * Manage the feed source tree loader.
+ * @param options - The options used to manage the feed source tree loader.
+ * @returns The feed source tree loader state and callbacks.
  */
-function useFeedSourceTreeLoader({
-  queryClient,
-  setCategories,
-  usePlaceholderData,
-}: {
-  queryClient: ReturnType<typeof useQueryClient>;
-  setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
-  usePlaceholderData: boolean;
-}) {
+function useFeedSourceTreeLoader(options: FeedSourceTreeLoaderOptions) {
+  const { queryClient, setCategories, usePlaceholderData } = options;
   return useCallback(async (): Promise<CategoryTreeNode[]> => {
     const nextCategories = await queryClient.fetchQuery({
       /**
-       *
+       * Loads the latest feed source tree for the active placeholder mode.
+       * @returns The fetched category tree.
        */
       queryFn: () => loadFeedSourceTree(usePlaceholderData),
       queryKey: getFeedSourceTreeQueryKey(usePlaceholderData),

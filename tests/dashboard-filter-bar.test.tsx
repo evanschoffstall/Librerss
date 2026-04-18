@@ -212,7 +212,9 @@ describe("DashboardFilterBar", () => {
     );
 
     const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
-    expect(loadingIcon?.getAttribute("class")).toContain("lucide-loader-circle");
+    expect(loadingIcon?.getAttribute("class")).toContain(
+      "lucide-loader-circle",
+    );
     expect(getByLabelText("Refreshing")).toBeTruthy();
     expect(queryByText("2m ago")).toBeNull();
   });
@@ -245,7 +247,9 @@ describe("DashboardFilterBar", () => {
     );
 
     const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
-    expect(loadingIcon?.getAttribute("class")).toContain("lucide-loader-circle");
+    expect(loadingIcon?.getAttribute("class")).toContain(
+      "lucide-loader-circle",
+    );
     expect(getByLabelText("Refreshing")).toBeTruthy();
   });
 

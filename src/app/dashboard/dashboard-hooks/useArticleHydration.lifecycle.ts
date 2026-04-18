@@ -24,10 +24,47 @@ export interface ArticleHydrationState {
   >;
 }
 
+interface FinishArticleHydrationOptions {
+  articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
+  hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
+  link: string;
+  setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
+}
+
+interface LoadHydratedArticleContentOptions {
+  abortController: AbortController;
+  article: Article;
+  articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>;
+  distillStrategy: UseArticleHydrationOptions["distillStrategy"];
+}
+
+interface PrepareArticleHydrationOptions {
+  article: Article;
+  forceHydration: boolean;
+  getFeedSettings: UseArticleHydrationOptions["getFeedSettings"];
+  hydrationState: ArticleHydrationState;
+}
+
+interface ShouldHydrateArticleOptions {
+  article: Article;
+  forceHydration: boolean;
+  hydratedArticleLinks: Record<string, boolean>;
+  inFlightCount: number;
+  link: string;
+}
+interface StartArticleHydrationOptions {
+  articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
+  hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
+  inFlightCount: number;
+  link: string;
+  setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
+}
+
 /**
- * @param setFeed
- * @param link
- * @param nextContent
+ * Process the apply hydrated article content.
+ * @param setFeed - The set feed.
+ * @param link - The link.
+ * @param nextContent - The next content.
  */
 export function applyHydratedArticleContent(
   setFeed: UseArticleHydrationOptions["setFeed"],
@@ -42,10 +79,10 @@ export function applyHydratedArticleContent(
     ),
   );
 }
-
 /**
- * @param setHydratedArticleLinks
- * @param link
+ * Process the clear hydrated article link.
+ * @param setHydratedArticleLinks - The set hydrated article links.
+ * @param link - The link.
  */
 export function clearHydratedArticleLink(
   setHydratedArticleLinks: ArticleHydrationState["setHydratedArticleLinks"],
@@ -59,8 +96,9 @@ export function clearHydratedArticleLink(
 }
 
 /**
- * @param setHydratingArticleLinks
- * @param link
+ * Process the clear hydrating article link.
+ * @param setHydratingArticleLinks - The set hydrating article links.
+ * @param link - The link.
  */
 export function clearHydratingArticleLink(
   setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"],
@@ -74,8 +112,9 @@ export function clearHydratingArticleLink(
 }
 
 /**
- * @param articleHydration
- * @param setHydratedArticleLinks
+ * Process the clear hydration cache on empty content.
+ * @param articleHydration - The article hydration.
+ * @param setHydratedArticleLinks - The set hydrated article links.
  */
 export function clearHydrationCacheOnEmptyContent(
   articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>,
@@ -85,25 +124,17 @@ export function clearHydrationCacheOnEmptyContent(
     clearHydratedArticleLink(setHydratedArticleLinks, articleHydration.link);
   }
 }
-
 /**
- * @param root0
- * @param root0.articleHydrationInFlightRef
- * @param root0.hydrationAbortRef
- * @param root0.link
- * @param root0.setHydratingArticleLinks
+ * Process the finish article hydration.
+ * @param options - The options used to process the finish article hydration.
  */
-export function finishArticleHydration({
-  articleHydrationInFlightRef,
-  hydrationAbortRef,
-  link,
-  setHydratingArticleLinks,
-}: {
-  articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
-  hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
-  link: string;
-  setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
-}) {
+export function finishArticleHydration(options: FinishArticleHydrationOptions) {
+  const {
+    articleHydrationInFlightRef,
+    hydrationAbortRef,
+    link,
+    setHydratingArticleLinks,
+  } = options;
   hydrationAbortRef.current.delete(link);
   const remainingInFlight =
     (articleHydrationInFlightRef.current.get(link) ?? 1) - 1;
@@ -117,23 +148,15 @@ export function finishArticleHydration({
 }
 
 /**
- * @param root0
- * @param root0.abortController
- * @param root0.article
- * @param root0.articleHydration
- * @param root0.distillStrategy
+ * Process the load hydrated article content.
+ * @param options - The options used to process the load hydrated article content.
+ * @returns The load hydrated article content.
  */
-export async function loadHydratedArticleContent({
-  abortController,
-  article,
-  articleHydration,
-  distillStrategy,
-}: {
-  abortController: AbortController;
-  article: Article;
-  articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>;
-  distillStrategy: UseArticleHydrationOptions["distillStrategy"];
-}) {
+export async function loadHydratedArticleContent(
+  options: LoadHydratedArticleContentOptions,
+) {
+  const { abortController, article, articleHydration, distillStrategy } =
+    options;
   return articleHydration.shouldLoadStoredContent
     ? ArticleService.getStoredArticleContent(article.id)
     : ArticleService.extractArticleContent(articleHydration.link, {
@@ -144,8 +167,9 @@ export async function loadHydratedArticleContent({
 }
 
 /**
- * @param articleHydration
- * @param setHydratedArticleLinks
+ * Process the mark hydrated article link.
+ * @param articleHydration - The article hydration.
+ * @param setHydratedArticleLinks - The set hydrated article links.
  */
 export function markHydratedArticleLink(
   articleHydration: NonNullable<ReturnType<typeof prepareArticleHydration>>,
@@ -158,25 +182,15 @@ export function markHydratedArticleLink(
     }));
   }
 }
-
 /**
- * @param root0
- * @param root0.article
- * @param root0.forceHydration
- * @param root0.getFeedSettings
- * @param root0.hydrationState
+ * Process the prepare article hydration.
+ * @param options - The options used to process the prepare article hydration.
+ * @returns The prepare article hydration.
  */
-export function prepareArticleHydration({
-  article,
-  forceHydration,
-  getFeedSettings,
-  hydrationState,
-}: {
-  article: Article;
-  forceHydration: boolean;
-  getFeedSettings: UseArticleHydrationOptions["getFeedSettings"];
-  hydrationState: ArticleHydrationState;
-}) {
+export function prepareArticleHydration(
+  options: PrepareArticleHydrationOptions,
+) {
+  const { article, forceHydration, getFeedSettings, hydrationState } = options;
   const link = article.link.trim();
   if (!link || !isValidUrl(link)) return null;
   const feedUrl =
@@ -203,8 +217,10 @@ export function prepareArticleHydration({
 }
 
 /**
- * @param error
- * @param shouldLoadStoredContent
+ * Resolve the hydration failure message.
+ * @param error - The error.
+ * @param shouldLoadStoredContent - Whether should load stored content.
+ * @returns The hydration failure message.
  */
 export function resolveHydrationFailureMessage(
   error: unknown,
@@ -230,28 +246,14 @@ export function resolveHydrationFailureMessage(
 
   return serverError ?? serverReason ?? fallbackMessage;
 }
-
 /**
- * @param root0
- * @param root0.article
- * @param root0.forceHydration
- * @param root0.hydratedArticleLinks
- * @param root0.inFlightCount
- * @param root0.link
+ * Return whether should hydrate article.
+ * @param options - The options used to return whether should hydrate article.
+ * @returns Whether should hydrate article.
  */
-export function shouldHydrateArticle({
-  article,
-  forceHydration,
-  hydratedArticleLinks,
-  inFlightCount,
-  link,
-}: {
-  article: Article;
-  forceHydration: boolean;
-  hydratedArticleLinks: Record<string, boolean>;
-  inFlightCount: number;
-  link: string;
-}) {
+export function shouldHydrateArticle(options: ShouldHydrateArticleOptions) {
+  const { article, forceHydration, hydratedArticleLinks, inFlightCount, link } =
+    options;
   if (forceHydration) return true;
   if (article.hasFullContent) return false;
   if (hydratedArticleLinks[link]) {
@@ -268,26 +270,18 @@ export function shouldHydrateArticle({
 }
 
 /**
- * @param root0
- * @param root0.articleHydrationInFlightRef
- * @param root0.hydrationAbortRef
- * @param root0.inFlightCount
- * @param root0.link
- * @param root0.setHydratingArticleLinks
+ * Process the start article hydration.
+ * @param options - The options used to process the start article hydration.
+ * @returns The start article hydration.
  */
-export function startArticleHydration({
-  articleHydrationInFlightRef,
-  hydrationAbortRef,
-  inFlightCount,
-  link,
-  setHydratingArticleLinks,
-}: {
-  articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
-  hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
-  inFlightCount: number;
-  link: string;
-  setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
-}) {
+export function startArticleHydration(options: StartArticleHydrationOptions) {
+  const {
+    articleHydrationInFlightRef,
+    hydrationAbortRef,
+    inFlightCount,
+    link,
+    setHydratingArticleLinks,
+  } = options;
   articleHydrationInFlightRef.current.set(link, inFlightCount + 1);
   setHydratingArticleLinks((current) => ({ ...current, [link]: true }));
   const abortController = new AbortController();
@@ -296,8 +290,9 @@ export function startArticleHydration({
 }
 
 /**
- * @param error
- * @param shouldLoadStoredContent
+ * Process the toast hydration failure.
+ * @param error - The error.
+ * @param shouldLoadStoredContent - Whether should load stored content.
  */
 export function toastHydrationFailure(
   error: unknown,
@@ -307,7 +302,9 @@ export function toastHydrationFailure(
 }
 
 /**
- * @param value
+ * Normalize the hydration failure value.
+ * @param value - The value.
+ * @returns The hydration failure value.
  */
 function normalizeHydrationFailureValue(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
@@ -315,7 +312,9 @@ function normalizeHydrationFailureValue(value: unknown) {
     : undefined;
 }
 /**
- * @param payload
+ * Parse the hydration failure payload.
+ * @param payload - The payload.
+ * @returns The hydration failure payload.
  */
 function parseHydrationFailurePayload(payload: HydrationFailurePayload) {
   return {

@@ -17,36 +17,25 @@ interface UseDashboardCategoryTreeOptions extends FeedSourceActionState {
 }
 
 /**
- * Composes the dashboard's category tree state and mutations.
- *
- * This hook owns the ordered category labels, custom-category state, and all
- * feed-source/category mutations that reshape the sidebar tree.
- *
- * @param options - Category tree state, fetchers, and persistence setters.
- * @param options.categories
- * @param options.fetchAllFeeds
- * @param options.fetchCategoryFeeds
- * @param options.fetchFeed
- * @param options.loadFeedSources
- * @param options.selectedCategory
- * @param options.setCategories
- * @param options.setFeed
- * @param options.setSelectedCategory
- * @param options.usePlaceholderData
- * @returns Category tree state and mutations consumed by dashboard settings and sidebar flows.
+ * Manage the dashboard category tree.
+ * @param options - The options used to manage the dashboard category tree.
+ * @returns The dashboard category tree state and callbacks.
  */
-export function useDashboardCategoryTree({
-  categories,
-  fetchAllFeeds,
-  fetchCategoryFeeds,
-  fetchFeed,
-  loadFeedSources,
-  selectedCategory,
-  setCategories,
-  setFeed,
-  setSelectedCategory,
-  usePlaceholderData = false,
-}: UseDashboardCategoryTreeOptions) {
+export function useDashboardCategoryTree(
+  options: UseDashboardCategoryTreeOptions,
+) {
+  const {
+    categories,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+    usePlaceholderData = false,
+  } = options;
   const { orderedCategoryLabels, setOrderedCategoryLabels } =
     useCategoryOrderState({ usePlaceholderData });
   const categoryCrudActions = useCategoryCrudActions({

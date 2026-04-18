@@ -15,7 +15,8 @@ const workspaceRequire = createRequire(import.meta.url);
 
 /**
  * Extracts a hostname from an absolute URL-like environment value.
- * @param value
+ * @param value - Raw environment value that may contain a host, URL, or wildcard.
+ * @returns The normalized hostname when the value can be parsed.
  */
 export function getHostnameFromValue(value: string | undefined) {
   const trimmedValue = value?.trim();
@@ -41,8 +42,9 @@ export function getHostnameFromValue(value: string | undefined) {
 /**
  * Resolves the HTTPCloak native package name for the current build platform so
  * Next can externalize and trace the matching binary package.
- * @param getPlatform
- * @param getArchitecture
+ * @param getPlatform - Platform resolver used to support deterministic tests.
+ * @param getArchitecture - Architecture resolver used to support deterministic tests.
+ * @returns The platform-specific package specifier for the current runtime.
  */
 export function getHttpCloakPlatformPackageSpecifier(
   getPlatform: typeof platform = platform,
@@ -65,7 +67,8 @@ export function getHttpCloakPlatformPackageSpecifier(
 
 /**
  * Returns external IPv4 interface addresses that can serve the dev app on the LAN.
- * @param getInterfaces
+ * @param getInterfaces - Network interface resolver used to support deterministic tests.
+ * @returns Reachable non-internal IPv4 host addresses for local development.
  */
 export function getLocalNetworkInterfaceHosts(
   getInterfaces: typeof networkInterfaces = networkInterfaces,
@@ -88,7 +91,8 @@ export function getLocalNetworkInterfaceHosts(
  * 2. `PLAYWRIGHT_BASE_URL` so automation uses the same host as the wrapper
  * 3. `ALLOWED_DEV_ORIGINS` as a comma-separated manual override for tunnels
  *    or forwarded hosts that are not discoverable from local interfaces.
- * @param getInterfaces
+ * @param getInterfaces - Network interface resolver used to support deterministic tests.
+ * @returns Normalized hostnames allowed to load Next dev assets.
  */
 export function resolveAllowedDevOrigins(
   getInterfaces: typeof networkInterfaces = networkInterfaces,
@@ -111,6 +115,7 @@ export function resolveAllowedDevOrigins(
 
 /**
  * Builds the app-wide CSP, relaxing only the directives development mode requires.
+ * @returns The serialized Content-Security-Policy header value.
  */
 function buildContentSecurityPolicy() {
   const isDevelopment = process.env.NODE_ENV === "development";
@@ -140,7 +145,8 @@ function buildContentSecurityPolicy() {
 /**
  * Walks upward from a resolved module entry until the owning package.json is
  * found, avoiding unsupported package.json export subpaths.
- * @param entryPath
+ * @param entryPath - Resolved package entry path inside node_modules.
+ * @returns The package root directory containing the entry path.
  */
 function findPackageRootDirectory(entryPath: string) {
   let currentDirectory = dirname(entryPath);
@@ -162,7 +168,8 @@ function findPackageRootDirectory(entryPath: string) {
 /**
  * Resolves a package tracing glob only when the optional package exists in the
  * current install.
- * @param packageSpecifier
+ * @param packageSpecifier - Package name to resolve relative to the workspace root.
+ * @returns A tracing glob when the package is installed, otherwise null.
  */
 function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
   try {
@@ -175,7 +182,8 @@ function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
 /**
  * Resolves a package directory glob relative to the repository root so
  * Next.js file tracing includes native/runtime assets from external packages.
- * @param packageSpecifier
+ * @param packageSpecifier - Package name to trace into the server bundle.
+ * @returns A repository-relative glob matching all files under the package root.
  */
 function resolvePackageTracingGlob(packageSpecifier: string) {
   const packageDirectory = findPackageRootDirectory(
@@ -287,7 +295,8 @@ const nextConfig: NextConfig = {
     LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
   },
   /**
-   *
+   * Adds security headers to every application route.
+   * @returns Header definitions consumed by Next.js at build time.
    */
   async headers() {
     const contentSecurityPolicy = buildContentSecurityPolicy();

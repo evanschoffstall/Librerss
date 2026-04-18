@@ -29,16 +29,15 @@ interface UseInvertedExpansionLockMachineOptions {
 }
 
 /**
- * @param root0
- * @param root0.expandedArticleKeyRef
- * @param root0.isInvertedScrollRef
- * @param root0.scrollViewport
+ * Manage the inverted expansion lock machine.
+ * @param options - The options used to manage the inverted expansion lock machine.
+ * @returns The inverted expansion lock machine state and callbacks.
  */
-export function useInvertedExpansionLockMachine({
-  expandedArticleKeyRef,
-  isInvertedScrollRef,
-  scrollViewport,
-}: UseInvertedExpansionLockMachineOptions) {
+export function useInvertedExpansionLockMachine(
+  options: UseInvertedExpansionLockMachineOptions,
+) {
+  const { expandedArticleKeyRef, isInvertedScrollRef, scrollViewport } =
+    options;
   const invertedExpansionScrollLockRef =
     useRef<InvertedExpansionScrollLockState | null>(null);
 
@@ -116,16 +115,16 @@ export function useInvertedExpansionLockMachine({
 }
 
 /**
- * @param root0
- * @param root0.expandedArticleKeyRef
- * @param root0.invertedExpansionScrollLockRef
- * @param root0.isInvertedScrollRef
+ * Create the release inverted expansion scroll lock.
+ * @param options - The options used to create the release inverted expansion scroll lock.
+ * @returns The release inverted expansion scroll lock.
  */
-function createReleaseInvertedExpansionScrollLock({
-  expandedArticleKeyRef,
-  invertedExpansionScrollLockRef,
-  isInvertedScrollRef,
-}: ReleaseLockOptions) {
+function createReleaseInvertedExpansionScrollLock(options: ReleaseLockOptions) {
+  const {
+    expandedArticleKeyRef,
+    invertedExpansionScrollLockRef,
+    isInvertedScrollRef,
+  } = options;
   return () => {
     const lockState = invertedExpansionScrollLockRef.current;
 
@@ -142,16 +141,16 @@ function createReleaseInvertedExpansionScrollLock({
 }
 
 /**
- * @param root0
- * @param root0.invertedExpansionScrollLockRef
- * @param root0.scrollViewport
- * @param root0.syncInvertedExpansionScrollLock
+ * Create the start inverted expansion scroll lock.
+ * @param options - The options used to create the start inverted expansion scroll lock.
+ * @returns The start inverted expansion scroll lock.
  */
-function createStartInvertedExpansionScrollLock({
-  invertedExpansionScrollLockRef,
-  scrollViewport,
-  syncInvertedExpansionScrollLock,
-}: StartLockOptions) {
+function createStartInvertedExpansionScrollLock(options: StartLockOptions) {
+  const {
+    invertedExpansionScrollLockRef,
+    scrollViewport,
+    syncInvertedExpansionScrollLock,
+  } = options;
   return (
     articleKey: null | string,
     snapshot: InvertedExpansionViewportSnapshot | null | undefined,
@@ -211,8 +210,9 @@ function createStartInvertedExpansionScrollLock({
 }
 
 /**
- * @param lockState
- * @param shouldKeepOverflowAnchorDisabled
+ * Process the dispose expansion lock.
+ * @param lockState - The lock state.
+ * @param shouldKeepOverflowAnchorDisabled - Whether should keep overflow anchor disabled.
  */
 function disposeExpansionLock(
   lockState: InvertedExpansionScrollLockState,
@@ -232,8 +232,10 @@ function disposeExpansionLock(
 }
 
 /**
- * @param lockState
- * @param syncInvertedExpansionScrollLock
+ * Process the rebind expansion lock viewport.
+ * @param lockState - The lock state.
+ * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
+ * @returns The rebind expansion lock viewport.
  */
 function rebindExpansionLockViewport(
   lockState: InvertedExpansionScrollLockState,
@@ -268,7 +270,9 @@ function rebindExpansionLockViewport(
 }
 
 /**
- * @param lockState
+ * Resolve the lock target scroll top.
+ * @param lockState - The lock state.
+ * @returns The lock target scroll top.
  */
 function resolveLockTargetScrollTop(
   lockState: InvertedExpansionScrollLockState,
@@ -292,8 +296,9 @@ function resolveLockTargetScrollTop(
 }
 
 /**
- * @param invertedExpansionScrollLockRef
- * @param syncInvertedExpansionScrollLock
+ * Process the schedule expansion lock sync.
+ * @param invertedExpansionScrollLockRef - The ref that stores the inverted expansion scroll lock ref.
+ * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
  */
 function scheduleExpansionLockSync(
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>,
@@ -315,7 +320,9 @@ function scheduleExpansionLockSync(
 }
 
 /**
- * @param lockState
+ * Return whether should schedule persistent expansion lock.
+ * @param lockState - The lock state.
+ * @returns Whether should schedule persistent expansion lock.
  */
 function shouldSchedulePersistentExpansionLock(
   lockState: InvertedExpansionScrollLockState,

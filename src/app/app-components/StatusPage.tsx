@@ -19,25 +19,12 @@ interface StatusPageProps {
 }
 
 /**
- * Reusable visual shell for app-wide status pages such as 403, 404, and 500.
- * Keeps the layout, atmospheric background, and content framing aligned while
- * leaving the status-specific copy and action slot configurable.
- * @param root0
- * @param root0.action
- * @param root0.code
- * @param root0.eyebrow
- * @param root0.icon
- * @param root0.iconClassName
- * @param root0.message
+ * Render the status page component.
+ * @param props - The component props.
+ * @returns The rendered status page component.
  */
-export function StatusPage({
-  action,
-  code,
-  eyebrow,
-  icon: Icon,
-  iconClassName,
-  message,
-}: StatusPageProps) {
+export function StatusPage(props: StatusPageProps) {
+  const { action, code, eyebrow, icon: Icon, iconClassName, message } = props;
   return (
     <main
       className="
@@ -64,7 +51,8 @@ export function StatusPage({
 }
 
 /**
- *
+ * Render the status page background component.
+ * @returns The rendered status page background component.
  */
 function StatusPageBackground() {
   return (
@@ -86,22 +74,12 @@ function StatusPageBackground() {
 }
 
 /**
- * @param root0
- * @param root0.action
- * @param root0.code
- * @param root0.eyebrow
- * @param root0.icon
- * @param root0.iconClassName
- * @param root0.message
+ * Render the status page content component.
+ * @param props - The component props.
+ * @returns The rendered status page content component.
  */
-function StatusPageContent({
-  action,
-  code,
-  eyebrow,
-  icon: Icon,
-  iconClassName,
-  message,
-}: StatusPageProps) {
+function StatusPageContent(props: StatusPageProps) {
+  const { action, code, eyebrow, icon: Icon, iconClassName, message } = props;
   return (
     <div
       className="

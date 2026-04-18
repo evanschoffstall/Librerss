@@ -12,17 +12,12 @@ interface DashboardQueryProviderProps {
 }
 
 /**
- * Provides a dashboard-scoped TanStack Query client for feed and source-tree cache.
- *
- * The dashboard still owns its optimistic article state locally, but query-backed
- * request dedupe and short-lived cache entries reduce repeated fetch churn when
- * users bounce between feeds or refresh the current selection.
- * @param root0
- * @param root0.children
+ * Render the dashboard query provider component.
+ * @param props - The component props.
+ * @returns The rendered dashboard query provider component.
  */
-export function DashboardQueryProvider({
-  children,
-}: DashboardQueryProviderProps) {
+export function DashboardQueryProvider(props: DashboardQueryProviderProps) {
+  const { children } = props;
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -44,9 +39,9 @@ export function DashboardQueryProvider({
 }
 
 /**
- * Hashes dashboard query keys deterministically so large batch-signature strings
- * do not rely on object identity.
- * @param queryKey
+ * Process the hash dashboard query key.
+ * @param queryKey - The query key.
+ * @returns The hash dashboard query key.
  */
 function hashDashboardQueryKey(queryKey: QueryKey) {
   return JSON.stringify(queryKey);

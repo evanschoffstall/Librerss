@@ -16,15 +16,26 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-/**
- * @param root0
- * @param root0.result
- */
-export function CompatibilityResultBadge({
-  result,
-}: {
+interface CompatibilityResultBadgeProps {
   result: CompatibilityResult;
-}) {
+}
+
+interface ProxyRoutingBadgeProps {
+  routingCheck?: null | ProxyRoutingCheck;
+  status?: Exclude<ProxyUIStatus, "loading">;
+}
+interface StatusBadgeProps {
+  routingCheck?: null | ProxyRoutingCheck;
+  status: Exclude<ProxyUIStatus, "loading">;
+}
+
+/**
+ * Render the compatibility result badge component.
+ * @param props - The component props.
+ * @returns The rendered compatibility result badge component.
+ */
+export function CompatibilityResultBadge(props: CompatibilityResultBadgeProps) {
+  const { result } = props;
   const base = "h-5 shrink-0 px-1.5 text-[10px]";
   if (result.success && !result.compatibilitySignalDetected) {
     return (
@@ -70,19 +81,13 @@ export function CompatibilityResultBadge({
     </Badge>
   );
 }
-
 /**
- * @param root0
- * @param root0.routingCheck
- * @param root0.status
+ * Render the proxy routing badge component.
+ * @param props - The component props.
+ * @returns The rendered proxy routing badge component.
  */
-export function ProxyRoutingBadge({
-  routingCheck,
-  status,
-}: {
-  routingCheck?: null | ProxyRoutingCheck;
-  status?: Exclude<ProxyUIStatus, "loading">;
-}) {
+export function ProxyRoutingBadge(props: ProxyRoutingBadgeProps) {
+  const { routingCheck, status } = props;
   if (status === "none") {
     return null;
   }
@@ -134,17 +139,12 @@ export function ProxyRoutingBadge({
 }
 
 /**
- * @param root0
- * @param root0.routingCheck
- * @param root0.status
+ * Render the status badge component.
+ * @param props - The component props.
+ * @returns The rendered status badge component.
  */
-export function StatusBadge({
-  routingCheck,
-  status,
-}: {
-  routingCheck?: null | ProxyRoutingCheck;
-  status: Exclude<ProxyUIStatus, "loading">;
-}) {
+export function StatusBadge(props: StatusBadgeProps) {
+  const { routingCheck, status } = props;
   if (status === "none") return null;
   const cfg = resolveStatusBadgeConfig(status, routingCheck);
   return (
@@ -164,7 +164,9 @@ export function StatusBadge({
 }
 
 /**
- * @param routingCheck
+ * Process the describe routing check.
+ * @param routingCheck - The routing check.
+ * @returns The describe routing check.
  */
 function describeRoutingCheck(routingCheck: ProxyRoutingCheck): string {
   const directExit = routingCheck.directIp ?? "unknown";
@@ -181,7 +183,9 @@ function describeRoutingCheck(routingCheck: ProxyRoutingCheck): string {
 }
 
 /**
- * @param routingCheck
+ * Resolve the proxy routing badge config.
+ * @param routingCheck - The routing check.
+ * @returns The proxy routing badge config.
  */
 function resolveProxyRoutingBadgeConfig(routingCheck: ProxyRoutingCheck) {
   const exitIpLabel = routingCheck.proxyExitIp
@@ -216,8 +220,10 @@ function resolveProxyRoutingBadgeConfig(routingCheck: ProxyRoutingCheck) {
 }
 
 /**
- * @param status
- * @param routingCheck
+ * Resolve the status badge config.
+ * @param status - The status.
+ * @param routingCheck - The routing check.
+ * @returns The status badge config.
  */
 function resolveStatusBadgeConfig(
   status: Exclude<ProxyUIStatus, "loading">,

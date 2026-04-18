@@ -16,11 +16,13 @@ interface FeedBatchOutcome {
 }
 
 /**
- * @param normalizedSources
- * @param batchResults
- * @param usePlaceholderData
- * @param getPlaceholderArticles
- * @param previousFeed
+ * Build the feed batch outcome.
+ * @param normalizedSources - The d sources.
+ * @param batchResults - The batch results.
+ * @param usePlaceholderData - The placeholder data.
+ * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param previousFeed - The previous feed.
+ * @returns The feed batch outcome.
  */
 export function buildFeedBatchOutcome(
   normalizedSources: FeedBatchSource[],
@@ -46,8 +48,10 @@ export function buildFeedBatchOutcome(
 }
 
 /**
- * @param failedFeeds
- * @param sourceNamesByUrl
+ * Process the format feed failure label.
+ * @param failedFeeds - The failed feeds.
+ * @param sourceNamesByUrl - The source names by url.
+ * @returns The format feed failure label.
  */
 export function formatFeedFailureLabel(
   failedFeeds: BatchFeedResponseItem[],

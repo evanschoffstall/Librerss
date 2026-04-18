@@ -7,6 +7,14 @@ import {
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
+interface AssertSuccessfulHttpCloakResponseOptions {
+  allowInsecureTls: boolean;
+  decodedBody: string;
+  proxyAddress: null | string;
+  proxyMode: "direct" | "proxy";
+  response: Awaited<ReturnType<typeof requestWithHttpCloakValidatedRedirects>>;
+}
+
 interface HttpCloakFetchDeps {
   requestFn?: ValidatedHttpCloakRequestFn;
 }
@@ -27,14 +35,13 @@ interface HttpCloakFetchResult {
   requestHeaders: Record<string, string>;
   statusCode?: number;
 }
-
 /**
- * Fetch article HTML through HTTPCloak using the shared transport request
- * profile and SSRF-safe redirect validation.
- * @param url
- * @param isAllowedUrl
- * @param options
- * @param deps
+ * Process the fetch html with http cloak.
+ * @param url - The url.
+ * @param isAllowedUrl - Whether is allowed url.
+ * @param options - The options used to process the fetch html with http cloak.
+ * @param deps - The deps.
+ * @returns The fetch html with http cloak.
  */
 export async function fetchHtmlWithHttpCloak(
   url: string,
@@ -74,26 +81,14 @@ export async function fetchHtmlWithHttpCloak(
 }
 
 /**
- * @param root0
- * @param root0.allowInsecureTls
- * @param root0.decodedBody
- * @param root0.proxyAddress
- * @param root0.proxyMode
- * @param root0.response
+ * Process the assert successful http cloak response.
+ * @param options - The options used to process the assert successful http cloak response.
  */
-function assertSuccessfulHttpCloakResponse({
-  allowInsecureTls,
-  decodedBody,
-  proxyAddress,
-  proxyMode,
-  response,
-}: {
-  allowInsecureTls: boolean;
-  decodedBody: string;
-  proxyAddress: null | string;
-  proxyMode: "direct" | "proxy";
-  response: Awaited<ReturnType<typeof requestWithHttpCloakValidatedRedirects>>;
-}) {
+function assertSuccessfulHttpCloakResponse(
+  options: AssertSuccessfulHttpCloakResponseOptions,
+) {
+  const { allowInsecureTls, decodedBody, proxyAddress, proxyMode, response } =
+    options;
   if (response.statusCode < 200 || response.statusCode >= 300) {
     throw new HttpCloakUpstreamError({
       allowInsecureTls,
@@ -115,11 +110,13 @@ function assertSuccessfulHttpCloakResponse({
 }
 
 /**
- * @param url
- * @param isAllowedUrl
- * @param options
- * @param deps
- * @param allowInsecureTls
+ * Process the request http cloak response.
+ * @param url - The url.
+ * @param isAllowedUrl - Whether is allowed url.
+ * @param options - The options used to process the request http cloak response.
+ * @param deps - The deps.
+ * @param allowInsecureTls - The allow insecure tls.
+ * @returns The request http cloak response.
  */
 async function requestHttpCloakResponse(
   url: string,
@@ -137,8 +134,9 @@ async function requestHttpCloakResponse(
       timeoutMs: 25_000,
       url,
       /**
-       * @param candidateUrl
-       * @param isRedirectTarget
+       * Process the validate url.
+       * @param candidateUrl - The candidate url.
+       * @param isRedirectTarget - Whether is redirect target.
        */
       validateUrl: async (candidateUrl, isRedirectTarget) => {
         if (!(await isAllowedUrl(candidateUrl))) {

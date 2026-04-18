@@ -31,14 +31,16 @@ export const viewport: Viewport = {
 };
 
 /**
- * @param root0
- * @param root0.children
+ * Render the root layout component.
+ * @param props - The component props.
+ * @returns The rendered root layout component.
  */
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout(
+  props: Readonly<{
+    children: React.ReactNode;
+  }>,
+) {
+  const { children } = props;
   const developmentMode = isDevelopment();
 
   return (

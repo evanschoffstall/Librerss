@@ -2,40 +2,58 @@ import { CONFIG } from "@/lib";
 
 import { jsonError } from "./responses";
 
+interface FormOrQueryParamsOptions {
+  maxBytes?: number;
+}
+
+interface JsonBodyOptions {
+  maxBytes?: number;
+}
+
+interface JsonBodyOrResponseOptions {
+  maxBytes?: number;
+}
+
+interface JsonObjectBodyOrResponseOptions {
+  maxBytes?: number;
+}
+
 interface ParsedJsonFailure {
   ok: false;
   response: Response;
 }
-
 type ParsedJsonResult<T> = ParsedJsonFailure | ParsedJsonSuccess<T>;
 
 interface ParsedJsonSuccess<T> {
   data: T;
   ok: true;
 }
-
 /**
- * @param value
+ * Return the as trimmed string.
+ * @param value - The value.
+ * @returns The as trimmed string.
  */
 export function asTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
 /**
- * @param request
+ * Return the search params.
+ * @param request - The request.
+ * @returns The search params.
  */
 export function getSearchParams(request: Request): URLSearchParams {
   return new URL(request.url).searchParams;
 }
-
 /**
- * @param request
- * @param options
- * @param options.maxBytes
+ * Parse the form or query params.
+ * @param request - The request.
+ * @param options - The options used to parse the form or query params.
+ * @returns The form or query params.
  */
 export async function parseFormOrQueryParams(
   request: Request,
-  options?: { maxBytes?: number },
+  options?: FormOrQueryParamsOptions,
 ): Promise<Response | URLSearchParams> {
   const maxBytes = options?.maxBytes ?? CONFIG.MAX_JSON_BODY_BYTES;
 
@@ -63,13 +81,14 @@ export async function parseFormOrQueryParams(
 }
 
 /**
- * @param request
- * @param options
- * @param options.maxBytes
+ * Parse the json body.
+ * @param request - The request.
+ * @param options - The options used to parse the json body.
+ * @returns The json body.
  */
 export async function parseJsonBody<T>(
   request: Request,
-  options?: { maxBytes?: number },
+  options?: JsonBodyOptions,
 ): Promise<ParsedJsonResult<T>> {
   const maxBytes = options?.maxBytes ?? CONFIG.MAX_JSON_BODY_BYTES;
   const bodyTooLarge: ParsedJsonFailure = {
@@ -98,15 +117,15 @@ export async function parseJsonBody<T>(
     };
   }
 }
-
 /**
- * @param request
- * @param options
- * @param options.maxBytes
+ * Parse the json body or response.
+ * @param request - The request.
+ * @param options - The options used to parse the json body or response.
+ * @returns The json body or response.
  */
 export async function parseJsonBodyOrResponse<T>(
   request: Request,
-  options?: { maxBytes?: number },
+  options?: JsonBodyOrResponseOptions,
 ): Promise<Response | T> {
   const parsed = await parseJsonBody<T>(request, options);
   if (!parsed.ok) {
@@ -117,13 +136,14 @@ export async function parseJsonBodyOrResponse<T>(
 }
 
 /**
- * @param request
- * @param options
- * @param options.maxBytes
+ * Parse the json object body or response.
+ * @param request - The request.
+ * @param options - The options used to parse the json object body or response.
+ * @returns The json object body or response.
  */
 export async function parseJsonObjectBodyOrResponse(
   request: Request,
-  options?: { maxBytes?: number },
+  options?: JsonObjectBodyOrResponseOptions,
 ): Promise<Record<string, unknown> | Response> {
   const parsed = await parseJsonBody<unknown>(request, options);
   if (!parsed.ok) {
@@ -138,7 +158,9 @@ export async function parseJsonObjectBodyOrResponse(
 }
 
 /**
- * @param value
+ * Parse the non negative int.
+ * @param value - The value.
+ * @returns The non negative int.
  */
 export function parseNonNegativeInt(value: unknown): null | number {
   if (value === null || value === undefined) return null;
@@ -148,7 +170,9 @@ export function parseNonNegativeInt(value: unknown): null | number {
 }
 
 /**
- * @param value
+ * Parse the positive int.
+ * @param value - The value.
+ * @returns The positive int.
  */
 export function parsePositiveInt(value: unknown): null | number {
   const parsed = Number(value);
@@ -160,8 +184,10 @@ export function parsePositiveInt(value: unknown): null | number {
 }
 
 /**
- * @param request
- * @param maxBytes
+ * Return whether is body too large by header.
+ * @param request - The request.
+ * @param maxBytes - The max bytes.
+ * @returns Whether is body too large by header.
  */
 function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
   const contentLengthHeader = request.headers.get("content-length");
@@ -174,24 +200,30 @@ function isBodyTooLargeByHeader(request: Request, maxBytes: number): boolean {
 }
 
 /**
- * @param raw
- * @param maxBytes
+ * Return whether is body too large by utf8 length.
+ * @param raw - The raw.
+ * @param maxBytes - The max bytes.
+ * @returns Whether is body too large by utf8 length.
  */
 function isBodyTooLargeByUtf8Length(raw: string, maxBytes: number): boolean {
   return Buffer.byteLength(raw, "utf8") > maxBytes;
 }
 
 /**
- * @param value
+ * Return whether is json object.
+ * @param value - The value.
+ * @returns Whether is json object.
  */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
- * @param request
- * @param maxBytes
- * @param bodyTooLarge
+ * Parse the multipart form body.
+ * @param request - The request.
+ * @param maxBytes - The max bytes.
+ * @param bodyTooLarge - The body too large.
+ * @returns The multipart form body.
  */
 async function parseMultipartFormBody(
   request: Request,

@@ -5,6 +5,16 @@ import { useEffect, useState } from "react";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { readDashboardPreviewModeFromLocation } from "@/app/dashboard/toolbar/dashboardWindowEvents";
 
+interface DashboardToolbarWindowListenersOptions {
+  setIsMarkingAllRead: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsMarkingViewportRead: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
+  setIsSearchPending: React.Dispatch<React.SetStateAction<boolean>>;
+  setSearch: React.Dispatch<React.SetStateAction<string>>;
+  setTitle: React.Dispatch<React.SetStateAction<string>>;
+}
+
 interface DashboardToolbarWindowState {
   isMarkingAllRead: boolean;
   isMarkingViewportRead: boolean;
@@ -17,7 +27,10 @@ interface DashboardToolbarWindowState {
   title: string;
 }
 
-/** Subscribes the toolbar to passive dashboard window state events. */
+/**
+ * Manage the dashboard toolbar window state.
+ * @returns The dashboard toolbar window state state and callbacks.
+ */
 export function useDashboardToolbarWindowState(): DashboardToolbarWindowState {
   const [title, setTitle] = useState("LibreRSS");
   const [search, setSearch] = useState("");
@@ -59,9 +72,9 @@ export function useDashboardToolbarWindowState(): DashboardToolbarWindowState {
     title,
   };
 }
-
 /**
- * @param listeners
+ * Process the add dashboard toolbar window listeners.
+ * @param listeners - The callback that listeners.
  */
 function addDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,
@@ -107,97 +120,90 @@ function addDashboardToolbarWindowListeners(
 }
 
 /**
- * @param root0
- * @param root0.setIsMarkingAllRead
- * @param root0.setIsMarkingViewportRead
- * @param root0.setIsPreviewMode
- * @param root0.setIsRefreshing
- * @param root0.setIsSearchPending
- * @param root0.setSearch
- * @param root0.setTitle
+ * Create the dashboard toolbar window listeners.
+ * @param options - The options used to create the dashboard toolbar window listeners.
+ * @returns The dashboard toolbar window listeners.
  */
-function createDashboardToolbarWindowListeners({
-  setIsMarkingAllRead,
-  setIsMarkingViewportRead,
-  setIsPreviewMode,
-  setIsRefreshing,
-  setIsSearchPending,
-  setSearch,
-  setTitle,
-}: {
-  setIsMarkingAllRead: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsMarkingViewportRead: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
-  setIsSearchPending: React.Dispatch<React.SetStateAction<boolean>>;
-  setSearch: React.Dispatch<React.SetStateAction<string>>;
-  setTitle: React.Dispatch<React.SetStateAction<string>>;
-}) {
+function createDashboardToolbarWindowListeners(
+  options: DashboardToolbarWindowListenersOptions,
+) {
+  const {
+    setIsMarkingAllRead,
+    setIsMarkingViewportRead,
+    setIsPreviewMode,
+    setIsRefreshing,
+    setIsSearchPending,
+    setSearch,
+    setTitle,
+  } = options;
   return {
     /**
-     *
+     * Process the enter preview.
      */
     enterPreview: () => {
       setIsPreviewMode(true);
     },
     /**
-     *
+     * Process the location change.
      */
     locationChange: () => {
       setIsPreviewMode(readDashboardPreviewModeFromLocation());
     },
     /**
-     *
+     * Process the mark all read end.
      */
     markAllReadEnd: () => {
       setIsMarkingAllRead(false);
     },
     /**
-     *
+     * Process the mark all read start.
      */
     markAllReadStart: () => {
       setIsMarkingAllRead(true);
     },
     /**
-     *
+     * Process the mark viewport read end.
      */
     markViewportReadEnd: () => {
       setIsMarkingViewportRead(false);
     },
     /**
-     *
+     * Process the mark viewport read start.
      */
     markViewportReadStart: () => {
       setIsMarkingViewportRead(true);
     },
     /**
-     *
+     * Process the refresh end.
      */
     refreshEnd: () => {
       setIsRefreshing(false);
     },
     /**
-     *
+     * Process the refresh start.
      */
     refreshStart: () => {
       setIsRefreshing(true);
     },
     /**
-     * @param event
+     * Process the search pending.
+     * @param event - The incoming event.
      */
     searchPending: (event: Event) => {
       const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
       setIsSearchPending(detail.pending === true);
     },
     /**
-     * @param event
+     * Process the search sync.
+     * @param event - The incoming event.
      */
     searchSync: (event: Event) => {
       const detail = (event as CustomEvent<{ term?: string }>).detail;
       setSearch(typeof detail.term === "string" ? detail.term : "");
     },
     /**
-     * @param event
+     * Process the title change.
+     * @param event - The incoming event.
      */
     titleChange: (event: Event) => {
       const detail = (event as CustomEvent<{ title?: string }>).detail;
@@ -209,7 +215,8 @@ function createDashboardToolbarWindowListeners({
 }
 
 /**
- * @param listeners
+ * Process the remove dashboard toolbar window listeners.
+ * @param listeners - The callback that listeners.
  */
 function removeDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,

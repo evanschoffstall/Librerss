@@ -7,14 +7,17 @@ test.describe("dashboard toolbar tablet placement", () => {
   test("keeps the bottom toolbar from adding a tablet top gap", async ({
     page,
   }) => {
-    await page.addInitScript(({ mobileUiGroupedLayoutStorageKey }) => {
-      window.localStorage.setItem(
-        mobileUiGroupedLayoutStorageKey,
-        JSON.stringify(true),
-      );
-    }, {
-      mobileUiGroupedLayoutStorageKey: MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-    });
+    await page.addInitScript(
+      ({ mobileUiGroupedLayoutStorageKey }) => {
+        window.localStorage.setItem(
+          mobileUiGroupedLayoutStorageKey,
+          JSON.stringify(true),
+        );
+      },
+      {
+        mobileUiGroupedLayoutStorageKey: MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      },
+    );
 
     await page.setViewportSize({ height: 900, width: 900 });
     await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
@@ -38,7 +41,7 @@ test.describe("dashboard toolbar tablet placement", () => {
       }
 
       const firstArticle = document.querySelector<HTMLElement>(
-        'article[data-article-key]',
+        "article[data-article-key]",
       );
       const firstArticleRect = firstArticle?.getBoundingClientRect();
 

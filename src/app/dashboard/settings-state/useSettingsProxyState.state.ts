@@ -64,28 +64,7 @@ export interface SettingsProxyWritableState {
   setProxyUsername: Dispatch<SetStateAction<string>>;
   shouldAutoScrollToResultsRef: RefObject<boolean>;
 }
-
-/**
- * @param root0
- * @param root0.setAllowInsecureTls
- * @param root0.setError
- * @param root0.setHasProxyPassword
- * @param root0.setProxyRoutingCheck
- * @param root0.setProxyStatus
- * @param root0.setProxyUrl
- * @param root0.setProxyUsername
- * @param root0.snapshot
- */
-export function applyProxySettingsSnapshot({
-  setAllowInsecureTls,
-  setError,
-  setHasProxyPassword,
-  setProxyRoutingCheck,
-  setProxyStatus,
-  setProxyUrl,
-  setProxyUsername,
-  snapshot,
-}: {
+interface ApplyProxySettingsSnapshotOptions {
   setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<null | string>>;
   setHasProxyPassword: Dispatch<SetStateAction<boolean>>;
@@ -94,7 +73,25 @@ export function applyProxySettingsSnapshot({
   setProxyUrl: Dispatch<SetStateAction<string>>;
   setProxyUsername: Dispatch<SetStateAction<string>>;
   snapshot: ProxySettingsSnapshot;
-}) {
+}
+
+/**
+ * Process the apply proxy settings snapshot.
+ * @param options - The options used to process the apply proxy settings snapshot.
+ */
+export function applyProxySettingsSnapshot(
+  options: ApplyProxySettingsSnapshotOptions,
+) {
+  const {
+    setAllowInsecureTls,
+    setError,
+    setHasProxyPassword,
+    setProxyRoutingCheck,
+    setProxyStatus,
+    setProxyUrl,
+    setProxyUsername,
+    snapshot,
+  } = options;
   setProxyUrl(snapshot.proxyUrl);
   setAllowInsecureTls(snapshot.allowInsecureTls);
   setProxyUsername(snapshot.proxyUsername);
@@ -105,7 +102,8 @@ export function applyProxySettingsSnapshot({
 }
 
 /**
- *
+ * Manage the settings proxy request state.
+ * @returns The settings proxy request state state and callbacks.
  */
 export function useSettingsProxyRequestState(): SettingsProxyRequestState {
   const isMountedRef = useRef(true);
@@ -164,8 +162,10 @@ export function useSettingsProxyRequestState(): SettingsProxyRequestState {
 }
 
 /**
- * @param isEnabled
- * @param initialSnapshot
+ * Manage the settings proxy writable state.
+ * @param isEnabled - Whether is enabled.
+ * @param initialSnapshot - The initial snapshot.
+ * @returns The settings proxy writable state state and callbacks.
  */
 export function useSettingsProxyWritableState(
   isEnabled: boolean,
@@ -181,7 +181,8 @@ export function useSettingsProxyWritableState(
 }
 
 /**
- *
+ * Manage the settings proxy compatibility state.
+ * @returns The settings proxy compatibility state state and callbacks.
  */
 function useSettingsProxyCompatibilityState() {
   const [compatibilityResults, setCompatibilityResults] = useState<
@@ -212,8 +213,10 @@ function useSettingsProxyCompatibilityState() {
 }
 
 /**
- * @param isEnabled
- * @param initialSnapshot
+ * Manage the settings proxy form state.
+ * @param isEnabled - Whether is enabled.
+ * @param initialSnapshot - The initial snapshot.
+ * @returns The settings proxy form state state and callbacks.
  */
 function useSettingsProxyFormState(
   isEnabled: boolean,

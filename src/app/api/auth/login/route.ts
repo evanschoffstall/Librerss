@@ -16,7 +16,9 @@ interface LoginPayload {
 }
 
 /**
- * @param request
+ * Render the post component.
+ * @param request - The request.
+ * @returns The rendered post component.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -66,7 +68,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * @param payload
+ * Parse the login payload.
+ * @param payload - The payload.
+ * @returns The login payload.
  */
 function parseLoginPayload(
   payload: Record<string, unknown>,
@@ -93,7 +97,8 @@ function parseLoginPayload(
 }
 
 /**
- *
+ * Process the respond invalid credentials.
+ * @returns The respond invalid credentials.
  */
 function respondInvalidCredentials(): Response {
   const warn =

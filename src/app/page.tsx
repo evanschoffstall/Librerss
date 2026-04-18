@@ -4,7 +4,7 @@ import { isDevAutoLoginEnabled } from "@/lib/auth";
 import { PUBLIC_APP_PATHS } from "@/public";
 
 /**
- *
+ * Render the home component.
  */
 export default function Home() {
   redirect(
