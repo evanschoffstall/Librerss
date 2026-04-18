@@ -22,47 +22,35 @@ interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
 }
 
 /** Virtualized feed runtime mounted in real browser environments. */
-export function FeedVirtualListRuntime({
-  className,
-  entries,
-  estimatedItemHeight,
-  expandedArticleKey,
-  feedViewKey,
-  isCollapseScrollRestoreActive,
-  loadMoreSentinelRef,
-  minimumTotalListHeight,
-  onTotalListHeightChange,
-  renderArticle,
-  scrollMode,
-  scrollViewport,
-}: FeedVirtualListRuntimeProps) {
+export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
   const virtualizer = useFeedVirtualizer({
-    entries,
-    estimatedItemHeight,
-    expandedArticleKey,
-    feedViewKey,
-    isCollapseScrollRestoreActive,
-    scrollMode,
-    scrollViewport,
+    entries: props.entries,
+    estimatedItemHeight: props.estimatedItemHeight,
+    expandedArticleKey: props.expandedArticleKey,
+    feedViewKey: props.feedViewKey,
+    isCollapseScrollRestoreActive: props.isCollapseScrollRestoreActive,
+    scrollMode: props.scrollMode,
+    scrollViewport: props.scrollViewport,
   });
   const lastReportedTotalSizeRef = useRef<null | number>(null);
-  const totalSize = Math.ceil(virtualizer.getTotalSize());
-  const containerHeight = Math.max(
+  const {
+    boundaryEntry,
+    boundaryOffsetTop,
+    containerHeight,
+    invertedOffset,
     totalSize,
-    scrollViewport.clientHeight,
-    Math.ceil(minimumTotalListHeight ?? 0),
-  );
-  const invertedOffset = isInvertedFeedScrollMode(scrollMode)
-    ? Math.max(0, containerHeight - totalSize)
-    : 0;
-  const boundaryEntry = entries.find((entry) => entry.kind === "boundary");
+  } = resolveFeedVirtualListLayout({
+    entries: props.entries,
+    minimumTotalListHeight: props.minimumTotalListHeight,
+    scrollMode: props.scrollMode,
+    scrollViewport: props.scrollViewport,
+    virtualizer,
+  });
   const hasRenderedBoundary = virtualizer
     .getVirtualItems()
-    .some((virtualItem) => entries[virtualItem.index]?.kind === "boundary");
-  const boundaryOffsetTop =
-    boundaryEntry === undefined
-      ? null
-      : resolveBoundaryOffsetTop(entries, totalSize, invertedOffset);
+    .some(
+      (virtualItem) => props.entries[virtualItem.index]?.kind === "boundary",
+    );
 
   useLayoutEffect(() => {
     if (lastReportedTotalSizeRef.current === totalSize) {
@@ -70,12 +58,12 @@ export function FeedVirtualListRuntime({
     }
 
     lastReportedTotalSizeRef.current = totalSize;
-    onTotalListHeightChange(totalSize);
-  }, [onTotalListHeightChange, totalSize]);
+    props.onTotalListHeightChange(totalSize);
+  }, [props.onTotalListHeightChange, totalSize]);
 
   return (
     <div
-      className={className}
+      className={props.className}
       data-feed-virtualizer="true"
       style={{
         height: `${containerHeight}px`,
@@ -84,14 +72,14 @@ export function FeedVirtualListRuntime({
       }}
     >
       {virtualizer.getVirtualItems().map((virtualItem) => {
-        const entry = entries[virtualItem.index];
+        const entry = props.entries[virtualItem.index];
 
         return renderVirtualEntry({
-          entries,
+          entries: props.entries,
           key: entry.key,
-          loadMoreSentinelRef,
+          loadMoreSentinelRef: props.loadMoreSentinelRef,
           offsetTop: virtualItem.start + invertedOffset,
-          renderArticle,
+          renderArticle: props.renderArticle,
           virtualItem,
           virtualizer,
         });
@@ -100,10 +88,10 @@ export function FeedVirtualListRuntime({
       !hasRenderedBoundary &&
       boundaryOffsetTop !== null ? (
         <FeedVirtualListBoundaryRow
-          index={entries.findIndex((entry) => entry.kind === "boundary")}
+          index={props.entries.findIndex((entry) => entry.kind === "boundary")}
           itemKey={boundaryEntry.key}
           key={boundaryEntry.key}
-          loadMoreSentinelRef={loadMoreSentinelRef}
+          loadMoreSentinelRef={props.loadMoreSentinelRef}
           offsetTop={boundaryOffsetTop}
         />
       ) : null}
@@ -162,6 +150,42 @@ function resolveBoundaryOffsetTop(
   }
 
   return boundaryIndex === 0 ? invertedOffset : totalSize - 1 + invertedOffset;
+}
+
+function resolveFeedVirtualListLayout({
+  entries,
+  minimumTotalListHeight,
+  scrollMode,
+  scrollViewport,
+  virtualizer,
+}: {
+  entries: FeedVirtualListRuntimeProps["entries"];
+  minimumTotalListHeight: FeedVirtualListRuntimeProps["minimumTotalListHeight"];
+  scrollMode: FeedVirtualListRuntimeProps["scrollMode"];
+  scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
+  virtualizer: Virtualizer<HTMLElement, Element>;
+}) {
+  const totalSize = Math.ceil(virtualizer.getTotalSize());
+  const containerHeight = Math.max(
+    totalSize,
+    scrollViewport.clientHeight,
+    Math.ceil(minimumTotalListHeight ?? 0),
+  );
+  const invertedOffset = isInvertedFeedScrollMode(scrollMode)
+    ? Math.max(0, containerHeight - totalSize)
+    : 0;
+  const boundaryEntry = entries.find((entry) => entry.kind === "boundary");
+
+  return {
+    boundaryEntry,
+    boundaryOffsetTop:
+      boundaryEntry === undefined
+        ? null
+        : resolveBoundaryOffsetTop(entries, totalSize, invertedOffset),
+    containerHeight,
+    invertedOffset,
+    totalSize,
+  };
 }
 
 function resolveVirtualizerRect(scrollViewport: HTMLElement) {
