@@ -21,6 +21,13 @@ const INVERTED_PAGINATION_REARM_DELAY_MS = 1_100;
 const RENDERED_COUNT_SETTLE_DELAY_MS = 180;
 const RENDERED_COUNT_SETTLE_LIMIT = 10;
 
+/** Enables mobile inverted scroll before the preview dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+}
+
 async function expandInvertedWindowByOnePage(page: Page, expectedCount: number) {
   let renderedCount = await readRenderedArticleCount(page);
 
@@ -59,13 +66,6 @@ async function readStableRenderedCount(page: Page) {
   }
 
   return previousCount ?? 0;
-}
-
-/** Enables mobile inverted scroll before the preview dashboard hydrates. */
-async function enableMobileInvertedScroll(page: Page) {
-  await page.addInitScript((storageKey: string) => {
-    window.localStorage.setItem(storageKey, "true");
-  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 }
 
 test.describe("dashboard mobile inverted pagination sequence", () => {

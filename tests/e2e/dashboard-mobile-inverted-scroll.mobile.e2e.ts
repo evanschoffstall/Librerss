@@ -173,6 +173,13 @@ async function collapseArticleByKey(page: Page, articleKey: string) {
   }, articleKey);
 }
 
+/** Enables mobile inverted scroll before the preview dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+}
+
 /** Reads article header offsets when the article is currently rendered, otherwise returns null. */
 async function maybeReadArticleHeaderViewportOffsets(
   page: Page,
@@ -565,13 +572,6 @@ async function setLocalStoragePreference(
     },
     { key, value },
   );
-}
-
-/** Enables mobile inverted scroll before the preview dashboard hydrates. */
-async function enableMobileInvertedScroll(page: Page) {
-  await page.addInitScript((storageKey: string) => {
-    window.localStorage.setItem(storageKey, "true");
-  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 }
 
 /** Toggles the best currently rendered instance for an article key. */

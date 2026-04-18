@@ -27,6 +27,7 @@ import * as realUiTooltipModule from "@/components/ui/tooltip";
 import * as realAuthSessionModule from "@/lib/auth";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
+import * as realHooksModule from "@/lib/hooks";
 import * as realUseLocalStorageModule from "@/lib/hooks/useLocalStorage";
 import * as realLoggerModule from "@/lib/logger";
 import * as realServerModule from "@/lib/server";
@@ -207,6 +208,7 @@ afterEach(() => {
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
     mock.module("@/lib/auth/session", () => realAuthSessionModule);
+    mock.module("@/lib/hooks", () => realHooksModule);
     mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
     mock.module("@/lib/logger", () => realLoggerModule);
     mock.module("@/lib/server", () => realServerModule);

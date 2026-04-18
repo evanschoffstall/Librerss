@@ -30,6 +30,13 @@ const MOBILE_VIEWPORT_CASES: MobileViewportCase[] = [
   { height: 852, name: "tall mobile", width: 393 },
 ];
 
+/** Enables the mobile inverted-scroll preference before the dashboard hydrates. */
+async function enableMobileInvertedScroll(page: Page) {
+  await page.addInitScript((storageKey: string) => {
+    window.localStorage.setItem(storageKey, "true");
+  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
+}
+
 /** Expands the mobile feed by one additional configured page in inverted mode. */
 async function expandInvertedMobileWindow(page: Page) {
   await wheelActiveFeedViewport(page, -700);
@@ -88,13 +95,6 @@ async function expectMobileRefreshCollapse(page: Page) {
 async function readInvertedScrollAttribute(page: Page) {
   const feedSurface = page.locator("[data-feed-surface-mode]").first();
   return await feedSurface.getAttribute("data-inverted-scroll");
-}
-
-/** Enables the mobile inverted-scroll preference before the dashboard hydrates. */
-async function enableMobileInvertedScroll(page: Page) {
-  await page.addInitScript((storageKey: string) => {
-    window.localStorage.setItem(storageKey, "true");
-  }, MOBILE_INVERTED_SCROLL_STORAGE_KEY);
 }
 
 /** Rearms the inverted mobile pagination boundary after refresh. */
