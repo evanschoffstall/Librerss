@@ -458,7 +458,29 @@ async function resolveBatchProxyTransport(options: {
   >;
   userId: number;
 }) {
-  const resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
+  let resolvedProxy;
+
+  try {
+    resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
+  } catch (error) {
+    if (
+      error instanceof ServerServiceErrorCtor &&
+      error.reason === "proxy-password-unreadable"
+    ) {
+      logger.warn(
+        "Feed batch refresh bypassed unreadable proxy credentials and retried direct egress",
+        {
+          userId: options.userId,
+        },
+      );
+      return {
+        allowInsecureTls: false,
+        proxyUrl: undefined,
+      };
+    }
+
+    throw error;
+  }
 
   return {
     allowInsecureTls: resolvedProxy.allowInsecureTls,
