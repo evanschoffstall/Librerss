@@ -338,16 +338,19 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
-  test("returns a structured proxy password error when lazy proxy resolution fails", async () => {
+  test("falls back to direct egress when lazy proxy resolution fails", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps } = createRouteDeps();
+    let resolvedProxyTransport:
+      | undefined
+      | { allowInsecureTls: boolean; proxyUrl: string | undefined };
 
     deps.fetchAndCacheFeedArticlesBatchFn = mock(
       async (_db, _userId, _feedUrls, options) => {
-        await options?.resolveProxyTransport?.();
+        resolvedProxyTransport = await options?.resolveProxyTransport?.();
 
         return {
-          articles: new Map(),
+          articles: new Map([["https://example.com/feed", []]]),
           cachedCount: 0,
           cooldownLimitedCount: 0,
           errors: new Map(),
@@ -375,12 +378,18 @@ describe("api/feeds/batch route", () => {
     const response = await POST(request, deps);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data).toEqual({
-      error:
-        "Saved proxy password could not be read. Update it in settings and try again.",
-      reason: "proxy-password-unreadable",
+    expect(response.status).toBe(200);
+    expect(resolvedProxyTransport).toEqual({
+      allowInsecureTls: false,
+      proxyUrl: undefined,
     });
+    expect(data).toEqual([
+      {
+        articles: [],
+        ok: true,
+        url: "https://example.com/feed",
+      },
+    ]);
   });
 
   test("returns 207 for mixed invalid URLs and upstream errors", async () => {

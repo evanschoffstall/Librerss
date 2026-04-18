@@ -67,10 +67,8 @@ const getDirectIconCandidates = (origin: string) => {
 };
 
 const getProviderCandidates = (hostname: string) => [
-  `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`,
   `https://icon.horse/icon/${hostname}`,
   `https://icons.duckduckgo.com/ip3/${hostname}.ico`,
-  `https://www.google.com/s2/favicons?domain_url=https://${hostname}&sz=64`,
 ];
 
 const getFaviconCandidates = (url?: string) => {
