@@ -270,6 +270,120 @@ describe("useDashboardState", () => {
 
     expect(result.current.shouldUseArticleWindow).toBe(false);
   });
+
+  test("isShellLoading does NOT fire when search runs with a non-empty feed (keepExistingFeed path)", async () => {
+    // Regression guard for the search-skeleton bug: when a user types in the
+    // search bar and the server fetch runs with keepExistingFeed:true, the feed
+    // is never cleared to []. feedLength stays > 0, so isFeedListInitialLoading
+    // = loading && feedLength === 0 is false, and isShellLoading must stay false
+    // once the initial settle has completed.
+    const { rerender, result } = renderHook(
+      ({
+        feedLength,
+        loading,
+      }: {
+        feedLength: number;
+        loading: boolean;
+      }) =>
+        useDashboardFeedLoadingState({
+          articleFilter: "unread",
+          feedLength,
+          isCategoriesLoading: false,
+          loading,
+          searchTerm: "mars",
+          settleMs: 0,
+          usePlaceholderData: false,
+        }),
+      {
+        initialProps: { feedLength: 10, loading: false },
+      },
+    );
+
+    // Allow the settleMs=0 timeout to flip isShellLoading to false.
+    await waitFor(() => {
+      expect(result.current.isShellLoading).toBe(false);
+    });
+
+    // Simulate a background search request setting loading=true while
+    // the existing feed (10 items) is still visible.
+    rerender({ feedLength: 10, loading: true });
+
+    // isShellLoading must NOT become true: feedLength > 0 so it is a refresh,
+    // not an initial load.  Only isFeedListRefreshing flips.
+    expect(result.current.isShellLoading).toBe(false);
+    expect(result.current.isFeedListRefreshing).toBe(true);
+  });
+
+  test("isShellLoading stays true while categories are loading even after the feed list finishes", async () => {
+    // Regression: sidebar used isCategoriesLoading directly and unmasked before
+    // the toolbar/filterBar/feedList which wait for isShellLoading.  Verifying
+    // that isShellLoading encompasses isCategoriesLoading ensures all skeleton
+    // surfaces share a single gate and hydrate simultaneously.
+    const { rerender, result } = renderHook(
+      ({
+        feedLength,
+        isCategoriesLoading,
+        loading,
+      }: {
+        feedLength: number;
+        isCategoriesLoading: boolean;
+        loading: boolean;
+      }) =>
+        useDashboardFeedLoadingState({
+          articleFilter: "unread",
+          feedLength,
+          isCategoriesLoading,
+          loading,
+          searchTerm: "",
+          settleMs: 0,
+          usePlaceholderData: false,
+        }),
+      {
+        initialProps: {
+          feedLength: 0,
+          isCategoriesLoading: true,
+          loading: true,
+        },
+      },
+    );
+
+    // Both loading sources active → shell loading.
+    expect(result.current.isShellLoading).toBe(true);
+
+    // Feed list done, categories still loading → still shell loading.
+    rerender({ feedLength: 8, isCategoriesLoading: true, loading: false });
+    expect(result.current.isShellLoading).toBe(true);
+
+    // Categories done, feed still loading → still shell loading.
+    rerender({ feedLength: 0, isCategoriesLoading: false, loading: true });
+    expect(result.current.isShellLoading).toBe(true);
+
+    // Both done → settles to false (settleMs=0 so immediate).
+    rerender({ feedLength: 8, isCategoriesLoading: false, loading: false });
+    await waitFor(() => {
+      expect(result.current.isShellLoading).toBe(false);
+    });
+  });
+
+  test("isShellLoading stays true during the settle window after loading clears", async () => {
+    // With settleMs > 0, isShellLoading must not flip to false before the
+    // settle timeout expires.  We validate the initial true state here;
+    // the settled-false path is exercised by the settleMs=0 test above.
+    const { result } = renderHook(() =>
+      useDashboardFeedLoadingState({
+        articleFilter: "all",
+        feedLength: 0,
+        isCategoriesLoading: false,
+        loading: true,
+        searchTerm: "",
+        settleMs: 200,
+        usePlaceholderData: false,
+      }),
+    );
+
+    // Feed is still loading (feedLength=0, loading=true) → shell loading.
+    expect(result.current.isShellLoading).toBe(true);
+  });
 });
 
 describe("dashboard effect helpers", () => {

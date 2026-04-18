@@ -107,6 +107,7 @@ function DashboardFilterSection({
   return (
     <DashboardFilterBar
       articleFilter={filterBar.articleFilter}
+      isSearchPending={filterBar.isSearchPending}
       isShellLoading={filterBar.isShellLoading}
       lastRefreshLabel={filterBar.lastRefreshLabel}
       loading={filterBar.loading}

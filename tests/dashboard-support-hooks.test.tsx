@@ -69,6 +69,7 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        isSearchPending: false,
         isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,

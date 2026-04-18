@@ -49,7 +49,14 @@ export function clearStaleFeedBeforeRefresh(
   queryClient: QueryClient,
   setFeed: React.Dispatch<React.SetStateAction<import("@/lib/core").Article[]>>,
 ) {
-  if (context.skippedDuplicate || context.options?.keepExistingFeed) {
+  // Filter-change requests must never clear the feed before the server responds.
+  // The existing articles remain visible (client-side filter applied immediately)
+  // while the server fetch completes in the background.
+  if (
+    context.skippedDuplicate ||
+    context.options?.keepExistingFeed ||
+    context.options?.requestSource === "article-filter-change"
+  ) {
     return;
   }
 

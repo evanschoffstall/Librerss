@@ -61,6 +61,12 @@ interface PreparedFeedBatchRequestOptions {
   logRefreshDiagnostics: FeedBatchFetcherHookOptions["logRefreshDiagnostics"];
   onFeedBatchLoaded?: FeedBatchFetcherHookOptions["onFeedBatchLoaded"];
   onNewArticlesArrived?: FeedBatchFetcherHookOptions["onNewArticlesArrived"];
+  /**
+   * Snapshot of articles captured before clearStaleFeedBeforeRefresh ran.
+   * Used to restore visible content when a transient error (e.g. 504) clears
+   * the feed but the subsequent fetch fails to replace it.
+   */
+  preClearSnapshot: Article[];
   requestState: ReturnType<typeof useFeedBatchRequestState>;
   setExpandedArticleKey: FeedBatchFetcherHookOptions["setExpandedArticleKey"];
   setFeed: FeedBatchFetcherHookOptions["setFeed"];
@@ -220,35 +226,40 @@ export function useFeedSelectionPrefetchers({
   return { prefetchAllFeeds, prefetchCategoryFeeds, prefetchFeed };
 }
 
-async function applyPreparedFeedBatchRequest({
-  context,
-  feedRef,
-  lastFetchedAtByUrlRef,
-  loadBatchResults,
-  logRefreshDiagnostics,
-  onFeedBatchLoaded,
-  onNewArticlesArrived,
-  requestState,
-  setExpandedArticleKey,
-  setFeed,
-  usePlaceholderData,
-}: PreparedFeedBatchRequestOptions) {
+async function applyPreparedFeedBatchRequest(
+  options: PreparedFeedBatchRequestOptions,
+) {
   try {
     const batchResults = await loadFeedBatchResultsOrReturnNull(
-      context,
-      loadBatchResults,
-      logRefreshDiagnostics,
+      options.context,
+      options.loadBatchResults,
+      options.logRefreshDiagnostics,
     );
+
+    if (
+      restorePreparedFeedBatchSnapshotOnError({
+        batchResults,
+        context: options.context,
+        feedRef: options.feedRef,
+        logRefreshDiagnostics: options.logRefreshDiagnostics,
+        preClearSnapshot: options.preClearSnapshot,
+        requestState: options.requestState,
+        setFeed: options.setFeed,
+      })
+    ) {
+      return;
+    }
+
     if (
       shouldSkipPreparedFeedBatchRequest(
         batchResults,
-        context.requestId,
-        requestState,
+        options.context.requestId,
+        options.requestState,
       )
     ) {
       logStaleFeedBatchRequest(
-        logRefreshDiagnostics,
-        context.requestId,
+        options.logRefreshDiagnostics,
+        options.context.requestId,
         batchResults,
       );
       return;
@@ -256,21 +267,21 @@ async function applyPreparedFeedBatchRequest({
 
     applyFeedBatchResults({
       batchResults,
-      context,
-      feedRef,
-      lastFetchedAtByUrlRef,
-      logRefreshDiagnostics,
-      onFeedBatchLoaded,
-      onNewArticlesArrived,
-      setExpandedArticleKey,
-      setFeed,
-      usePlaceholderData,
+      context: options.context,
+      feedRef: options.feedRef,
+      lastFetchedAtByUrlRef: options.lastFetchedAtByUrlRef,
+      logRefreshDiagnostics: options.logRefreshDiagnostics,
+      onFeedBatchLoaded: options.onFeedBatchLoaded,
+      onNewArticlesArrived: options.onNewArticlesArrived,
+      setExpandedArticleKey: options.setExpandedArticleKey,
+      setFeed: options.setFeed,
+      usePlaceholderData: options.usePlaceholderData,
     });
   } finally {
     finishFeedBatchRequest(
-      requestState,
-      logRefreshDiagnostics,
-      context.requestId,
+      options.requestState,
+      options.logRefreshDiagnostics,
+      options.context.requestId,
     );
   }
 }
@@ -319,6 +330,43 @@ function prepareFeedBatchExecution({
   return context;
 }
 
+function restorePreparedFeedBatchSnapshotOnError({
+  batchResults,
+  context,
+  feedRef,
+  logRefreshDiagnostics,
+  preClearSnapshot,
+  requestState,
+  setFeed,
+}: {
+  batchResults: Awaited<
+    ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>
+  > | null;
+  context: PreparedFeedBatchRequestOptions["context"];
+  feedRef: PreparedFeedBatchRequestOptions["feedRef"];
+  logRefreshDiagnostics: PreparedFeedBatchRequestOptions["logRefreshDiagnostics"];
+  preClearSnapshot: PreparedFeedBatchRequestOptions["preClearSnapshot"];
+  requestState: PreparedFeedBatchRequestOptions["requestState"];
+  setFeed: PreparedFeedBatchRequestOptions["setFeed"];
+}) {
+  if (
+    batchResults !== null ||
+    !requestState.isCurrentFeedRequest(context.requestId)
+  ) {
+    return false;
+  }
+
+  if (feedRef.current.length === 0 && preClearSnapshot.length > 0) {
+    setFeed(preClearSnapshot);
+    logRefreshDiagnostics("refresh:error-feed-restored", {
+      requestId: context.requestId,
+      restoredCount: preClearSnapshot.length,
+    });
+  }
+
+  return true;
+}
+
 async function runFeedBatchRequest({
   articleFilter,
   feedRef,
@@ -336,6 +384,13 @@ async function runFeedBatchRequest({
   sources,
   usePlaceholderData,
 }: FeedBatchRequestExecutionOptions) {
+  // Capture the article snapshot before prepareFeedBatchExecution calls
+  // clearStaleFeedBeforeRefresh, which may call setFeed([]). In production
+  // React batches the state update so feedRef still reflects the old articles
+  // until the next render. In tests with synchronous setFeed mocks, the mock
+  // updates feedRef immediately — capturing here (before the call) handles both.
+  const preClearSnapshot = feedRef.current;
+
   const context = prepareFeedBatchExecution({
     articleFilter,
     logRefreshDiagnostics,
@@ -358,6 +413,9 @@ async function runFeedBatchRequest({
     logRefreshDiagnostics,
     onFeedBatchLoaded,
     onNewArticlesArrived,
+    // Snapshot captured before prepareFeedBatchExecution → clearStaleFeedBeforeRefresh
+    // ran, so it reliably holds the articles that were visible before the clear.
+    preClearSnapshot,
     requestState,
     setExpandedArticleKey,
     setFeed,

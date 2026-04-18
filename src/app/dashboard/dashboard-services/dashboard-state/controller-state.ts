@@ -54,6 +54,7 @@ interface DashboardFeedListState {
 
 interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
+  isSearchPending: boolean;
   isShellLoading: boolean;
   lastRefreshLabel: string;
   loading: boolean;

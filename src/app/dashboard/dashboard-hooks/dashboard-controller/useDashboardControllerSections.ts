@@ -145,7 +145,7 @@ export function useDashboardControllerResources({
 }
 
 export function useDashboardFeedLoadingState({
-  articleFilter,
+  articleFilter: _articleFilter,
   feedLength,
   isCategoriesLoading,
   loading,
@@ -162,7 +162,6 @@ export function useDashboardFeedLoadingState({
   usePlaceholderData: boolean;
 }) {
   const trimmedSearchTerm = searchTerm.trim();
-  const deferredArticleFilter = useDeferredValue(articleFilter);
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const isFeedListInitialLoading = loading && feedLength === 0;
   // Shell loading clears only when BOTH the article list AND the category tree
@@ -170,7 +169,6 @@ export function useDashboardFeedLoadingState({
   const isShellInitialLoading = isFeedListInitialLoading || isCategoriesLoading;
 
   return {
-    deferredArticleFilter,
     deferredSearchTerm,
     isFeedListInitialLoading,
     isFeedListRefreshing: loading && feedLength > 0,
@@ -187,40 +185,46 @@ export function useDashboardViewModelState({
   categoryTree,
   collapsedArticles,
   dashboardState,
-  loadingState,
-  usePlaceholderData,
 }: {
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
   dashboardState: ReturnType<typeof useDashboardState>;
-  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
-  usePlaceholderData: boolean;
 }) {
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
-        articleFilter: loadingState.deferredArticleFilter,
+        // Use the live (non-deferred) articleFilter so the O(n) client-side
+        // filterArticlesByState pass reflects the newly selected token
+        // immediately — without waiting for a deferred React render pass.
+        // Deferred filter caused a visible lag and a stale-filter window where
+        // newly arrived server data would be filtered by the OLD value.
+        articleFilter: dashboardState.articleFilter,
         categories: dashboardState.categories,
         collapsingArticleKeys: Object.keys(collapsedArticles),
         customCategoryLabels: categoryTree.customCategoryLabels,
         expandedArticleKey: dashboardState.expandedArticleKey,
         feed: dashboardState.feed,
         orderedCategoryLabels: categoryTree.orderedCategoryLabels,
-        searchTerm: loadingState.deferredSearchTerm,
+        // Use the immediate (non-deferred) search term so the O(n) client-side
+        // WeakMap-cached filter reflects every keystroke without a React
+        // deferred-transition delay.
+        searchTerm: dashboardState.searchTerm,
         selectedCategory: dashboardState.selectedCategory,
-        useLocalSearch: usePlaceholderData,
+        // Always filter client-side so the article list responds instantly.
+        // The server search runs in the background (debounced) and merges
+        // results into the feed without clearing the visible list.
+        useLocalSearch: true,
       }),
     [
       categoryTree.customCategoryLabels,
       categoryTree.orderedCategoryLabels,
       collapsedArticles,
+      dashboardState.articleFilter,
       dashboardState.categories,
       dashboardState.expandedArticleKey,
       dashboardState.feed,
+      dashboardState.searchTerm,
       dashboardState.selectedCategory,
-      loadingState.deferredArticleFilter,
-      loadingState.deferredSearchTerm,
-      usePlaceholderData,
     ],
   );
 

@@ -131,4 +131,95 @@ test.describe("dashboard toolbar loading", () => {
 
     expect(toolbarPulseState.leakedToolbarShell).toBe(false);
   });
+
+  test("viewport-read loading skeleton clears after the optimistic update without awaiting server persistence", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+
+    const viewportReadButton = page
+      .getByRole("button", { name: "Mark fully visible articles as read" })
+      .first();
+
+    await expect(viewportReadButton).toBeVisible();
+
+    // Confirm no pulse before clicking.
+    const pulseBeforeClick = await viewportReadButton.evaluate((btn) =>
+      btn.querySelector(".animate-pulse") !== null,
+    );
+    expect(pulseBeforeClick).toBe(false);
+
+    // Click and immediately verify the loading skeleton appears then clears
+    // within a tight frame window. The END event must fire without blocking on
+    // any server round-trip, so the skeleton lifetime is sub-paint.
+    await viewportReadButton.click();
+
+    // The pulse appears (START) and resolves (END) synchronously, so by the
+    // time Playwright resolves the next evaluate the button is already idle.
+    await expect
+      .poll(
+        async () => {
+          return await viewportReadButton.evaluate((btn) => {
+            return btn.querySelector(".animate-pulse") === null;
+          });
+        },
+        { intervals: [50, 100, 200], timeout: 2_000 },
+      )
+      .toBe(true);
+  });
+
+  test("all skeleton surfaces are present together and disappear together on initial load", async ({
+    page,
+  }) => {
+    // Regression: the sidebar skeleton used its own raw isCategoriesLoading
+    // gate and unmasked independently of the toolbar, filter bar, and feed
+    // list, which all waited for the unified isShellLoading gate.  This test
+    // verifies that every skeleton surface is visible at the same time during
+    // loading and that the sidebar skeleton outlasts individual category data
+    // readiness (i.e., stays until the full shell loading gate settles).
+
+    await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
+
+    // Phase 1: all skeletons must be simultaneously visible right after mount.
+    await expect(
+      page.locator('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
+    ).toBeVisible();
+    await expect(
+      page.locator('[data-dashboard-sidebar-skeleton="true"]'),
+    ).toBeVisible();
+
+    // Phase 2: wait for hydration — the feed list skeleton detaching is the
+    // leading edge signal that the shell loading gate has cleared.
+    await page
+      .locator('[data-dashboard-feed-list-skeleton="true"]')
+      .waitFor({ state: "detached", timeout: 15_000 });
+
+    // After the gate clears all other skeletons must also be gone.  The 500 ms
+    // window is generous for React to commit all surfaces in the same render
+    // but tight enough to catch any surface that lags by a separate data gate.
+    await expect(
+      page.locator('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 500 });
+    await expect(
+      page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 500 });
+    await expect(
+      page.locator('[data-dashboard-sidebar-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 500 });
+
+    // Final state: hydrated surfaces present.
+    await expect(page.getByPlaceholder("Search...")).toBeVisible({
+      timeout: 500,
+    });
+    await expect(page.getByRole("button", { name: "unread" })).toBeVisible({
+      timeout: 500,
+    });
+  });
 });

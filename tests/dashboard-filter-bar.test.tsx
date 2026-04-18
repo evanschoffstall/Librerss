@@ -197,6 +197,58 @@ describe("DashboardFilterBar", () => {
     });
   });
 
+  test("shows the Motion spinner and skeleton while isSearchPending without loading", () => {
+    // Regression guard: isSearchPending alone (no loading) must activate the
+    // timestamp skeleton so the filter bar reacts to the live-search window
+    // even while the background server fetch runs with keepExistingFeed:true.
+    const { container, getByLabelText, queryByText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
+    expect(loadingIcon?.getAttribute("class")).toContain("lucide-loader-circle");
+    expect(getByLabelText("Refreshing")).toBeTruthy();
+    expect(queryByText("2m ago")).toBeNull();
+  });
+
+  test("filter chip buttons remain visible during isSearchPending so the bar stays interactive", () => {
+    // The filter pills (all / unread / read / starred) must never be hidden
+    // while a search is pending — only the timestamp area shows loading state.
+    const { getAllByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    expect(getAllByRole("button")).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
+  });
+
+  test("shows the Motion spinner when both loading and isSearchPending are true", () => {
+    const { container, getByLabelText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
+    expect(loadingIcon?.getAttribute("class")).toContain("lucide-loader-circle");
+    expect(getByLabelText("Refreshing")).toBeTruthy();
+  });
+
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
       <DashboardFilterBar
