@@ -18,6 +18,7 @@ const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
 /** Presentation props for the dashboard filter bar controls and refresh status. */
 interface DashboardFilterBarProps {
   articleFilter: ArticleFilter;
+  isSearchPending?: boolean;
   isShellLoading?: boolean;
   lastRefreshLabel: string;
   loading: boolean;
@@ -105,6 +106,7 @@ function DashboardFilterBarFrame({
 /** Renders the quick article filter strip and refresh status indicator. */
 export const DashboardFilterBar = memo(function DashboardFilterBar({
   articleFilter,
+  isSearchPending = false,
   isShellLoading = false,
   lastRefreshLabel,
   loading,
@@ -113,6 +115,9 @@ export const DashboardFilterBar = memo(function DashboardFilterBar({
   if (isShellLoading) {
     return <DashboardFilterBarSkeleton />;
   }
+
+  /** Show the spinner/skeleton while loading OR while a search is pending. */
+  const showLoadingIndicator = loading || isSearchPending;
 
   return (
     <DashboardFilterBarFrame>
@@ -175,14 +180,14 @@ export const DashboardFilterBar = memo(function DashboardFilterBar({
                     whitespace-nowrap text-muted-foreground/50 select-none
                   "
                 >
-                  {loading ? (
+                  {showLoadingIndicator ? (
                     <MotionSpinner iconClassName="size-2.5" />
                   ) : (
                     <span className="inline-flex shrink-0">
                       <RefreshCw className="size-2.5 shrink-0" />
                     </span>
                   )}
-                  {loading ? (
+                  {showLoadingIndicator ? (
                     <Skeleton
                       aria-label="Refreshing"
                       className="

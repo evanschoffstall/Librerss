@@ -152,6 +152,7 @@ function buildDashboardControllerLayoutViewState({
     isFeedListInitialLoading: loadingState.isFeedListInitialLoading,
     isFeedListRefreshing: loadingState.isFeedListRefreshing,
     isMobileSidebarOpen: dashboardState.isMobileSidebarOpen,
+    isSearchPending: loadingState.isSearchPending,
     isShellLoading: loadingState.isShellLoading,
     isSidebarVisible: dashboardState.isSidebarVisible,
     lastRefreshLabel: refreshState.lastRefreshLabel,

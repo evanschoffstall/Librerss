@@ -229,10 +229,15 @@ function useDashboardToolbarPresentationState(
   );
   return {
     ...toolbarState,
+    // Include isSearchPending so the refresh, mark-all-read, and visible
+    // buttons show skeleton while a server search is resolving.  The search
+    // bar itself is never disabled — only these action buttons reflect the
+    // loading state, giving a live-search feel with targeted feedback.
     isToolbarActionPending:
       toolbarState.isRefreshing ||
       toolbarState.isMarkingAllRead ||
-      toolbarState.isMarkingViewportRead,
+      toolbarState.isMarkingViewportRead ||
+      toolbarState.isSearchPending,
     mobileToolbarBottom: mobileGroupedLayout,
     mobileToolbarMirror: mobileGroupedLayout,
   };

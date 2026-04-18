@@ -169,6 +169,11 @@ function useDashboardArticleFilterRefresh(
       return;
     }
 
+    // Announce the filter-change fetch so the toolbar action buttons (refresh,
+    // mark-all-read, visible) enter their pending state and the filter-bar
+    // timestamp shows a spinner. Only these targeted elements respond to
+    // REFRESH_START/END — the filter tokens and feed list are unaffected.
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
     void refreshCurrentSelection({
       articleLimit: options.articleWindowLimit,
       fetchAllFeeds: options.fetchAllFeeds,
@@ -180,7 +185,13 @@ function useDashboardArticleFilterRefresh(
       selectedCategoryNode: options.selectedCategoryNode,
       selectedFeedUrl: options.selectedFeedUrl,
       skipRefresh: true,
-    });
+    })
+      .then(() => {
+        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+      })
+      .catch(() => {
+        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+      });
   }, [options]);
 }
 
@@ -227,6 +238,13 @@ function useDashboardAutoRefresh(options: {
   return isAutoRefreshing;
 }
 
+/**
+ * Debounce delay (ms) before issuing a server search after the user stops
+ * typing.  The O(n) client-side WeakMap filter provides immediate feedback on
+ * every keystroke; this delay keeps the server fetch rate reasonable.
+ */
+const SEARCH_DEBOUNCE_MS = 300;
+
 function useDashboardSearchRefresh(
   options: Pick<
     UseDashboardControllerRuntimeOptions,
@@ -243,6 +261,8 @@ function useDashboardSearchRefresh(
     | "usePlaceholderData"
   >,
 ) {
+  const debounceRef = useRef<null | ReturnType<typeof setTimeout>>(null);
+
   useEffect(() => {
     const normalizedSearchTerm = options.searchTerm.trim();
     if (!options.hasInitializedDashboardRef.current) {
@@ -254,24 +274,52 @@ function useDashboardSearchRefresh(
       return;
     }
 
-    options.appliedBatchSearchTermRef.current = normalizedSearchTerm;
-
-    if (options.usePlaceholderData) {
-      return;
+    // Cancel any in-flight debounce before scheduling a new one so rapid
+    // typing only triggers one server fetch 300 ms after the last keystroke.
+    if (debounceRef.current !== null) {
+      clearTimeout(debounceRef.current);
     }
 
-    void refreshCurrentSelection({
-      articleLimit: options.articleWindowLimit,
-      fetchAllFeeds: options.fetchAllFeeds,
-      fetchCategoryFeeds: options.fetchCategoryFeeds,
-      fetchFeed: options.fetchFeed,
-      keepExistingFeed: false,
-      requestSource: "search-change",
-      searchTerm: normalizedSearchTerm,
-      selectedCategory: options.selectedCategory,
-      selectedCategoryNode: options.selectedCategoryNode,
-      selectedFeedUrl: options.selectedFeedUrl,
-      skipRefresh: true,
-    });
+    const pendingTerm = normalizedSearchTerm;
+
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+
+      // Guard: another effect run may have already applied this term.
+      if (options.appliedBatchSearchTermRef.current === pendingTerm) {
+        return;
+      }
+
+      options.appliedBatchSearchTermRef.current = pendingTerm;
+
+      if (options.usePlaceholderData) {
+        return;
+      }
+
+      // keepExistingFeed: true keeps the current (client-filtered) articles
+      // visible while the server resolves the fresh search result set.
+      // The feed is replaced in-place once the response arrives, with no
+      // intermediate empty state, so isShellLoading never fires.
+      void refreshCurrentSelection({
+        articleLimit: options.articleWindowLimit,
+        fetchAllFeeds: options.fetchAllFeeds,
+        fetchCategoryFeeds: options.fetchCategoryFeeds,
+        fetchFeed: options.fetchFeed,
+        keepExistingFeed: true,
+        requestSource: "search-change",
+        searchTerm: pendingTerm,
+        selectedCategory: options.selectedCategory,
+        selectedCategoryNode: options.selectedCategoryNode,
+        selectedFeedUrl: options.selectedFeedUrl,
+        skipRefresh: true,
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceRef.current !== null) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+    };
   }, [options]);
 }

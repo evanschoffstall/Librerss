@@ -58,6 +58,7 @@ export interface UseDashboardControllerViewStateOptions {
   isFeedListRefreshing: boolean;
   isLoadingMoreArticles: boolean;
   isMobileSidebarOpen: boolean;
+  isSearchPending: boolean;
   isShellLoading: boolean;
   isSidebarVisible: boolean;
   lastRefreshLabel: string;
@@ -97,6 +98,11 @@ export function useDashboardShellLoadingState(
   const shellLoadingTimeoutRef = useRef<null | ReturnType<typeof setTimeout>>(
     null,
   );
+  // Once the shell has settled (shown real content), never re-enter shell-
+  // loading mode. Filter changes, category switches, and re-fetches each have
+  // their own targeted loading indicators; they must not re-trigger the full
+  // skeleton that is reserved for the very first render of the page.
+  const hasEverSettledRef = useRef(false);
 
   useEffect(() => {
     if (shellLoadingTimeoutRef.current !== null) {
@@ -104,13 +110,14 @@ export function useDashboardShellLoadingState(
       shellLoadingTimeoutRef.current = null;
     }
 
-    if (isFeedListInitialLoading) {
+    if (isFeedListInitialLoading && !hasEverSettledRef.current) {
       setIsShellLoading(true);
       return;
     }
 
     shellLoadingTimeoutRef.current = setTimeout(() => {
       shellLoadingTimeoutRef.current = null;
+      hasEverSettledRef.current = true;
       setIsShellLoading(false);
     }, settleMs);
 
@@ -170,6 +177,9 @@ function buildDashboardFilterBarState(
 ) {
   return {
     articleFilter: options.articleFilter,
+    // isSearchPending lets the filter bar timestamp area show a skeleton
+    // during the typing/search-resolution window without touching isShellLoading.
+    isSearchPending: options.isSearchPending,
     isShellLoading: options.isShellLoading,
     lastRefreshLabel: options.lastRefreshLabel,
     loading: options.loading || options.isAutoRefreshing,
@@ -207,7 +217,14 @@ function buildDashboardSidebarState(
     isMobileSidebarOpen: options.isMobileSidebarOpen,
     isSidebarVisible: options.isSidebarVisible,
     setIsMobileSidebarOpen: options.setIsMobileSidebarOpen,
-    sidebarContentProps: options.sidebarContentProps,
+    // Synchronize the sidebar skeleton gate with the dashboard-wide shell gate
+    // so it transitions from skeleton to content in the same React render as
+    // the toolbar, filter bar, and feed list.  Without this override the sidebar
+    // uses its own raw `isCategoriesLoading` flag and unmasks before the rest.
+    sidebarContentProps: {
+      ...options.sidebarContentProps,
+      isCategoriesLoading: options.isShellLoading,
+    },
     sidebarScrollRef: options.sidebarScrollRef,
   };
 }

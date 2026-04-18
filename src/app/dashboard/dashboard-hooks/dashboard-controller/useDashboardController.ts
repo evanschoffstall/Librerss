@@ -159,8 +159,6 @@ function useDashboardControllerState({
     categoryTree: controllerResources.categoryTree,
     collapsedArticles: controllerResources.articleActions.collapsingArticles,
     dashboardState,
-    loadingState,
-    usePlaceholderData,
   });
   const articleWindowState = useDashboardArticleWindowState({
     dashboardState,
