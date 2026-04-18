@@ -9,6 +9,7 @@ import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
   isCanceledBatchRequest,
+  isHandledFeedBatchError,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
@@ -415,5 +416,81 @@ describe("classifyFeedBatchError", () => {
     });
     const result = classifyFeedBatchError(error);
     expect(result.title).toBe("Too many requests.");
+  });
+
+  test("classifies proxy-password-unreadable reason as proxy credentials unavailable", () => {
+    // Server responds 500 with { error: "...", reason: "proxy-password-unreadable" }
+    const error = Object.assign(new Error("Request failed with status code 500"), {
+      response: {
+        data: { error: "Proxy password could not be read", reason: "proxy-password-unreadable" },
+        status: 500,
+      },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Proxy credentials unavailable.");
+    expect(result.description).toContain("proxy password");
+    expect(result.description).toContain("Settings");
+  });
+
+  test("handles proxy-password-unreadable even when status code is absent", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: {
+        data: { reason: "proxy-password-unreadable" },
+      },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Proxy credentials unavailable.");
+  });
+
+  test("does not classify unknown reason as proxy error", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: {
+        data: { reason: "some-other-reason" },
+        status: 500,
+      },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Unable to load this feed right now.");
+  });
+
+  test("does not classify 500 without reason as proxy error", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: { data: {}, status: 500 },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Unable to load this feed right now.");
+  });
+});
+
+describe("isHandledFeedBatchError", () => {
+  test("returns true for rate limits, gateway timeouts, and proxy credential errors", () => {
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Too Many Requests"), {
+          response: { status: 429 },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Gateway Timeout"), {
+          response: { status: 504 },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Proxy password unavailable"), {
+          response: {
+            data: { reason: "proxy-password-unreadable" },
+            status: 500,
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  test("returns false for unknown failures", () => {
+    expect(isHandledFeedBatchError(new Error("boom"))).toBe(false);
   });
 });
