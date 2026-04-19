@@ -26,6 +26,7 @@ interface SettingsFeedManagementSectionProps {
   isPreviewMode?: boolean;
   onRemoveCategory: (label: string) => Promise<boolean>;
   pendingCategoryRemovalLabel: null | string;
+  showPreviewOverlay?: boolean;
   state: SettingsModalState;
 }
 /**
@@ -41,12 +42,16 @@ export function SettingsFeedManagementSection(
     isPreviewMode = false,
     onRemoveCategory,
     pendingCategoryRemovalLabel,
+    showPreviewOverlay = true,
     state,
   } = props;
   const isMobile = useIsMobile();
 
   return (
-    <SettingsPreviewSection isPreviewMode={isPreviewMode}>
+    <SettingsPreviewSection
+      isPreviewMode={isPreviewMode}
+      showOverlay={showPreviewOverlay}
+    >
       <section className="settings-card">
         <div className="flex items-start justify-between gap-3">
           <div>

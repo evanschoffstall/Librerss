@@ -12,8 +12,15 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
 
-import { SettingsFeedManagementSection } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection";
 import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsProxyCompatibilityPanel";
+
+async function loadSettingsFeedManagementSection() {
+  const module = await import(
+    `../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection?test=${Date.now()}-${Math.random()}`
+  );
+
+  return module.SettingsFeedManagementSection;
+}
 
 const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
@@ -101,6 +108,8 @@ describe("settings real components", () => {
       name: "Mobile inverted scroll",
     });
 
+    expect(mobileInvertedSwitch.getAttribute("aria-checked")).toBe("false");
+
     fireEvent.click(faviconsSwitch);
     fireEvent.click(mobileGroupedLayoutSwitch);
     fireEvent.click(mobileInvertedSwitch);
@@ -116,6 +125,8 @@ describe("settings real components", () => {
   });
 
   test("renders feed management controls, exports OPML, and drives category or feed actions", async () => {
+    const SettingsFeedManagementSection =
+      await loadSettingsFeedManagementSection();
     const state = createSettingsState({
       addingFeedInCategory: "News",
       newCategoryName: "Science",
@@ -195,7 +206,9 @@ describe("settings real components", () => {
     });
   });
 
-  test("renders the import skeleton and demo overlay in preview mode", () => {
+  test("renders the import skeleton and demo overlay in preview mode", async () => {
+    const SettingsFeedManagementSection =
+      await loadSettingsFeedManagementSection();
     const state = createSettingsState({ isImportingOpml: true });
 
     const { getAllByText, getByText } = render(
