@@ -77,7 +77,6 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
     },
     [mutationTracker, setFeed, usePlaceholderData],
   );
-
   const setArticleReadState = useCallback(
     async (
       article: Article,

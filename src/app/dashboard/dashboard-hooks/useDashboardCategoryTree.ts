@@ -26,13 +26,9 @@ export function useDashboardCategoryTree(
 ) {
   const {
     categories,
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
     loadFeedSources,
     selectedCategory,
     setCategories,
-    setFeed,
     setSelectedCategory,
     usePlaceholderData = false,
   } = options;
@@ -46,19 +42,10 @@ export function useDashboardCategoryTree(
     setOrderedCategoryLabels,
     setSelectedCategory,
   });
-
-  const feedSourceActions = useFeedSourceActions({
-    categories,
-    ensureCategoryLabelExists: categoryCrudActions.ensureCategoryLabelExists,
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
-    loadFeedSources,
-    selectedCategory,
-    setCategories,
-    setFeed,
-    setSelectedCategory,
-  });
+  const feedSourceActions = useDashboardFeedSourceActions(
+    options,
+    categoryCrudActions.ensureCategoryLabelExists,
+  );
 
   const importOpmlFeeds = useCallback(
     (entries: Parameters<typeof feedSourceActions.importOpmlFeeds>[0]) =>
@@ -88,4 +75,42 @@ export function useDashboardCategoryTree(
     setOrderedCategoryLabels,
     updateFeedSettings: feedSourceActions.updateFeedSettings,
   };
+}
+
+/**
+ * Manage the feed-source actions used by the dashboard category tree.
+ * @param options - The dashboard category tree options.
+ * @param ensureCategoryLabelExists - Ensures imported and moved feeds target a valid category.
+ * @returns The feed-source action bundle for the dashboard category tree.
+ */
+function useDashboardFeedSourceActions(
+  options: UseDashboardCategoryTreeOptions,
+  ensureCategoryLabelExists: ReturnType<
+    typeof useCategoryCrudActions
+  >["ensureCategoryLabelExists"],
+) {
+  const {
+    categories,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+  } = options;
+
+  return useFeedSourceActions({
+    categories,
+    ensureCategoryLabelExists,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    loadFeedSources,
+    selectedCategory,
+    setCategories,
+    setFeed,
+    setSelectedCategory,
+  });
 }

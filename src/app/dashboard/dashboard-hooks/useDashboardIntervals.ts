@@ -59,9 +59,7 @@ export function useDashboardIntervals(options: UseDashboardIntervalsOptions) {
     void autoRefreshFeedList();
   });
 
-  const stableOnStaleTabResume = useEffectEvent(() => {
-    onStaleTabResume?.();
-  });
+  const stableOnStaleTabResume = useEffectEvent(() => onStaleTabResume?.());
 
   useEffect(() => {
     const autoRefreshIntervalMs = toAutoRefreshIntervalMs(
