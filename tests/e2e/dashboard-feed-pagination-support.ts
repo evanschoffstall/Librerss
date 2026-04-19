@@ -102,63 +102,6 @@ export async function expectDesktopRefreshCollapse(page: Page) {
 }
 
 /**
- * Read scroll metrics for the currently active desktop feed viewport.
- * @param page - Active Playwright page.
- * @returns Active viewport metrics used by rearm and load-boundary assertions.
- */
-export async function readFeedViewportMetrics(page: Page) {
-  return await page.evaluate(() => {
-    const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ),
-    );
-    const viewport = candidates
-      .filter(
-        (candidate) =>
-          candidate.querySelector("article[data-article-key]") !== null,
-      )
-      .sort((left, right) => right.scrollHeight - left.scrollHeight)[0];
-
-    if (!viewport) {
-      throw new Error("Expected the active feed viewport to be present.");
-    }
-
-    const maxScrollTop = Math.max(
-      0,
-      viewport.scrollHeight - viewport.clientHeight,
-    );
-
-    return {
-      clientHeight: viewport.clientHeight,
-      maxScrollTop,
-      remaining:
-        viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight),
-      scrollHeight: viewport.scrollHeight,
-      scrollTop: viewport.scrollTop,
-    };
-  });
-}
-
-/**
- * Rearm the desktop load-more boundary after a refresh collapse by scrolling
- * away from the boundary and then back near the bottom.
- * @param page - Active Playwright page.
- */
-export async function rearmDesktopPaginationAfterRefresh(page: Page) {
-  const metrics = await readFeedViewportMetrics(page);
-
-  await setFeedViewportScrollTop(page, Math.floor(metrics.maxScrollTop * 0.45));
-  await page.waitForTimeout(800);
-
-  const rearmMetrics = await readFeedViewportMetrics(page);
-  await setFeedViewportScrollTop(
-    page,
-    Math.floor(rearmMetrics.maxScrollTop * 0.95),
-  );
-}
-
-/**
  * Read the active desktop feed window so visible-read refill tests can assert
  * the visible replacement set without inspecting implementation-only state.
  * @param page - Active Playwright page.
@@ -259,6 +202,45 @@ export async function readDesktopMarkVisibleReadSnapshot(
 }
 
 /**
+ * Read scroll metrics for the currently active desktop feed viewport.
+ * @param page - Active Playwright page.
+ * @returns Active viewport metrics used by rearm and load-boundary assertions.
+ */
+export async function readFeedViewportMetrics(page: Page) {
+  return await page.evaluate(() => {
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ),
+    );
+    const viewport = candidates
+      .filter(
+        (candidate) =>
+          candidate.querySelector("article[data-article-key]") !== null,
+      )
+      .sort((left, right) => right.scrollHeight - left.scrollHeight)[0];
+
+    if (!viewport) {
+      throw new Error("Expected the active feed viewport to be present.");
+    }
+
+    const maxScrollTop = Math.max(
+      0,
+      viewport.scrollHeight - viewport.clientHeight,
+    );
+
+    return {
+      clientHeight: viewport.clientHeight,
+      maxScrollTop,
+      remaining:
+        viewport.scrollHeight - (viewport.scrollTop + viewport.clientHeight),
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+    };
+  });
+}
+
+/**
  * Wait until the compact desktop unread window stops growing before capturing
  * the steady-state visible-read baseline.
  * @param page - Active Playwright page.
@@ -302,6 +284,24 @@ export async function readStableDesktopMarkVisibleReadBaseline(page: Page) {
     .not.toBeNull();
 
   return previousSnapshot;
+}
+
+/**
+ * Rearm the desktop load-more boundary after a refresh collapse by scrolling
+ * away from the boundary and then back near the bottom.
+ * @param page - Active Playwright page.
+ */
+export async function rearmDesktopPaginationAfterRefresh(page: Page) {
+  const metrics = await readFeedViewportMetrics(page);
+
+  await setFeedViewportScrollTop(page, Math.floor(metrics.maxScrollTop * 0.45));
+  await page.waitForTimeout(800);
+
+  const rearmMetrics = await readFeedViewportMetrics(page);
+  await setFeedViewportScrollTop(
+    page,
+    Math.floor(rearmMetrics.maxScrollTop * 0.95),
+  );
 }
 
 /**

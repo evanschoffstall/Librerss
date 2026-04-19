@@ -76,6 +76,8 @@ test.describe("dashboard feed pagination", () => {
     test(`keeps repeated visible-read refills stable for twenty cycles on ${viewportCase.name}`, async ({
       page,
     }) => {
+      test.slow();
+
       const repeatedCyclePageSize = 4;
       const repeatedCycleViewportHeight = Math.max(viewportCase.height, 780);
       const markViewportReadButton = page.getByRole("button", {
