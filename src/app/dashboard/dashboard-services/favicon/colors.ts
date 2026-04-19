@@ -22,7 +22,7 @@ const hashStringToUint32 = (value: string) => {
  * @param urls - The urls.
  * @returns The favicon tint colors.
  */
-export function getFaviconTintColors(urls: (string | undefined)[]) {
+export function getFaviconTintColors(...urls: (string | undefined)[]) {
   const seedSource =
     urls.find((url) => Boolean(url?.trim())) ??
     urls.find(Boolean) ??

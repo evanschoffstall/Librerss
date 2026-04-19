@@ -99,6 +99,7 @@ const getDirectIconCandidates = (origin: string) => {
 const getProviderCandidates = (hostname: string) => [
   `https://icon.horse/icon/${hostname}`,
   `https://icons.duckduckgo.com/ip3/${hostname}.ico`,
+  `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`,
 ];
 
 /**
@@ -137,7 +138,7 @@ const getFaviconCandidates = (url?: string) => {
  * @param urls - The urls.
  * @returns The favicon cache key.
  */
-export function getFaviconCacheKey(urls: (string | undefined)[]) {
+export function getFaviconCacheKey(...urls: (string | undefined)[]) {
   for (const url of urls) {
     const hostname = tryGetUrlHostname(url);
 
@@ -154,6 +155,6 @@ export function getFaviconCacheKey(urls: (string | undefined)[]) {
  * @param urls - The urls.
  * @returns The merged favicon candidates.
  */
-export function getMergedFaviconCandidates(urls: (string | undefined)[]) {
+export function getMergedFaviconCandidates(...urls: (string | undefined)[]) {
   return [...new Set(urls.flatMap((url) => getFaviconCandidates(url)))];
 }
