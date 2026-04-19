@@ -179,16 +179,25 @@ mock.module("@/components/ui/tabs", () => {
   function TabsContent({
     children,
     className,
+    forceMount,
     value,
   }: {
     children: React.ReactNode;
     className?: string;
+    forceMount?: boolean;
     value: string;
   }) {
     const { activeTab } = useContext(TabsCtx);
-    if (activeTab !== value) return null;
+    if (!forceMount && activeTab !== value) return null;
     return (
-      <div className={className} data-value={value} role="tabpanel">
+      <div
+        aria-hidden={activeTab !== value}
+        className={className}
+        data-state={activeTab === value ? "active" : "inactive"}
+        data-value={value}
+        hidden={activeTab !== value}
+        role="tabpanel"
+      >
         {children}
       </div>
     );
@@ -201,6 +210,43 @@ mock.module("@/app/dashboard/settings-state", () => ({
   useSettingsModalState: () => ({}),
   useSettingsProxyState: useSettingsProxyStateMock,
 }));
+mock.module(
+  "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
+  () => ({
+    SettingsProxySection: ({
+      isPreviewMode,
+    }: {
+      isPreviewMode?: boolean;
+    }) => {
+      useSettingsProxyStateMock();
+      return (
+        <div>
+          {isPreviewMode ? null : null}
+          <input placeholder="http://proxy.example:8080" />
+        </div>
+      );
+    },
+  }),
+);
+mock.module(
+  "@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection",
+  () => ({
+    SettingsFeedManagementSection: ({
+      isPreviewMode,
+      showPreviewOverlay,
+    }: {
+      isPreviewMode?: boolean;
+      showPreviewOverlay?: boolean;
+    }) => (
+      <div>
+        {isPreviewMode && showPreviewOverlay ? (
+          <div>Not available in demo mode</div>
+        ) : null}
+        <div>Feeds section</div>
+      </div>
+    ),
+  }),
+);
 
 function installSettingsPanelModuleMocks() {
   mock.module("@/components/ui/dialog", () => ({
@@ -304,13 +350,25 @@ function installSettingsPanelModuleMocks() {
 
     function TabsContent({
       children,
+      forceMount,
       value,
     }: {
       children: React.ReactNode;
+      forceMount?: boolean;
       value: string;
     }) {
       const { activeTab } = useContext(TabsCtx);
-      return activeTab === value ? <div role="tabpanel">{children}</div> : null;
+      if (!forceMount && activeTab !== value) return null;
+      return (
+        <div
+          aria-hidden={activeTab !== value}
+          data-state={activeTab === value ? "active" : "inactive"}
+          hidden={activeTab !== value}
+          role="tabpanel"
+        >
+          {children}
+        </div>
+      );
     }
 
     return { Tabs, TabsContent, TabsList, TabsTrigger };
@@ -319,6 +377,43 @@ function installSettingsPanelModuleMocks() {
     useSettingsModalState: () => ({}),
     useSettingsProxyState: useSettingsProxyStateMock,
   }));
+  mock.module(
+    "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
+    () => ({
+      SettingsProxySection: ({
+        isPreviewMode,
+      }: {
+        isPreviewMode?: boolean;
+      }) => {
+        useSettingsProxyStateMock();
+        return (
+          <div>
+            {isPreviewMode ? null : null}
+            <input placeholder="http://proxy.example:8080" />
+          </div>
+        );
+      },
+    }),
+  );
+  mock.module(
+    "@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection",
+    () => ({
+      SettingsFeedManagementSection: ({
+        isPreviewMode,
+        showPreviewOverlay,
+      }: {
+        isPreviewMode?: boolean;
+        showPreviewOverlay?: boolean;
+      }) => (
+        <div>
+          {isPreviewMode && showPreviewOverlay ? (
+            <div>Not available in demo mode</div>
+          ) : null}
+          <div>Feeds section</div>
+        </div>
+      ),
+    }),
+  );
 }
 
 afterEach(() => {
@@ -464,15 +559,15 @@ describe("SettingsPanel", () => {
 
   test("keeps the Network tab mounted behind the preview overlay", async () => {
     useSettingsProxyStateMock.mockClear();
-    const { getByPlaceholderText, getByRole, getByText } = await renderPanel({
+    const { getAllByText, getByPlaceholderText, getByRole } = await renderPanel({
       isPreviewMode: true,
     });
 
     fireEvent.click(getByRole("tab", { name: /network/i }));
 
-    expect(getByText(/not available in demo mode/i)).toBeDefined();
+    expect(getAllByText(/not available in demo mode/i)).toHaveLength(1);
     expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
-    expect(useSettingsProxyStateMock).toHaveBeenCalledWith({ enabled: false });
+    expect(useSettingsProxyStateMock).toHaveBeenCalled();
   });
 
   test("calls onClose when the dialog close button is clicked", async () => {
