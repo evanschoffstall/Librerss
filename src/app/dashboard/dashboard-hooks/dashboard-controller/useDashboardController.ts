@@ -2,10 +2,9 @@
 
 import { useEffect, useRef } from "react";
 
-import {
-  useDashboardCategoryTree,
-  useDashboardState,
-} from "@/app/dashboard/dashboard-hooks";
+import type { useDashboardCategoryTree } from "@/app/dashboard/dashboard-hooks";
+
+import { useDashboardState } from "@/app/dashboard/dashboard-hooks";
 import {
   useDashboardAnimatingArticleState,
   useDashboardArticleWindowState,
@@ -39,6 +38,33 @@ interface DashboardControllerEffectsOptions {
   setExpandedArticleKey: ReturnType<
     typeof useDashboardState
   >["setExpandedArticleKey"];
+}
+
+interface DashboardControllerResourceStateOptions {
+  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  distillStrategy: string;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  usePlaceholderData: boolean;
+}
+interface DashboardControllerStateParts {
+  animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
+  articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
+  controllerResources: ReturnType<typeof useDashboardControllerResources>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  runtimeState: ReturnType<typeof useDashboardRuntimeState>;
+  viewModelState: ReturnType<typeof useDashboardViewModelState>;
+}
+
+interface DashboardControllerWindowRuntimeStateOptions {
+  controllerResources: ReturnType<typeof useDashboardControllerResources>;
+  dashboardState: ReturnType<typeof useDashboardState>;
+  loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
+  refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
+  usePlaceholderData: boolean;
+  viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
 
 /**
@@ -82,6 +108,15 @@ export function useDashboardController(options: DashboardControllerProps) {
     viewModelState: controllerState.viewModelState,
   });
 }
+/**
+ * Build the dashboard controller state returned by the controller hook.
+ * @param options - The controller state slices computed during controller setup.
+ * @returns The controller state object exposed to the dashboard surface.
+ */
+function buildDashboardControllerState(options: DashboardControllerStateParts) {
+  return options;
+}
+
 /**
  * Manage the dashboard category order effect.
  * @param categories - The categories.
@@ -154,6 +189,43 @@ function useDashboardControllerEffects(
 }
 
 /**
+ * Manage the dashboard controller slices that depend on loading and resources.
+ * @param options - The options used to compose the loading and resource slices.
+ * @returns The controller slices that feed later dashboard runtime hooks.
+ */
+function useDashboardControllerResourceState(
+  options: DashboardControllerResourceStateOptions,
+) {
+  const loadingState = useDashboardFeedLoadingState({
+    articleFilter: options.dashboardState.articleFilter,
+    feedLength: options.dashboardState.feed.length,
+    isCategoriesLoading: options.dashboardState.isCategoriesLoading,
+    loading: options.dashboardState.loading,
+    searchTerm: options.dashboardState.searchTerm,
+    settleMs: 140,
+    usePlaceholderData: options.usePlaceholderData,
+  });
+  const controllerResources = useDashboardControllerResources({
+    animationState: options.animationState,
+    dashboardState: options.dashboardState,
+    distillStrategy: options.distillStrategy,
+    refreshState: options.refreshState,
+    usePlaceholderData: options.usePlaceholderData,
+  });
+  const viewModelState = useDashboardViewModelState({
+    categoryTree: controllerResources.categoryTree,
+    collapsedArticles: controllerResources.articleActions.collapsingArticles,
+    dashboardState: options.dashboardState,
+  });
+
+  return {
+    controllerResources,
+    loadingState,
+    viewModelState,
+  };
+}
+
+/**
  * Manage the dashboard controller state.
  * @param options - The options used to manage the dashboard controller state.
  * @returns The dashboard controller state state and callbacks.
@@ -168,56 +240,69 @@ function useDashboardControllerState(
   const refreshState = useDashboardControllerRefreshState(usePlaceholderData);
   const animationState = useDashboardAnimatingArticleState();
   const dashboardState = useDashboardState();
-  const loadingState = useDashboardFeedLoadingState({
-    articleFilter: dashboardState.articleFilter,
-    feedLength: dashboardState.feed.length,
-    isCategoriesLoading: dashboardState.isCategoriesLoading,
-    loading: dashboardState.loading,
-    searchTerm: dashboardState.searchTerm,
-    settleMs: 140,
-    usePlaceholderData,
-  });
-  const controllerResources = useDashboardControllerResources({
-    animationState,
-    dashboardState,
-    distillStrategy,
-    refreshState,
-    usePlaceholderData,
-  });
-  const viewModelState = useDashboardViewModelState({
-    categoryTree: controllerResources.categoryTree,
-    collapsedArticles: controllerResources.articleActions.collapsingArticles,
-    dashboardState,
-  });
-  const articleWindowState = useDashboardArticleWindowState({
-    dashboardState,
-    feedLoader: controllerResources.feedLoader,
-    loadingState,
-    selectedCategoryNode: viewModelState.selectedCategoryNode,
-    selectedFeedUrl: viewModelState.dashboardViewModel.selectedFeedUrl ?? null,
-    usePlaceholderData,
-    viewModelState,
-  });
+  const { controllerResources, loadingState, viewModelState } =
+    useDashboardControllerResourceState({
+      animationState,
+      dashboardState,
+      distillStrategy,
+      refreshState,
+      usePlaceholderData,
+    });
+  const { articleWindowState, runtimeState } =
+    useDashboardControllerWindowRuntimeState({
+      controllerResources,
+      dashboardState,
+      loadingState,
+      refreshState,
+      usePlaceholderData,
+      viewModelState,
+    });
 
-  return {
+  return buildDashboardControllerState({
     animationState,
     articleWindowState,
     controllerResources,
     dashboardState,
     loadingState,
     refreshState,
-    runtimeState: useDashboardRuntimeState({
-      articleActions: controllerResources.articleActions,
-      articleWindowState,
-      dashboardState,
-      feedLoader: controllerResources.feedLoader,
-      loadingState,
-      refreshState,
-      selectedCategoryNode: viewModelState.selectedCategoryNode,
-      usePlaceholderData,
-      viewModelState,
-    }),
+    runtimeState,
     viewModelState,
+  });
+}
+
+/**
+ * Manage the dashboard controller slices that depend on the resolved resources.
+ * @param options - The options used to compose the article-window and runtime slices.
+ * @returns The controller slices that depend on the resolved resources and view model.
+ */
+function useDashboardControllerWindowRuntimeState(
+  options: DashboardControllerWindowRuntimeStateOptions,
+) {
+  const articleWindowState = useDashboardArticleWindowState({
+    dashboardState: options.dashboardState,
+    feedLoader: options.controllerResources.feedLoader,
+    loadingState: options.loadingState,
+    selectedCategoryNode: options.viewModelState.selectedCategoryNode,
+    selectedFeedUrl:
+      options.viewModelState.dashboardViewModel.selectedFeedUrl ?? null,
+    usePlaceholderData: options.usePlaceholderData,
+    viewModelState: options.viewModelState,
+  });
+  const runtimeState = useDashboardRuntimeState({
+    articleActions: options.controllerResources.articleActions,
+    articleWindowState,
+    dashboardState: options.dashboardState,
+    feedLoader: options.controllerResources.feedLoader,
+    loadingState: options.loadingState,
+    refreshState: options.refreshState,
+    selectedCategoryNode: options.viewModelState.selectedCategoryNode,
+    usePlaceholderData: options.usePlaceholderData,
+    viewModelState: options.viewModelState,
+  });
+
+  return {
+    articleWindowState,
+    runtimeState,
   };
 }
 

@@ -8,6 +8,7 @@ import type {
   ArticleFilter,
   BackgroundMode,
 } from "@/app/dashboard/dashboard-services";
+import type { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 import type {
   ArticleViewportSnapshot,
   CollapsingArticles,
@@ -16,10 +17,7 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import { type useDashboardCategoryTree } from "@/app/dashboard/dashboard-hooks";
 import { getAllFeedNodes } from "@/app/dashboard/dashboard-services/category-tree";
-import {
-  buildDashboardControllerState,
-  buildDashboardSidebarContentProps,
-} from "@/app/dashboard/dashboard-services/dashboard-state";
+import { buildDashboardControllerState } from "@/app/dashboard/dashboard-services/dashboard-state";
 
 export interface UseDashboardControllerViewStateOptions {
   animatingInArticleKeys: ReadonlySet<string>;
