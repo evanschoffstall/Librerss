@@ -163,6 +163,53 @@ function normalizeSettingsTabValue(
 }
 
 /**
+ * Render the settings tab content with the current settings modal state.
+ * @param options - The settings panel options backing the content surface.
+ * @param activeTab - The currently selected settings tab.
+ * @param state - The derived modal state used by the tab content.
+ * @returns The rendered tab content.
+ */
+function renderSettingsPanelTabContent(
+  options: Omit<SettingsPanelProps, "isPreviewMode"> & {
+    isPreviewMode: boolean;
+  },
+  activeTab: SettingsTabValue,
+  state: ReturnType<typeof useSettingsModalState>,
+) {
+  /**
+   * Close the settings surface and return to the landing screen after account deletion.
+   */
+  const handleAccountDeleted = () => {
+    options.onClose();
+    window.location.assign("/landing");
+  };
+
+  return (
+    <SettingsTabContent
+      activeTab={activeTab}
+      articlesPerPage={options.articlesPerPage}
+      autoRefreshIntervalMinutes={options.autoRefreshIntervalMinutes}
+      backgroundMode={options.backgroundMode}
+      categories={options.categories}
+      distillStrategy={options.distillStrategy}
+      isPreviewMode={options.isPreviewMode}
+      onAccountDeleted={handleAccountDeleted}
+      onArticlesPerPageChange={options.onArticlesPerPageChange}
+      onAutoRefreshIntervalMinutesChange={
+        options.onAutoRefreshIntervalMinutesChange
+      }
+      onBackgroundModeChange={options.onBackgroundModeChange}
+      onDistillStrategyChange={options.onDistillStrategyChange}
+      onRemoveCategory={options.onRemoveCategory}
+      onShowFaviconsChange={options.onShowFaviconsChange}
+      pendingCategoryRemovalLabel={options.pendingCategoryRemovalLabel}
+      showFavicons={options.showFavicons}
+      state={state}
+    />
+  );
+}
+
+/**
  * Render the settings panel desktop shell component.
  * @param options - The options used to render the settings panel desktop shell component.
  * @returns The rendered settings panel desktop shell component.
@@ -281,6 +328,7 @@ function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
  */
 function SettingsTabContent(
   props: SettingsDisplaySectionProps & {
+    activeTab: SettingsTabValue;
     categories: CategoryTreeNode[];
     isPreviewMode: boolean;
     onAccountDeleted: () => void;
@@ -290,6 +338,7 @@ function SettingsTabContent(
   },
 ) {
   const {
+    activeTab,
     articlesPerPage,
     autoRefreshIntervalMinutes,
     backgroundMode,
@@ -309,7 +358,7 @@ function SettingsTabContent(
   } = props;
   return (
     <>
-      <TabsContent className="mt-0" value="display">
+      <TabsContent className="mt-0" forceMount value="display">
         <SettingsDisplaySection
           articlesPerPage={articlesPerPage}
           autoRefreshIntervalMinutes={autoRefreshIntervalMinutes}
@@ -326,24 +375,28 @@ function SettingsTabContent(
         />
       </TabsContent>
 
-      <TabsContent className="mt-0" value="feeds">
+      <TabsContent className="mt-0" forceMount value="feeds">
         <SettingsFeedManagementSection
           categories={categories}
           isPreviewMode={isPreviewMode}
           onRemoveCategory={onRemoveCategory}
           pendingCategoryRemovalLabel={pendingCategoryRemovalLabel}
+          showPreviewOverlay={activeTab === "feeds"}
           state={state}
         />
       </TabsContent>
 
-      <TabsContent className="mt-0" value="network">
-        <SettingsPreviewSection isPreviewMode={isPreviewMode}>
+      <TabsContent className="mt-0" forceMount value="network">
+        <SettingsPreviewSection
+          isPreviewMode={isPreviewMode}
+          showOverlay={activeTab === "network"}
+        >
           <SettingsProxySection isPreviewMode={isPreviewMode} />
         </SettingsPreviewSection>
       </TabsContent>
 
       {!isPreviewMode && (
-        <TabsContent className="mt-0" value="account">
+        <TabsContent className="mt-0" forceMount value="account">
           <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
         </TabsContent>
       )}
@@ -438,31 +491,7 @@ function useSettingsPanelRuntime(
       normalizeSettingsTabValue(nextValue, options.isPreviewMode),
     );
   };
-  const tabContent = (
-    <SettingsTabContent
-      articlesPerPage={options.articlesPerPage}
-      autoRefreshIntervalMinutes={options.autoRefreshIntervalMinutes}
-      backgroundMode={options.backgroundMode}
-      categories={options.categories}
-      distillStrategy={options.distillStrategy}
-      isPreviewMode={options.isPreviewMode}
-      onAccountDeleted={() => {
-        options.onClose();
-        window.location.assign("/landing");
-      }}
-      onArticlesPerPageChange={options.onArticlesPerPageChange}
-      onAutoRefreshIntervalMinutesChange={
-        options.onAutoRefreshIntervalMinutesChange
-      }
-      onBackgroundModeChange={options.onBackgroundModeChange}
-      onDistillStrategyChange={options.onDistillStrategyChange}
-      onRemoveCategory={options.onRemoveCategory}
-      onShowFaviconsChange={options.onShowFaviconsChange}
-      pendingCategoryRemovalLabel={options.pendingCategoryRemovalLabel}
-      showFavicons={options.showFavicons}
-      state={state}
-    />
-  );
+  const tabContent = renderSettingsPanelTabContent(options, activeTab, state);
 
   return {
     activeTab,

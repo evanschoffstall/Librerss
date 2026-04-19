@@ -5,6 +5,7 @@ const DEMO_OVERLAY_LABEL = "Not available in demo mode";
 interface SettingsPreviewSectionProps {
   children: ReactNode;
   isPreviewMode?: boolean;
+  showOverlay?: boolean;
 }
 
 /**
@@ -13,10 +14,10 @@ interface SettingsPreviewSectionProps {
  * @returns The rendered settings preview section component.
  */
 export function SettingsPreviewSection(props: SettingsPreviewSectionProps) {
-  const { children, isPreviewMode = false } = props;
+  const { children, isPreviewMode = false, showOverlay = true } = props;
   return (
     <div className="relative">
-      {isPreviewMode && <DemoOverlay />}
+      {isPreviewMode && showOverlay ? <DemoOverlay /> : null}
       {children}
     </div>
   );
