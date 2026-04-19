@@ -310,6 +310,21 @@ export const ArticleCard = memo(
       },
       [],
     );
+    const hasActiveExpandedTextSelection = useCallback(() => {
+      const selection = window.getSelection();
+      if (!selection || selection.toString().length === 0) {
+        return false;
+      }
+
+      const { anchorNode, focusNode } = selection;
+
+      return (
+        (anchorNode instanceof Node &&
+          (contentZoneRef.current?.contains(anchorNode) ?? false)) ||
+        (focusNode instanceof Node &&
+          (contentZoneRef.current?.contains(focusNode) ?? false))
+      );
+    }, []);
     const shouldIgnoreSwipeTarget = useCallback(
       (target: EventTarget | null) => {
         if (!(target instanceof Element)) {
@@ -581,8 +596,9 @@ export const ArticleCard = memo(
       }
       pressStartPos.current = null;
       pressMovedRef.current = false;
-      const sel = window.getSelection();
-      if (sel && sel.toString().length > 0) return;
+      if (isExpandedBodyTarget(e.target) && hasActiveExpandedTextSelection()) {
+        return;
+      }
       // Pointer interactions already prime scroll restoration on pointerdown.
       // Re-capturing here can overwrite the original viewport position after the
       // browser auto-scrolls a partially visible card into focus.
