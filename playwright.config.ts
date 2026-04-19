@@ -1,7 +1,9 @@
 import type { ReporterDescription } from "@playwright/test";
 
 import { defineConfig, devices } from "@playwright/test";
+import { readdirSync } from "node:fs";
 import { availableParallelism } from "node:os";
+import { join } from "node:path";
 
 import { resolvePlaywrightBaseUrl } from "./scripts/playwright-base-url";
 
@@ -26,13 +28,51 @@ const reporter: ReporterDescription[] = [
 ];
 
 /**
- * Uses a higher local worker count for faster e2e runs while capping coverage
- * runs so the dedicated dev server stays stable under load.
- * @returns The Playwright worker count or worker override for the current run.
+ * Recursively counts `.e2e.ts` entrypoint files under the given directory so
+ * worker allocation can scale to the number of test files automatically.
+ * @param directoryPath - Absolute path to the directory containing Playwright entrypoint files.
+ * @returns The count of Playwright entrypoint files found at any nesting depth.
  */
-function resolveWorkerCount() {
+function countEntrypointFiles(directoryPath: string): number {
+  let fileCount = 0;
+
+  for (const entry of readdirSync(directoryPath, { withFileTypes: true })) {
+    if (entry.isDirectory()) {
+      fileCount += countEntrypointFiles(join(directoryPath, entry.name));
+    } else if (entry.isFile() && entry.name.endsWith(".e2e.ts")) {
+      fileCount += 1;
+    }
+  }
+
+  return fileCount;
+}
+
+/**
+ * Returns the number of `.e2e.ts` entrypoint files under `tests/e2e` so that
+ * local runs can automatically fan out across the entire suite without an
+ * artificial worker cap.
+ * @returns The number of Playwright e2e entrypoint files in the test suite.
+ */
+function countPlaywrightEntrypoints(): number {
+  return countEntrypointFiles(join(process.cwd(), "tests", "e2e"));
+}
+
+/**
+ * Resolves the Playwright worker count for the current run context.
+ *
+ * - CI: 2 workers (conservative for shared infra).
+ * - Local coverage run: capped at 4 so the cold-started dev server stays
+ *   stable under concurrent load while Istanbul instrumentation is active.
+ * - Local non-coverage: one worker per entrypoint file so every test file
+ *   can start immediately, giving maximum file-level parallelism regardless
+ *   of how many logical CPUs the machine exposes.
+ * @returns The Playwright worker count or a percent-string worker override for the current run.
+ */
+function resolveWorkerCount(): number | string {
   if (workerOverride) {
-    return workerOverride;
+    return /^\d+$/u.test(workerOverride)
+      ? Number.parseInt(workerOverride, 10)
+      : workerOverride;
   }
 
   if (process.env.CI) {
@@ -40,11 +80,12 @@ function resolveWorkerCount() {
   }
 
   const detectedWorkerCount = availableParallelism();
-  const targetWorkerCount = isCoverageRun
-    ? Math.ceil(detectedWorkerCount * 0.75)
-    : Math.ceil(detectedWorkerCount * 0.5);
 
-  return Math.min(isCoverageRun ? 4 : 12, Math.max(2, targetWorkerCount));
+  if (isCoverageRun) {
+    return Math.max(2, Math.ceil(detectedWorkerCount * 0.75));
+  }
+
+  return Math.max(2, detectedWorkerCount, countPlaywrightEntrypoints());
 }
 
 /**

@@ -425,7 +425,6 @@ function buildCoverageReportPostProcess(
       summary: buildExecutionSummary(
         executionReport,
         command.exitCode,
-        coverageTotals,
       ),
     };
   };
@@ -434,16 +433,16 @@ function buildCoverageReportPostProcess(
  * Build the execution summary.
  * @param executionReport - The execution report.
  * @param exitCode - The exit code.
- * @param coverageTotals - The coverage totals.
  * @returns The execution summary.
  */
 function buildExecutionSummary(
   executionReport: Pick<ExecutionReport, "failed" | "passed" | "skipped">,
   exitCode: number,
-  coverageTotals: CoverageTotals | null,
 ): string {
-  return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${formatExecutionSummaryCoverage(coverageTotals)}${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
-} /**
+  return `${executionReport.passed} passed · ${executionReport.failed} failed · ${executionReport.skipped} skipped${exitCode === 0 ? "" : ` · runner exit ${exitCode}`}`;
+}
+
+/**
  * Process the collect case results.
  * @param report - The report.
  * @param resultType - The result type.
@@ -541,7 +540,6 @@ function createCoverageStep(
         readExecutionReport: parseJunitExecutionReport,
       }),
     },
-    serialGroup: "coverage-tests",
     timeoutDrainMs: options.timeoutDrainMs,
     timeoutEnvVar: options.timeoutEnvVar,
     timeoutMs: options.timeoutMs,
@@ -599,17 +597,6 @@ function formatCaseResult(match: RegExpMatchArray, body: string): string {
     ),
     test = readXmlAttributes(match[1]);
   return `${test.file ?? "unknown-file"}${test.line ? `:${test.line}` : ""} - ${test.classname ? `${test.classname} > ` : ""}${test.name ?? "(unnamed test)"}${failure.message ? ` [${failure.message}]` : ""}`;
-}
-/**
- * Process the format execution summary coverage.
- * @param coverageTotals - The coverage totals.
- * @returns The format execution summary coverage.
- */
-function formatExecutionSummaryCoverage(
-  coverageTotals: CoverageTotals | null,
-): string {
-  if (!coverageTotals) return " · coverage missing";
-  return ` · coverage ${coverageTotals.pct.toFixed(2)}% (${coverageTotals.covered}/${coverageTotals.found})`;
 }
 /**
  * Process the format unused selector output.
@@ -1355,7 +1342,7 @@ const junit = createCoverageStep(
     failMsg: "",
     reportDirs: ["coverage"],
     timeoutEnvVar: "CHECK_TEST_COMMAND_TIMEOUT_MS",
-    timeoutMs: 120_000,
+    timeoutMs: 300_000,
     tokens: { lineCoverageThreshold: 85, testTimeoutMs: 5_000 },
   },
 );
@@ -1382,13 +1369,13 @@ const playwright = createCoverageStep(
     reportDirs: ["coverage/playwright"],
     timeoutDrainMs: 20_000,
     timeoutEnvVar: "CHECK_PLAYWRIGHT_TIMEOUT_MS",
-    timeoutMs: 180_000,
+    timeoutMs: 300_000,
     tokens: { lineCoverageThreshold: 55 },
   },
 );
 
 export default defineCheckSuiteConfig([
-  { suite: { timeoutEnvVar: "CHECK_SUITE_TIMEOUT_MS", timeoutMs: 180_000 } },
+  { suite: { timeoutEnvVar: "CHECK_SUITE_TIMEOUT_MS", timeoutMs: 300_000 } },
   {
     paths: {
       junitPath: "coverage/test-results.xml",

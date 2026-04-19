@@ -35,6 +35,14 @@ const PLAYWRIGHT_SHUTDOWN_TIMEOUT_MS = Number.parseInt(
 const PLAYWRIGHT_DIST_DIR_PREFIX = ".next-playwright";
 const PLAYWRIGHT_LOG_LINE_LIMIT = 120;
 const PLAYWRIGHT_READINESS_PATH = "/dashboard?explore=1";
+const PLAYWRIGHT_PREWARM_PATHS = [
+  "/dashboard?explore=1",
+  "/dashboard",
+  "/landing",
+  "/api/auth/session",
+  "/api/feeds",
+  "/api/feeds/category-order",
+] as const;
 const PLAYWRIGHT_TSCONFIG_PREFIX = "tsconfig.playwright";
 const PYTHON_PARENT_DEATHSIG_LAUNCHER = [
   "import ctypes",
@@ -372,6 +380,7 @@ async function main() {
     console.log(`Playwright dev server port: ${server.port}`);
     console.log(`Playwright dist dir: ${distDir}`);
     console.log(`Playwright tsconfig: ${tsconfigPath}`);
+    await prewarmServerRoutes(server);
 
     testProcess = startPlaywrightTestRun(
       server.baseURL,
@@ -397,6 +406,26 @@ async function main() {
   } catch (error) {
     console.error(error);
     await exitWithCleanup(1);
+  }
+}
+
+/**
+ * Prewarms the routes and endpoints that the Playwright suite commonly hits
+ * first so the run does not pay cold-compilation costs mid-test.
+ * @param server - The started Playwright dev server.
+ */
+async function prewarmServerRoutes(server: DevServerHandle) {
+  for (const path of PLAYWRIGHT_PREWARM_PATHS) {
+    const response = await fetch(`${server.baseURL}${path}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (response.status >= 500) {
+      throw createStartupError(
+        `Playwright dev server returned ${response.status} while prewarming ${path}.`,
+        server.getRecentOutput(),
+      );
+    }
   }
 }
 
