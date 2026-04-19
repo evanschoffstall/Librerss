@@ -5,10 +5,11 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
-  readRenderedArticleCount,
-  readRenderedItemWindow,
+  readLoadMoreSkeletonState,
+  readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   setFeedViewportScrollTop,
+  triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -26,41 +27,16 @@ const DESKTOP_VIEWPORT_CASES: DesktopViewportCase[] = [
 const SMALL_PAGE_SIZE = 4;
 const LARGE_PAGE_SIZE = 8;
 
-/**
- * Installs a MutationObserver on the page body that records every time a
- * `[data-feed-load-more-skeletons]` element is added to the DOM. Must be
- * called before the action that is expected to produce skeletons.
- */
-async function installLoadMoreSkeletonObserver(page: Page) {
-  await page.evaluate(() => {
-    const win = window as unknown as Record<string, unknown>;
-    win["__skeletonAdditions"] = 0;
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const node of m.addedNodes) {
-          if (
-            node.nodeType === Node.ELEMENT_NODE &&
-            (node as Element).getAttribute("data-feed-load-more-skeletons") !==
-              null
-          ) {
-            (win["__skeletonAdditions"] as number)++;
-          }
-        }
-      }
+/** Waits for the active feed surface to expose load-more skeletons. */
+async function expectVisibleLoadMoreSkeletons(page: Page, minimumCount: number) {
+  await expect
+    .poll(async () => {
+      return await readLoadMoreSkeletonState(page);
+    })
+    .toEqual({
+      skeletonCount: minimumCount,
+      skeletonsVisible: true,
     });
-    observer.observe(document.body, { childList: true, subtree: true });
-    win["__skeletonObserver"] = observer;
-  });
-}
-
-/** Returns the number of times skeletons have been added since the observer was installed. */
-async function readSkeletonAdditionCount(page: Page): Promise<number> {
-  return await page.evaluate(
-    () =>
-      ((window as unknown as Record<string, unknown>)[
-        "__skeletonAdditions"
-      ] as number) ?? 0,
-  );
 }
 
 test.describe("pagination skeleton contract", () => {
@@ -81,23 +57,19 @@ test.describe("pagination skeleton contract", () => {
 
       // Wait for initial auto-fill to settle then install observer.
       await expect
-        .poll(async () => readRenderedArticleCount(page))
+        .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
 
-      await installLoadMoreSkeletonObserver(page);
-      const skeletonsBeforeScroll = await readSkeletonAdditionCount(page);
-
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
 
       // Skeleton must appear at least once during cached page reveal.
-      await expect
-        .poll(async () => readSkeletonAdditionCount(page))
-        .toBeGreaterThan(skeletonsBeforeScroll);
+      await expectVisibleLoadMoreSkeletons(page, SMALL_PAGE_SIZE);
 
       // After skeleton clears the expanded article window must be visible.
       await expect
-        .poll(async () => (await readRenderedItemWindow(page)).maxIndex)
-        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 2 - 1);
+        .poll(async () => readVisibleFeedArticleCount(page))
+        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 2);
     });
 
     test(`initial render is bounded to one page plus auto-fill on ${viewportCase.name}`, async ({
@@ -115,10 +87,10 @@ test.describe("pagination skeleton contract", () => {
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
       // Before any user-initiated scroll the rendered window must not exceed
-      // two pages: 1 initial page + at most 1 auto-fill page.
+      // one configured page.
       await expect
-        .poll(async () => (await readRenderedItemWindow(page)).maxIndex)
-        .toBeLessThan(LARGE_PAGE_SIZE * 2);
+        .poll(async () => readVisibleFeedArticleCount(page))
+        .toBeLessThanOrEqual(LARGE_PAGE_SIZE);
 
       // The load-more sentinel must still be present so infinite scroll works.
       await expect.poll(async () => hasLoadMoreSentinel(page)).toBe(true);
@@ -157,27 +129,21 @@ test.describe("pagination skeleton contract", () => {
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect
-        .poll(async () => readRenderedArticleCount(page))
+        .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
 
-      await installLoadMoreSkeletonObserver(page);
-
       // Scroll to bottom three times to trigger multiple page expansions.
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
-      await expect
-        .poll(async () => readSkeletonAdditionCount(page))
-        .toBeGreaterThanOrEqual(1);
-
-      const countAfterFirst = await readSkeletonAdditionCount(page);
+      await expectVisibleLoadMoreSkeletons(page, SMALL_PAGE_SIZE);
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
-      await expect
-        .poll(async () => readSkeletonAdditionCount(page))
-        .toBeGreaterThan(countAfterFirst);
+      await expectVisibleLoadMoreSkeletons(page, SMALL_PAGE_SIZE);
 
       // Article window must span at least three configured pages.
       await expect
-        .poll(async () => (await readRenderedItemWindow(page)).maxIndex)
-        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 3 - 1);
+        .poll(async () => readVisibleFeedArticleCount(page))
+        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 3);
     });
 
     test(`scroll-triggered reveal does not collapse to zero articles on ${viewportCase.name}`, async ({
@@ -194,13 +160,14 @@ test.describe("pagination skeleton contract", () => {
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
 
       // During or after the skeleton phase there must always be at least
       // the initial page of articles rendered — never a blank flash.
       await expect
-        .poll(async () => (await readRenderedItemWindow(page)).maxIndex)
-        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE - 1);
+        .poll(async () => readVisibleFeedArticleCount(page))
+        .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
     });
 
     test(`reset cancels any in-flight cached reveal so stale count is never committed on ${viewportCase.name}`, async ({
@@ -217,7 +184,7 @@ test.describe("pagination skeleton contract", () => {
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect
-        .poll(async () => readRenderedArticleCount(page))
+        .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
 
       // Scroll to 70 % — near but not at the load-more boundary.
@@ -243,8 +210,8 @@ test.describe("pagination skeleton contract", () => {
       // After reset the article window may temporarily shrink back toward 1
       // page but must never show more than 2 pages of stale content.
       await expect
-        .poll(async () => (await readRenderedItemWindow(page)).maxIndex)
-        .toBeLessThan(SMALL_PAGE_SIZE * 2);
+        .poll(async () => readVisibleFeedArticleCount(page))
+        .toBeLessThanOrEqual(SMALL_PAGE_SIZE * 2);
     });
   }
 });
