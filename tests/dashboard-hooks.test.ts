@@ -1049,12 +1049,17 @@ describe("useArticleHydration", () => {
   });
 
   test("escapeArticleKey fallback when CSS.escape unavailable", () => {
+    const originalCss = global.CSS;
     global.CSS = undefined as any;
 
-    const key = 'test"article\\key';
-    const escaped = escapeArticleKey(key);
+    try {
+      const key = 'test"article\\key';
+      const escaped = escapeArticleKey(key);
 
-    expect(escaped).toContain("\\");
+      expect(escaped).toContain("\\");
+    } finally {
+      global.CSS = originalCss;
+    }
   });
 
   test("scrollArticleIntoView scrolls element into view", () => {
