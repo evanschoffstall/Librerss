@@ -257,7 +257,6 @@ function SettingsPanelDesktopShell(options: SettingsPanelShellOptions) {
     </TooltipProvider>
   );
 }
-
 /**
  * Render the settings panel mobile shell component.
  * @param options - The options used to render the settings panel mobile shell component.
@@ -321,6 +320,7 @@ function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
     </TooltipProvider>
   );
 }
+
 /**
  * Render the settings tab content component.
  * @param props - The component props.
