@@ -8,6 +8,10 @@ import {
   ProxyRoutingBadge,
   StatusBadge,
 } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxyBadges";
+import {
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+} from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
@@ -31,6 +35,7 @@ const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   "localStorage",
 );
 beforeEach(() => {
+  mock.restore();
   const isolatedLocalStorage = new StorageMock();
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
@@ -45,6 +50,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  mock.restore();
   if (originalGlobalLocalStorageDescriptor) {
     Object.defineProperty(
       globalThis,
@@ -63,19 +69,22 @@ afterEach(() => {
 
 describe("settings real components", () => {
   test("commits display preferences and local mobile toggles", async () => {
-    mock.module("@/lib/hooks/useLocalStorage", () => ({
-      useLocalStorage: (key: string, initialValue: boolean) => {
-        if (key.includes("grouped")) {
-          return [true, mock(() => {})] as const;
-        }
-
-        if (key.includes("inverted")) {
-          return [false, mock(() => {})] as const;
-        }
-
-        return [initialValue, mock((_value: boolean) => {})] as const;
-      },
-    }));
+    window.localStorage.setItem(
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    globalThis.localStorage?.setItem(
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+    globalThis.localStorage?.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
     const { SettingsDisplaySection } = await import(
       `../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
     );

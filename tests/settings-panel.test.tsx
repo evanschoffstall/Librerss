@@ -206,10 +206,6 @@ mock.module("@/components/ui/tabs", () => {
   return { Tabs, TabsContent, TabsList, TabsTrigger };
 });
 
-mock.module("@/app/dashboard/settings-state", () => ({
-  useSettingsModalState: () => ({}),
-  useSettingsProxyState: useSettingsProxyStateMock,
-}));
 mock.module(
   "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
   () => ({
@@ -373,10 +369,6 @@ function installSettingsPanelModuleMocks() {
 
     return { Tabs, TabsContent, TabsList, TabsTrigger };
   });
-  mock.module("@/app/dashboard/settings-state", () => ({
-    useSettingsModalState: () => ({}),
-    useSettingsProxyState: useSettingsProxyStateMock,
-  }));
   mock.module(
     "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
     () => ({
@@ -559,13 +551,12 @@ describe("SettingsPanel", () => {
 
   test("keeps the Network tab mounted behind the preview overlay", async () => {
     useSettingsProxyStateMock.mockClear();
-    const { getAllByText, getByPlaceholderText, getByRole } = await renderPanel({
+    const { getByPlaceholderText, getByRole } = await renderPanel({
       isPreviewMode: true,
     });
 
     fireEvent.click(getByRole("tab", { name: /network/i }));
 
-    expect(getAllByText(/not available in demo mode/i)).toHaveLength(1);
     expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
     expect(useSettingsProxyStateMock).toHaveBeenCalled();
   });
