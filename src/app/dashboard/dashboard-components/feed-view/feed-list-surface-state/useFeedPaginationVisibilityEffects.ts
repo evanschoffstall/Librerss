@@ -6,6 +6,12 @@ import {
   shouldAbortPaginationBoundaryRearm,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 import { resolvePaginationBoundaryState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+import {
+  cancelPendingServerRevealCompletion,
+  completePendingServerReveal,
+  handleFeedPaginationRevealCountTransition,
+  type PendingServerRevealLifecycleOptions,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/pendingServerReveal";
 
 interface CollapsingArticlesRefSyncOptions {
   hasCollapsingArticles: boolean;
@@ -42,20 +48,19 @@ interface MountedFlagCleanupEffectOptions {
   isMountedRef: { current: boolean };
 }
 
-interface PendingServerRevealOptions {
-  hasPendingServerRevealRef: { current: boolean };
-  hasResolvedStandardViewportRevealRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  lastInvertedAwayBoundarySnapshotRef: { current: unknown };
-  lastInvertedScrollTopRef: { current: null | number };
-  startServerLoadRearmCooldown: () => void;
+interface NullableNumberRef {
+  current: null | number;
 }
+
 interface ResolvedStandardViewportRevealEffectOptions {
   filteredFeedLength: number;
   hasResolvedStandardViewportRevealRef: { current: boolean };
   isInvertedScroll: boolean;
   maybeAutoFillViewport: (committedListHeight?: number) => void;
+}
+
+interface TimeoutHandleRef {
+  current: null | ReturnType<typeof setTimeout>;
 }
 
 interface VisibleArticleCountRefSyncOptions {
@@ -79,12 +84,17 @@ export function useCollapsingArticlesRefSync(
  * @param options - The options used to manage the feed pagination loading more reveal effect.
  */
 export function useFeedPaginationLoadingMoreRevealEffect(
-  options: PendingServerRevealOptions & {
+  options: PendingServerRevealLifecycleOptions & {
+    canLoadMoreFromServer: boolean;
+    filteredFeedLength: number;
     isLoadingMore: boolean;
     previousIsLoadingMoreRef: { current: boolean };
+    visibleArticleCount: number;
   },
 ) {
   const {
+    canLoadMoreFromServer,
+    filteredFeedLength,
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
@@ -93,7 +103,9 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     previousIsLoadingMoreRef,
+    setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown,
+    visibleArticleCount,
   } = options;
   useLayoutEffect(() => {
     const previousIsLoadingMore = previousIsLoadingMoreRef.current;
@@ -107,6 +119,14 @@ export function useFeedPaginationLoadingMoreRevealEffect(
       return;
     }
 
+    if (
+      isInvertedScroll &&
+      canLoadMoreFromServer &&
+      filteredFeedLength <= visibleArticleCount
+    ) {
+      return;
+    }
+
     completePendingServerReveal({
       hasPendingServerRevealRef,
       hasResolvedStandardViewportRevealRef,
@@ -114,18 +134,23 @@ export function useFeedPaginationLoadingMoreRevealEffect(
       isStandardViewportRefillActiveRef,
       lastInvertedAwayBoundarySnapshotRef,
       lastInvertedScrollTopRef,
+      setIsPendingServerRevealVisible,
       startServerLoadRearmCooldown,
     });
   }, [
+    canLoadMoreFromServer,
+    filteredFeedLength,
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
+    setIsPendingServerRevealVisible,
     isLoadingMore,
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     isStandardViewportRefillActiveRef,
     previousIsLoadingMoreRef,
     startServerLoadRearmCooldown,
+    visibleArticleCount,
   ]);
 }
 
@@ -207,7 +232,7 @@ export function useFeedPaginationRefreshResetEffect(
  * @param options - The options used to manage the feed pagination reveal count effect.
  */
 export function useFeedPaginationRevealCountEffect(
-  options: PendingServerRevealOptions & {
+  options: PendingServerRevealLifecycleOptions & {
     commitVisibleArticleCount: (nextVisibleCount: number) => void;
     filteredFeedLength: number;
     hasRequestedServerLoadRef: { current: boolean };
@@ -228,43 +253,41 @@ export function useFeedPaginationRevealCountEffect(
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     previousFilteredFeedLengthRef,
+    setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown,
     visibleArticleCountRef,
   } = options;
+  const pendingServerRevealCountRef = useRef<null | number>(null);
+  const pendingServerRevealFrameRef = useRef<null | number>(null);
+  const pendingServerRevealTimeoutRef = useRef<null | ReturnType<
+    typeof setTimeout
+  >>(null);
+  usePendingServerRevealCleanup(
+    pendingServerRevealCountRef,
+    pendingServerRevealFrameRef,
+    pendingServerRevealTimeoutRef,
+  );
+
   useLayoutEffect(() => {
-    const currentVisibleCount = visibleArticleCountRef.current;
-
-    if (isLoadingMore && currentVisibleCount < filteredFeedLength) {
-      commitVisibleArticleCount(filteredFeedLength);
-      previousFilteredFeedLengthRef.current = filteredFeedLength;
-      return;
-    }
-
-    const previousFilteredFeedLength = previousFilteredFeedLengthRef.current;
-    previousFilteredFeedLengthRef.current = filteredFeedLength;
-    const hasSettledRequestedReveal =
-      hasPendingServerRevealRef.current || hasRequestedServerLoadRef.current;
-
-    if (
-      !hasSettledRequestedReveal ||
-      filteredFeedLength <= previousFilteredFeedLength
-    ) {
-      return;
-    }
-
-    completePendingServerReveal({
+    handleFeedPaginationRevealCountTransition({
+      commitVisibleArticleCount,
+      filteredFeedLength,
       hasPendingServerRevealRef,
+      hasRequestedServerLoadRef,
       hasResolvedStandardViewportRevealRef,
       isInvertedScroll,
+      isLoadingMore,
       isStandardViewportRefillActiveRef,
       lastInvertedAwayBoundarySnapshotRef,
       lastInvertedScrollTopRef,
+      pendingServerRevealCountRef,
+      pendingServerRevealFrameRef,
+      pendingServerRevealTimeoutRef,
+      previousFilteredFeedLengthRef,
+      setIsPendingServerRevealVisible,
       startServerLoadRearmCooldown,
+      visibleArticleCountRef,
     });
-
-    if (currentVisibleCount < filteredFeedLength) {
-      commitVisibleArticleCount(filteredFeedLength);
-    }
   }, [
     commitVisibleArticleCount,
     filteredFeedLength,
@@ -272,10 +295,14 @@ export function useFeedPaginationRevealCountEffect(
     hasRequestedServerLoadRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
+    setIsPendingServerRevealVisible,
     isLoadingMore,
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     isStandardViewportRefillActiveRef,
+    pendingServerRevealCountRef,
+    pendingServerRevealFrameRef,
+    pendingServerRevealTimeoutRef,
     previousFilteredFeedLengthRef,
     startServerLoadRearmCooldown,
     visibleArticleCountRef,
@@ -320,6 +347,7 @@ export function useInitialFeedPaginationAutoFillEffect(
     visibleArticleCount,
   ]);
 }
+
 /**
  * Manage the mounted flag cleanup effect.
  * @param options - The options used to manage the mounted flag cleanup effect.
@@ -357,6 +385,19 @@ export function useRearmPaginationBoundaryFromUserIntent(
       return;
     }
 
+    if (isInvertedScroll) {
+      if (hasPendingServerRevealRef.current) {
+        return;
+      }
+
+      finalizePaginationBoundaryRearm({
+        armedBoundaryRef: isInvertedLoadBoundaryArmedRef,
+        hasPendingBoundaryRearmAfterCooldownRef,
+        hasRequestedServerLoadRef,
+      });
+      return;
+    }
+
     if (
       shouldAbortPaginationBoundaryRearm(
         scrollViewport,
@@ -377,9 +418,7 @@ export function useRearmPaginationBoundaryFromUserIntent(
     }
 
     finalizePaginationBoundaryRearm({
-      armedBoundaryRef: isInvertedScroll
-        ? isInvertedLoadBoundaryArmedRef
-        : isStandardLoadBoundaryArmedRef,
+      armedBoundaryRef: isStandardLoadBoundaryArmedRef,
       hasPendingBoundaryRearmAfterCooldownRef,
       hasRequestedServerLoadRef,
     });
@@ -394,6 +433,7 @@ export function useRearmPaginationBoundaryFromUserIntent(
     scrollViewport,
   ]);
 }
+
 /**
  * Manage the resolved standard viewport reveal effect.
  * @param options - The options used to manage the resolved standard viewport reveal effect.
@@ -421,7 +461,6 @@ export function useResolvedStandardViewportRevealEffect(
     maybeAutoFillViewport,
   ]);
 }
-
 /**
  * Manage the visible article count ref sync.
  * @param options - The options used to manage the visible article count ref sync.
@@ -435,21 +474,27 @@ export function useVisibleArticleCountRefSync(
 }
 
 /**
- * Process the complete pending server reveal.
- * @param options - The options used to process the complete pending server reveal.
+ * Cancels deferred pending-reveal work when the owning hook unmounts.
+ * @param pendingServerRevealCountRef - Tracks the pending reveal count.
+ * @param pendingServerRevealFrameRef - Tracks the scheduled reveal frame.
+ * @param pendingServerRevealTimeoutRef - Tracks the delayed reveal timeout.
  */
-function completePendingServerReveal(options: PendingServerRevealOptions) {
-  options.hasPendingServerRevealRef.current = false;
-  if (options.isInvertedScroll) {
-    options.lastInvertedAwayBoundarySnapshotRef.current = null;
-    options.lastInvertedScrollTopRef.current = null;
-  }
-  options.startServerLoadRearmCooldown();
-
-  if (
-    !options.isInvertedScroll &&
-    options.isStandardViewportRefillActiveRef.current
-  ) {
-    options.hasResolvedStandardViewportRevealRef.current = true;
-  }
+function usePendingServerRevealCleanup(
+  pendingServerRevealCountRef: NullableNumberRef,
+  pendingServerRevealFrameRef: NullableNumberRef,
+  pendingServerRevealTimeoutRef: TimeoutHandleRef,
+) {
+  useEffect(() => {
+    return () => {
+      cancelPendingServerRevealCompletion(
+        pendingServerRevealCountRef,
+        pendingServerRevealFrameRef,
+        pendingServerRevealTimeoutRef,
+      );
+    };
+  }, [
+    pendingServerRevealCountRef,
+    pendingServerRevealFrameRef,
+    pendingServerRevealTimeoutRef,
+  ]);
 }
