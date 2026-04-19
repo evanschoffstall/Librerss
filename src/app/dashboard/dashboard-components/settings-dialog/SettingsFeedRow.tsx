@@ -159,6 +159,20 @@ export function SettingsFeedRow(props: SettingsFeedRowProps) {
 }
 
 /**
+ * Create the inline feed edit starter using the current feed values as defaults.
+ * @param onStartEditing - Opens the feed editor for the given feed values.
+ * @param feedNode - The feed node whose current values should prefill the editor.
+ * @returns The callback that starts inline editing for the feed row.
+ */
+function createStartEditingFeedHandler(
+  onStartEditing: SettingsFeedRowProps["onStartEditing"],
+  feedNode: CategoryTreeNode,
+) {
+  return () => {
+    onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");
+  };
+}
+/**
  * Render the feed row display content component.
  * @param props - The component props.
  * @returns The rendered feed row display content component.
@@ -195,6 +209,7 @@ function FeedRowDisplayContent(props: FeedRowDisplayContentProps) {
     </div>
   );
 }
+
 /**
  * Render the feed row drop marker component.
  * @param props - The component props.
@@ -279,6 +294,43 @@ function FeedRowEditingFields(props: FeedRowEditingFieldsProps) {
 }
 
 /**
+ * Resolve the derived booleans and drop markers for a settings feed row.
+ * @param options - The row props that determine the current feed-row state.
+ * @returns The derived feed-row flags used by the row actions and rendering.
+ */
+function resolveSettingsFeedRowFlags(
+  options: Pick<
+    SettingsFeedRowProps,
+    | "categoryLabel"
+    | "deletingKey"
+    | "draggingFeedKey"
+    | "editingFeedKey"
+    | "feedDropTarget"
+    | "feedNode"
+    | "index"
+    | "togglingFeedKey"
+    | "updatingSettingsKey"
+  >,
+) {
+  return {
+    isDeleting: options.deletingKey === options.feedNode.key,
+    isDragging: options.draggingFeedKey === options.feedNode.key,
+    isDropAfter:
+      options.feedDropTarget?.categoryLabel === options.categoryLabel &&
+      options.feedDropTarget.index === options.index + 1,
+    isDropBefore:
+      options.feedDropTarget?.categoryLabel === options.categoryLabel &&
+      options.feedDropTarget.index === options.index,
+    isEditing: options.editingFeedKey === options.feedNode.key,
+    isEnabled: options.feedNode.data?.enabled !== false,
+    isExtractionDisabled: options.feedNode.data?.extractionDisabled === true,
+    isProxyEnabled: options.feedNode.data?.proxyEnabled === true,
+    isTogglingEnabled: options.togglingFeedKey === options.feedNode.key,
+    isUpdatingSettings: options.updatingSettingsKey === options.feedNode.key,
+  };
+}
+
+/**
  * Resolve the target index from pointer.
  * @param event - The event.
  * @param index - The index.
@@ -290,6 +342,24 @@ function resolveTargetIndexFromPointer(
 ) {
   const bounds = event.currentTarget.getBoundingClientRect();
   return event.clientY < bounds.top + bounds.height / 2 ? index : index + 1;
+}
+
+/**
+ * Clear the pending feed-setting action once the settings mutation settles.
+ * @param isUpdatingSettings - Whether the row is currently saving feed settings.
+ * @param setPendingSetting - Updates the pending setting indicator for the row.
+ */
+function useResetPendingFeedSetting(
+  isUpdatingSettings: boolean,
+  setPendingSetting: React.Dispatch<
+    React.SetStateAction<"extraction" | "proxy" | null>
+  >,
+) {
+  useEffect(() => {
+    if (!isUpdatingSettings) {
+      setPendingSetting(null);
+    }
+  }, [isUpdatingSettings, setPendingSetting]);
 }
 
 /**
@@ -312,59 +382,24 @@ function useSettingsFeedRowState(
     | "updatingSettingsKey"
   >,
 ): SettingsFeedRowDerivedState {
-  const {
-    categoryLabel,
-    deletingKey,
-    draggingFeedKey,
-    editingFeedKey,
-    feedDropTarget,
-    feedNode,
-    index,
-    onStartEditing,
-    togglingFeedKey,
-    updatingSettingsKey,
-  } = options;
   const [pendingSetting, setPendingSetting] = useState<
     "extraction" | "proxy" | null
   >(null);
-  const isEnabled = feedNode.data?.enabled !== false;
-  const isExtractionDisabled = feedNode.data?.extractionDisabled === true;
-  const isProxyEnabled = feedNode.data?.proxyEnabled === true;
-  const isTogglingEnabled = togglingFeedKey === feedNode.key;
-  const isUpdatingSettings = updatingSettingsKey === feedNode.key;
-  const isDeleting = deletingKey === feedNode.key;
-  const isDragging = draggingFeedKey === feedNode.key;
-  const isEditing = editingFeedKey === feedNode.key;
-
-  useEffect(() => {
-    if (!isUpdatingSettings) {
-      setPendingSetting(null);
-    }
-  }, [isUpdatingSettings]);
+  const rowFlags = resolveSettingsFeedRowFlags(options);
+  const startEditingFeed = createStartEditingFeedHandler(
+    options.onStartEditing,
+    options.feedNode,
+  );
+  useResetPendingFeedSetting(rowFlags.isUpdatingSettings, setPendingSetting);
 
   return {
-    isDeleting,
-    isDragging,
-    isDropAfter:
-      feedDropTarget?.categoryLabel === categoryLabel &&
-      feedDropTarget.index === index + 1,
-    isDropBefore:
-      feedDropTarget?.categoryLabel === categoryLabel &&
-      feedDropTarget.index === index,
-    isEditing,
-    isEnabled,
-    isExtractionDisabled,
-    isProxyEnabled,
-    isTogglingEnabled,
-    isUpdatingSettings,
+    ...rowFlags,
     pendingSetting,
     setPendingSetting,
-    settingsBusy: isUpdatingSettings || isTogglingEnabled || isDeleting,
-    /**
-     * Opens the inline feed editor with the current feed values prefilled.
-     */
-    startEditingFeed: () => {
-      onStartEditing(feedNode.key, feedNode.label, feedNode.data?.url ?? "");
-    },
+    settingsBusy:
+      rowFlags.isUpdatingSettings ||
+      rowFlags.isTogglingEnabled ||
+      rowFlags.isDeleting,
+    startEditingFeed,
   };
 }
