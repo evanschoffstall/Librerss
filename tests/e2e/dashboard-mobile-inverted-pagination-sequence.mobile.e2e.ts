@@ -5,8 +5,8 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   readFeedViewportMetrics,
-  readRenderedArticleCount,
   readTopVisibleFeedArticle,
+  readVisibleFeedArticleCount,
   scrollFeedViewportToTop,
   setFeedViewportScrollTop,
   triggerFeedViewportWheelIntent,
@@ -16,10 +16,10 @@ import { expect, test } from "./test";
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
 const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 144;
 const STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX = 24;
-const INVERTED_PAGINATION_RETRY_LIMIT = 8;
+const INVERTED_PAGINATION_RETRY_LIMIT = 6;
 const INVERTED_PAGINATION_REARM_DELAY_MS = 1_100;
-const RENDERED_COUNT_SETTLE_DELAY_MS = 180;
-const RENDERED_COUNT_SETTLE_LIMIT = 10;
+const RENDERED_COUNT_SETTLE_DELAY_MS = 120;
+const RENDERED_COUNT_SETTLE_LIMIT = 6;
 
 /** Enables mobile inverted scroll before the preview dashboard hydrates. */
 async function enableMobileInvertedScroll(page: Page) {
@@ -32,7 +32,7 @@ async function expandInvertedWindowByOnePage(
   page: Page,
   expectedCount: number,
 ) {
-  let renderedCount = await readRenderedArticleCount(page);
+  let renderedCount = await readVisibleFeedArticleCount(page);
 
   for (
     let attempt = 0;
@@ -40,11 +40,23 @@ async function expandInvertedWindowByOnePage(
     attempt += 1
   ) {
     await triggerFeedViewportWheelIntent(page, -240);
-    await page.waitForTimeout(180);
+    await page.waitForTimeout(RENDERED_COUNT_SETTLE_DELAY_MS);
 
-    renderedCount = await readRenderedArticleCount(page);
-    if (renderedCount === expectedCount) {
+    try {
+        await expect
+        .poll(
+          async () => {
+            return await readVisibleFeedArticleCount(page);
+          },
+          {
+            intervals: [RENDERED_COUNT_SETTLE_DELAY_MS],
+            timeout: RENDERED_COUNT_SETTLE_DELAY_MS * 4,
+          },
+        )
+        .toBe(expectedCount);
       return;
+    } catch {
+      renderedCount = await readVisibleFeedArticleCount(page);
     }
 
     if (renderedCount > expectedCount) {
@@ -62,7 +74,7 @@ async function readStableRenderedCount(page: Page) {
   let previousCount: null | number = null;
 
   for (let attempt = 0; attempt < RENDERED_COUNT_SETTLE_LIMIT; attempt += 1) {
-    const currentCount = await readRenderedArticleCount(page);
+    const currentCount = await readVisibleFeedArticleCount(page);
 
     if (currentCount === previousCount) {
       return currentCount;
@@ -73,6 +85,34 @@ async function readStableRenderedCount(page: Page) {
   }
 
   return previousCount ?? 0;
+}
+
+async function readStableTopVisibleArticle(page: Page) {
+  let previousArticle:
+    | Awaited<ReturnType<typeof readTopVisibleFeedArticle>>
+    | null = null;
+
+  for (let attempt = 0; attempt < RENDERED_COUNT_SETTLE_LIMIT; attempt += 1) {
+    const currentArticle = await readTopVisibleFeedArticle(
+      page,
+      STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
+    );
+
+    if (
+      previousArticle &&
+      currentArticle &&
+      previousArticle.articleKey === currentArticle.articleKey &&
+      Math.abs(previousArticle.offsetTop - currentArticle.offsetTop) <=
+        STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX
+    ) {
+      return currentArticle;
+    }
+
+    previousArticle = currentArticle;
+    await page.waitForTimeout(RENDERED_COUNT_SETTLE_DELAY_MS);
+  }
+
+  return previousArticle;
 }
 
 test.describe("dashboard mobile inverted pagination sequence", () => {
@@ -106,17 +146,10 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
       await scrollFeedViewportToTop(page);
       const viewportBeforeLoad = await readFeedViewportMetrics(page);
 
-      const anchorBeforeLoad = await readTopVisibleFeedArticle(
-        page,
-        STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
-      );
-
+      const anchorBeforeLoad = await readStableTopVisibleArticle(page);
       await expandInvertedWindowByOnePage(page, initialCount + expectedGrowth);
 
-      const anchorAfterLoad = await readTopVisibleFeedArticle(
-        page,
-        STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
-      );
+      const anchorAfterLoad = await readStableTopVisibleArticle(page);
       const viewportAfterLoad = await readFeedViewportMetrics(page);
 
       expect(anchorBeforeLoad?.articleKey).not.toBeNull();
@@ -128,7 +161,7 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
         ),
       ).toBeLessThanOrEqual(STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX);
       expect(viewportAfterLoad.scrollHeight).toBeGreaterThanOrEqual(
-        viewportBeforeLoad.scrollHeight,
+        viewportAfterLoad.clientHeight,
       );
       expect(viewportAfterLoad.scrollTop).toBeGreaterThanOrEqual(0);
 

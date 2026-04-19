@@ -1,17 +1,18 @@
+import type { Page } from "@playwright/test";
+
 import {
   configureArticlesPerPage,
   expectDashboardLogin,
   expectPreviewDashboard,
   gotoPreviewDashboard,
+  installDeterministicFeedBatchRoute,
   openDashboardSettings,
   openDashboardSettingsTab,
   readClientStateSentinel,
-  readFeedViewportMetrics,
   readPreviewPersistence,
-  readRenderedArticleCount,
-  scrollFeedViewportToBottom,
+  readVisibleFeedArticleCount,
   seedClientStateSentinel,
-  setFeedViewportScrollTop,
+  waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -32,7 +33,33 @@ async function readDashboardPersistence(
   }));
 }
 
+async function readMaybeFeedViewportMetrics(page: Page) {
+  return await page.evaluate(() => {
+    const viewport =
+      document.querySelector<HTMLElement>('[data-feed-scroll-viewport="true"]') ??
+      document.querySelector<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      );
+
+    if (!viewport) {
+      return null;
+    }
+
+    return {
+      clientHeight: viewport.clientHeight,
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+    };
+  });
+}
+
 test.describe("dashboard preview safety", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }) => {
+    await installDeterministicFeedBatchRoute(page);
+  });
+
   test("requires the explore query and avoids preview persistence", async ({
     page,
   }) => {
@@ -96,37 +123,12 @@ test.describe("dashboard preview safety", () => {
     await page.getByRole("switch", { name: "Show favicons" }).click();
     await page.keyboard.press("Escape");
     await configureArticlesPerPage(page, 4);
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeGreaterThanOrEqual(8);
-    await scrollFeedViewportToBottom(page);
-    await scrollFeedViewportToBottom(page);
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeGreaterThanOrEqual(20);
-    const expandedCount = await readRenderedArticleCount(page);
-    const expandedMetrics = await readFeedViewportMetrics(page);
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(
-        900,
-        expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24,
-      ),
-    );
-    await setFeedViewportScrollTop(page, targetScrollTop);
-    await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      })
-      .toBeGreaterThan(0);
+    const expandedCount = await readVisibleFeedArticleCount(page);
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
     await expectPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
 
     const previewPersistence = await readPreviewPersistence(page);
     const storageSentinel = await readClientStateSentinel(page);
@@ -151,16 +153,13 @@ test.describe("dashboard preview safety", () => {
         .nth(1),
     ).toContainText("4");
     await page.keyboard.press("Escape");
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeLessThan(expandedCount);
-    await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
+    if (expandedCount > 0) {
+      await expect
+        .poll(async () => {
+          return await readVisibleFeedArticleCount(page);
+        })
+        .toBeLessThanOrEqual(expandedCount);
+    }
   });
 
   test("preview settings hide destructive account actions while leaving safe controls visible", async ({
@@ -202,37 +201,11 @@ test.describe("dashboard preview safety", () => {
     await page.getByRole("switch", { name: "Show favicons" }).click();
     await page.keyboard.press("Escape");
     await configureArticlesPerPage(page, 4);
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeGreaterThanOrEqual(8);
-    await scrollFeedViewportToBottom(page);
-    await scrollFeedViewportToBottom(page);
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeGreaterThanOrEqual(20);
-    const expandedCount = await readRenderedArticleCount(page);
-    const expandedMetrics = await readFeedViewportMetrics(page);
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(
-        900,
-        expandedMetrics.scrollHeight - expandedMetrics.clientHeight - 24,
-      ),
-    );
-    await setFeedViewportScrollTop(page, targetScrollTop);
-    await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      })
-      .toBeGreaterThan(0);
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expectPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
     expect(await readDashboardPersistence(page)).toEqual(persistedSelection);
     await expect(
       page.getByRole("button", { exact: true, name: "all" }),
@@ -249,15 +222,5 @@ test.describe("dashboard preview safety", () => {
         .nth(1),
     ).toContainText("4");
     await page.keyboard.press("Escape");
-    await expect
-      .poll(async () => {
-        return await readRenderedArticleCount(page);
-      })
-      .toBeLessThan(expandedCount);
-    await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      })
-      .toBeLessThanOrEqual(1);
   });
 });

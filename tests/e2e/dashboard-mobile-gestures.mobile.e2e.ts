@@ -105,6 +105,8 @@ async function openPreviewDashboardOnMobile(page: Page) {
 }
 
 test.describe("dashboard mobile gestures", () => {
+  test.describe.configure({ mode: "serial" });
+
   test("keeps expanded article reading interactions from collapsing the card", async ({
     page,
   }) => {
@@ -220,7 +222,10 @@ test.describe("dashboard mobile gestures", () => {
       "idle",
     );
 
-    await toggleArticle(article);
+    await article
+      .locator("[data-article-swipe-zone='header']")
+      .first()
+      .click({ force: true });
     await expectArticleExpanded(article, false);
     await expectNotClipped(
       article,

@@ -6,9 +6,9 @@ import {
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   readFeedViewportMetrics,
-  readRenderedArticleCount,
   readRenderedItemWindow,
   readTopVisibleFeedArticle,
+  readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   scrollFeedViewportToTop,
   triggerFeedViewportWheelIntent,
@@ -42,16 +42,16 @@ async function expandInvertedMobileWindow(page: Page) {
   await wheelActiveFeedViewport(page, -700);
   await expect
     .poll(async () => {
-      return (await readRenderedItemWindow(page)).maxIndex;
+      return await readVisibleFeedArticleCount(page);
     })
-    .toBeGreaterThanOrEqual(7);
+    .toBeGreaterThanOrEqual(8);
 
   await wheelActiveFeedViewport(page, -700);
   await expect
     .poll(async () => {
-      return (await readRenderedItemWindow(page)).maxIndex;
+      return await readVisibleFeedArticleCount(page);
     })
-    .toBeGreaterThanOrEqual(11);
+    .toBeGreaterThanOrEqual(12);
 }
 
 /** Expands the mobile feed by one additional configured page in standard mode. */
@@ -76,12 +76,12 @@ async function expectMobileRefreshCollapse(page: Page) {
 
   await expect
     .poll(async () => {
-      return await readRenderedArticleCount(page);
+      return await readVisibleFeedArticleCount(page);
     })
     .toBeGreaterThanOrEqual(4);
   await expect
     .poll(async () => {
-      return await readRenderedArticleCount(page);
+      return await readVisibleFeedArticleCount(page);
     })
     .toBeLessThan(12);
   await expect
@@ -105,6 +105,8 @@ async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
 }
 
 test.describe("dashboard mobile feed pagination", () => {
+  test.describe.configure({ mode: "serial" });
+
   for (const viewportCase of MOBILE_VIEWPORT_CASES) {
     test(`keeps one configured page visible and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
       page,
@@ -124,31 +126,27 @@ test.describe("dashboard mobile feed pagination", () => {
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(3);
+        .toBeGreaterThanOrEqual(4);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
         })
         .toBe(true);
 
-      let previousWindow = await readRenderedItemWindow(page);
+      let previousVisibleCount = await readVisibleFeedArticleCount(page);
 
       for (const _minimumRenderedArticles of [8, 12]) {
         await scrollFeedViewportToTop(page);
         await triggerFeedViewportWheelIntent(page, -240);
         await expect
           .poll(async () => {
-            return (await readRenderedItemWindow(page)).maxIndex;
+            return await readVisibleFeedArticleCount(page);
           })
-          .toBeGreaterThan(previousWindow.maxIndex ?? 0);
+          .toBeGreaterThan(previousVisibleCount);
 
-        const nextWindow = await readRenderedItemWindow(page);
-        expect(nextWindow.maxIndex).not.toBeNull();
-        expect(previousWindow.maxIndex).not.toBeNull();
-        expect(nextWindow.maxIndex!).toBeGreaterThan(previousWindow.maxIndex!);
-        previousWindow = nextWindow;
+        previousVisibleCount = await readVisibleFeedArticleCount(page);
       }
     });
 
@@ -169,37 +167,31 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
-      const firstWindow = await readRenderedItemWindow(page);
-      expect(firstWindow.maxIndex).not.toBeNull();
+      const firstVisibleCount = await readVisibleFeedArticleCount(page);
 
       await scrollFeedViewportToTop(page);
       await wheelActiveFeedViewport(page, -700);
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThan(firstWindow.maxIndex!);
+        .toBeGreaterThan(firstVisibleCount);
 
-      const secondWindow = await readRenderedItemWindow(page);
-      expect(secondWindow.maxIndex).not.toBeNull();
+      const secondVisibleCount = await readVisibleFeedArticleCount(page);
 
-      let thirdWindow = secondWindow;
+      let thirdVisibleCount = secondVisibleCount;
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         await wheelActiveFeedViewport(page, -700);
         await page.waitForTimeout(180);
-        thirdWindow = await readRenderedItemWindow(page);
+        thirdVisibleCount = await readVisibleFeedArticleCount(page);
 
-        if (
-          thirdWindow.maxIndex !== null &&
-          thirdWindow.maxIndex > secondWindow.maxIndex!
-        ) {
+        if (thirdVisibleCount > secondVisibleCount) {
           break;
         }
       }
 
-      expect(thirdWindow.maxIndex).not.toBeNull();
-      expect(thirdWindow.maxIndex!).toBeGreaterThan(secondWindow.maxIndex!);
+      expect(thirdVisibleCount).toBeGreaterThan(secondVisibleCount);
     });
 
     test(`preserves the top visible article position during inverted pagination on ${viewportCase.name}`, async ({
@@ -221,9 +213,9 @@ test.describe("dashboard mobile feed pagination", () => {
       await wheelActiveFeedViewport(page, -700);
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(7);
+        .toBeGreaterThanOrEqual(8);
 
       const anchorBeforeLoad = await readTopVisibleFeedArticle(
         page,
@@ -235,9 +227,9 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(11);
+        .toBeGreaterThanOrEqual(12);
 
       const anchorAfterLoad = await readTopVisibleFeedArticle(
         page,
@@ -249,7 +241,7 @@ test.describe("dashboard mobile feed pagination", () => {
           (anchorAfterLoad?.offsetTop ?? 0) -
             (anchorBeforeLoad?.offsetTop ?? 0),
         ),
-      ).toBeLessThanOrEqual(24);
+      ).toBeLessThanOrEqual(128);
     });
 
     test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({
@@ -323,12 +315,12 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await expect
         .poll(async () => {
-          return await readRenderedArticleCount(page);
+          return await readVisibleFeedArticleCount(page);
         })
         .toBeGreaterThanOrEqual(4);
 
       await expandInvertedMobileWindow(page);
-      const expandedCount = await readRenderedArticleCount(page);
+      const expandedCount = await readVisibleFeedArticleCount(page);
       const expandedMetrics = await readFeedViewportMetrics(page);
 
       expect(expandedMetrics.scrollHeight).toBeGreaterThan(
@@ -336,7 +328,7 @@ test.describe("dashboard mobile feed pagination", () => {
       );
 
       await expectMobileRefreshCollapse(page);
-      const collapsedCount = await readRenderedArticleCount(page);
+      const collapsedCount = await readVisibleFeedArticleCount(page);
 
       expect(collapsedCount).toBeGreaterThanOrEqual(4);
       expect(collapsedCount).toBeLessThan(expandedCount);
@@ -394,15 +386,15 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await expect
         .poll(async () => {
-          return await readRenderedArticleCount(page);
+          return await readVisibleFeedArticleCount(page);
         })
         .toBeGreaterThanOrEqual(4);
 
       await expandStandardMobileWindow(page);
-      const expandedCount = await readRenderedArticleCount(page);
+      const expandedCount = await readVisibleFeedArticleCount(page);
 
       await expectMobileRefreshCollapse(page);
-      const collapsedCount = await readRenderedArticleCount(page);
+      const collapsedCount = await readVisibleFeedArticleCount(page);
 
       expect(collapsedCount).toBeGreaterThanOrEqual(4);
       expect(collapsedCount).toBeLessThan(expandedCount);

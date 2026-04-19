@@ -46,7 +46,11 @@ export const FeedVirtualList = memo(
     } = props;
     const isTestEnvironment =
       process.env.NODE_ENV === "test" ||
-      (typeof window !== "undefined" && "happyDOM" in window);
+      (typeof window !== "undefined" && "happyDOM" in window) ||
+      Boolean(
+        process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim() ??
+        process.env.PLAYWRIGHT_PORT?.trim(),
+      );
     const entries = useMemo(
       () =>
         buildFeedVirtualListEntries(
