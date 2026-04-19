@@ -342,23 +342,26 @@ async function applyPreparedFeedBatchRequest(
 /**
  * Process the prepare feed batch execution.
  * @param options - The options used to process the prepare feed batch execution.
+ * @param executionOptions - The request inputs and state needed to prepare a batch refresh run.
  * @returns The prepare feed batch execution.
  */
-function prepareFeedBatchExecution(options: PrepareFeedBatchExecutionOptions) {
+function prepareFeedBatchExecution(
+  executionOptions: PrepareFeedBatchExecutionOptions,
+) {
   const {
     articleFilter,
     logRefreshDiagnostics,
-    options,
+    options: requestOptions,
     queryClient,
     requestHelpers,
     requestState,
     setFeed,
     sources,
     usePlaceholderData,
-  } = options;
+  } = executionOptions;
   const context = prepareFeedBatchRequestContext({
     articleFilter,
-    options,
+    options: requestOptions,
     queryClient,
     requestHelpers,
     requestState,
@@ -370,7 +373,12 @@ function prepareFeedBatchExecution(options: PrepareFeedBatchExecutionOptions) {
     return null;
   }
 
-  logFeedBatchStart(logRefreshDiagnostics, context, sources.length, options);
+  logFeedBatchStart(
+    logRefreshDiagnostics,
+    context,
+    sources.length,
+    requestOptions,
+  );
   clearStaleFeedBeforeRefresh(context, queryClient, setFeed);
 
   return context;
@@ -414,8 +422,11 @@ function restorePreparedFeedBatchSnapshotOnError(
 /**
  * Process the run feed batch request.
  * @param options - The options used to process the run feed batch request.
+ * @param executionOptions - The request inputs, state, and callbacks needed to execute the batch refresh.
  */
-async function runFeedBatchRequest(options: FeedBatchRequestExecutionOptions) {
+async function runFeedBatchRequest(
+  executionOptions: FeedBatchRequestExecutionOptions,
+) {
   const {
     articleFilter,
     feedRef,
@@ -424,7 +435,7 @@ async function runFeedBatchRequest(options: FeedBatchRequestExecutionOptions) {
     logRefreshDiagnostics,
     onFeedBatchLoaded,
     onNewArticlesArrived,
-    options,
+    options: requestOptions,
     queryClient,
     requestHelpers,
     requestState,
@@ -432,7 +443,7 @@ async function runFeedBatchRequest(options: FeedBatchRequestExecutionOptions) {
     setFeed,
     sources,
     usePlaceholderData,
-  } = options;
+  } = executionOptions;
   // Capture the article snapshot before prepareFeedBatchExecution calls
   // clearStaleFeedBeforeRefresh, which may call setFeed([]). In production
   // React batches the state update so feedRef still reflects the old articles
@@ -443,7 +454,7 @@ async function runFeedBatchRequest(options: FeedBatchRequestExecutionOptions) {
   const context = prepareFeedBatchExecution({
     articleFilter,
     logRefreshDiagnostics,
-    options,
+    options: requestOptions,
     queryClient,
     requestHelpers,
     requestState,

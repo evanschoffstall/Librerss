@@ -225,22 +225,23 @@ export function logStaleFeedBatchRequest(
 /**
  * Process the prepare feed batch request context.
  * @param options - The options used to process the prepare feed batch request context.
+ * @param contextOptions - The request options, helpers, and current request state for the batch fetch.
  * @returns The prepare feed batch request context.
  */
 export function prepareFeedBatchRequestContext(
-  options: PrepareFeedBatchRequestContextOptions,
+  contextOptions: PrepareFeedBatchRequestContextOptions,
 ): FeedBatchRequestContext | null {
   const {
     articleFilter,
-    options,
+    options: requestOptions,
     queryClient: _queryClient,
     requestHelpers,
     requestState,
     sources,
     usePlaceholderData,
-  } = options;
-  const keepExistingFeed = options.keepExistingFeed === true;
-  const forceRefresh = options.forceRefresh === true;
+  } = contextOptions;
+  const keepExistingFeed = requestOptions?.keepExistingFeed === true;
+  const forceRefresh = requestOptions?.forceRefresh === true;
   const isBackground = keepExistingFeed && !forceRefresh;
   if (isBackground && requestState.isLoadingRequest()) {
     return null;
@@ -251,7 +252,7 @@ export function prepareFeedBatchRequestContext(
     articleFilter,
     keepExistingFeed,
     normalizedSources,
-    options,
+    options: requestOptions,
     requestHelpers,
   });
   const requestInfo = requestState.beginFeedRequest({
@@ -263,12 +264,12 @@ export function prepareFeedBatchRequestContext(
 
   return {
     articleFilter,
-    batchQueryStaleTime: resolveFeedBatchStaleTime(options),
+    batchQueryStaleTime: resolveFeedBatchStaleTime(requestOptions),
     isBackground,
     keepExistingFeed,
     knownLastFetchedAtByUrl: queryState.knownLastFetchedAtByUrl,
     normalizedSources,
-    options,
+    options: requestOptions,
     queryKey: queryState.queryKey,
     requestId: requestInfo.requestId,
     requestSignature: queryState.requestSignature,
