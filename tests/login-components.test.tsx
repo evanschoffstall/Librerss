@@ -1,7 +1,13 @@
-import type React from "react";
-
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
+import React from "react";
+
+const mockMotion = new Proxy(realMotionReactModule.motion, {
+  get: (_target, tag) =>
+    ({ children }: { children: React.ReactNode }) =>
+      React.createElement(tag as string, undefined, children),
+});
 
 async function loadLoginComponents() {
   const [
@@ -51,9 +57,8 @@ describe("login components", () => {
   beforeEach(() => {
     mock.restore();
     mock.module("motion/react", () => ({
-      motion: {
-        div: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-      },
+      ...realMotionReactModule,
+      motion: mockMotion,
     }));
   });
 

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
+import * as realSonnerModule from "sonner";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { DashboardToolbar as realDashboardToolbar } from "@/app/dashboard/dashboard-components";
@@ -411,7 +412,11 @@ function mockToolbarDependencies() {
     useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
   }));
   mock.module("sonner", () => ({
-    toast: { error: mock(() => {}) },
+    ...realSonnerModule,
+    toast: {
+      ...realSonnerModule.toast,
+      error: mock(() => {}),
+    },
   }));
   mock.module("@/components/ui/dropdown-menu", () => ({
     DropdownMenu: ({ children }: { children: React.ReactNode }) => (

@@ -16,6 +16,7 @@ import {
   test,
 } from "bun:test";
 import { createElement } from "react";
+import * as realSonnerModule from "sonner";
 import { toast } from "sonner";
 
 import type { Article, CategoryTreeNode } from "@/lib/core";
@@ -923,7 +924,9 @@ describe("useArticleActions", () => {
 
 function registerModuleMocks() {
   mock.module("sonner", () => ({
+    ...realSonnerModule,
     toast: {
+      ...realSonnerModule.toast,
       error: mock(() => {}),
       info: mock(() => {}),
       success: mock(() => {}),

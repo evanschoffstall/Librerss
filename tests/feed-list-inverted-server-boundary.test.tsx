@@ -1,5 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
@@ -129,17 +130,11 @@ beforeEach(async () => {
     originalConsoleError(...args);
   }) as typeof console.error;
   mock.module("motion/react", () => ({
+    ...realMotionReactModule,
     AnimatePresence: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),
     motion,
-  }));
-  mock.module("@/lib/hooks", () => ({
-    useIsBelowDesktop: () => true,
-    useLocalStorage: (key: string, initialValue: boolean) => [
-      key === MOBILE_INVERTED_SCROLL_STORAGE_KEY ? true : initialValue,
-      mock(() => {}),
-    ],
   }));
   installFeedListDomMocks();
   ({ FeedList } = await import(
@@ -150,7 +145,9 @@ beforeEach(async () => {
 afterEach(() => {
   mock.restore();
   console.error = originalConsoleError;
+  window.localStorage.removeItem(MOBILE_INVERTED_SCROLL_STORAGE_KEY);
   restoreFeedListDomMocks();
+  setFeedListMobileViewport(false);
 });
 
 test("keeps inverted server pagination disarmed while the reader stays pinned at the top boundary after a reveal", async () => {

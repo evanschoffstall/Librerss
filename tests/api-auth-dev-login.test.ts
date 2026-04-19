@@ -1,9 +1,26 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest, NextResponse } from "next/server";
 
+import * as realAuthSessionModule from "@/lib/auth/session";
+import * as realLoggerModule from "@/lib/logger";
+import * as realServerModule from "@/lib/server";
+
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 let routeImportVersion = 0;
+
+function createLoggerMock(
+  overrides: Partial<typeof realLoggerModule.logger>,
+): typeof realLoggerModule {
+  return {
+    ...realLoggerModule,
+    logger: Object.assign(
+      Object.create(realLoggerModule.logger),
+      realLoggerModule.logger,
+      overrides,
+    ),
+  };
+}
 
 async function loadDevLoginRoute() {
   routeImportVersion += 1;
@@ -88,13 +105,15 @@ describe("Auth API - Dev Login", () => {
     const setSessionCookie = mock(() => undefined);
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -140,13 +159,15 @@ describe("Auth API - Dev Login", () => {
     const setSessionCookie = mock(() => undefined);
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -189,13 +210,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -236,13 +259,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -283,13 +308,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -343,13 +370,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -390,13 +419,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -436,11 +467,15 @@ describe("Auth API - Dev Login", () => {
     );
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({ logger: {} }));
-    mock.module("@/lib/server", () => ({ logAndRespondError }));
+    mock.module("@/lib/logger", () => createLoggerMock({}));
+    mock.module("@/lib/server", () => ({
+      ...realServerModule,
+      logAndRespondError,
+    }));
 
     await withDevAutoLoginEnv(
       {

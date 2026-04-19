@@ -1,6 +1,7 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
+import * as realSonnerModule from "sonner";
 
 import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/constants";
 import { getToastPlacement } from "@/components/AppThemeProvider";
@@ -106,7 +107,9 @@ describe("AppThemeProvider", () => {
       useSearchParams: () => new URLSearchParams("view=dashboard"),
     }));
     mock.module("sonner", () => ({
+      ...realSonnerModule,
       toast: Object.assign(() => {}, {
+        ...realSonnerModule.toast,
         error: () => {},
         info: () => {},
         success: () => {},

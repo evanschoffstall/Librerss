@@ -24,6 +24,7 @@ import {
   parseToggleFeedEnabledPayloadFromBody,
   parseUpdateFeedSettingsPayloadFromBody,
 } from "@/lib/api/feed-source-api/parsers";
+import * as realFeedReadModule from "@/lib/api/feed-source-api/read";
 import { HttpCloakUpstreamError } from "@/lib/fetch/response";
 
 import { createMockFeed, createMockRequest } from "./support/test-utils";
@@ -62,6 +63,7 @@ function registerModuleMocks() {
   }));
 
   mock.module("@/lib/api/feed-source-api/read", () => ({
+    ...realFeedReadModule,
     handleFeedRead: async () => Response.json([]),
   }));
 }

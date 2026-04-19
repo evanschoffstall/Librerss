@@ -16,6 +16,7 @@ import {
   mock,
   test,
 } from "bun:test";
+import * as realSonnerModule from "sonner";
 
 import type { Article } from "@/lib/core";
 
@@ -35,7 +36,9 @@ const runWithAct = async (callback: () => Promise<void> | void) => {
 
 beforeAll(() => {
   mock.module("sonner", () => ({
+    ...realSonnerModule,
     toast: {
+      ...realSonnerModule.toast,
       error: mock(() => {}),
       success: mock(() => {}),
     },

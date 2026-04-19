@@ -1,5 +1,6 @@
 import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
 import { useRef } from "react";
 
 import {
@@ -125,6 +126,7 @@ describe("background stack", () => {
     let frameCallback: ((now: number) => void) | undefined;
     let reducedMotion = false;
     mock.module("motion/react", () => ({
+      ...realMotionReactModule,
       useAnimationFrame: (callback: (now: number) => void) => {
         frameCallback = callback;
       },
