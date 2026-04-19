@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
   useBackgroundCanvasAnimation,
+  useBackgroundCanvasRefs,
   useBackgroundCanvasWindowEvents,
 } from "@/app/dashboard/dashboard-components/background-hooks";
 import {
@@ -573,8 +574,7 @@ function useBackgroundParticlesRuntime(
   >,
 ) {
   const { color, ease, quantity, staticity } = options;
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const { canvasContainerRef, canvasRef } = useBackgroundCanvasRefs();
   const circles = useRef<Circle[]>([]);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const startedAtRef = useRef(0);

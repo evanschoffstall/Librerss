@@ -6,6 +6,7 @@ import type { Star } from "@/app/dashboard/dashboard-components/BackgroundStars.
 
 import {
   useBackgroundCanvasAnimation,
+  useBackgroundCanvasRefs,
   useBackgroundCanvasWindowEvents,
 } from "@/app/dashboard/dashboard-components/background-hooks";
 import {
@@ -360,8 +361,7 @@ function useBackgroundStarsRuntime(
   >,
 ) {
   const { color, ease, quantity, staticity } = options;
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const { canvasContainerRef, canvasRef } = useBackgroundCanvasRefs();
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const starsRef = useRef<Star[]>([]);
   const mouseRef = useRef({ x: 0, y: 0 });
