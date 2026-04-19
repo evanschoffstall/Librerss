@@ -13,6 +13,10 @@ import {
   collectKnownCategoryLabels,
   getFeedUrlBySelectedKey,
 } from "@/app/dashboard/dashboard-services/category-tree";
+import {
+  ensureCategoriesLoadedForSelectionRestore,
+  restoreCategorySelectionAfterRefresh,
+} from "@/app/dashboard/dashboard-services/category/selection-restore";
 import { FeedService } from "@/lib/api";
 import {
   findCategoryByLabel,
@@ -57,12 +61,6 @@ interface CommitCategoryRenameOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
-interface EnsureCategoriesLoadedForSelectionRestoreOptions {
-  categoriesWereReloaded: boolean;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
-  refreshedCategories: CategoryTreeNode[];
-}
-
 interface RemoveCategoryAndRefreshOptions extends CategoryRemovalStateSetters {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
@@ -83,13 +81,6 @@ interface RenameCategoryAndRefreshOptions {
   selectedCategory: string;
   setCustomCategoryLabels: CategoryLabelCollectionSetters["setCustomCategoryLabels"];
   setOrderedCategoryLabels: CategoryLabelCollectionSetters["setOrderedCategoryLabels"];
-  setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
-}
-
-interface RestoreCategorySelectionAfterRefreshOptions {
-  categories: CategoryTreeNode[];
-  refreshedCategories: CategoryTreeNode[];
-  selectedCategory: string;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
@@ -406,22 +397,6 @@ async function commitCategoryRename(options: CommitCategoryRenameOptions) {
 }
 
 /**
- * Process the ensure categories loaded for selection restore.
- * @param options - The options used to process the ensure categories loaded for selection restore.
- * @returns The ensure categories loaded for selection restore.
- */
-async function ensureCategoriesLoadedForSelectionRestore(
-  options: EnsureCategoriesLoadedForSelectionRestoreOptions,
-) {
-  const { categoriesWereReloaded, loadFeedSources, refreshedCategories } =
-    options;
-  if (categoriesWereReloaded) {
-    return refreshedCategories;
-  }
-
-  return loadFeedSources();
-}
-/**
  * Return the category rename context.
  * @param options - The options used to return the category rename context.
  * @returns The category rename context.
@@ -500,31 +475,6 @@ function resolveCategoryRemovalState(
 
   return { completed: false, feedsInCategory, targetCategory };
 }
-/**
- * Process the restore category selection after refresh.
- * @param options - The options used to process the restore category selection after refresh.
- */
-function restoreCategorySelectionAfterRefresh(
-  options: RestoreCategorySelectionAfterRefreshOptions,
-) {
-  const {
-    categories,
-    refreshedCategories,
-    selectedCategory,
-    setSelectedCategory,
-  } = options;
-  const previousSelectedSourceUrl = getFeedUrlBySelectedKey(
-    categories,
-    selectedCategory,
-  );
-
-  restoreSelectedCategoryFromSourceUrl({
-    refreshedCategories,
-    selectedSourceUrl: previousSelectedSourceUrl,
-    setSelectedCategory,
-  });
-}
-
 /**
  * Process the validate category rename.
  * @param options - The options used to process the validate category rename.
