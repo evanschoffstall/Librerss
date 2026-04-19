@@ -138,6 +138,10 @@ export async function queryTopArticlesPerFeed(
  */
 function buildArticleFilterCondition(articleFilter: ArticleFilter) {
   switch (articleFilter) {
+    case "all": {
+      return sql`true`;
+    }
+
     case "read": {
       return sql`COALESCE(status.is_read, false) = true`;
     }
@@ -148,10 +152,6 @@ function buildArticleFilterCondition(articleFilter: ArticleFilter) {
 
     case "unread": {
       return sql`COALESCE(status.is_read, false) = false`;
-    }
-
-    default: {
-      return sql`true`;
     }
   }
 }

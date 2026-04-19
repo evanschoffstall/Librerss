@@ -25,7 +25,7 @@ type UserScopedIndexSpec = readonly [
  * @param columns - The columns.
  * @returns The define index.
  */
-const defineIndex = (name: string, columns: CompositeIndexColumns) =>
+const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
   index(name).on(...columns);
 
 /**
@@ -34,7 +34,7 @@ const defineIndex = (name: string, columns: CompositeIndexColumns) =>
  * @param columns - The columns.
  * @returns The define unique index.
  */
-const defineUniqueIndex = (name: string, columns: CompositeIndexColumns) =>
+const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
   uniqueIndex(name).on(...columns);
 
 /**
@@ -47,11 +47,12 @@ const defineUserScopedIndexes = (
   userId: CompositeIndexColumns[number],
   indexes: readonly UserScopedIndexSpec[],
 ) =>
-  indexes.map(([, name, column, unique]) =>
-    unique
-      ? defineUniqueIndex(name, ...([userId, column] as CompositeIndexColumns))
-      : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
-  );
+  indexes.map(([, name, column, unique]) => {
+    const scopedColumns = [userId, column] as CompositeIndexColumns;
+    return unique
+      ? defineUniqueIndex(name, ...scopedColumns)
+      : defineIndex(name, ...scopedColumns);
+  });
 
 /**
  * Process the define single unique index.
@@ -60,7 +61,7 @@ const defineUserScopedIndexes = (
  */
 const defineSingleUniqueIndex = (
   indexConfig: ReturnType<typeof defineUniqueIndex>,
-) => [indexConfig];
+): [ReturnType<typeof defineUniqueIndex>] => [indexConfig];
 
 /**
  * Process the define user owned audit columns.
