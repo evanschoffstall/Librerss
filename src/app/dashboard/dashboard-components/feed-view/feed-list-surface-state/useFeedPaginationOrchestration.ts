@@ -180,9 +180,13 @@ function resolveAutoFillViewportOptions(
 ) {
   return {
     articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
     canLoadMoreFromServer: options.canLoadMoreFromServer,
+    expandedArticleKey: options.expandedArticleKey,
     expandVisibleWindow,
     filteredFeedLengthRef: localState.filteredFeedLengthRef,
+    hasActiveInvertedExpansionScrollLock:
+      options.hasActiveInvertedExpansionScrollLock,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
     hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
     hasUserScrolledRef: options.hasUserScrolledRef,
@@ -193,6 +197,8 @@ function resolveAutoFillViewportOptions(
     lastAutoFillListHeightRef: localState.lastAutoFillListHeightRef,
     requestMoreFromServer: serverLoadState.requestMoreFromServer,
     scrollViewport: options.scrollViewport,
+    standardViewportRefillTargetVisibleCountRef:
+      localState.standardViewportRefillTargetVisibleCountRef,
     visibleArticleCountRef: localState.visibleArticleCountRef,
   };
 }
@@ -217,9 +223,14 @@ function resolveMaybeLoadNextPageOptions(
     typeof useHasReachedStandardLoadBoundary
   >,
 ) {
+  const expandedArticleKey: null | string = options.expandedArticleKey ?? null;
+
   return {
+    expandedArticleKey,
     expandVisibleWindow,
     filteredFeedLengthRef: localState.filteredFeedLengthRef,
+    hasActiveInvertedExpansionScrollLock:
+      options.hasActiveInvertedExpansionScrollLock,
     hasCollapsingArticlesRef: localState.hasCollapsingArticlesRef,
     hasReachedStandardLoadBoundary,
     hasUserScrolledRef: options.hasUserScrolledRef,

@@ -46,8 +46,10 @@ interface MaybeLoadInvertedNextPageOptions {
   scrollViewport: HTMLElement;
 }
 interface MaybeLoadNextPageOptions {
+  expandedArticleKey: null | string;
   expandVisibleWindow: () => boolean;
   filteredFeedLengthRef: { current: number };
+  hasActiveInvertedExpansionScrollLock: () => boolean;
   hasCollapsingArticlesRef: { current: boolean };
   hasReachedStandardLoadBoundary: () => boolean;
   hasUserScrolledRef: { current: boolean };
@@ -206,9 +208,12 @@ export function useMaybeAutoFillViewport(
 ) {
   const {
     articleFilter,
+    articlesPerPage,
     canLoadMoreFromServer,
+    expandedArticleKey,
     expandVisibleWindow,
     filteredFeedLengthRef,
+    hasActiveInvertedExpansionScrollLock,
     hasPendingServerRevealRef,
     hasRequestedServerLoadRef,
     hasUserScrolledRef,
@@ -218,16 +223,20 @@ export function useMaybeAutoFillViewport(
     lastAutoFillListHeightRef,
     requestMoreFromServer,
     scrollViewport,
+    standardViewportRefillTargetVisibleCountRef,
     visibleArticleCountRef,
   } = options;
   return useCallback(
     (committedListHeight?: number) => {
       maybeAutoFillViewportNow({
         articleFilter,
+        articlesPerPage,
         canLoadMoreFromServer,
         committedListHeight,
+        expandedArticleKey,
         expandVisibleWindow,
         filteredFeedLengthRef,
+        hasActiveInvertedExpansionScrollLock,
         hasPendingServerRevealRef,
         hasRequestedServerLoadRef,
         hasUserScrolledRef,
@@ -237,14 +246,18 @@ export function useMaybeAutoFillViewport(
         lastAutoFillListHeightRef,
         requestMoreFromServer,
         scrollViewport,
+        standardViewportRefillTargetVisibleCountRef,
         visibleArticleCountRef,
       });
     },
     [
       articleFilter,
+      articlesPerPage,
       canLoadMoreFromServer,
+      expandedArticleKey,
       expandVisibleWindow,
       filteredFeedLengthRef,
+      hasActiveInvertedExpansionScrollLock,
       hasPendingServerRevealRef,
       hasRequestedServerLoadRef,
       hasUserScrolledRef,
@@ -252,6 +265,7 @@ export function useMaybeAutoFillViewport(
       isInvertedScroll,
       isStandardViewportRefillActiveRef,
       lastAutoFillListHeightRef,
+      standardViewportRefillTargetVisibleCountRef,
       requestMoreFromServer,
       scrollViewport,
       visibleArticleCountRef,
@@ -265,29 +279,46 @@ export function useMaybeAutoFillViewport(
  * @returns The maybe load next page state and callbacks.
  */
 export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
+  const {
+    expandedArticleKey,
+    expandVisibleWindow,
+    filteredFeedLengthRef,
+    hasActiveInvertedExpansionScrollLock,
+    hasCollapsingArticlesRef,
+    hasReachedStandardLoadBoundary,
+    hasUserScrolledRef,
+    isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll,
+    isStandardLoadBoundaryArmedRef,
+    primeInvertedPaginationAnchor,
+    requestMoreFromServer,
+    scrollViewport,
+    visibleArticleCountRef,
+  } = options;
   return useCallback(
     (_trigger: "scroll" | "sentinel") => {
       if (
-        !options.scrollViewport ||
-        !options.hasUserScrolledRef.current ||
-        options.hasCollapsingArticlesRef.current
+        expandedArticleKey !== null ||
+        (isInvertedScroll && hasActiveInvertedExpansionScrollLock()) ||
+        !scrollViewport ||
+        !hasUserScrolledRef.current ||
+        hasCollapsingArticlesRef.current
       ) {
         return;
       }
 
-      const currentVisibleCount = options.visibleArticleCountRef.current;
-      const currentFilteredFeedLength = options.filteredFeedLengthRef.current;
+      const currentVisibleCount = visibleArticleCountRef.current;
+      const currentFilteredFeedLength = filteredFeedLengthRef.current;
 
-      if (options.isInvertedScroll) {
+      if (isInvertedScroll) {
         maybeLoadInvertedNextPage({
           currentFilteredFeedLength,
           currentVisibleCount,
-          expandVisibleWindow: options.expandVisibleWindow,
-          isInvertedLoadBoundaryArmedRef:
-            options.isInvertedLoadBoundaryArmedRef,
-          primeInvertedPaginationAnchor: options.primeInvertedPaginationAnchor,
-          requestMoreFromServer: options.requestMoreFromServer,
-          scrollViewport: options.scrollViewport,
+          expandVisibleWindow,
+          isInvertedLoadBoundaryArmedRef,
+          primeInvertedPaginationAnchor,
+          requestMoreFromServer,
+          scrollViewport,
         });
         return;
       }
@@ -295,25 +326,27 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
       maybeLoadStandardNextPage({
         currentFilteredFeedLength,
         currentVisibleCount,
-        expandVisibleWindow: options.expandVisibleWindow,
-        hasReachedStandardLoadBoundary: options.hasReachedStandardLoadBoundary,
-        isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
-        requestMoreFromServer: options.requestMoreFromServer,
+        expandVisibleWindow,
+        hasReachedStandardLoadBoundary,
+        isStandardLoadBoundaryArmedRef,
+        requestMoreFromServer,
       });
     },
     [
-      options.expandVisibleWindow,
-      options.filteredFeedLengthRef,
-      options.hasCollapsingArticlesRef,
-      options.hasReachedStandardLoadBoundary,
-      options.hasUserScrolledRef,
-      options.isInvertedLoadBoundaryArmedRef,
-      options.isInvertedScroll,
-      options.isStandardLoadBoundaryArmedRef,
-      options.primeInvertedPaginationAnchor,
-      options.requestMoreFromServer,
-      options.scrollViewport,
-      options.visibleArticleCountRef,
+      expandedArticleKey,
+      expandVisibleWindow,
+      filteredFeedLengthRef,
+      hasActiveInvertedExpansionScrollLock,
+      hasCollapsingArticlesRef,
+      hasReachedStandardLoadBoundary,
+      hasUserScrolledRef,
+      isInvertedLoadBoundaryArmedRef,
+      isInvertedScroll,
+      isStandardLoadBoundaryArmedRef,
+      primeInvertedPaginationAnchor,
+      requestMoreFromServer,
+      scrollViewport,
+      visibleArticleCountRef,
     ],
   );
 }
@@ -326,7 +359,6 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
     isInvertedScroll: true,
     scrollViewport: options.scrollViewport,
   }).hasReachedBoundary;
-
   if (
     !hasReachedInvertedLoadBoundary ||
     !options.isInvertedLoadBoundaryArmedRef.current
@@ -337,22 +369,32 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
   options.primeInvertedPaginationAnchor();
 
   if (options.currentVisibleCount >= options.currentFilteredFeedLength) {
-    if (options.requestMoreFromServer()) {
+    const didRequestMore = options.requestMoreFromServer();
+    if (didRequestMore) {
       options.isInvertedLoadBoundaryArmedRef.current = false;
     }
     return;
   }
 
   flushSync(() => {
-    if (options.expandVisibleWindow()) {
+    const didExpandVisibleWindow = options.expandVisibleWindow();
+    if (didExpandVisibleWindow) {
       options.isInvertedLoadBoundaryArmedRef.current = false;
     }
   });
 }
 
 /**
- * Process the maybe load standard next page.
- * @param options - The options used to process the maybe load standard next page.
+ * Expand the visible article window or request more articles from the server when
+ * the scroll sentinel reaches the standard load boundary.
+ *
+ * If the user has already seen all locally cached articles (`currentVisibleCount >=
+ * currentFilteredFeedLength`), a server request is issued. Otherwise the visible
+ * window expands locally from the cache. Either action disarms the boundary until the
+ * sentinel re-enters the load zone.
+ *
+ * @param options - Current pagination state and callbacks for boundary detection,
+ *   window expansion, and server load requests.
  */
 function maybeLoadStandardNextPage(options: MaybeLoadStandardNextPageOptions) {
   if (

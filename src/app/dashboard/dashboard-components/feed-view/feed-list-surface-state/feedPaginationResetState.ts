@@ -14,6 +14,7 @@ export interface ResetPaginationStateOptions {
   hasResolvedStandardViewportRevealRef: { current: boolean };
   hasUserScrolledRef: { current: boolean };
   isInvertedLoadBoundaryArmedRef: { current: boolean };
+  isPendingServerRevealVisible: boolean;
   isStandardLoadBoundaryArmedRef: { current: boolean };
   isStandardViewportRefillActiveRef: { current: boolean };
   lastAutoFillListHeightRef: { current: null | number };
@@ -24,6 +25,10 @@ export interface ResetPaginationStateOptions {
   paginationFrameRef: { current: null | number };
   pendingInvertedPaginationAnchorSnapshotRef: { current: unknown };
   previousFilteredFeedLengthRef: { current: number };
+  setIsPendingServerRevealVisible: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
+  standardViewportRefillTargetVisibleCountRef: { current: null | number };
 }
 
 /**
@@ -39,6 +44,7 @@ export function useResetPaginationState(options: ResetPaginationStateOptions) {
     commitVisibleArticleCount,
     filteredFeedLengthRef,
     onResetInvertedScrollOwnership,
+    setIsPendingServerRevealVisible,
   } = options;
 
   return useCallback(() => {
@@ -47,6 +53,7 @@ export function useResetPaginationState(options: ResetPaginationStateOptions) {
       ...runtimeStateArgs,
       filteredFeedLength: filteredFeedLengthRef.current,
     });
+    setIsPendingServerRevealVisible(false);
     commitVisibleArticleCount(articlesPerPage);
     onResetInvertedScrollOwnership();
   }, [
@@ -56,6 +63,7 @@ export function useResetPaginationState(options: ResetPaginationStateOptions) {
     filteredFeedLengthRef,
     onResetInvertedScrollOwnership,
     runtimeStateArgs,
+    setIsPendingServerRevealVisible,
   ]);
 }
 
@@ -78,6 +86,7 @@ function useResetPaginationRuntimeStateArgs(
         options.hasResolvedStandardViewportRevealRef,
       hasUserScrolledRef: options.hasUserScrolledRef,
       isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
+      isPendingServerRevealVisible: options.isPendingServerRevealVisible,
       isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
       isStandardViewportRefillActiveRef:
         options.isStandardViewportRefillActiveRef,
@@ -90,6 +99,8 @@ function useResetPaginationRuntimeStateArgs(
       pendingInvertedPaginationAnchorSnapshotRef:
         options.pendingInvertedPaginationAnchorSnapshotRef,
       previousFilteredFeedLengthRef: options.previousFilteredFeedLengthRef,
+      standardViewportRefillTargetVisibleCountRef:
+        options.standardViewportRefillTargetVisibleCountRef,
     }),
     [
       options.clearServerLoadCooldown,
@@ -99,9 +110,11 @@ function useResetPaginationRuntimeStateArgs(
       options.hasResolvedStandardViewportRevealRef,
       options.hasUserScrolledRef,
       options.isInvertedLoadBoundaryArmedRef,
+      options.isPendingServerRevealVisible,
       options.isStandardLoadBoundaryArmedRef,
       options.isStandardViewportRefillActiveRef,
       options.lastAutoFillListHeightRef,
+      options.standardViewportRefillTargetVisibleCountRef,
       options.lastInvertedAwayBoundarySnapshotRef,
       options.lastInvertedScrollTopRef,
       options.lastStandardScrollTopRef,

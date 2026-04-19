@@ -24,13 +24,14 @@ import {
 
 import type { Article } from "@/lib/core";
 
-import { useServerLoadSkeletonHold } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useServerLoadSkeletonHold";
 import {
+  applyFeedSurfaceLayoutToHost,
   isInvertedFeedScrollMode,
   resolveFeedScrollMode,
   resolveFeedScrollModeArticles,
   syncViewportToBottomIfNeeded,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+  useServerLoadSkeletonHold,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
 import { FeedArticleRow } from "@/app/dashboard/dashboard-components/feed-view/FeedArticleRow";
 import { FeedEmptyState } from "@/app/dashboard/dashboard-components/feed-view/FeedEmptyState";
 import { type FeedListProps } from "@/app/dashboard/dashboard-components/feed-view/FeedList.types";
@@ -115,7 +116,6 @@ export const FeedList = memo(
       isInitialLoading,
       isLoadingMore = false,
       isRefreshing: _isRefreshing,
-      loadingMoreArticleCount,
       onEnteringDone,
       onExpandedSwipeRead,
       onLoadMore,
@@ -144,10 +144,13 @@ export const FeedList = memo(
     const { resolvedTheme } = useTheme();
     const isDark = (resolvedTheme ?? "dark") === "dark";
     const isMountedRef = useRef(true);
+    const [hasInvertedExpansionHistory, setHasInvertedExpansionHistory] =
+      useState(false);
     const [measuredTotalListHeight, setMeasuredTotalListHeight] = useState<
       null | number
     >(null);
     const scrollViewportRef = useRef<HTMLElement | null>(null);
+    const expansionHistoryResetTimeoutRef = useRef<null | number>(null);
     const invertedHeightFloorRef = useRef<null | number>(null);
     const invertedHydrationAnchorFrameRef = useRef<null | number>(null);
     const previousExpandedArticleKeyRef = useRef(expandedArticleKey);
@@ -157,11 +160,13 @@ export const FeedList = memo(
       contentKey,
       feedSurfaceMode,
       handleViewportHostRef,
+      hasActiveInvertedExpansionScrollLock,
       hasMoreArticles,
       hasSearchTerm,
       invertedPaginationAnchorRef,
       isCachedPageRevealing,
       isInvertedScroll,
+      isPendingServerRevealVisible,
       loadMoreSentinelRef,
       maybeAutoFillViewport,
       scrollViewport,
@@ -197,19 +202,25 @@ export const FeedList = memo(
     const shouldShowLoadMoreBoundary = hasMoreArticles || canLoadMoreFromServer;
     const isServerLoadSkeletonActive = useServerLoadSkeletonHold(isLoadingMore);
     const showLoadMoreSkeletons =
-      isServerLoadSkeletonActive || isCachedPageRevealing;
-    const loadMoreSkeletonCount = showLoadMoreSkeletons
-      ? (loadingMoreArticleCount ?? articlesPerPage)
-      : 0;
+      isPendingServerRevealVisible ||
+      isServerLoadSkeletonActive ||
+      isCachedPageRevealing;
+    const loadMoreSkeletonCount = showLoadMoreSkeletons ? articlesPerPage : 0;
 
     const feedData = useMemo(
       () => resolveFeedScrollModeArticles(visibleFeed, feedScrollMode),
       [feedScrollMode, visibleFeed],
     );
+    const hasInvertedExpansionScrollLock =
+      isInvertedScroll && hasActiveInvertedExpansionScrollLock();
     const shouldUseVirtualizedFeedSurface =
       shouldUseVirtualizedFeed &&
       expandedArticleKey === null &&
-      !(isInvertedScroll && isCollapseScrollRestoreActive);
+      !(isInvertedScroll && hasInvertedExpansionHistory) &&
+      !(
+        isInvertedScroll &&
+        (isCollapseScrollRestoreActive || hasInvertedExpansionScrollLock)
+      );
 
     scrollViewportRef.current = scrollViewport;
 
@@ -220,6 +231,10 @@ export const FeedList = memo(
         if (invertedHydrationAnchorFrameRef.current !== null) {
           window.cancelAnimationFrame(invertedHydrationAnchorFrameRef.current);
         }
+
+        if (expansionHistoryResetTimeoutRef.current !== null) {
+          window.clearTimeout(expansionHistoryResetTimeoutRef.current);
+        }
       };
     }, []);
 
@@ -227,12 +242,55 @@ export const FeedList = memo(
       invertedHeightFloorRef.current = null;
     }, [articleFilter, feedViewKey, isActiveInvertedScroll, searchTerm]);
 
+    useEffect(() => {
+      setHasInvertedExpansionHistory(false);
+    }, [articleFilter, feedViewKey, isActiveInvertedScroll, searchTerm]);
+
+    useEffect(() => {
+      if (
+        !isInvertedScroll ||
+        !hasInvertedExpansionHistory ||
+        expandedArticleKey !== null ||
+        isCollapseScrollRestoreActive ||
+        hasInvertedExpansionScrollLock
+      ) {
+        if (expansionHistoryResetTimeoutRef.current !== null) {
+          window.clearTimeout(expansionHistoryResetTimeoutRef.current);
+          expansionHistoryResetTimeoutRef.current = null;
+        }
+
+        return;
+      }
+
+      expansionHistoryResetTimeoutRef.current = window.setTimeout(() => {
+        expansionHistoryResetTimeoutRef.current = null;
+        setHasInvertedExpansionHistory(false);
+      }, 150);
+
+      return () => {
+        if (expansionHistoryResetTimeoutRef.current !== null) {
+          window.clearTimeout(expansionHistoryResetTimeoutRef.current);
+          expansionHistoryResetTimeoutRef.current = null;
+        }
+      };
+    }, [
+      expandedArticleKey,
+      hasInvertedExpansionHistory,
+      hasInvertedExpansionScrollLock,
+      isCollapseScrollRestoreActive,
+      isInvertedScroll,
+    ]);
+
     useLayoutEffect(() => {
       const previousExpandedArticleKey = previousExpandedArticleKeyRef.current;
       previousExpandedArticleKeyRef.current = expandedArticleKey;
 
       if (!isActiveInvertedScroll) {
         return;
+      }
+
+      if (expandedArticleKey !== null || previousExpandedArticleKey !== null) {
+        setHasInvertedExpansionHistory(true);
       }
 
       if (expandedArticleKey !== null) {
@@ -424,27 +482,9 @@ export const FeedList = memo(
     );
 
     const showEmptyState = !isInitialLoading && filteredFeed.length === 0;
-    const applyFeedSurfaceLayout = useCallback(
-      (element: HTMLElement | null) => {
-        if (!element) {
-          return;
-        }
-
-        element.style.display = "flex";
-        element.style.flexDirection = "column";
-        element.style.height = "100%";
-        element.style.minHeight = "0";
-      },
-      [],
-    );
-
     const handleFeedSurfaceRef = useCallback(
       (node: HTMLDivElement | null) => {
-        if (node) {
-          applyFeedSurfaceLayout(node);
-          applyFeedSurfaceLayout(node.parentElement);
-          applyFeedSurfaceLayout(node.parentElement?.parentElement ?? null);
-        }
+        applyFeedSurfaceLayoutToHost(node);
 
         if (isInitialLoading || showEmptyState) {
           handleViewportHostRef(null);
@@ -453,24 +493,31 @@ export const FeedList = memo(
 
         handleViewportHostRef(node);
       },
-      [
-        applyFeedSurfaceLayout,
-        handleViewportHostRef,
-        isInitialLoading,
-        showEmptyState,
-      ],
+      [handleViewportHostRef, isInitialLoading, showEmptyState],
     );
 
     return (
       <>
         <div
           className={FEED_LIST_SURFACE_CLASSNAME}
+          data-feed-load-more-skeleton-count={
+            showLoadMoreSkeletons && loadMoreSkeletonCount > 0
+              ? loadMoreSkeletonCount
+              : undefined
+          }
+          data-feed-load-more-skeletons-visible={
+            showLoadMoreSkeletons && loadMoreSkeletonCount > 0
+              ? "true"
+              : undefined
+          }
+          data-feed-rendered-article-count={feedData.length}
           data-feed-surface-mode={feedSurfaceMode}
           data-feed-total-list-height={
             measuredTotalListHeight !== null
               ? `${Math.round(measuredTotalListHeight)}`
               : undefined
           }
+          data-feed-visible-article-count={visibleArticleCount}
           data-inverted-scroll={isInvertedScroll ? "true" : undefined}
           ref={handleFeedSurfaceRef}
           style={FEED_LIST_FILL_STYLE}
@@ -510,10 +557,18 @@ export const FeedList = memo(
               </motion.div>
             ) : (
               <motion.div
-                className={FEED_LIST_FRAME_CLASSNAME}
+                className={
+                  shouldUseVirtualizedFeedSurface
+                    ? FEED_LIST_FRAME_CLASSNAME
+                    : "flex min-h-0 w-full min-w-0 flex-col"
+                }
                 initial={false}
                 key={contentKey}
-                style={FEED_LIST_FILL_STYLE}
+                style={
+                  shouldUseVirtualizedFeedSurface
+                    ? FEED_LIST_FILL_STYLE
+                    : undefined
+                }
               >
                 {shouldUseVirtualizedFeedSurface && scrollViewport !== null ? (
                   <>
@@ -625,7 +680,10 @@ export const FeedList = memo(
                           ) {
                             syncViewportToBottomIfNeeded(scrollViewport);
                           }
-                        } else if (shouldLockInitialNormalScroll()) {
+                        } else if (
+                          !isCollapseScrollRestoreActive &&
+                          shouldLockInitialNormalScroll()
+                        ) {
                           syncViewportScrollTop(scrollViewport, 0);
                         }
 

@@ -260,6 +260,9 @@ function useFeedPaginationBoundaryRefs() {
   const normalScrollIntentSuppressionFrameRef = useRef<null | number>(null);
   const lastStandardScrollTopRef = useRef<null | number>(null);
   const lastAutoFillListHeightRef = useRef<null | number>(null);
+  const standardViewportRefillTargetVisibleCountRef = useRef<null | number>(
+    null,
+  );
 
   return {
     isInvertedLoadBoundaryArmedRef,
@@ -268,6 +271,7 @@ function useFeedPaginationBoundaryRefs() {
     lastStandardScrollTopRef,
     normalScrollIntentSuppressionFrameRef,
     paginationFrameRef,
+    standardViewportRefillTargetVisibleCountRef,
   };
 }
 
