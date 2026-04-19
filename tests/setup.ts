@@ -3,18 +3,27 @@
  * Runs before all tests
  */
 
+import * as realNeonServerlessModule from "@neondatabase/serverless";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, mock } from "bun:test";
+import * as realDrizzleNeonServerlessModule from "drizzle-orm/neon-serverless";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
+import * as realMotionReactModule from "motion/react";
 import * as realNextThemesModule from "next-themes";
 import * as realNextNavigationModule from "next/navigation";
+import * as realSonnerModule from "sonner";
 
+import * as realBackgroundHooksModule from "@/app/dashboard/dashboard-components/background-hooks";
+import * as realDashboardToolbarModule from "@/app/dashboard/dashboard-components/DashboardToolbar";
+import * as realMotionSpinnerModule from "@/app/dashboard/dashboard-components/status/MotionSpinner";
 import * as realUseFeedSourceActionsModule from "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions";
 import * as realUseCategoryCrudActionsModule from "@/app/dashboard/dashboard-hooks/useCategoryCrudActions";
 import * as realUseCategoryOrderStateModule from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
 import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/dashboard-hooks/useDashboardCategoryTree";
 import * as realUseDashboardIntervalsModule from "@/app/dashboard/dashboard-hooks/useDashboardIntervals";
+import * as realSettingsStateModule from "@/app/dashboard/settings-state";
+import * as realToolbarModule from "@/app/dashboard/toolbar";
 import * as realUiButtonModule from "@/components/ui/button";
 import * as realUiDialogModule from "@/components/ui/dialog";
 import * as realUiDrawerModule from "@/components/ui/drawer";
@@ -25,16 +34,25 @@ import * as realUiSkeletonModule from "@/components/ui/skeleton";
 import * as realUiTabsModule from "@/components/ui/tabs";
 import * as realUiTooltipModule from "@/components/ui/tooltip";
 import * as realLibModule from "@/lib";
-import * as realAuthSessionModule from "@/lib/auth";
+import * as realFeedSourceReadModule from "@/lib/api/feed-source-api/read";
+import * as realAuthModuleImport from "@/lib/auth";
+import * as realAuthDevAutoLoginModule from "@/lib/auth/dev-auto-login";
+import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
+import * as realNodePostgresProviderModule from "@/lib/db/node-postgres-provider";
 import * as realHooksModule from "@/lib/hooks";
 import * as realUseLocalStorageModule from "@/lib/hooks/useLocalStorage";
 import * as realLoggerModule from "@/lib/logger";
-import * as realServerModule from "@/lib/server";
+import * as realProxyCredentialsModule from "@/lib/outbound-proxy/credentials";
+import * as realProxyTransportModule from "@/lib/outbound-proxy/transport";
+import * as realRateLimitModule from "@/lib/rate-limit";
+import * as realServerModuleImport from "@/lib/server";
 import * as realUrlModule from "@/lib/utils/url";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
+const realAuthModule = { ...realAuthModuleImport };
+const realServerModule = { ...realServerModuleImport };
 const window = new Window();
 const document = window.document;
 const originalConsoleError = console.error;
@@ -187,6 +205,18 @@ afterEach(() => {
   const restoreBaseMocks = () => {
     mock.restore();
     mock.module(
+      "@/app/dashboard/components/MotionSpinner",
+      () => realMotionSpinnerModule,
+    );
+    mock.module(
+      "@/app/dashboard/dashboard-components/DashboardToolbar",
+      () => realDashboardToolbarModule,
+    );
+    mock.module(
+      "@/app/dashboard/dashboard-components/background-hooks",
+      () => realBackgroundHooksModule,
+    );
+    mock.module(
       "@/app/dashboard/dashboard-hooks/useCategoryCrudActions",
       () => realUseCategoryCrudActionsModule,
     );
@@ -206,15 +236,41 @@ afterEach(() => {
       "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions",
       () => realUseFeedSourceActionsModule,
     );
+    mock.module("@/app/dashboard/settings-state", () => realSettingsStateModule);
+    mock.module("@/app/dashboard/toolbar", () => realToolbarModule);
+    mock.module("@/lib/api/feed-source-api/read", () => realFeedSourceReadModule);
+    mock.module("@/lib/auth", () => realAuthSessionModule);
+    mock.module(
+      "@/lib/auth/dev-auto-login",
+      () => realAuthDevAutoLoginModule,
+    );
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
+    mock.module(
+      "@/lib/db/node-postgres-provider",
+      () => realNodePostgresProviderModule,
+    );
     mock.module("@/lib/auth/session", () => realAuthSessionModule);
     mock.module("@/lib", () => realLibModule);
     mock.module("@/lib/hooks", () => realHooksModule);
     mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
     mock.module("@/lib/logger", () => realLoggerModule);
+    mock.module(
+      "@/lib/outbound-proxy/credentials",
+      () => realProxyCredentialsModule,
+    );
+    mock.module(
+      "@/lib/outbound-proxy/transport",
+      () => realProxyTransportModule,
+    );
+    mock.module("@/lib/rate-limit", () => realRateLimitModule);
     mock.module("@/lib/server", () => realServerModule);
     mock.module("@/lib/utils/url", () => realUrlModule);
+    mock.module("@neondatabase/serverless", () => realNeonServerlessModule);
+    mock.module(
+      "drizzle-orm/neon-serverless",
+      () => realDrizzleNeonServerlessModule,
+    );
     mock.module("@/components/ui/button", () => realUiButtonModule);
     mock.module("@/components/ui/dialog", () => realUiDialogModule);
     mock.module("@/components/ui/drawer", () => realUiDrawerModule);
@@ -227,8 +283,10 @@ afterEach(() => {
     mock.module("@/components/ui/skeleton", () => realUiSkeletonModule);
     mock.module("@/components/ui/tabs", () => realUiTabsModule);
     mock.module("@/components/ui/tooltip", () => realUiTooltipModule);
+    mock.module("motion/react", () => realMotionReactModule);
     mock.module("next/navigation", () => realNextNavigationModule);
     mock.module("next-themes", () => realNextThemesModule);
+    mock.module("sonner", () => realSonnerModule);
   };
 
   restoreBaseMocks();
