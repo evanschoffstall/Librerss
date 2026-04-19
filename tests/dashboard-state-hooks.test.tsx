@@ -21,6 +21,7 @@ import {
 } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
 import { useDashboardHandlers } from "@/app/dashboard/dashboard-hooks/useDashboardHandlers";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
+import * as realHooksModule from "@/lib/hooks";
 
 import { createIsolatedStorage } from "./test-storage";
 
@@ -45,7 +46,13 @@ const originalWindowSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
 const originalFeedCacheTtlMinutes =
   process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
 
-async function loadUseDashboardState() {
+async function loadUseDashboardState(
+  hookOverrides: Partial<typeof realHooksModule> = {},
+) {
+  mock.module("@/lib/hooks", () => ({
+    ...realHooksModule,
+    ...hookOverrides,
+  }));
   const module = await import(
     `@/app/dashboard/dashboard-hooks/useDashboardState/state?test=${Date.now()}-${Math.random()}`
   );
@@ -152,7 +159,35 @@ describe("useDashboardState", () => {
   });
 
   test("normalizes auto-refresh updates from both values and updater functions", async () => {
-    const useDashboardState = await loadUseDashboardState();
+    const useDashboardState = await loadUseDashboardState({
+      useLocalStorage: <T,>(key: string, defaultValue: T) => {
+        if (key === DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY) {
+          return [
+            "placeholder-feeds" as T,
+            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
+          ];
+        }
+
+        if (key === DASHBOARD_ARTICLE_FILTER_STORAGE_KEY) {
+          return [
+            "read" as T,
+            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
+          ];
+        }
+
+        if (key === DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY) {
+          return [
+            4 as T,
+            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
+          ];
+        }
+
+        return [
+          defaultValue,
+          mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
+        ];
+      },
+    });
     const { result } = renderHook(() => useDashboardState());
 
     act(() => {
