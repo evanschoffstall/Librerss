@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import {
-  buildDevAutoLoginFailurePath,
-  buildDevAutoLoginRequestPath,
-  getDevAutoLoginCredentials,
-  isDevAutoLoginEnabled,
-  isDevAutoLoginFailure,
-} from "@/lib/auth/dev-auto-login";
+let devAutoLoginImportVersion = 0;
+
+async function loadDevAutoLoginModule() {
+  devAutoLoginImportVersion += 1;
+  return import(`@/lib/auth/dev-auto-login?test=${devAutoLoginImportVersion}`);
+}
 
 const mutableEnv = process.env as Record<string, string | undefined>;
 
@@ -53,7 +52,9 @@ function withDevAutoLoginEnv(
 }
 
 describe("dev auto-login env helper", () => {
-  test("returns null outside development", () => {
+  test("returns null outside development", async () => {
+    const { getDevAutoLoginCredentials, isDevAutoLoginEnabled } =
+      await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "reader@example.com",
@@ -67,7 +68,9 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("returns normalized credentials when both env vars are set in development", () => {
+  test("returns normalized credentials when both env vars are set in development", async () => {
+    const { getDevAutoLoginCredentials, isDevAutoLoginEnabled } =
+      await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: " Reader@Example.com ",
@@ -84,7 +87,9 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("stays disabled inside the Playwright runtime", () => {
+  test("stays disabled inside the Playwright runtime", async () => {
+    const { getDevAutoLoginCredentials, isDevAutoLoginEnabled } =
+      await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "reader@example.com",
@@ -99,7 +104,9 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("stays disabled when the Playwright dist-dir marker is present", () => {
+  test("stays disabled when the Playwright dist-dir marker is present", async () => {
+    const { getDevAutoLoginCredentials, isDevAutoLoginEnabled } =
+      await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "reader@example.com",
@@ -114,7 +121,8 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("throws when only one env var is configured", () => {
+  test("throws when only one env var is configured", async () => {
+    const { getDevAutoLoginCredentials } = await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "reader@example.com",
@@ -129,7 +137,8 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("throws when the configured email is invalid", () => {
+  test("throws when the configured email is invalid", async () => {
+    const { getDevAutoLoginCredentials } = await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "not-an-email",
@@ -144,7 +153,8 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("throws when the configured password is blank", () => {
+  test("throws when the configured password is blank", async () => {
+    const { getDevAutoLoginCredentials } = await loadDevAutoLoginModule();
     withDevAutoLoginEnv(
       {
         DEV_AUTO_LOGIN_EMAIL: "reader@example.com",
@@ -159,7 +169,12 @@ describe("dev auto-login env helper", () => {
     );
   });
 
-  test("preserves existing dashboard query params on failure redirects", () => {
+  test("preserves existing dashboard query params on failure redirects", async () => {
+    const {
+      buildDevAutoLoginFailurePath,
+      buildDevAutoLoginRequestPath,
+      isDevAutoLoginFailure,
+    } = await loadDevAutoLoginModule();
     expect(buildDevAutoLoginFailurePath("/dashboard?tab=feeds")).toBe(
       "/dashboard?tab=feeds&devLogin=failed",
     );

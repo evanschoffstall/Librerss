@@ -21,12 +21,13 @@ import {
 } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
 import { useDashboardHandlers } from "@/app/dashboard/dashboard-hooks/useDashboardHandlers";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
-import * as realHooksModule from "@/lib/hooks";
 
 import { createIsolatedStorage } from "./test-storage";
 
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;
+const originalGlobalRequestAnimationFrame = globalThis.requestAnimationFrame;
+const originalGlobalCancelAnimationFrame = globalThis.cancelAnimationFrame;
 const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
   "localStorage",
@@ -46,13 +47,7 @@ const originalWindowSessionStorageDescriptor = Object.getOwnPropertyDescriptor(
 const originalFeedCacheTtlMinutes =
   process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES;
 
-async function loadUseDashboardState(
-  hookOverrides: Partial<typeof realHooksModule> = {},
-) {
-  mock.module("@/lib/hooks", () => ({
-    ...realHooksModule,
-    ...hookOverrides,
-  }));
+async function loadUseDashboardState() {
   const module = await import(
     `@/app/dashboard/dashboard-hooks/useDashboardState/state?test=${Date.now()}-${Math.random()}`
   );
@@ -85,13 +80,19 @@ beforeEach(() => {
   });
   process.env.NEXT_PUBLIC_FEED_CACHE_TTL_MINUTES =
     originalFeedCacheTtlMinutes ?? "15";
-  window.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-    callback(0);
-    return 1;
-  }) as typeof window.requestAnimationFrame;
-  window.cancelAnimationFrame = mock(
-    () => {},
-  ) as typeof window.cancelAnimationFrame;
+  const requestAnimationFrameMock = ((callback: FrameRequestCallback) =>
+    setTimeout(
+      () => callback(performance.now()),
+      0,
+    ) as unknown as number) as typeof window.requestAnimationFrame;
+  const cancelAnimationFrameMock = ((frameId: number) => {
+    clearTimeout(frameId);
+  }) as typeof window.cancelAnimationFrame;
+
+  window.requestAnimationFrame = requestAnimationFrameMock;
+  globalThis.requestAnimationFrame = requestAnimationFrameMock;
+  window.cancelAnimationFrame = cancelAnimationFrameMock;
+  globalThis.cancelAnimationFrame = cancelAnimationFrameMock;
 });
 
 afterEach(() => {
@@ -103,7 +104,9 @@ afterEach(() => {
       originalFeedCacheTtlMinutes;
   }
   window.requestAnimationFrame = originalRequestAnimationFrame;
+  globalThis.requestAnimationFrame = originalGlobalRequestAnimationFrame;
   window.cancelAnimationFrame = originalCancelAnimationFrame;
+  globalThis.cancelAnimationFrame = originalGlobalCancelAnimationFrame;
   document.body.style.overflow = "";
   document.documentElement.style.overflow = "";
   if (originalGlobalLocalStorageDescriptor) {
@@ -159,35 +162,32 @@ describe("useDashboardState", () => {
   });
 
   test("normalizes auto-refresh updates from both values and updater functions", async () => {
-    const useDashboardState = await loadUseDashboardState({
-      useLocalStorage: <T,>(key: string, defaultValue: T) => {
-        if (key === DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY) {
-          return [
-            "placeholder-feeds" as T,
-            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
-          ];
-        }
+    window.localStorage.setItem(
+      DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+      JSON.stringify("placeholder-feeds"),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+      JSON.stringify("placeholder-feeds"),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+      JSON.stringify("read"),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+      JSON.stringify("read"),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      JSON.stringify(4),
+    );
+    globalThis.localStorage?.setItem(
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      JSON.stringify(4),
+    );
 
-        if (key === DASHBOARD_ARTICLE_FILTER_STORAGE_KEY) {
-          return [
-            "read" as T,
-            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
-          ];
-        }
-
-        if (key === DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY) {
-          return [
-            4 as T,
-            mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
-          ];
-        }
-
-        return [
-          defaultValue,
-          mock(() => {}) as React.Dispatch<React.SetStateAction<T>>,
-        ];
-      },
-    });
+    const useDashboardState = await loadUseDashboardState();
     const { result } = renderHook(() => useDashboardState());
 
     act(() => {

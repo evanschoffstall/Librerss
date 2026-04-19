@@ -1,9 +1,8 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
-
-import * as realLibModule from "@/lib";
 
 import {
   buildFeedListArticle,
@@ -15,6 +14,8 @@ import {
 
 let FeedList: typeof import("@/app/dashboard/dashboard-components/feed-view/FeedList").FeedList;
 const originalConsoleError = console.error;
+let hooksImportVersion = 0;
+let libImportVersion = 0;
 
 type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
   animate?: unknown;
@@ -83,8 +84,15 @@ async function flushFeedListAsyncWork() {
 }
 
 async function loadFeedListWithLibOverrides(
-  overrides: Partial<typeof realLibModule> = {},
+  overrides: Partial<typeof import("@/lib")> = {},
 ) {
+  hooksImportVersion += 1;
+  const realHooksModule = await import(`@/lib/hooks?test=${hooksImportVersion}`);
+  libImportVersion += 1;
+  const realLibModule = await import(`@/lib?test=${libImportVersion}`);
+  mock.module("@/lib/hooks", () => ({
+    ...realHooksModule,
+  }));
   mock.module("@/lib", () => ({
     ...realLibModule,
     ...overrides,
@@ -119,6 +127,7 @@ beforeEach(async () => {
     originalConsoleError(...args);
   }) as typeof console.error;
   mock.module("motion/react", () => ({
+    ...realMotionReactModule,
     AnimatePresence: ({ children }: { children: React.ReactNode }) => (
       <>{children}</>
     ),

@@ -8,17 +8,36 @@ import { NextResponse } from "next/server";
 
 import { createMockRequest } from "./support/test-utils";
 
+let authCsrfImportVersion = 0;
+let authSessionImportVersion = 0;
+let rateLimitImportVersion = 0;
+
+async function loadAuthCsrfModule() {
+  authCsrfImportVersion += 1;
+  return import(`@/lib/auth/csrf?test=${authCsrfImportVersion}`);
+}
+
+async function loadAuthSessionModule() {
+  authSessionImportVersion += 1;
+  return import(`@/lib/auth/session?test=${authSessionImportVersion}`);
+}
+
+async function loadRateLimitModule() {
+  rateLimitImportVersion += 1;
+  return import(`@/lib/server/rate-limit?test=${rateLimitImportVersion}`);
+}
+
 // ─── Session Management ───────────────────────────────────────────────────────
 
 describe("session", () => {
   test("hashPassword creates v2 prefixed hash", async () => {
-    const { hashPassword } = await import("@/lib/auth");
+    const { hashPassword } = await loadAuthSessionModule();
     const hash = await hashPassword("TestPass123!");
     expect(hash).toMatch(/^v2:[0-9a-f]+:[0-9a-f]+$/);
   });
 
   test("hashPassword creates unique hashes for same password", async () => {
-    const { hashPassword } = await import("@/lib/auth");
+    const { hashPassword } = await loadAuthSessionModule();
     const password = "TestPass123!";
     const hash1 = await hashPassword(password);
     const hash2 = await hashPassword(password);
@@ -27,20 +46,20 @@ describe("session", () => {
   });
 
   test("verifyPassword validates correct password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth");
+    const { hashPassword, verifyPassword } = await loadAuthSessionModule();
     const password = "TestPass123!";
     const hash = await hashPassword(password);
     expect(await verifyPassword(password, hash)).toBe(true);
   });
 
   test("verifyPassword rejects incorrect password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth");
+    const { hashPassword, verifyPassword } = await loadAuthSessionModule();
     const hash = await hashPassword("TestPass123!");
     expect(await verifyPassword("WrongPass123!", hash)).toBe(false);
   });
 
   test("verifyPassword handles legacy v1 hashes", async () => {
-    const { verifyPassword } = await import("@/lib/auth");
+    const { verifyPassword } = await loadAuthSessionModule();
     // This is a pre-computed v1 hash for testing backward compatibility
     // Real production code should only generate v2 hashes
     const legacyHash =
@@ -51,13 +70,13 @@ describe("session", () => {
   });
 
   test("SESSION_COOKIE_NAME is defined", async () => {
-    const { SESSION_COOKIE_NAME } = await import("@/lib/auth");
+    const { SESSION_COOKIE_NAME } = await loadAuthSessionModule();
     expect(SESSION_COOKIE_NAME).toBe("librerss_session");
   });
 
   test("setSessionCookie and clearSessionCookie set expected cookie metadata", async () => {
     const { clearSessionCookie, SESSION_COOKIE_NAME, setSessionCookie } =
-      await import("@/lib/auth");
+      await loadAuthSessionModule();
 
     const response = NextResponse.json({ ok: true });
     setSessionCookie(response, "token-123");
@@ -75,7 +94,7 @@ describe("session", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      const { createSession } = await import("@/lib/auth");
+      const { createSession } = await loadAuthSessionModule();
       const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
       const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
@@ -97,7 +116,7 @@ describe("session", () => {
         getUserFromRequest,
         getUserFromSessionToken,
         SESSION_COOKIE_NAME,
-      } = await import("@/lib/auth");
+      } = await loadAuthSessionModule();
       const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
       expect(await getUserFromSessionToken("")).toBeNull();
@@ -130,7 +149,7 @@ describe("session", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      const { authenticateCredentials } = await import("@/lib/auth");
+      const { authenticateCredentials } = await loadAuthSessionModule();
 
       const unknownEmail = await authenticateCredentials(
         "nope@example.com",
@@ -161,7 +180,7 @@ describe("session", () => {
 
 describe("csrf", () => {
   test("requireSameOrigin allows same-origin requests", async () => {
-    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const { requireSameOrigin } = await loadAuthCsrfModule();
     const request = new Request("https://example.com/api/test", {
       headers: {
         host: "example.com",
@@ -173,7 +192,7 @@ describe("csrf", () => {
   });
 
   test("requireSameOrigin blocks cross-origin requests", async () => {
-    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const { requireSameOrigin } = await loadAuthCsrfModule();
     const request = new Request("https://example.com/api/test", {
       headers: {
         origin: "https://evil.com",
@@ -185,7 +204,7 @@ describe("csrf", () => {
   });
 
   test("requireSameOrigin allows safe methods", async () => {
-    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const { requireSameOrigin } = await loadAuthCsrfModule();
     const request = new Request("https://example.com/api/test", {
       headers: {
         origin: "https://evil.com",
@@ -196,7 +215,7 @@ describe("csrf", () => {
   });
 
   test("requireSameOrigin checks Sec-Fetch-Site header", async () => {
-    const { requireSameOrigin } = await import("@/lib/auth/csrf");
+    const { requireSameOrigin } = await loadAuthCsrfModule();
     const sameOrigin = new Request("https://example.com/api/test", {
       headers: {
         "sec-fetch-site": "same-origin",
@@ -219,7 +238,7 @@ describe("csrf", () => {
 
 describe("rate-limit", () => {
   test("RateLimiter allows requests under limit", async () => {
-    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const { RateLimiter } = await loadRateLimitModule();
     const limiter = new RateLimiter();
 
     try {
@@ -236,7 +255,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter blocks requests over limit", async () => {
-    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const { RateLimiter } = await loadRateLimitModule();
     const limiter = new RateLimiter();
 
     try {
@@ -255,7 +274,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter uses client IP", async () => {
-    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const { RateLimiter } = await loadRateLimitModule();
     const limiter = new RateLimiter();
 
     try {
@@ -277,7 +296,7 @@ describe("rate-limit", () => {
   });
 
   test("RateLimiter resets after window", async () => {
-    const { RateLimiter } = await import("@/lib/server/rate-limit");
+    const { RateLimiter } = await loadRateLimitModule();
     const limiter = new RateLimiter();
 
     try {
@@ -418,7 +437,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { createSession } = await import("@/lib/auth");
+    const { createSession } = await loadAuthSessionModule();
     const token = await createSession(123);
 
     expect(typeof token).toBe("string");
@@ -444,7 +463,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { deleteSessionByToken } = await import("@/lib/auth");
+    const { deleteSessionByToken } = await loadAuthSessionModule();
     await deleteSessionByToken("session-token");
 
     expect(state.deleteSessionCalls).toBe(1);
@@ -466,7 +485,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { getUserFromSessionToken } = await import("@/lib/auth");
+    const { getUserFromSessionToken } = await loadAuthSessionModule();
 
     expect(await getUserFromSessionToken("")).toBeNull();
     expect(await getUserFromSessionToken("missing-token")).toBeNull();
@@ -497,7 +516,7 @@ describe("session non-placeholder paths", () => {
     }));
 
     const { getUserFromRequest, getUserFromSessionToken, SESSION_COOKIE_NAME } =
-      await import("@/lib/auth");
+      await loadAuthSessionModule();
 
     const fromToken = await getUserFromSessionToken("active-token");
     expect(fromToken?.userId).toBe(7);
@@ -532,7 +551,7 @@ describe("session non-placeholder paths", () => {
       getDb: () => mockDb,
     }));
 
-    const { authenticateCredentials } = await import("@/lib/auth");
+    const { authenticateCredentials } = await loadAuthSessionModule();
 
     state.userRows = [];
     const missingUser = await authenticateCredentials(
