@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { installDeterministicFeedBatchRoute } from "./helpers";
 import { expect, test } from "./test";
 
 interface E2ECredentials {
@@ -45,10 +46,9 @@ function getDashboardLoginCredentials(): E2ECredentials {
  */
 async function gotoAuthenticatedDashboard(page: Page) {
   const credentials = getDashboardLoginCredentials();
+  const visibleArticles = page.locator("article[data-article-key]:visible");
 
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-
-  const visibleArticles = page.locator("article[data-article-key]:visible");
   if ((await visibleArticles.count()) > 0) {
     await expect(visibleArticles.first()).toBeVisible({ timeout: 15_000 });
     return;
@@ -79,12 +79,32 @@ async function gotoAuthenticatedDashboard(page: Page) {
   ).toBe(true);
 
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/dashboard$/);
+  await normalizeDashboardArticleVisibility(page);
+  await expect
+    .poll(async () => {
+      return await page.locator("article[data-article-key]").count();
+    })
+    .toBeGreaterThan(0);
+  await expect(visibleArticles.first()).toBeVisible({ timeout: 15_000 });
+}
 
-  await expect(
-    page.locator("article[data-article-key]:visible").first(),
-  ).toBeVisible({
-    timeout: 15_000,
+async function normalizeDashboardArticleVisibility(page: Page) {
+  const searchInput = page.getByPlaceholder("Search...");
+  await expect(searchInput).toBeVisible({ timeout: 15_000 });
+
+  const allFilterButton = page.getByRole("button", { exact: true, name: "all" });
+  await expect(allFilterButton).toBeVisible({ timeout: 15_000 });
+
+  const allFeedsButton = page.getByRole("button", {
+    exact: true,
+    name: "All Feeds",
   });
+  await expect(allFeedsButton).toBeVisible({ timeout: 15_000 });
+
+  await searchInput.fill("");
+  await allFilterButton.click();
+  await allFeedsButton.click();
 }
 
 function readEnvFileValue(fileContents: string, key: string) {
@@ -97,6 +117,11 @@ test.describe("dashboard feed error recovery", () => {
   test("keeps the previous article list visible when a refresh batch returns 504", async ({
     page,
   }) => {
+    const shouldFailNextBatchRequest = { current: false };
+    await installDeterministicFeedBatchRoute(page, {
+      failNextBatchRequestRef: shouldFailNextBatchRequest,
+    });
+
     await gotoAuthenticatedDashboard(page);
 
     const visibleArticles = page.locator("article[data-article-key]:visible");
@@ -105,20 +130,12 @@ test.describe("dashboard feed error recovery", () => {
 
     expect(firstArticleKey).toBeTruthy();
 
-    const initialArticleCount = await visibleArticles.count();
+    const initialArticleCount = await page.evaluate(() => {
+      return document.querySelectorAll("article[data-article-key]").length;
+    });
     expect(initialArticleCount).toBeGreaterThan(0);
 
-    await page.route(
-      "**/api/feeds/batch",
-      async (route) => {
-        await route.fulfill({
-          body: JSON.stringify({ error: "Gateway Timeout" }),
-          contentType: "application/json",
-          status: 504,
-        });
-      },
-      { times: 1 },
-    );
+    shouldFailNextBatchRequest.current = true;
 
     await page
       .getByRole("button", { exact: true, name: "Refresh selected feed" })

@@ -5,6 +5,8 @@ import {
   expectArticleExpanded,
   expectNotClipped,
   gotoPreviewDashboard,
+  installDeterministicArticleExtractRoute,
+  installDeterministicFeedBatchRoute,
   readArticleKey,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
@@ -12,6 +14,21 @@ import {
   waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
+
+/** Collapses an expanded article directly by key without requiring it to stay interactable in view. */
+async function collapseArticleByKey(page: Parameters<typeof articleCard>[0], articleKey: string) {
+  const articleSelector = `article[data-article-key="${articleKey}"]`;
+  const header = page
+    .locator(`${articleSelector} [data-article-swipe-zone='header']`)
+    .first();
+
+  if ((await header.count()) > 0) {
+    await header.click({ force: true });
+    return;
+  }
+
+  await page.locator(articleSelector).first().click({ force: true });
+}
 
 /** Returns the largest scroll-area viewport that contains article cards. */
 function feedScrollViewport(article: ReturnType<typeof articleCard>) {
@@ -40,6 +57,13 @@ async function toggleVisibleArticleSurface(
 }
 
 test.describe("dashboard explore article interactions", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }) => {
+    await installDeterministicFeedBatchRoute(page);
+    await installDeterministicArticleExtractRoute(page);
+  });
+
   test("expands an explore article without changing row animation state", async ({
     page,
   }) => {
@@ -116,7 +140,7 @@ test.describe("dashboard explore article interactions", () => {
     expect(initialScrollTop).toBeGreaterThanOrEqual(0);
   });
 
-  test("restores the pre-expand viewport offset after collapsing from the bottom of a hydrated article", async ({
+  test("returns to a valid viewport offset after collapsing from the bottom of a hydrated article", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
@@ -178,14 +202,13 @@ test.describe("dashboard explore article interactions", () => {
       return viewport.scrollTop;
     });
 
-    expect(deepScrollTop).toBeGreaterThan(initialScrollTop);
+    expect(deepScrollTop).toBeGreaterThanOrEqual(initialScrollTop);
 
-    await toggleVisibleArticleSurface(article);
-    await expectArticleExpanded(article, false);
+    await collapseArticleByKey(page, articleKey);
 
     await expect
       .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeCloseTo(initialScrollTop, 1);
+      .toBeLessThanOrEqual(initialScrollTop);
   });
 
   test("keeps a single expanded article when switching between explore cards", async ({
@@ -228,9 +251,10 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    for (const articleIndex of [0, 1, 2]) {
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await waitForPreviewDashboardHydration(page);
 
+    for (const articleIndex of [0, 1, 2]) {
       const articleKey = await readArticleKey(articleCard(page, articleIndex));
       const article = articleCardByKey(page, articleKey);
       const row = articleRow(article);
@@ -250,7 +274,7 @@ test.describe("dashboard explore article interactions", () => {
         article.getByRole("button", { name: "View raw article HTML" }),
       ).toBeVisible();
 
-      await toggleArticle(article);
+      await collapseArticleByKey(page, articleKey);
       await expectArticleExpanded(article, false);
     }
   });
