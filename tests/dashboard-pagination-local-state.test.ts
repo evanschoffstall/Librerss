@@ -181,6 +181,31 @@ describe("useFeedPaginationLocalState – cached page skeleton reveal", () => {
     });
   });
 
+  test("repeating the same reveal count does not restart the pending reveal", async () => {
+    const { result } = renderHook(() =>
+      useFeedPaginationLocalState(buildDefaultOptions()),
+    );
+
+    await act(async () => {
+      result.current.scheduleCachedPageReveal(8);
+    });
+
+    await act(async () => {
+      result.current.scheduleCachedPageReveal(8);
+    });
+
+    expect(result.current.isCachedPageRevealing).toBe(true);
+
+    await act(async () => {
+      raf.flush();
+    });
+
+    await waitFor(() => {
+      expect(result.current.visibleArticleCount).toBe(8);
+      expect(result.current.isCachedPageRevealing).toBe(false);
+    });
+  });
+
   test("cancelCachedPageReveal is idempotent when no reveal is in flight", () => {
     const { result } = renderHook(() =>
       useFeedPaginationLocalState(buildDefaultOptions()),

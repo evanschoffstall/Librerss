@@ -9,6 +9,7 @@ interface CachedPageRevealStateIsMountedRef {
 interface CachedPageRevealStateVisibleArticleCountRef {
   current: number;
 }
+
 interface CancelPendingCachedRevealFramePendingCachedRevealFrameRef {
   current: null | number;
 }
@@ -20,6 +21,7 @@ interface CancelPendingCachedRevealPendingCachedRevealFrameRef {
 interface CancelPendingCachedRevealPendingCachedRevealTimeoutRef {
   current: null | ReturnType<typeof setTimeout>;
 }
+
 interface FeedPaginationHistoryRefsOptions {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -27,7 +29,6 @@ interface FeedPaginationHistoryRefsOptions {
   isLoadingMore: boolean;
   refreshEpoch: number;
 }
-
 interface FeedPaginationLocalStateOptions {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -35,6 +36,10 @@ interface FeedPaginationLocalStateOptions {
   isLoadingMore: boolean;
   isRefreshing: boolean;
   refreshEpoch: number;
+}
+
+interface PendingCachedRevealCountRef {
+  current: null | number;
 }
 /**
  * Manage the feed pagination local state.
@@ -131,6 +136,36 @@ function cancelPendingCachedRevealFrame(
 }
 
 /**
+ * Finalize a cached-page reveal after its skeleton hold completes.
+ * @param isMountedRef - Tracks whether the owning hook is still mounted.
+ * @param nextCount - The next visible article count to commit.
+ * @param pendingCachedRevealCountRef - Stores the currently scheduled reveal count.
+ * @param setIsCachedPageRevealing - Updates the cached-reveal visibility flag.
+ * @param setVisibleArticleCount - Commits the visible article count into React state.
+ * @param visibleArticleCountRef - Stores the visible article count outside render.
+ */
+function finalizeCachedPageReveal(
+  isMountedRef: CachedPageRevealStateIsMountedRef,
+  nextCount: number,
+  pendingCachedRevealCountRef: PendingCachedRevealCountRef,
+  setIsCachedPageRevealing: (value: boolean) => void,
+  setVisibleArticleCount: (n: number) => void,
+  visibleArticleCountRef: CachedPageRevealStateVisibleArticleCountRef,
+) {
+  if (
+    !isMountedRef.current ||
+    pendingCachedRevealCountRef.current !== nextCount
+  ) {
+    return;
+  }
+
+  pendingCachedRevealCountRef.current = null;
+  visibleArticleCountRef.current = nextCount;
+  setVisibleArticleCount(nextCount);
+  setIsCachedPageRevealing(false);
+}
+
+/**
  * Manage the cached page reveal state.
  * @param isMountedRef - The ref that stores the is mounted ref.
  * @param visibleArticleCountRef - The ref that stores the visible article count ref.
@@ -162,6 +197,10 @@ function useCachedPageRevealState(
 
   const scheduleCachedPageReveal = useCallback(
     (nextCount: number) => {
+      if (pendingCachedRevealCountRef.current === nextCount) {
+        return;
+      }
+
       cancelPendingCachedReveal(
         pendingCachedRevealFrameRef,
         pendingCachedRevealTimeoutRef,
@@ -179,18 +218,14 @@ function useCachedPageRevealState(
 
         pendingCachedRevealTimeoutRef.current = setTimeout(() => {
           pendingCachedRevealTimeoutRef.current = null;
-
-          if (
-            !isMountedRef.current ||
-            pendingCachedRevealCountRef.current !== nextCount
-          ) {
-            return;
-          }
-
-          pendingCachedRevealCountRef.current = null;
-          visibleArticleCountRef.current = nextCount;
-          setVisibleArticleCount(nextCount);
-          setIsCachedPageRevealing(false);
+          finalizeCachedPageReveal(
+            isMountedRef,
+            nextCount,
+            pendingCachedRevealCountRef,
+            setIsCachedPageRevealing,
+            setVisibleArticleCount,
+            visibleArticleCountRef,
+          );
         }, SKELETON_MIN_VISIBLE_MS);
       });
     },

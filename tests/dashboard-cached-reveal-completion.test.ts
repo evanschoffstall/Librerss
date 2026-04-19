@@ -119,7 +119,7 @@ describe("useCachedRevealCompletionEffect", () => {
     expect(options.isStandardLoadBoundaryArmedRef.current).toBe(true);
   });
 
-  test("re-arms inverted boundary in inverted scroll mode", () => {
+  test("keeps the inverted boundary disarmed after cached reveal completion", () => {
     const options = buildDefaultOptions({
       isCachedPageRevealing: true,
       isInvertedScroll: true,
@@ -135,8 +135,10 @@ describe("useCachedRevealCompletionEffect", () => {
       rerender();
     });
 
-    expect(options.isInvertedLoadBoundaryArmedRef.current).toBe(true);
+    expect(options.isInvertedLoadBoundaryArmedRef.current).toBe(false);
     expect(options.isStandardLoadBoundaryArmedRef.current).toBe(false);
+    expect(options.paginationFrameRef.current).toBeNull();
+    expect(options.maybeLoadNextPage).not.toHaveBeenCalled();
   });
 
   test("schedules deferred maybeLoadNextPage via rAF after reveal", () => {
