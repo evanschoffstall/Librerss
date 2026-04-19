@@ -5,6 +5,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -51,7 +52,7 @@ export function useWebStorage<T>(
   valueRef.current = value;
   // Rehydrate after mount and when the storage key changes so the first client
   // render always matches the server HTML.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (typeof window === "undefined") return;
 
     restoreStoredSnapshot(

@@ -1,8 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { useIsBelowDesktop } from "@/lib/hooks/useIsBelowDesktop";
-
 type MatchMediaListener = (event: { matches: boolean }) => void;
 
 function installMatchMedia(initialMatches = false) {
@@ -49,15 +47,24 @@ function installMatchMedia(initialMatches = false) {
   };
 }
 
+async function loadUseIsBelowDesktop() {
+  const module = await import(
+    `@/lib/hooks/useIsBelowDesktop?test=${Date.now()}-${Math.random()}`
+  );
+
+  return module.useIsBelowDesktop;
+}
+
 afterEach(() => {
   mock.restore();
 });
 
 describe("useIsBelowDesktop", () => {
-  test("reads the initial matchMedia result and subscribes to changes", () => {
+  test("reads the initial matchMedia result and subscribes to changes", async () => {
     const env = installMatchMedia(false);
 
     try {
+      const useIsBelowDesktop = await loadUseIsBelowDesktop();
       const { result } = renderHook(() => useIsBelowDesktop());
 
       expect(env.matchMedia).toHaveBeenCalledTimes(1);
@@ -74,10 +81,11 @@ describe("useIsBelowDesktop", () => {
     }
   });
 
-  test("cleans up the matchMedia listener on unmount", () => {
+  test("cleans up the matchMedia listener on unmount", async () => {
     const env = installMatchMedia(true);
 
     try {
+      const useIsBelowDesktop = await loadUseIsBelowDesktop();
       const { result, unmount } = renderHook(() => useIsBelowDesktop());
 
       expect(result.current).toBe(true);

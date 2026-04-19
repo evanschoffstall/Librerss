@@ -24,6 +24,7 @@ import * as realUiScrollAreaModule from "@/components/ui/scroll-area";
 import * as realUiSkeletonModule from "@/components/ui/skeleton";
 import * as realUiTabsModule from "@/components/ui/tabs";
 import * as realUiTooltipModule from "@/components/ui/tooltip";
+import * as realLibModule from "@/lib";
 import * as realAuthSessionModule from "@/lib/auth";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
@@ -208,6 +209,7 @@ afterEach(() => {
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
     mock.module("@/lib/auth/session", () => realAuthSessionModule);
+    mock.module("@/lib", () => realLibModule);
     mock.module("@/lib/hooks", () => realHooksModule);
     mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
     mock.module("@/lib/logger", () => realLoggerModule);

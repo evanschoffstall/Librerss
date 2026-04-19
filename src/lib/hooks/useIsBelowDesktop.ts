@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 const BELOW_DESKTOP_BREAKPOINT = 1024; // matches Tailwind's `lg`
 
@@ -9,12 +9,21 @@ const BELOW_DESKTOP_BREAKPOINT = 1024; // matches Tailwind's `lg`
  * @returns Whether is below desktop.
  */
 export function useIsBelowDesktop() {
-  const [isBelowDesktop, setIsBelowDesktop] = useState(false);
-
-  useEffect(() => {
-    const mediaQueryList = window.matchMedia(
+  const mediaQueryListRef = useRef<MediaQueryList | null>(null);
+  if (mediaQueryListRef.current === null && typeof window !== "undefined") {
+    mediaQueryListRef.current = window.matchMedia(
       `(max-width: ${BELOW_DESKTOP_BREAKPOINT - 1}px)`,
     );
+  }
+  const mediaQueryList = mediaQueryListRef.current;
+  const [isBelowDesktop, setIsBelowDesktop] = useState(
+    mediaQueryList?.matches ?? false,
+  );
+
+  useLayoutEffect(() => {
+    if (!mediaQueryList) {
+      return;
+    }
     /**
      * Process the handle change.
      */
@@ -28,7 +37,7 @@ export function useIsBelowDesktop() {
     return () => {
       mediaQueryList.removeEventListener("change", handleChange);
     };
-  }, []);
+  }, [mediaQueryList]);
 
   return isBelowDesktop;
 }
