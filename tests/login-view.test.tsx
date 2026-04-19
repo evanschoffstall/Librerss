@@ -1,7 +1,8 @@
-import type React from "react";
-
 import { act, cleanup, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
+import React from "react";
+import * as realSonnerModule from "sonner";
 
 const loginMock = mock();
 const signupMock = mock();
@@ -34,6 +35,20 @@ let originalLogin: typeof authService.login;
 let originalLogout: typeof authService.logout;
 let originalSignup: typeof authService.signup;
 
+const mockMotion = new Proxy(realMotionReactModule.motion, {
+  get: (_target, tag) =>
+    ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => {
+      const { animate: _animate, initial: _initial, transition: _transition, ...rest } =
+        props as React.HTMLAttributes<HTMLElement> & {
+          animate?: unknown;
+          initial?: unknown;
+          transition?: unknown;
+        };
+
+      return React.createElement(tag as string, rest, children);
+    },
+});
+
 function loadLoginValidationModule() {
   return import(
     `@/app/dashboard/dashboard-components/login/login-state?test=${Date.now()}-${Math.random()}`
@@ -42,7 +57,11 @@ function loadLoginValidationModule() {
 
 function loadUseLoginViewStateModule() {
   mock.module("sonner", () => ({
-    toast: { success: toastSuccessMock },
+    ...realSonnerModule,
+    toast: {
+      ...realSonnerModule.toast,
+      success: toastSuccessMock,
+    },
   }));
 
   return import(
@@ -52,17 +71,8 @@ function loadUseLoginViewStateModule() {
 
 function setupLoginViewModule() {
   mock.module("motion/react", () => ({
-    motion: {
-      div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => {
-        const { animate: _animate, initial: _initial, transition: _transition, ...rest } =
-          props as React.HTMLAttributes<HTMLDivElement> & {
-            animate?: unknown;
-            initial?: unknown;
-            transition?: unknown;
-          };
-        return <div {...rest}>{children}</div>;
-      },
-    },
+    ...realMotionReactModule,
+    motion: mockMotion,
   }));
   mock.module(
     "@/app/dashboard/dashboard-components/login/login-state",
