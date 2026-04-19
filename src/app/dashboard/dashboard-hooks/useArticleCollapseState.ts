@@ -27,7 +27,9 @@ export type CollapsingArticles = Partial<
 
 interface ArticleCollapseScrollRestoreStateOptions {
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>;
-  clearPreExpandSnapshot: () => void;
+  clearPreExpandSnapshot: (
+    expectedSnapshot?: ArticleViewportSnapshot | null,
+  ) => void;
   collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
   setIsCollapseScrollRestoreActive: React.Dispatch<
     React.SetStateAction<boolean>
@@ -51,7 +53,9 @@ type RemovalAnimationTimeoutId = number;
 
 interface StartCollapseScrollRestoreOptions {
   articleKey: string;
-  clearPreExpandSnapshot: () => void;
+  clearPreExpandSnapshot: (
+    expectedSnapshot?: ArticleViewportSnapshot | null,
+  ) => void;
   collapseScrollRestoreCleanupRef: React.RefObject<(() => void) | null>;
   setIsCollapseScrollRestoreActive: React.Dispatch<
     React.SetStateAction<boolean>
@@ -340,9 +344,19 @@ function useArticleRemovalAnimationState(
 function useArticleViewportSnapshotState(
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>,
 ) {
-  const clearPreExpandSnapshot = useCallback(() => {
-    articleViewportSnapshotRef.current = null;
-  }, [articleViewportSnapshotRef]);
+  const clearPreExpandSnapshot = useCallback(
+    (expectedSnapshot?: ArticleViewportSnapshot | null) => {
+      if (
+        typeof expectedSnapshot !== "undefined" &&
+        articleViewportSnapshotRef.current !== expectedSnapshot
+      ) {
+        return;
+      }
+
+      articleViewportSnapshotRef.current = null;
+    },
+    [articleViewportSnapshotRef],
+  );
 
   const getPreExpandViewportSnapshot = useCallback(
     (articleKey: string) => {
