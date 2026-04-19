@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 
 import {
   createViewportBoundaryHandlers,
@@ -30,6 +30,8 @@ interface FeedPaginationIntentBindingOptions {
   onClaimInvertedScrollOwnership: () => void;
   onReleaseInvertedExpansionScrollLock: () => void;
   paginationFrameRef: { current: null | number };
+  pendingInvertedPaginationAnchorSnapshotRef: { current: unknown };
+  preservePendingInvertedPaginationAnchorSnapshotRef: { current: boolean };
   rearmPaginationBoundaryFromUserIntent: () => void;
   releaseInvertedPaginationAnchor: () => void;
   scrollViewport: HTMLElement | null;
@@ -127,6 +129,10 @@ export function useFeedPaginationIntentBindings(
       onReleaseInvertedExpansionScrollLock:
         options.onReleaseInvertedExpansionScrollLock,
       paginationFrameRef: options.paginationFrameRef,
+      pendingInvertedPaginationAnchorSnapshotRef:
+        options.pendingInvertedPaginationAnchorSnapshotRef,
+      preservePendingInvertedPaginationAnchorSnapshotRef:
+        options.preservePendingInvertedPaginationAnchorSnapshotRef,
       rearmPaginationBoundaryFromUserIntent:
         options.rearmPaginationBoundaryFromUserIntent,
       releaseInvertedPaginationAnchor: options.releaseInvertedPaginationAnchor,
@@ -157,7 +163,9 @@ export function useFeedPaginationIntentBindings(
     options.maybeLoadNextPage,
     options.onClaimInvertedScrollOwnership,
     options.onReleaseInvertedExpansionScrollLock,
+    options.pendingInvertedPaginationAnchorSnapshotRef,
     options.paginationFrameRef,
+    options.preservePendingInvertedPaginationAnchorSnapshotRef,
     options.rearmPaginationBoundaryFromUserIntent,
     options.releaseInvertedPaginationAnchor,
     options.scrollViewport,
@@ -276,81 +284,80 @@ export function useFeedPaginationSentinelObserver(
 export function useFeedPaginationViewportScrollBinding(
   options: ViewportScrollBindingOptions,
 ) {
+  const bindingOptions = useViewportScrollBindingOptions(options);
   useEffect(() => {
-    const scrollViewport = options.scrollViewport;
-    if (!scrollViewport) {
+    if (!bindingOptions.scrollViewport) {
       return;
     }
 
-    const {
-      rearmInvertedBoundaryFromScrollPosition,
-      rearmStandardBoundaryFromScrollPosition,
-    } = createViewportBoundaryHandlers({
-      hasPendingBoundaryRearmAfterCooldownRef:
-        options.hasPendingBoundaryRearmAfterCooldownRef,
-      hasPendingServerRevealRef: options.hasPendingServerRevealRef,
-      hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
-      invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
-      isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
-      isInvertedScroll: options.isInvertedScroll,
-      isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
-      lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
-      lastStandardScrollTopRef: options.lastStandardScrollTopRef,
-      scrollViewport,
-    });
-    const handleViewportScroll = createViewportScrollHandler({
-      capturePendingInvertedPaginationAnchorSnapshot:
-        options.capturePendingInvertedPaginationAnchorSnapshot,
-      clearInitialNormalScrollLock: options.clearInitialNormalScrollLock,
-      hasActiveInvertedExpansionScrollLock:
-        options.hasActiveInvertedExpansionScrollLock,
-      hasUserScrolledRef: options.hasUserScrolledRef,
-      isInvertedScroll: options.isInvertedScroll,
-      maybeLoadNextPage: options.maybeLoadNextPage,
-      normalScrollIntentSuppressionFrameRef:
-        options.normalScrollIntentSuppressionFrameRef,
-      onClaimInvertedScrollOwnership: options.onClaimInvertedScrollOwnership,
-      onSyncInvertedExpansionScrollLock:
-        options.onSyncInvertedExpansionScrollLock,
-      rearmInvertedBoundaryFromScrollPosition,
-      rearmStandardBoundaryFromScrollPosition,
-      releaseInvertedPaginationAnchor: options.releaseInvertedPaginationAnchor,
-      scrollViewport,
-      shouldLockInitialNormalScroll: options.shouldLockInitialNormalScroll,
-      suppressImmediateNormalScrollIntent:
-        options.suppressImmediateNormalScrollIntent,
-    });
+    return bindViewportScrollListener(
+      bindingOptions,
+      bindingOptions.scrollViewport,
+    );
+  }, [bindingOptions]);
+}
 
-    scrollViewport.addEventListener("scroll", handleViewportScroll, {
-      passive: true,
-    });
+/**
+ * Bind the viewport scroll listener for the current feed surface instance.
+ * @param options - The active viewport scroll binding options.
+ * @param scrollViewport - The resolved viewport element that owns scrolling.
+ * @returns The cleanup callback that removes the active scroll listener.
+ */
+function bindViewportScrollListener(
+  options: ViewportScrollBindingOptions,
+  scrollViewport: HTMLElement,
+) {
+  const {
+    rearmInvertedBoundaryFromScrollPosition,
+    rearmStandardBoundaryFromScrollPosition,
+  } = createViewportBoundaryHandlers({
+    hasPendingBoundaryRearmAfterCooldownRef:
+      options.hasPendingBoundaryRearmAfterCooldownRef,
+    hasPendingServerRevealRef: options.hasPendingServerRevealRef,
+    hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
+    invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
+    isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll: options.isInvertedScroll,
+    isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
+    lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
+    lastStandardScrollTopRef: options.lastStandardScrollTopRef,
+    scrollViewport,
+  });
+  const handleViewportScroll = createViewportScrollHandler({
+    capturePendingInvertedPaginationAnchorSnapshot:
+      options.capturePendingInvertedPaginationAnchorSnapshot,
+    clearInitialNormalScrollLock: options.clearInitialNormalScrollLock,
+    hasActiveInvertedExpansionScrollLock:
+      options.hasActiveInvertedExpansionScrollLock,
+    hasUserScrolledRef: options.hasUserScrolledRef,
+    invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
+    isInvertedScroll: options.isInvertedScroll,
+    maybeLoadNextPage: options.maybeLoadNextPage,
+    normalScrollIntentSuppressionFrameRef:
+      options.normalScrollIntentSuppressionFrameRef,
+    onClaimInvertedScrollOwnership: options.onClaimInvertedScrollOwnership,
+    onSyncInvertedExpansionScrollLock:
+      options.onSyncInvertedExpansionScrollLock,
+    pendingInvertedPaginationAnchorSnapshotRef:
+      options.pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef:
+      options.preservePendingInvertedPaginationAnchorSnapshotRef,
+    rearmInvertedBoundaryFromScrollPosition,
+    rearmStandardBoundaryFromScrollPosition,
+    releaseInvertedPaginationAnchor: options.releaseInvertedPaginationAnchor,
+    scrollViewport,
+    shouldLockInitialNormalScroll: options.shouldLockInitialNormalScroll,
+    suppressImmediateNormalScrollIntent:
+      options.suppressImmediateNormalScrollIntent,
+  });
 
-    return () => {
-      scrollViewport.removeEventListener("scroll", handleViewportScroll);
-    };
-  }, [
-    options.capturePendingInvertedPaginationAnchorSnapshot,
-    options.clearInitialNormalScrollLock,
-    options.hasActiveInvertedExpansionScrollLock,
-    options.hasPendingBoundaryRearmAfterCooldownRef,
-    options.hasPendingServerRevealRef,
-    options.hasRequestedServerLoadRef,
-    options.hasUserScrolledRef,
-    options.invertedPaginationAnchorRef,
-    options.isInvertedLoadBoundaryArmedRef,
-    options.isInvertedScroll,
-    options.isStandardLoadBoundaryArmedRef,
-    options.lastInvertedScrollTopRef,
-    options.lastStandardScrollTopRef,
-    options.maybeLoadNextPage,
-    options.normalScrollIntentSuppressionFrameRef,
-    options.onClaimInvertedScrollOwnership,
-    options.onSyncInvertedExpansionScrollLock,
-    options.releaseInvertedPaginationAnchor,
-    options.scrollViewport,
-    options.shouldLockInitialNormalScroll,
-    options.suppressImmediateNormalScrollIntent,
-  ]);
+  scrollViewport.addEventListener("scroll", handleViewportScroll, {
+    passive: true,
+  });
+
+  return () => {
+    scrollViewport.removeEventListener("scroll", handleViewportScroll);
+  };
 }
 
 /**
@@ -361,13 +368,15 @@ export function useFeedPaginationViewportScrollBinding(
 function createScrollIntentHandler(
   options: FeedPaginationIntentBindingOptions & { scrollViewport: HTMLElement },
 ) {
-  return () => {
+  return (event: Event) => {
     if (options.hasActiveInvertedExpansionScrollLock()) {
       options.onReleaseInvertedExpansionScrollLock();
     }
 
     if (options.isInvertedScroll) {
       options.capturePendingInvertedPaginationAnchorSnapshot();
+      options.preservePendingInvertedPaginationAnchorSnapshotRef.current =
+        event.type === "touchmove";
       options.releaseInvertedPaginationAnchor();
       options.onClaimInvertedScrollOwnership();
     } else {
@@ -458,4 +467,74 @@ function shouldSuppressInitialSentinelLoad(
   options.clearInitialNormalScrollLock();
   options.suppressImmediateNormalScrollIntent();
   return true;
+}
+
+/**
+ * Memoize the viewport scroll binding inputs so the effect can depend on one stable object.
+ * @param options - The active viewport scroll binding options.
+ * @returns The memoized viewport scroll binding options.
+ */
+function useViewportScrollBindingOptions(
+  options: ViewportScrollBindingOptions,
+) {
+  return useMemo(
+    () => ({
+      capturePendingInvertedPaginationAnchorSnapshot:
+        options.capturePendingInvertedPaginationAnchorSnapshot,
+      clearInitialNormalScrollLock: options.clearInitialNormalScrollLock,
+      hasActiveInvertedExpansionScrollLock:
+        options.hasActiveInvertedExpansionScrollLock,
+      hasPendingBoundaryRearmAfterCooldownRef:
+        options.hasPendingBoundaryRearmAfterCooldownRef,
+      hasPendingServerRevealRef: options.hasPendingServerRevealRef,
+      hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
+      hasUserScrolledRef: options.hasUserScrolledRef,
+      invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
+      isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
+      isInvertedScroll: options.isInvertedScroll,
+      isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
+      lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
+      lastStandardScrollTopRef: options.lastStandardScrollTopRef,
+      maybeLoadNextPage: options.maybeLoadNextPage,
+      normalScrollIntentSuppressionFrameRef:
+        options.normalScrollIntentSuppressionFrameRef,
+      onClaimInvertedScrollOwnership: options.onClaimInvertedScrollOwnership,
+      onSyncInvertedExpansionScrollLock:
+        options.onSyncInvertedExpansionScrollLock,
+      pendingInvertedPaginationAnchorSnapshotRef:
+        options.pendingInvertedPaginationAnchorSnapshotRef,
+      preservePendingInvertedPaginationAnchorSnapshotRef:
+        options.preservePendingInvertedPaginationAnchorSnapshotRef,
+      releaseInvertedPaginationAnchor: options.releaseInvertedPaginationAnchor,
+      scrollViewport: options.scrollViewport,
+      shouldLockInitialNormalScroll: options.shouldLockInitialNormalScroll,
+      suppressImmediateNormalScrollIntent:
+        options.suppressImmediateNormalScrollIntent,
+    }),
+    [
+      options.capturePendingInvertedPaginationAnchorSnapshot,
+      options.clearInitialNormalScrollLock,
+      options.hasActiveInvertedExpansionScrollLock,
+      options.hasPendingBoundaryRearmAfterCooldownRef,
+      options.hasPendingServerRevealRef,
+      options.hasRequestedServerLoadRef,
+      options.hasUserScrolledRef,
+      options.invertedPaginationAnchorRef,
+      options.isInvertedLoadBoundaryArmedRef,
+      options.isInvertedScroll,
+      options.isStandardLoadBoundaryArmedRef,
+      options.lastInvertedScrollTopRef,
+      options.lastStandardScrollTopRef,
+      options.maybeLoadNextPage,
+      options.normalScrollIntentSuppressionFrameRef,
+      options.onClaimInvertedScrollOwnership,
+      options.onSyncInvertedExpansionScrollLock,
+      options.pendingInvertedPaginationAnchorSnapshotRef,
+      options.preservePendingInvertedPaginationAnchorSnapshotRef,
+      options.releaseInvertedPaginationAnchor,
+      options.scrollViewport,
+      options.shouldLockInitialNormalScroll,
+      options.suppressImmediateNormalScrollIntent,
+    ],
+  );
 }

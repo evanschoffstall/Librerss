@@ -24,12 +24,16 @@ import { useInvertedPaginationAnchor } from "@/app/dashboard/dashboard-component
 export interface FeedPaginationControllerOptions {
   articlesPerPage: number;
   canLoadMoreFromServer: boolean;
+  expandedArticleKey: null | string;
   filteredFeedLength: number;
   hasCollapsingArticles: boolean;
   hasUserScrolledRef: { current: boolean };
   isInvertedScroll: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
+  maybeLoadNextPageRef: {
+    current: ((_trigger: "scroll" | "sentinel") => void) | null;
+  };
   onLoadMore?: () => void;
   onResetInvertedScrollOwnership: () => void;
   refreshEpoch: number;
@@ -52,6 +56,9 @@ export interface FeedPaginationEffectsOptions extends FeedPaginationControllerOp
 export interface FeedPaginationRuntimeOptions extends FeedPaginationEffectsOptions {
   clearInitialNormalScrollLock: () => void;
   hasActiveInvertedExpansionScrollLock: () => boolean;
+  maybeLoadNextPageRef: {
+    current: ((_trigger: "scroll" | "sentinel") => void) | null;
+  };
   onClaimInvertedScrollOwnership: () => void;
   onReleaseInvertedExpansionScrollLock: () => void;
   onSyncInvertedExpansionScrollLock: () => void;
@@ -79,7 +86,9 @@ export function useFeedPaginationControllers(
     isInvertedLoadBoundaryArmedRef: localState.isInvertedLoadBoundaryArmedRef,
     isInvertedScroll: options.isInvertedScroll,
     isStandardLoadBoundaryArmedRef: localState.isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPageRef: options.maybeLoadNextPageRef,
     onLoadMore: options.onLoadMore,
+    paginationFrameRef: localState.paginationFrameRef,
   });
   const anchorState = useInvertedPaginationAnchor({
     hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
@@ -168,6 +177,7 @@ export function useFeedPaginationRuntime(
     controllers: options.controllers,
     options,
   });
+  options.maybeLoadNextPageRef.current = runtimeActions.maybeLoadNextPage;
   const runtimeViewport = useFeedPaginationRuntimeViewportEffects({
     controllers: options.controllers,
     maybeAutoFillViewport: runtimeActions.maybeAutoFillViewport,
@@ -195,6 +205,8 @@ export function useFeedPaginationRuntime(
     invertedPaginationAnchorRef:
       options.controllers.anchorState.invertedPaginationAnchorRef,
     isCachedPageRevealing: options.controllers.localState.isCachedPageRevealing,
+    isPendingServerRevealVisible:
+      options.controllers.serverLoadState.isPendingServerRevealVisible,
     loadMoreSentinelRef: options.controllers.localState.loadMoreSentinelRef,
     maybeAutoFillViewport: runtimeActions.maybeAutoFillViewport,
     shouldUseVirtualizedFeed: runtimeViewport.shouldUseVirtualizedFeed,
@@ -278,6 +290,7 @@ function useFeedPaginationResetControllers(
       serverLoadState.hasResolvedStandardViewportRevealRef,
     hasUserScrolledRef: options.hasUserScrolledRef,
     isInvertedLoadBoundaryArmedRef: localState.isInvertedLoadBoundaryArmedRef,
+    isPendingServerRevealVisible: serverLoadState.isPendingServerRevealVisible,
     isStandardLoadBoundaryArmedRef: localState.isStandardLoadBoundaryArmedRef,
     isStandardViewportRefillActiveRef:
       serverLoadState.isStandardViewportRefillActiveRef,
@@ -291,6 +304,10 @@ function useFeedPaginationResetControllers(
     pendingInvertedPaginationAnchorSnapshotRef:
       anchorState.pendingInvertedPaginationAnchorSnapshotRef,
     previousFilteredFeedLengthRef: localState.previousFilteredFeedLengthRef,
+    setIsPendingServerRevealVisible:
+      serverLoadState.setIsPendingServerRevealVisible,
+    standardViewportRefillTargetVisibleCountRef:
+      localState.standardViewportRefillTargetVisibleCountRef,
   });
 }
 
@@ -322,10 +339,14 @@ function useFeedPaginationRevealEffects(
       anchorState.lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
     previousFilteredFeedLengthRef: localState.previousFilteredFeedLengthRef,
+    setIsPendingServerRevealVisible:
+      serverLoadState.setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown: serverLoadState.startServerLoadRearmCooldown,
     visibleArticleCountRef: localState.visibleArticleCountRef,
   });
   useFeedPaginationLoadingMoreRevealEffect({
+    canLoadMoreFromServer: options.canLoadMoreFromServer,
+    filteredFeedLength: options.filteredFeedLength,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef:
       serverLoadState.hasResolvedStandardViewportRevealRef,
@@ -337,7 +358,10 @@ function useFeedPaginationRevealEffects(
       anchorState.lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
     previousIsLoadingMoreRef: localState.previousIsLoadingMoreRef,
+    setIsPendingServerRevealVisible:
+      serverLoadState.setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown: serverLoadState.startServerLoadRearmCooldown,
+    visibleArticleCount: localState.visibleArticleCount,
   });
   useVisibleArticleCountRefSync({
     visibleArticleCount: localState.visibleArticleCount,

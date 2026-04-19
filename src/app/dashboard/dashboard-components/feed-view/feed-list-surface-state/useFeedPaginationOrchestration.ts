@@ -277,6 +277,10 @@ function useFeedPaginationIntentBindingsOnly(
     onReleaseInvertedExpansionScrollLock:
       options.onReleaseInvertedExpansionScrollLock,
     paginationFrameRef: localState.paginationFrameRef,
+    pendingInvertedPaginationAnchorSnapshotRef:
+      anchorState.pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef:
+      anchorState.preservePendingInvertedPaginationAnchorSnapshotRef,
     rearmPaginationBoundaryFromUserIntent,
     releaseInvertedPaginationAnchor:
       anchorState.releaseInvertedPaginationAnchor,
@@ -370,6 +374,10 @@ function useFeedPaginationViewportBindingsOnly(
     onClaimInvertedScrollOwnership: options.onClaimInvertedScrollOwnership,
     onSyncInvertedExpansionScrollLock:
       options.onSyncInvertedExpansionScrollLock,
+    pendingInvertedPaginationAnchorSnapshotRef:
+      anchorState.pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef:
+      anchorState.preservePendingInvertedPaginationAnchorSnapshotRef,
     releaseInvertedPaginationAnchor:
       anchorState.releaseInvertedPaginationAnchor,
     scrollViewport: options.scrollViewport,

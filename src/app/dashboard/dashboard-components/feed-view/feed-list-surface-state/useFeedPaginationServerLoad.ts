@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 import { FEED_SERVER_LOAD_REARM_COOLDOWN_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
@@ -10,6 +10,10 @@ interface FeedPaginationServerLoadCooldownStateOptions {
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
   isInvertedScroll: boolean;
   isStandardLoadBoundaryArmedRef: React.RefObject<boolean>;
+  maybeLoadNextPageRef: React.RefObject<
+    ((_trigger: "scroll" | "sentinel") => void) | null
+  >;
+  paginationFrameRef: React.RefObject<null | number>;
   serverLoadCooldownTimerRef: React.RefObject<null | ReturnType<
     typeof setTimeout
   >>;
@@ -23,6 +27,9 @@ interface RequestMoreFromServerOptions {
   isInvertedScroll: boolean;
   isStandardViewportRefillActiveRef: React.RefObject<boolean>;
   onLoadMore?: () => void;
+  setIsPendingServerRevealVisible: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 }
 
 interface UseFeedPaginationServerLoadCooldownOptions extends FeedPaginationServerLoadCooldownStateOptions {
@@ -34,7 +41,40 @@ interface UseFeedPaginationServerLoadOptions {
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
   isInvertedScroll: boolean;
   isStandardLoadBoundaryArmedRef: React.RefObject<boolean>;
+  maybeLoadNextPageRef: React.RefObject<
+    ((_trigger: "scroll" | "sentinel") => void) | null
+  >;
   onLoadMore?: () => void;
+  paginationFrameRef: React.RefObject<null | number>;
+}
+
+/**
+ * Process the complete feed server load cooldown.
+ * @param options - The options used to process the complete feed server load cooldown.
+ */
+export function completeFeedServerLoadCooldown(
+  options: FeedPaginationServerLoadCooldownStateOptions,
+) {
+  options.hasRequestedServerLoadRef.current = false;
+  rearmFeedLoadBoundary(
+    options.isInvertedScroll,
+    options.isInvertedLoadBoundaryArmedRef,
+    options.isStandardLoadBoundaryArmedRef,
+  );
+  options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
+
+  if (
+    !options.isInvertedScroll &&
+    options.paginationFrameRef.current === null &&
+    options.maybeLoadNextPageRef.current
+  ) {
+    options.paginationFrameRef.current = window.requestAnimationFrame(() => {
+      options.paginationFrameRef.current = null;
+      options.maybeLoadNextPageRef.current?.("sentinel");
+    });
+  }
+
+  options.serverLoadCooldownTimerRef.current = null;
 }
 
 /**
@@ -50,7 +90,9 @@ export function useFeedPaginationServerLoad(
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPageRef,
     onLoadMore,
+    paginationFrameRef,
   } = options;
   const {
     hasPendingBoundaryRearmAfterCooldownRef,
@@ -60,6 +102,8 @@ export function useFeedPaginationServerLoad(
     isStandardViewportRefillActiveRef,
     serverLoadCooldownTimerRef,
   } = useFeedPaginationServerLoadRefs();
+  const [isPendingServerRevealVisible, setIsPendingServerRevealVisible] =
+    useState(false);
 
   const clearServerLoadCooldown = useCallback(() => {
     if (serverLoadCooldownTimerRef.current !== null) {
@@ -75,6 +119,8 @@ export function useFeedPaginationServerLoad(
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPageRef,
+    paginationFrameRef,
     serverLoadCooldownTimerRef,
   });
 
@@ -86,6 +132,7 @@ export function useFeedPaginationServerLoad(
     isInvertedScroll,
     isStandardViewportRefillActiveRef,
     onLoadMore,
+    setIsPendingServerRevealVisible,
   });
 
   return {
@@ -94,35 +141,12 @@ export function useFeedPaginationServerLoad(
     hasPendingServerRevealRef,
     hasRequestedServerLoadRef,
     hasResolvedStandardViewportRevealRef,
+    isPendingServerRevealVisible,
     isStandardViewportRefillActiveRef,
     requestMoreFromServer,
+    setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown,
   };
-}
-
-/**
- * Process the complete feed server load cooldown.
- * @param options - The options used to process the complete feed server load cooldown.
- */
-function completeFeedServerLoadCooldown(
-  options: FeedPaginationServerLoadCooldownStateOptions,
-) {
-  options.hasRequestedServerLoadRef.current = false;
-
-  if (options.isInvertedScroll) {
-    options.isInvertedLoadBoundaryArmedRef.current = true;
-  }
-
-  if (options.hasPendingBoundaryRearmAfterCooldownRef.current) {
-    rearmFeedLoadBoundary(
-      options.isInvertedScroll,
-      options.isInvertedLoadBoundaryArmedRef,
-      options.isStandardLoadBoundaryArmedRef,
-    );
-    options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
-  }
-
-  options.serverLoadCooldownTimerRef.current = null;
 }
 
 /**
@@ -159,6 +183,8 @@ function useFeedPaginationServerLoadCooldown(
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPageRef,
+    paginationFrameRef,
     serverLoadCooldownTimerRef,
   } = options;
   return useCallback(() => {
@@ -171,6 +197,8 @@ function useFeedPaginationServerLoadCooldown(
         isInvertedLoadBoundaryArmedRef,
         isInvertedScroll,
         isStandardLoadBoundaryArmedRef,
+        maybeLoadNextPageRef,
+        paginationFrameRef,
         serverLoadCooldownTimerRef,
       });
       return;
@@ -183,6 +211,8 @@ function useFeedPaginationServerLoadCooldown(
         isInvertedLoadBoundaryArmedRef,
         isInvertedScroll,
         isStandardLoadBoundaryArmedRef,
+        maybeLoadNextPageRef,
+        paginationFrameRef,
         serverLoadCooldownTimerRef,
       });
     }, FEED_SERVER_LOAD_REARM_COOLDOWN_MS);
@@ -192,6 +222,8 @@ function useFeedPaginationServerLoadCooldown(
     hasRequestedServerLoadRef,
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
+    maybeLoadNextPageRef,
+    paginationFrameRef,
     isStandardLoadBoundaryArmedRef,
     serverLoadCooldownTimerRef,
   ]);
@@ -215,8 +247,15 @@ function useFeedPaginationServerLoadRefs() {
 
 /**
  * Manage the request more from server.
- * @param options - The options used to manage the request more from server.
- * @returns The request more from server state and callbacks.
+/**
+ * Build the `requestMoreFromServer` callback that guards against duplicate requests
+ * and orchestrates the server-load lifecycle (pending reveal, boundary re-arm cooldown).
+ *
+ * Returns `false` when the request is blocked (already in-flight, no server capacity,
+ * or no `onLoadMore` handler), and `true` when the request is accepted and dispatched.
+ *
+ * @param options - Current server-load state, capacity flags, and lifecycle callbacks.
+ * @returns Stable `requestMoreFromServer` callback.
  */
 function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
   return useCallback(
@@ -237,6 +276,9 @@ function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
       options.hasRequestedServerLoadRef.current = true;
       options.hasPendingServerRevealRef.current = true;
       options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
+      options.setIsPendingServerRevealVisible(
+        !(requestOptions?.isViewportRefill ?? false),
+      );
       options.onLoadMore();
       return true;
     },
