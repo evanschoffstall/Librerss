@@ -294,25 +294,49 @@ describe("feed pagination rule helpers", () => {
 describe("feed DOM helpers", () => {
   test("resolve visible article keys, anchors, offsets, and viewport selection", () => {
     const viewport = document.createElement("div");
+    const siblingViewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
+    siblingViewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 240);
+    siblingViewport.getBoundingClientRect = () => createRect(100, 240);
 
     const virtualizer = document.createElement("div");
     virtualizer.dataset.feedVirtualizer = "true";
     viewport.append(virtualizer);
+    siblingViewport.append(document.createElement("div"));
 
     const first = appendArticle(viewport, "article-1", 110, 80, 110, 32);
+    const siblingFirst = appendArticle(
+      siblingViewport,
+      "article-1",
+      110,
+      80,
+      110,
+      32,
+    );
     appendArticle(viewport, "article-2", 280, 96, 280, 44);
     appendArticle(viewport, "article-3", 40, 96, 40, 44);
-    document.body.append(viewport);
+    document.body.append(viewport, siblingViewport);
 
     expect(collectFullyVisibleArticleKeys(viewport)).toEqual(["article-1"]);
     expect(findInvertedExpansionHeaderAnchor("article-1")).toBe(
       first.headerElement,
     );
+    expect(findInvertedExpansionHeaderAnchor("article-1", viewport)).toBe(
+      first.headerElement,
+    );
+    expect(
+      findInvertedExpansionHeaderAnchor("article-1", siblingViewport),
+    ).toBe(siblingFirst.headerElement);
     expect(findInvertedExpansionHeaderAnchor(null)).toBeNull();
     expect(findInvertedExpansionLockAnchor("article-1")).toBe(
       first.articleElement,
+    );
+    expect(findInvertedExpansionLockAnchor("article-1", viewport)).toBe(
+      first.articleElement,
+    );
+    expect(findInvertedExpansionLockAnchor("article-1", siblingViewport)).toBe(
+      siblingFirst.articleElement,
     );
     expect(findInvertedExpansionLockAnchor(null)).toBeNull();
     expect(getViewportOffsetTop(first.articleElement, viewport)).toBe(10);
@@ -332,7 +356,7 @@ describe("feed DOM helpers", () => {
     ).toBeNull();
   });
 
-  test("pick top-visible and survivor anchors directly from the DOM helper surface", () => {
+  test("pick stable pagination and survivor anchors directly from the DOM helper surface", () => {
     const viewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 220);
@@ -345,10 +369,10 @@ describe("feed DOM helpers", () => {
     appendArticle(viewport, "article-3", 270, 96, 270, 44);
     document.body.append(viewport);
 
-    // article-1 header top=90 is partially above the viewport (top=100) but its
-    // bottom (134) extends into the viewport, so it IS the topmost visible anchor.
+    // Pagination anchoring prefers the first visible article that reaches the
+    // stable offset inside the viewport, rather than the partially visible row.
     expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
-      "article-1",
+      "article-3",
     );
     expect(
       findVisibleInvertedRemovalAnchorArticleKey(new Set(["article-1"])),

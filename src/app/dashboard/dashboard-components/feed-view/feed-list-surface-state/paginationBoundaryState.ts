@@ -48,6 +48,7 @@ interface ResetPaginationRuntimeStateOptions {
   paginationFrameRef: NullableNumberRef;
   pendingInvertedPaginationAnchorSnapshotRef: UnknownNullableRef;
   previousFilteredFeedLengthRef: { current: number };
+  standardViewportRefillTargetVisibleCountRef: NullableNumberRef;
 }
 interface UnknownNullableRef {
   current: unknown;
@@ -102,6 +103,7 @@ export function resetPaginationRuntimeState(
   options.isStandardViewportRefillActiveRef.current = false;
   options.hasResolvedStandardViewportRevealRef.current = false;
   options.lastAutoFillListHeightRef.current = null;
+  options.standardViewportRefillTargetVisibleCountRef.current = null;
   options.previousFilteredFeedLengthRef.current = options.filteredFeedLength;
   options.lastInvertedScrollTopRef.current = null;
   options.pendingInvertedPaginationAnchorSnapshotRef.current = null;
