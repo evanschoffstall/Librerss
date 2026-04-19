@@ -38,6 +38,7 @@ interface UseArticleWindowAvailabilityOptions {
   hasStartedArticleWindowSettlementRef: RefObject<boolean>;
   isAwaitingArticleWindowSettlementRef: RefObject<boolean>;
   isLoading: boolean;
+  isLoadingMoreArticles: boolean;
   isLoadingMoreArticlesRef: RefObject<boolean>;
   previousAwaitedFeedLengthRef: RefObject<number>;
   requestedArticleLimit: number;
@@ -76,8 +77,15 @@ interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
 }
 
 /**
- * Manage the article window availability.
- * @param options - The options used to manage the article window availability.
+ * Synchronize derived `hasMoreServerArticles` state with the article window lifecycle.
+ *
+ * Runs `resolveArticleWindowAvailability` on every render where a dependency changes and
+ * propagates the result into React state and mutable refs. The `isLoadingMoreArticles`
+ * state value (not just the ref) is included as a dependency so the effect re-runs when
+ * the load-more fetch completes (`.finally()` clears the state), allowing settlement to
+ * resolve with the correct post-fetch feed length.
+ *
+ * @param options - Refs, state values, and setters for the article window lifecycle.
  */
 export function useArticleWindowAvailability(
   options: UseArticleWindowAvailabilityOptions,
@@ -89,6 +97,7 @@ export function useArticleWindowAvailability(
     hasStartedArticleWindowSettlementRef,
     isAwaitingArticleWindowSettlementRef,
     isLoading,
+    isLoadingMoreArticles,
     isLoadingMoreArticlesRef,
     previousAwaitedFeedLengthRef,
     requestedArticleLimit,
@@ -104,6 +113,7 @@ export function useArticleWindowAvailability(
         hasStartedArticleWindowSettlementRef.current,
       isAwaitingWindowSettlement: isAwaitingArticleWindowSettlementRef.current,
       isLoading,
+      isLoadingMoreArticles,
       previousFeedLength: previousAwaitedFeedLengthRef.current,
       previousHasMoreServerArticles: hasMoreServerArticles,
       requestedArticleLimit,
@@ -140,6 +150,7 @@ export function useArticleWindowAvailability(
     hasStartedArticleWindowSettlementRef,
     isAwaitingArticleWindowSettlementRef,
     isLoading,
+    isLoadingMoreArticles,
     isLoadingMoreArticlesRef,
     previousAwaitedFeedLengthRef,
     requestedArticleLimit,

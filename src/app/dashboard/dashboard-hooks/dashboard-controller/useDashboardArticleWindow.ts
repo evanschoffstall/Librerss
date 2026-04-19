@@ -220,6 +220,7 @@ function useDashboardArticleWindowAvailabilityLifecycle(
     isAwaitingArticleWindowSettlementRef:
       lifecycleState.isAwaitingSettlementRef,
     isLoading,
+    isLoadingMoreArticles: lifecycleState.isLoadingMoreArticles,
     isLoadingMoreArticlesRef: lifecycleState.isLoadingMoreArticlesRef,
     previousAwaitedFeedLengthRef: lifecycleState.previousAwaitedFeedLengthRef,
     requestedArticleLimit: lifecycleState.requestedArticleLimit,
@@ -232,12 +233,13 @@ function useDashboardArticleWindowAvailabilityLifecycle(
 /**
  * Manage the dashboard article window controls.
  * @param options - The options used to manage the dashboard article window controls.
+ * @param controlOptions - The control state and callbacks used to manage article window pagination.
  * @returns The dashboard article window controls state and callbacks.
  */
 function useDashboardArticleWindowControls(
-  options: DashboardArticleWindowControlsOptions,
+  controlOptions: DashboardArticleWindowControlsOptions,
 ) {
-  const { articleWindowState, options } = options;
+  const { articleWindowState, options } = controlOptions;
   const prefetchNextPage = useDashboardArticleWindowNextPagePrefetch(
     articleWindowState,
     options,

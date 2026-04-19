@@ -15,6 +15,12 @@ export interface ArticleWindowAvailabilityResult {
  * Local unread removals can shrink the rendered feed below the requested window size
  * without proving that the backend is exhausted. This resolver keeps the previous
  * availability state until an awaited server-backed window fetch actually settles.
+ *
+ * Load-more fetches are background requests (`keepExistingFeed: true`) that bypass
+ * `syncLoading`, so `isLoading` never becomes `true` during pagination. The resolver
+ * uses `isLoadingMoreArticles` to detect whether a load-more fetch is still in-flight
+ * and defers settlement until the fetch completes (signaled by the `.finally()` callback
+ * in `scheduleDashboardArticleWindowRefresh`).
  */
 export interface ResolveArticleWindowAvailabilityOptions {
   allowPartialFeedGrowth: boolean;
@@ -22,6 +28,7 @@ export interface ResolveArticleWindowAvailabilityOptions {
   hasStartedAwaitedWindowSettlement: boolean;
   isAwaitingWindowSettlement: boolean;
   isLoading: boolean;
+  isLoadingMoreArticles: boolean;
   previousFeedLength: number;
   previousHasMoreServerArticles: boolean;
   requestedArticleLimit: number;
@@ -64,9 +71,18 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
 const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 
 /**
- * Resolve the article window availability.
- * @param options - The options used to resolve the article window availability.
- * @returns The article window availability.
+ * Resolve whether the server has more articles available for the current article window.
+ *
+ * When the dashboard is awaiting settlement of a pagination or refill request, this
+ * resolver defers the `hasMoreServerArticles` decision until the fetch completes.
+ * Background load-more fetches never set `isLoading`, so the resolver uses
+ * `isLoadingMoreArticles` as the in-flight signal. Settlement resolves only after
+ * `isLoadingMoreArticles` is cleared by the fetch's `.finally()` callback, ensuring
+ * the feed length reflects the server's actual response.
+ *
+ * @param options - Current article window state used to derive availability.
+ * @returns Availability result with `hasMoreServerArticles` and a flag indicating
+ *   whether the awaiting-settlement refs should be cleared.
  */
 export function resolveArticleWindowAvailability(
   options: ResolveArticleWindowAvailabilityOptions,
@@ -77,6 +93,7 @@ export function resolveArticleWindowAvailability(
     hasStartedAwaitedWindowSettlement,
     isAwaitingWindowSettlement,
     isLoading,
+    isLoadingMoreArticles,
     previousFeedLength,
     previousHasMoreServerArticles,
     requestedArticleLimit,
@@ -91,6 +108,26 @@ export function resolveArticleWindowAvailability(
 
   if (isAwaitingWindowSettlement) {
     if (!hasStartedAwaitedWindowSettlement || isLoading) {
+      return {
+        hasMoreServerArticles: previousHasMoreServerArticles,
+        shouldClearAwaitingWindowSettlement: false,
+      };
+    }
+
+    /*
+     * Guard against premature settlement during background load-more fetches.
+     *
+     * Load-more requests use `keepExistingFeed: true`, which makes them background
+     * fetches that never set `isLoading`. Without this guard, the settlement check
+     * runs immediately with stale `currentFeedLength` (before the fetch completes)
+     * and incorrectly resolves `hasMoreServerArticles = false`.
+     *
+     * We defer settlement while `isLoadingMoreArticles` is true AND the feed length
+     * has not grown beyond the snapshot taken when the load-more request started.
+     * Once the fetch completes (`.finally()` clears `isLoadingMoreArticles`), this
+     * guard passes through and settlement resolves with the correct feed length.
+     */
+    if (isLoadingMoreArticles && currentFeedLength <= previousFeedLength) {
       return {
         hasMoreServerArticles: previousHasMoreServerArticles,
         shouldClearAwaitingWindowSettlement: false,
