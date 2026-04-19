@@ -4,6 +4,11 @@ import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
 import {
+  FEED_SERVER_LOAD_REARM_COOLDOWN_MS,
+  SKELETON_MIN_VISIBLE_MS,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+
+import {
   buildFeedListArticle,
   installFeedListDomMocks,
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
@@ -148,7 +153,7 @@ afterEach(() => {
   restoreFeedListDomMocks();
 });
 
-test("rearms inverted server pagination at the top boundary as soon as server reveal settles", async () => {
+test("keeps inverted server pagination disarmed while the reader stays pinned at the top boundary after a reveal", async () => {
   const feedViewKey = "test-inverted-pinned-boundary-feed-view";
 
   window.localStorage.setItem(
@@ -271,7 +276,12 @@ test("rearms inverted server pagination at the top boundary as soon as server re
   await flushFeedListAsyncWork();
 
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 1_100));
+    await new Promise((resolve) =>
+      setTimeout(
+        resolve,
+        FEED_SERVER_LOAD_REARM_COOLDOWN_MS + SKELETON_MIN_VISIBLE_MS + 100,
+      ),
+    );
     scrollTop = 0;
     viewport.dispatchEvent(new Event("touchmove"));
     viewport.dispatchEvent(new Event("wheel"));
@@ -281,7 +291,7 @@ test("rearms inverted server pagination at the top boundary as soon as server re
   await flushFeedListAsyncWork();
 
   await waitFor(() => {
-    expect(onLoadMore).toHaveBeenCalledTimes(2);
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
   });
 });
 

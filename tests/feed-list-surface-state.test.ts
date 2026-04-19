@@ -86,7 +86,7 @@ describe("findVisibleInvertedRemovalAnchorArticleKey", () => {
 });
 
 describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
-  test("keeps the partially visible top header as the pagination anchor", () => {
+  test("prefers the first article that reaches the stable anchor offset", () => {
     const viewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 400);
@@ -101,11 +101,11 @@ describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
     document.body.append(viewport);
 
     expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
-      "article-1",
+      "article-3",
     );
   });
 
-  test("falls back to the next visible header when the top row is fully above the viewport", () => {
+  test("skips nearer rows until one reaches the stable anchor offset", () => {
     const viewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 400);
@@ -120,7 +120,7 @@ describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
     document.body.append(viewport);
 
     expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
-      "article-2",
+      "article-3",
     );
   });
 });

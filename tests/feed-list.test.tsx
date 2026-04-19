@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { ThemeProvider } from "next-themes";
 import * as React from "react";
 
+import * as realLibModule from "@/lib";
+
 import {
   buildFeedListArticle,
   installFeedListDomMocks,
@@ -80,6 +82,18 @@ async function flushFeedListAsyncWork() {
   });
 }
 
+async function loadFeedListWithLibOverrides(
+  overrides: Partial<typeof realLibModule> = {},
+) {
+  mock.module("@/lib", () => ({
+    ...realLibModule,
+    ...overrides,
+  }));
+  ({ FeedList } = await import(
+    `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
+  ));
+}
+
 function renderFeedList(node: React.ReactElement) {
   return render(
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
@@ -111,8 +125,7 @@ beforeEach(async () => {
     motion,
   }));
   installFeedListDomMocks();
-  ({ FeedList } =
-    await import("@/app/dashboard/dashboard-components/feed-view/FeedList"));
+  await loadFeedListWithLibOverrides();
 });
 
 afterEach(() => {
@@ -403,7 +416,7 @@ describe("FeedList", () => {
     });
   });
 
-  test("renders only the pending loading-more skeleton rows when fewer than a full page remain", async () => {
+  test("renders one full page of loading-more skeleton rows when fewer than a full page remain", async () => {
     const articles = Array.from({ length: 6 }, (_value, index) =>
       buildFeedListArticle({
         id: index + 1,
@@ -461,7 +474,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(6);
+      ).toHaveLength(4);
       expect(
         container.querySelectorAll("[data-feed-load-more-skeletons='true']"),
       ).toHaveLength(1);
@@ -469,7 +482,7 @@ describe("FeedList", () => {
         container.querySelectorAll(
           "[data-feed-load-more-skeletons='true'] [data-dashboard-feed-list-skeleton-item='true']",
         ),
-      ).toHaveLength(2);
+      ).toHaveLength(4);
     });
   });
 
