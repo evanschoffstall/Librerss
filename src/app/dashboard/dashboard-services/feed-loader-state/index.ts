@@ -2,18 +2,18 @@ export {
   classifyFeedBatchError,
   isCanceledBatchRequest,
   isHandledFeedBatchError,
-} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch-errors";
+} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch";
 export {
   formatLastRefreshLabel,
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
-} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch-processing";
+} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch";
 export {
   type FeedBatchResult,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
-} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch-results";
+} from "@/app/dashboard/dashboard-services/feed-loader-state/feed-batch";
 export {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
