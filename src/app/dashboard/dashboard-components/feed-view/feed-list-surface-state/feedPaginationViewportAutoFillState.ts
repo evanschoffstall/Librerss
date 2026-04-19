@@ -5,8 +5,8 @@ export interface FinishStandardViewportRefillOptions {
   articlesPerPage: number;
   currentFilteredFeedLength: number;
   isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  standardViewportRefillTargetVisibleCountRef?: { current: null | number };
+  isStandardViewportRefillActiveRef: BooleanRef;
+  standardViewportRefillTargetVisibleCountRef?: NullableNumberRef;
   visibleArticleCountRef: { current: number };
 }
 
@@ -14,43 +14,49 @@ export interface StandardViewportRefillStateOptions {
   effectiveListHeight: number;
   hasUserScrolled: boolean;
   isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  lastAutoFillListHeightRef: { current: null | number };
+  isStandardViewportRefillActiveRef: BooleanRef;
+  lastAutoFillListHeightRef: NullableNumberRef;
 }
 
 export interface StandardViewportRefillTargetOptions {
   articlesPerPage: number;
   hasUserScrolled: boolean;
-  standardViewportRefillTargetVisibleCountRef?: { current: null | number };
+  standardViewportRefillTargetVisibleCountRef?: NullableNumberRef;
   visibleArticleCountRef: { current: number };
+}
+
+interface ActivateStandardViewportRefillOptions {
+  articleFilter: string;
+  articlesPerPage: number;
+  hasListShrunk: boolean;
+  hasUserScrolled: boolean;
+  isInvertedScroll: boolean;
+  isStandardViewportRefillActiveRef: BooleanRef;
+  standardViewportRefillTargetVisibleCountRef?: NullableNumberRef;
+  visibleArticleCountRef: { current: number };
+}
+
+interface BooleanRef {
+  current: boolean;
+}
+
+interface ListHeightShrinkState {
+  effectiveListHeight: number;
+  lastAutoFillListHeightRef: NullableNumberRef;
+}
+
+interface NullableNumberRef {
+  current: null | number;
 }
 
 /**
  * Arms desktop unread refill state when the current pass is recovering a
  * shrunken unread window or a user-owned scrolled window.
  * @param options - The unread viewport state for the current pass.
- * @param options.articleFilter
- * @param options.articlesPerPage
- * @param options.hasListShrunk
- * @param options.hasUserScrolled
- * @param options.isInvertedScroll
- * @param options.isStandardViewportRefillActiveRef
- * @param options.isStandardViewportRefillActiveRef.current
- * @param options.standardViewportRefillTargetVisibleCountRef
- * @param options.standardViewportRefillTargetVisibleCountRef.current
- * @param options.visibleArticleCountRef
- * @param options.visibleArticleCountRef.current
  */
-export function activateStandardViewportRefill(options: {
-  articleFilter: string;
-  articlesPerPage: number;
-  hasListShrunk: boolean;
-  hasUserScrolled: boolean;
-  isInvertedScroll: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  standardViewportRefillTargetVisibleCountRef?: { current: null | number };
-  visibleArticleCountRef: { current: number };
-}) {
+export function activateStandardViewportRefill(
+  options: ActivateStandardViewportRefillOptions,
+) {
   if (options.isInvertedScroll) {
     return;
   }
@@ -73,13 +79,11 @@ export function activateStandardViewportRefill(options: {
  * Clears the desktop viewport-refill state once the current refill cycle no
  * longer owns the feed window.
  * @param isStandardViewportRefillActiveRef - Tracks whether a desktop refill is active.
- * @param isStandardViewportRefillActiveRef.current
  * @param standardViewportRefillTargetVisibleCountRef - Stores the visible-count target owned by a desktop refill.
- * @param standardViewportRefillTargetVisibleCountRef.current
  */
 export function clearStandardViewportRefillState(
-  isStandardViewportRefillActiveRef: { current: boolean },
-  standardViewportRefillTargetVisibleCountRef?: { current: null | number },
+  isStandardViewportRefillActiveRef: BooleanRef,
+  standardViewportRefillTargetVisibleCountRef?: NullableNumberRef,
 ) {
   isStandardViewportRefillActiveRef.current = false;
 
@@ -93,14 +97,12 @@ export function clearStandardViewportRefillState(
  * unread viewport.
  * @param isInvertedScroll - Whether the active surface is using inverted scroll.
  * @param isStandardViewportRefillActiveRef - Tracks whether desktop refill state is active.
- * @param isStandardViewportRefillActiveRef.current
  * @param standardViewportRefillTargetVisibleCountRef - Stores the desktop refill target.
- * @param standardViewportRefillTargetVisibleCountRef.current
  */
 export function finalizeInactiveViewportAutoFill(
   isInvertedScroll: boolean,
-  isStandardViewportRefillActiveRef: { current: boolean },
-  standardViewportRefillTargetVisibleCountRef?: { current: null | number },
+  isStandardViewportRefillActiveRef: BooleanRef,
+  standardViewportRefillTargetVisibleCountRef?: NullableNumberRef,
 ) {
   if (isInvertedScroll) {
     return;
@@ -167,15 +169,9 @@ export function resolveStandardViewportRefillState(
  * Returns whether the measured list height shrank enough to classify the next
  * pass as unread-window recovery instead of initial underfill work.
  * @param options - The list-height samples used to detect a shrink transition.
- * @param options.effectiveListHeight
- * @param options.lastAutoFillListHeightRef
- * @param options.lastAutoFillListHeightRef.current
  * @returns Whether the feed list has materially shrunk since the last pass.
  */
-function hasListHeightShrunk(options: {
-  effectiveListHeight: number;
-  lastAutoFillListHeightRef: { current: null | number };
-}) {
+function hasListHeightShrunk(options: ListHeightShrinkState) {
   const previousListHeight = options.lastAutoFillListHeightRef.current;
 
   return (

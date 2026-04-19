@@ -134,6 +134,7 @@ function getDashboardArticleWindowAvailabilityState(
     inFlightPrefetchedLimitRef: articleWindowState.inFlightPrefetchedLimitRef,
     isAwaitingSettlementRef:
       articleWindowState.isAwaitingArticleWindowSettlementRef,
+    isLoadingMoreArticles: articleWindowState.isLoadingMoreArticles,
     isLoadingMoreArticlesRef: articleWindowState.isLoadingMoreArticlesRef,
     isRefillingDepletedUnreadWindowRef:
       articleWindowState.isRefillingDepletedUnreadWindowRef,

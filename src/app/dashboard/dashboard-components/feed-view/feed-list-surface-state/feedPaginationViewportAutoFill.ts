@@ -5,7 +5,6 @@ import {
   type FinishStandardViewportRefillOptions,
   hasReachedStandardViewportRefillTarget,
   resolveStandardViewportRefillState,
-  type StandardViewportRefillStateOptions,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportAutoFillState";
 import { shouldAutoFillViewport } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 
@@ -54,6 +53,20 @@ interface FinishViewportAutoFillOptions extends FinishStandardViewportRefillOpti
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
+}
+
+interface NullableNumberRef {
+  current: null | number;
+}
+
+interface ResolveActivateStandardViewportRefillOptions {
+  options: CompleteViewportAutoFillOptions;
+  targetVisibleCountRef?: NullableNumberRef;
+}
+
+interface ResolveFinishViewportAutoFillOptions {
+  options: CompleteViewportAutoFillOptions;
+  targetVisibleCountRef?: NullableNumberRef;
 }
 
 interface ShouldContinueAutoFillOptions {
@@ -140,14 +153,17 @@ function completeViewportAutoFill(options: CompleteViewportAutoFillOptions) {
   }
 
   activateStandardViewportRefill(
-    resolveActivateStandardViewportRefillOptions(
+    resolveActivateStandardViewportRefillOptions({
       options,
       targetVisibleCountRef,
-    ),
+    }),
   );
 
   finishViewportAutoFill(
-    resolveFinishViewportAutoFillOptions(options, targetVisibleCountRef),
+    resolveFinishViewportAutoFillOptions({
+      options,
+      targetVisibleCountRef,
+    }),
   );
 }
 
@@ -197,14 +213,13 @@ function readViewportScrollHeight(scrollViewport: HTMLElement) {
 }
 
 /**
- * Records the latest list height so later passes can detect unread-window
- * shrink transitions.
- * @param lastAutoFillListHeightRef - Stores the last measured list height.
- * @param lastAutoFillListHeightRef.current
- * @param effectiveListHeight - The most recent measured list height.
+ * Records the latest measured list height so later passes can detect when the
+ * unread window has materially shrunk.
+ * @param lastAutoFillListHeightRef - Stores the last measured list height for the active viewport.
+ * @param effectiveListHeight - The latest measured list height for the active auto-fill pass.
  */
 function recordEffectiveListHeight(
-  lastAutoFillListHeightRef: { current: null | number },
+  lastAutoFillListHeightRef: NullableNumberRef,
   effectiveListHeight: number,
 ) {
   if (Number.isFinite(effectiveListHeight)) {
@@ -229,25 +244,25 @@ function requestViewportRefillFromServer(
 }
 
 /**
- * @param options
- * @param targetVisibleCountRef
- * @param targetVisibleCountRef.current
+ * Builds the activation options for a desktop viewport-refill cycle.
+ * @param options - The measured viewport auto-fill state for the current pass.
+ * @param targetVisibleCountRef - Stores the visible-count target owned by the refill cycle.
+ * @returns The normalized activation options consumed by the refill-state helper.
  */
 function resolveActivateStandardViewportRefillOptions(
-  options: CompleteViewportAutoFillOptions,
-  targetVisibleCountRef?: { current: null | number },
+  options: ResolveActivateStandardViewportRefillOptions,
 ) {
   return {
-    articleFilter: options.options.articleFilter,
-    articlesPerPage: options.options.articlesPerPage,
-    hasListShrunk: options.hasListShrunk,
-    hasUserScrolled: options.hasUserScrolled,
-    isInvertedScroll: options.options.isInvertedScroll,
+    articleFilter: options.options.options.articleFilter,
+    articlesPerPage: options.options.options.articlesPerPage,
+    hasListShrunk: options.options.hasListShrunk,
+    hasUserScrolled: options.options.hasUserScrolled,
+    isInvertedScroll: options.options.options.isInvertedScroll,
     isStandardViewportRefillActiveRef:
-      options.options.isStandardViewportRefillActiveRef,
-    standardViewportRefillTargetVisibleCountRef: targetVisibleCountRef,
-    visibleArticleCountRef: options.options.visibleArticleCountRef,
-  } satisfies StandardViewportRefillStateOptions;
+      options.options.options.isStandardViewportRefillActiveRef,
+    standardViewportRefillTargetVisibleCountRef: options.targetVisibleCountRef,
+    visibleArticleCountRef: options.options.options.visibleArticleCountRef,
+  } satisfies Parameters<typeof activateStandardViewportRefill>[0];
 }
 
 /**
@@ -267,27 +282,29 @@ function resolveEffectiveListHeight(
 }
 
 /**
- * @param options
- * @param targetVisibleCountRef
- * @param targetVisibleCountRef.current
+ * Builds the continuation options for an active viewport auto-fill cycle.
+ * @param options - The measured viewport auto-fill state for the current pass.
+ * @param targetVisibleCountRef - Stores the visible-count target owned by the refill cycle.
+ * @returns The normalized finish options consumed by the refill continuation step.
  */
 function resolveFinishViewportAutoFillOptions(
-  options: CompleteViewportAutoFillOptions,
-  targetVisibleCountRef?: { current: null | number },
+  options: ResolveFinishViewportAutoFillOptions,
 ) {
   return {
-    articleFilter: options.options.articleFilter,
-    articlesPerPage: options.options.articlesPerPage,
-    currentFilteredFeedLength: options.currentFilteredFeedLength,
-    expandVisibleWindow: options.options.expandVisibleWindow,
-    hasPendingServerRevealRef: options.options.hasPendingServerRevealRef,
-    hasRequestedServerLoadRef: options.options.hasRequestedServerLoadRef,
-    isInvertedScroll: options.options.isInvertedScroll,
+    articleFilter: options.options.options.articleFilter,
+    articlesPerPage: options.options.options.articlesPerPage,
+    currentFilteredFeedLength: options.options.currentFilteredFeedLength,
+    expandVisibleWindow: options.options.options.expandVisibleWindow,
+    hasPendingServerRevealRef:
+      options.options.options.hasPendingServerRevealRef,
+    hasRequestedServerLoadRef:
+      options.options.options.hasRequestedServerLoadRef,
+    isInvertedScroll: options.options.options.isInvertedScroll,
     isStandardViewportRefillActiveRef:
-      options.options.isStandardViewportRefillActiveRef,
-    requestMoreFromServer: options.options.requestMoreFromServer,
-    standardViewportRefillTargetVisibleCountRef: targetVisibleCountRef,
-    visibleArticleCountRef: options.options.visibleArticleCountRef,
+      options.options.options.isStandardViewportRefillActiveRef,
+    requestMoreFromServer: options.options.options.requestMoreFromServer,
+    standardViewportRefillTargetVisibleCountRef: options.targetVisibleCountRef,
+    visibleArticleCountRef: options.options.options.visibleArticleCountRef,
   } satisfies FinishViewportAutoFillOptions;
 }
 
@@ -309,7 +326,10 @@ function resolveShouldContinueAutoFill(options: ShouldContinueAutoFillOptions) {
 }
 
 /**
- * @param options
+ * Adapts the current viewport state into the smaller shape used by the generic
+ * auto-fill continuation rule.
+ * @param options - The measured viewport auto-fill state for the current pass.
+ * @returns Whether the current viewport still needs more visible articles.
  */
 function resolveShouldContinueViewportAutoFill(
   options: CompleteViewportAutoFillOptions,

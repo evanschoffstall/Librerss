@@ -388,8 +388,9 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
  * Expand the visible article window or request more articles from the server when
  * the scroll sentinel reaches the standard load boundary.
  *
- * If the user has already seen all locally cached articles (`currentVisibleCount >=
- * currentFilteredFeedLength`), a server request is issued. Otherwise the visible
+ * If the user has already seen all locally cached articles
+ * (`currentVisibleCount >= currentFilteredFeedLength`), a server request is
+ * issued. Otherwise the visible
  * window expands locally from the cache. Either action disarms the boundary until the
  * sentinel re-enters the load zone.
  *
