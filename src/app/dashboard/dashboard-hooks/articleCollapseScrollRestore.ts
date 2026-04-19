@@ -15,7 +15,9 @@ import {
 
 interface CollapseScrollRestoreRuntimeOptions {
   articleKey: string;
-  clearPreExpandSnapshot: () => void;
+  clearPreExpandSnapshot: (
+    expectedSnapshot?: ArticleViewportSnapshot | null,
+  ) => void;
   setIsCollapseScrollRestoreActive: React.Dispatch<
     React.SetStateAction<boolean>
   >;
@@ -166,6 +168,7 @@ function createCollapseScrollRestoreState(
       performance.now() +
       ARTICLE_DEEXPAND_REMOVAL_ANIMATION_MS +
       ARTICLE_SCROLL_RESTORE_BUFFER_MS,
+    snapshot,
     viewportScrollTop,
   };
 }
@@ -240,7 +243,9 @@ function initializeCollapseScrollRestore(
  */
 function releaseCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
-  clearPreExpandSnapshot: () => void,
+  clearPreExpandSnapshot: (
+    expectedSnapshot?: ArticleViewportSnapshot | null,
+  ) => void,
   release: () => void,
   setIsCollapseScrollRestoreActive: React.Dispatch<
     React.SetStateAction<boolean>
@@ -256,7 +261,7 @@ function releaseCollapseScrollRestore(
   state.disconnectLayoutObservers = null;
   state.activeViewport.style.overflowAnchor = state.activeOverflowAnchor;
   setIsCollapseScrollRestoreActive(false);
-  clearPreExpandSnapshot();
+  clearPreExpandSnapshot(state.snapshot);
 }
 
 /**

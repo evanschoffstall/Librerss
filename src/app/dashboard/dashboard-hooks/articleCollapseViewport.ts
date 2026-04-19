@@ -1,5 +1,6 @@
 "use client";
 
+import { selectBestVisibleElement } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import { escapeArticleKey } from "@/app/dashboard/dashboard-hooks/useArticleHydration";
 import {
   findDashboardFeedViewport,
@@ -29,31 +30,41 @@ export interface CollapseRestoreLayoutObserverOptions {
  * @returns The capture article viewport snapshot.
  */
 export function captureArticleViewportSnapshot(articleKey: string) {
-  const articleElement = document.querySelector<HTMLElement>(
-    `[data-article-key="${escapeArticleKey(articleKey)}"]`,
-  );
-  const viewport =
-    articleElement?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ??
-    null;
+  const viewport = findDashboardFeedViewport();
+  const articleElement = selectBestVisibleArticleElement(articleKey, viewport);
 
-  if (!articleElement || !viewport) {
+  if (articleElement === null && viewport === null) {
+    return null;
+  }
+
+  const resolvedViewport =
+    articleElement === null
+      ? viewport
+      : (articleElement.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ) ?? viewport);
+
+  if (articleElement === null || resolvedViewport === null) {
     return null;
   }
 
   return {
     articleBottomOffsetTop:
-      getViewportOffsetTop(articleElement, viewport) +
+      getViewportOffsetTop(articleElement, resolvedViewport) +
       articleElement.getBoundingClientRect().height,
     articleHeaderViewportOffsetTop: getViewportOffsetTop(
       articleElement.querySelector<HTMLElement>(
         "[data-article-swipe-zone='header']",
       ) ?? articleElement,
-      viewport,
+      resolvedViewport,
     ),
     articleKey,
-    articleViewportOffsetTop: getViewportOffsetTop(articleElement, viewport),
-    viewport,
-    viewportScrollTop: viewport.scrollTop,
+    articleViewportOffsetTop: getViewportOffsetTop(
+      articleElement,
+      resolvedViewport,
+    ),
+    viewport: resolvedViewport,
+    viewportScrollTop: resolvedViewport.scrollTop,
   } satisfies ArticleViewportSnapshot;
 }
 
@@ -119,24 +130,50 @@ export function resolveCollapseRestoreViewport(
   articleKey: string,
   fallbackViewport: HTMLElement,
 ) {
-  const articleElement = document.querySelector<HTMLElement>(
-    `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+  const articleElements = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+    ),
   );
-  const placeholderRow = document.querySelector<HTMLElement>(
-    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"]`,
+  const placeholderRows = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"]`,
+    ),
   );
 
   return resolveFeedViewport({
     candidateViewports: [
-      articleElement?.closest<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ) ?? null,
-      placeholderRow?.closest<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ) ?? null,
+      ...articleElements.map((articleElement) =>
+        articleElement.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ),
+      ),
+      ...placeholderRows.map((placeholderRow) =>
+        placeholderRow.closest<HTMLElement>(
+          "[data-radix-scroll-area-viewport]",
+        ),
+      ),
       findDashboardFeedViewport(),
     ],
     fallbackViewport,
+  });
+}
+
+/**
+ * Restrict DOM candidates to the currently active feed viewport.
+ * @param candidates - The candidate article or placeholder elements.
+ * @param viewport - The active feed viewport that should own the candidates.
+ * @returns The subset of candidates rendered inside the active viewport.
+ */
+function filterCandidatesToViewport(
+  candidates: HTMLElement[],
+  viewport: HTMLElement,
+) {
+  return candidates.filter((candidate) => {
+    return (
+      candidate.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ===
+      viewport
+    );
   });
 }
 
@@ -146,7 +183,45 @@ export function resolveCollapseRestoreViewport(
  * @returns The find collapse restore anchor.
  */
 function findCollapseRestoreAnchor(articleKey: string) {
-  return document.querySelector<HTMLElement>(
-    `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"], [data-article-key="${escapeArticleKey(articleKey)}"]`,
+  const viewport = findDashboardFeedViewport();
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `[data-scroll-restore-key="${escapeArticleKey(articleKey)}"], [data-article-key="${escapeArticleKey(articleKey)}"]`,
+    ),
+  );
+
+  if (!viewport) {
+    return candidates[0] ?? null;
+  }
+
+  return selectBestVisibleElement(
+    filterCandidatesToViewport(candidates, viewport),
+    viewport,
+  );
+}
+
+/**
+ * Select the visible article element that best represents the keyed row.
+ * @param articleKey - The stable article key to locate in the DOM.
+ * @param viewport - The current feed viewport, when one is available.
+ * @returns The best visible article element for the keyed row, if present.
+ */
+function selectBestVisibleArticleElement(
+  articleKey: string,
+  viewport: HTMLElement | null,
+) {
+  const candidates = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `[data-article-key="${escapeArticleKey(articleKey)}"]`,
+    ),
+  );
+
+  if (!viewport) {
+    return candidates[0] ?? null;
+  }
+
+  return selectBestVisibleElement(
+    filterCandidatesToViewport(candidates, viewport),
+    viewport,
   );
 }
