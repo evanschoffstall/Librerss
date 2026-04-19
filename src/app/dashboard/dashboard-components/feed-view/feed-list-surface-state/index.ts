@@ -1,3 +1,4 @@
+export { applyFeedSurfaceLayoutToHost } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedListSurfaceLayout";
 export {
   hasMovedAwayFromBoundarySincePreviousScroll,
   resolveInvertedPaginationAnchorScrollTop,
@@ -14,6 +15,7 @@ export {
   useInvertedPaginationAnchor,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedPaginationAnchor";
 export { useInvertedScrollOwnership } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedScrollOwnership";
+export { useServerLoadSkeletonHold } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useServerLoadSkeletonHold";
 export {
   buildFeedSurfacePresentationState,
   buildFeedVirtualListEntries,

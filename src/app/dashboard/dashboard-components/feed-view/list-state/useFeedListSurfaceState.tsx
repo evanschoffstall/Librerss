@@ -28,11 +28,13 @@ interface UseFeedListSurfaceStateResult {
   contentKey: string;
   feedSurfaceMode: FeedSurfaceMode;
   handleViewportHostRef: (node: HTMLDivElement | null) => void;
+  hasActiveInvertedExpansionScrollLock: () => boolean;
   hasMoreArticles: boolean;
   hasSearchTerm: boolean;
   invertedPaginationAnchorRef: InvertedPaginationAnchorRefContract;
   isCachedPageRevealing: boolean;
   isInvertedScroll: boolean;
+  isPendingServerRevealVisible: boolean;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
   maybeAutoFillViewport: (committedListHeight?: number) => void;
   scrollViewport: HTMLElement | null;
@@ -117,12 +119,16 @@ function buildFeedListSurfaceStateOptions(
     feedSurfaceMode: compositionState.presentationState.feedSurfaceMode,
     filteredFeedLength,
     handleViewportHostRef: compositionState.viewportState.handleViewportHostRef,
+    hasActiveInvertedExpansionScrollLock:
+      compositionState.expansionLockState.hasActiveInvertedExpansionScrollLock,
     hasSearchTerm: compositionState.presentationState.hasSearchTerm,
     invertedPaginationAnchorRef:
       compositionState.paginationState.invertedPaginationAnchorRef,
     isCachedPageRevealing:
       compositionState.paginationState.isCachedPageRevealing,
     isInvertedScroll,
+    isPendingServerRevealVisible:
+      compositionState.paginationState.isPendingServerRevealVisible,
     loadMoreSentinelRef: compositionState.paginationState.loadMoreSentinelRef,
     maybeAutoFillViewport:
       compositionState.paginationState.maybeAutoFillViewport,

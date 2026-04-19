@@ -3,9 +3,13 @@
 import { useMemo, useRef } from "react";
 
 import {
+  resolvePaginationAnchorContainer,
+  resolvePaginationAnchorElement,
+  scheduleInvertedPaginationAnchorSync,
+  shouldReleasePaginationAnchor,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationAnchorDom";
+import {
   FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
-  findInvertedExpansionHeaderAnchor,
-  findInvertedExpansionLockAnchor,
   findTopVisibleInvertedPaginationAnchorArticleKey,
   getViewportOffsetTop,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
@@ -41,20 +45,25 @@ interface InvertedPaginationAnchorBoundaryCallbacksOptions {
   isInvertedScroll: boolean;
   lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
   pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  preservePendingInvertedPaginationAnchorSnapshotRef: React.RefObject<boolean>;
   scrollViewport: HTMLElement | null;
 }
 
-interface InvertedPaginationAnchorScrollCallbacksOptions {
+interface InvertedPaginationAnchorScrollCallbacksOptions extends InvertedPaginationAnchorSnapshotOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
   invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
+}
+interface InvertedPaginationAnchorSnapshotOptions {
   isInvertedScroll: boolean;
   lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
   lastInvertedScrollTopRef: React.RefObject<null | number>;
   pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
+  preservePendingInvertedPaginationAnchorSnapshotRef: React.RefObject<boolean>;
   scrollViewport: HTMLElement | null;
 }
+
 interface InvertedPaginationAnchorSyncOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
@@ -63,13 +72,8 @@ interface InvertedPaginationAnchorSyncOptions {
   scrollViewport: HTMLElement | null;
 }
 
-interface PrimeInvertedPaginationAnchorOptions {
+interface PrimeInvertedPaginationAnchorOptions extends InvertedPaginationAnchorSnapshotOptions {
   invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
-  isInvertedScroll: boolean;
-  lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  lastInvertedScrollTopRef: React.RefObject<null | number>;
-  pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
-  scrollViewport: HTMLElement | null;
   syncInvertedPaginationAnchor: () => number | undefined;
 }
 interface SelectedAnchorSnapshotOptions {
@@ -94,6 +98,24 @@ interface UseInvertedPaginationAnchorOptions {
 }
 
 /**
+ * Resolve the selected anchor snapshot.
+ * @param options - The options used to resolve the selected anchor snapshot.
+ * @returns The selected anchor snapshot.
+ */
+export function resolveSelectedAnchorSnapshot(
+  options: SelectedAnchorSnapshotOptions,
+) {
+  const pendingAnchorSnapshot =
+    options.pendingInvertedPaginationAnchorSnapshotRef.current;
+
+  if (pendingAnchorSnapshot !== null) {
+    return pendingAnchorSnapshot;
+  }
+
+  return null;
+}
+
+/**
  * Manage the inverted pagination anchor.
  * @param options - The options used to manage the inverted pagination anchor.
  * @returns The inverted pagination anchor state and callbacks.
@@ -113,6 +135,7 @@ export function useInvertedPaginationAnchor(
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef,
   } = useInvertedPaginationAnchorRefs();
 
   const {
@@ -125,6 +148,7 @@ export function useInvertedPaginationAnchor(
     isInvertedScroll,
     lastInvertedAwayBoundarySnapshotRef,
     pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef,
     scrollViewport,
   });
   const { primeInvertedPaginationAnchor, syncInvertedPaginationAnchor } =
@@ -137,6 +161,7 @@ export function useInvertedPaginationAnchor(
       lastInvertedAwayBoundarySnapshotRef,
       lastInvertedScrollTopRef,
       pendingInvertedPaginationAnchorSnapshotRef,
+      preservePendingInvertedPaginationAnchorSnapshotRef,
       scrollViewport,
     });
 
@@ -147,6 +172,7 @@ export function useInvertedPaginationAnchor(
     lastInvertedAwayBoundarySnapshotRef,
     lastInvertedScrollTopRef,
     pendingInvertedPaginationAnchorSnapshotRef,
+    preservePendingInvertedPaginationAnchorSnapshotRef,
     primeInvertedPaginationAnchor,
     releaseInvertedPaginationAnchor,
     syncInvertedPaginationAnchor,
@@ -166,11 +192,20 @@ function createCapturePendingInvertedPaginationAnchorSnapshot(
       return;
     }
 
-    const anchorArticleKey = findTopVisibleInvertedPaginationAnchorArticleKey();
+    const paginationAnchorContainer = resolvePaginationAnchorContainer(
+      options.scrollViewport,
+    );
+    const anchorArticleKey = findTopVisibleInvertedPaginationAnchorArticleKey(
+      paginationAnchorContainer,
+    );
     const nextSnapshot = {
       anchorArticleKey,
       anchorViewportOffsetTop: getViewportOffsetTop(
-        resolvePaginationAnchorElement(anchorArticleKey),
+        resolvePaginationAnchorElement(
+          anchorArticleKey,
+          options.scrollViewport,
+          paginationAnchorContainer,
+        ),
         options.scrollViewport,
       ),
       scrollHeight: options.scrollViewport.scrollHeight,
@@ -200,6 +235,9 @@ function createPrimeInvertedPaginationAnchor(
       return;
     }
 
+    const paginationAnchorContainer = resolvePaginationAnchorContainer(
+      options.scrollViewport,
+    );
     const selectedAnchorSnapshot = resolveSelectedAnchorSnapshot({
       lastInvertedAwayBoundarySnapshotRef:
         options.lastInvertedAwayBoundarySnapshotRef,
@@ -209,14 +247,20 @@ function createPrimeInvertedPaginationAnchor(
     });
     const anchorArticleKey = selectedAnchorSnapshot
       ? selectedAnchorSnapshot.anchorArticleKey
-      : findTopVisibleInvertedPaginationAnchorArticleKey();
+      : findTopVisibleInvertedPaginationAnchorArticleKey(
+          paginationAnchorContainer,
+        );
 
     options.invertedPaginationAnchorRef.current = {
       anchorArticleKey,
       anchorViewportOffsetTop: selectedAnchorSnapshot
         ? selectedAnchorSnapshot.anchorViewportOffsetTop
         : getViewportOffsetTop(
-            resolvePaginationAnchorElement(anchorArticleKey),
+            resolvePaginationAnchorElement(
+              anchorArticleKey,
+              options.scrollViewport,
+              paginationAnchorContainer,
+            ),
             options.scrollViewport,
           ),
       initialScrollHeight: selectedAnchorSnapshot
@@ -236,6 +280,7 @@ function createPrimeInvertedPaginationAnchor(
     };
 
     options.pendingInvertedPaginationAnchorSnapshotRef.current = null;
+    options.preservePendingInvertedPaginationAnchorSnapshotRef.current = false;
     const nextScrollTop = options.syncInvertedPaginationAnchor();
 
     if (typeof nextScrollTop === "number") {
@@ -243,7 +288,6 @@ function createPrimeInvertedPaginationAnchor(
     }
   };
 }
-
 /**
  * Create the release inverted pagination anchor.
  * @param invertedPaginationAnchorFrameRef - The ref that stores the inverted pagination anchor frame ref.
@@ -263,6 +307,7 @@ function createReleaseInvertedPaginationAnchor(
     }
   };
 }
+
 /**
  * Create the sync inverted pagination anchor.
  * @param options - The options used to create the sync inverted pagination anchor.
@@ -353,93 +398,29 @@ function resolveNextPaginationScrollTop(
   anchorState: InvertedPaginationAnchorState,
   scrollViewport: HTMLElement,
 ) {
+  const paginationAnchorContainer =
+    resolvePaginationAnchorContainer(scrollViewport);
   const anchorElement = resolvePaginationAnchorElement(
     anchorState.anchorArticleKey,
+    scrollViewport,
+    paginationAnchorContainer,
   );
-
-  if (anchorState.anchorArticleKey !== null && anchorElement === null) {
-    return scrollViewport.scrollTop;
-  }
 
   const anchoredScrollTop = anchorElement
     ? scrollViewport.scrollTop +
       getViewportOffsetTop(anchorElement, scrollViewport) -
       anchorState.anchorViewportOffsetTop
     : null;
-
-  return Math.max(
+  const nextScrollTop = Math.max(
     0,
     anchoredScrollTop ??
       anchorState.initialScrollTop +
         (scrollViewport.scrollHeight - anchorState.initialScrollHeight),
   );
+
+  return nextScrollTop;
 }
 
-/**
- * Resolve the pagination anchor element.
- * @param anchorArticleKey - The anchor article key.
- * @returns The pagination anchor element.
- */
-function resolvePaginationAnchorElement(anchorArticleKey: null | string) {
-  return (
-    findInvertedExpansionLockAnchor(anchorArticleKey) ??
-    findInvertedExpansionHeaderAnchor(anchorArticleKey)
-  );
-}
-/**
- * Resolve the selected anchor snapshot.
- * @param options - The options used to resolve the selected anchor snapshot.
- * @returns The selected anchor snapshot.
- */
-function resolveSelectedAnchorSnapshot(options: SelectedAnchorSnapshotOptions) {
-  const pendingAnchorSnapshot =
-    options.pendingInvertedPaginationAnchorSnapshotRef.current;
-  const lastAwayBoundarySnapshot =
-    options.lastInvertedAwayBoundarySnapshotRef.current;
-  const shouldUseLastAwayBoundarySnapshot =
-    lastAwayBoundarySnapshot !== null &&
-    options.scrollViewport.scrollTop <= FEED_INVERTED_LOAD_MORE_THRESHOLD_PX;
-
-  if (shouldUseLastAwayBoundarySnapshot) {
-    return lastAwayBoundarySnapshot;
-  }
-
-  if (pendingAnchorSnapshot !== null) {
-    return pendingAnchorSnapshot;
-  }
-
-  return null;
-}
-
-/**
- * Process the schedule inverted pagination anchor sync.
- * @param invertedPaginationAnchorFrameRef - The ref that stores the inverted pagination anchor frame ref.
- * @param syncInvertedPaginationAnchor - The callback that sync inverted pagination anchor.
- */
-function scheduleInvertedPaginationAnchorSync(
-  invertedPaginationAnchorFrameRef: React.RefObject<null | number>,
-  syncInvertedPaginationAnchor: () => number | undefined,
-) {
-  if (invertedPaginationAnchorFrameRef.current !== null) {
-    window.cancelAnimationFrame(invertedPaginationAnchorFrameRef.current);
-  }
-
-  invertedPaginationAnchorFrameRef.current = window.requestAnimationFrame(
-    () => {
-      invertedPaginationAnchorFrameRef.current = null;
-      syncInvertedPaginationAnchor();
-    },
-  );
-}
-
-/**
- * Return whether should release pagination anchor.
- * @param releaseAt - The release at.
- * @returns Whether should release pagination anchor.
- */
-function shouldReleasePaginationAnchor(releaseAt: number) {
-  return performance.now() >= releaseAt;
-}
 /**
  * Manage the inverted pagination anchor boundary callbacks.
  * @param options - The options used to manage the inverted pagination anchor boundary callbacks.
@@ -499,6 +480,7 @@ function useInvertedPaginationAnchorRefs() {
     lastInvertedScrollTopRef: useRef<null | number>(null),
     pendingInvertedPaginationAnchorSnapshotRef:
       useRef<null | PendingInvertedPaginationAnchorSnapshot>(null),
+    preservePendingInvertedPaginationAnchorSnapshotRef: useRef(false),
   };
 }
 /**
@@ -520,6 +502,8 @@ function useInvertedPaginationAnchorScrollCallbacks(
         lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
         pendingInvertedPaginationAnchorSnapshotRef:
           options.pendingInvertedPaginationAnchorSnapshotRef,
+        preservePendingInvertedPaginationAnchorSnapshotRef:
+          options.preservePendingInvertedPaginationAnchorSnapshotRef,
         scrollViewport: options.scrollViewport,
         syncInvertedPaginationAnchor,
       }),
@@ -529,6 +513,7 @@ function useInvertedPaginationAnchorScrollCallbacks(
       options.lastInvertedAwayBoundarySnapshotRef,
       options.lastInvertedScrollTopRef,
       options.pendingInvertedPaginationAnchorSnapshotRef,
+      options.preservePendingInvertedPaginationAnchorSnapshotRef,
       options.scrollViewport,
       syncInvertedPaginationAnchor,
     ],

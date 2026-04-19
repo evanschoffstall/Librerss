@@ -34,17 +34,23 @@ export function useCachedRevealCompletionEffect(
       return;
     }
 
-    // Reveal just completed — re-arm the load boundary so the sentinel or
-    // the next scroll event can trigger another page if needed.
-    if (isInvertedScroll) {
-      isInvertedLoadBoundaryArmedRef.current = true;
-    } else {
+    // Reveal just completed — standard scroll can re-arm immediately because
+    // staying pinned at the bottom is allowed to trigger the next page.
+    // Inverted scroll must wait for the reader to leave and re-reach the top
+    // boundary, otherwise a commit-time scroll event can chain another page
+    // from the same top-edge intent.
+    if (!isInvertedScroll) {
       isStandardLoadBoundaryArmedRef.current = true;
     }
 
-    // Schedule a deferred pagination check after the DOM has committed the
-    // revealed articles. This covers the case where the user is still at
-    // the load boundary and no further scroll events will arrive.
+    // Standard scroll needs a deferred check after the DOM commits the reveal
+    // because the reader can remain pinned at the bottom without generating a
+    // new scroll event. Inverted pagination must not auto-chain another page
+    // while the reader is still at the top boundary.
+    if (isInvertedScroll) {
+      return;
+    }
+
     paginationFrameRef.current ??= window.requestAnimationFrame(() => {
       paginationFrameRef.current = null;
       maybeLoadNextPage("sentinel");

@@ -5,44 +5,37 @@ import {
   shouldAbortPaginationBoundaryRearm,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 
-export interface ViewportScrollBindingOptions {
-  capturePendingInvertedPaginationAnchorSnapshot: () => void;
-  clearInitialNormalScrollLock: () => void;
-  hasActiveInvertedExpansionScrollLock: () => boolean;
+export interface ViewportScrollBindingOptions extends ViewportScrollSharedOptions {
   hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
-  hasUserScrolledRef: { current: boolean };
-  invertedPaginationAnchorRef: { current: unknown };
   isInvertedLoadBoundaryArmedRef: { current: boolean };
-  isInvertedScroll: boolean;
   isStandardLoadBoundaryArmedRef: { current: boolean };
   lastInvertedScrollTopRef: { current: null | number };
   lastStandardScrollTopRef: { current: null | number };
-  maybeLoadNextPage: (_trigger: "scroll" | "sentinel") => void;
-  normalScrollIntentSuppressionFrameRef: { current: null | number };
-  onClaimInvertedScrollOwnership: () => void;
-  onSyncInvertedExpansionScrollLock: () => void;
-  releaseInvertedPaginationAnchor: () => void;
   scrollViewport: HTMLElement | null;
-  shouldLockInitialNormalScroll: () => boolean;
-  suppressImmediateNormalScrollIntent: () => void;
 }
 
-interface ViewportScrollHandlerOptions {
+interface ViewportScrollHandlerOptions extends ViewportScrollSharedOptions {
+  rearmInvertedBoundaryFromScrollPosition: () => void;
+  rearmStandardBoundaryFromScrollPosition: () => void;
+  scrollViewport: HTMLElement;
+}
+
+interface ViewportScrollSharedOptions {
   capturePendingInvertedPaginationAnchorSnapshot: () => void;
   clearInitialNormalScrollLock: () => void;
   hasActiveInvertedExpansionScrollLock: () => boolean;
   hasUserScrolledRef: { current: boolean };
+  invertedPaginationAnchorRef: { current: unknown };
   isInvertedScroll: boolean;
   maybeLoadNextPage: (_trigger: "scroll" | "sentinel") => void;
   normalScrollIntentSuppressionFrameRef: { current: null | number };
   onClaimInvertedScrollOwnership: () => void;
   onSyncInvertedExpansionScrollLock: () => void;
-  rearmInvertedBoundaryFromScrollPosition: () => void;
-  rearmStandardBoundaryFromScrollPosition: () => void;
+  pendingInvertedPaginationAnchorSnapshotRef: { current: unknown };
+  preservePendingInvertedPaginationAnchorSnapshotRef: { current: boolean };
   releaseInvertedPaginationAnchor: () => void;
-  scrollViewport: HTMLElement;
   shouldLockInitialNormalScroll: () => boolean;
   suppressImmediateNormalScrollIntent: () => void;
 }
@@ -101,59 +94,16 @@ export function createViewportScrollHandler(
 ) {
   return () => {
     if (options.isInvertedScroll) {
-      const maxScrollTop = Math.max(
-        0,
-        options.scrollViewport.scrollHeight -
-          options.scrollViewport.clientHeight,
-      );
-
-      if (options.hasActiveInvertedExpansionScrollLock()) {
-        if (options.scrollViewport.scrollTop < maxScrollTop - 1) {
-          options.releaseInvertedPaginationAnchor();
-          options.onClaimInvertedScrollOwnership();
-          options.hasUserScrolledRef.current = true;
-        } else {
-          options.onSyncInvertedExpansionScrollLock();
-          return;
-        }
-      }
-
-      options.capturePendingInvertedPaginationAnchorSnapshot();
-
-      if (options.scrollViewport.scrollTop < maxScrollTop - 1) {
-        options.releaseInvertedPaginationAnchor();
-        options.onClaimInvertedScrollOwnership();
-        options.hasUserScrolledRef.current = true;
-      }
-
-      if (options.hasUserScrolledRef.current) {
-        options.rearmInvertedBoundaryFromScrollPosition();
-      }
-    }
-
-    if (options.shouldLockInitialNormalScroll() && !options.isInvertedScroll) {
-      if (options.scrollViewport.scrollTop === 0) {
+      if (handleInvertedViewportScroll(options)) {
         return;
       }
 
-      options.clearInitialNormalScrollLock();
-      options.suppressImmediateNormalScrollIntent();
+      options.maybeLoadNextPage("scroll");
       return;
     }
 
-    if (
-      !options.isInvertedScroll &&
-      options.normalScrollIntentSuppressionFrameRef.current !== null
-    ) {
+    if (handleStandardViewportScroll(options)) {
       return;
-    }
-
-    if (options.scrollViewport.scrollTop > 0 && !options.isInvertedScroll) {
-      options.hasUserScrolledRef.current = true;
-    }
-
-    if (!options.isInvertedScroll && options.hasUserScrolledRef.current) {
-      options.rearmStandardBoundaryFromScrollPosition();
     }
 
     options.maybeLoadNextPage("scroll");
@@ -256,4 +206,94 @@ function createRearmStandardBoundaryHandler(
       hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
     });
   };
+}
+
+/**
+ * Handle inverted scroll updates and report whether the caller should stop processing.
+ * @param options - The active viewport scroll handler options.
+ * @returns Whether inverted scroll processing fully handled the event.
+ */
+function handleInvertedViewportScroll(options: ViewportScrollHandlerOptions) {
+  const maxScrollTop = Math.max(
+    0,
+    options.scrollViewport.scrollHeight - options.scrollViewport.clientHeight,
+  );
+  const hasActiveExpansionLock = options.hasActiveInvertedExpansionScrollLock();
+  const hasActivePaginationAnchor =
+    options.invertedPaginationAnchorRef.current !== null;
+
+  if (hasActiveExpansionLock) {
+    if (options.scrollViewport.scrollTop < maxScrollTop - 1) {
+      options.releaseInvertedPaginationAnchor();
+      options.onClaimInvertedScrollOwnership();
+      options.hasUserScrolledRef.current = true;
+      options.rearmInvertedBoundaryFromScrollPosition();
+    } else {
+      options.onSyncInvertedExpansionScrollLock();
+    }
+
+    return true;
+  }
+
+  if (options.preservePendingInvertedPaginationAnchorSnapshotRef.current) {
+    options.preservePendingInvertedPaginationAnchorSnapshotRef.current = false;
+  } else if (!hasActivePaginationAnchor) {
+    options.capturePendingInvertedPaginationAnchorSnapshot();
+  }
+
+  if (
+    !hasActivePaginationAnchor &&
+    options.scrollViewport.scrollTop < maxScrollTop - 1
+  ) {
+    options.releaseInvertedPaginationAnchor();
+    options.onClaimInvertedScrollOwnership();
+    options.hasUserScrolledRef.current = true;
+  }
+
+  if (options.hasUserScrolledRef.current) {
+    options.rearmInvertedBoundaryFromScrollPosition();
+  }
+
+  return false;
+}
+
+/**
+ * Handle standard scroll updates and report whether the caller should stop processing.
+ * @param options - The active viewport scroll handler options.
+ * @returns Whether standard scroll processing fully handled the event.
+ */
+function handleStandardViewportScroll(options: ViewportScrollHandlerOptions) {
+  const shouldLockInitialNormalScroll = options.shouldLockInitialNormalScroll();
+  const didClearInitialNormalScrollLock =
+    shouldLockInitialNormalScroll && options.scrollViewport.scrollTop !== 0;
+
+  if (didClearInitialNormalScrollLock) {
+    options.clearInitialNormalScrollLock();
+    options.suppressImmediateNormalScrollIntent();
+  } else if (
+    shouldLockInitialNormalScroll &&
+    options.scrollViewport.scrollTop === 0
+  ) {
+    return true;
+  }
+
+  if (
+    options.normalScrollIntentSuppressionFrameRef.current !== null &&
+    !didClearInitialNormalScrollLock
+  ) {
+    return true;
+  }
+
+  if (
+    !didClearInitialNormalScrollLock &&
+    options.scrollViewport.scrollTop > 0
+  ) {
+    options.hasUserScrolledRef.current = true;
+  }
+
+  if (options.hasUserScrolledRef.current) {
+    options.rearmStandardBoundaryFromScrollPosition();
+  }
+
+  return false;
 }

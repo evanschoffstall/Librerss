@@ -29,12 +29,14 @@ interface FeedListSurfaceStateResultOptions {
   feedSurfaceMode: FeedSurfaceMode;
   filteredFeedLength: number;
   handleViewportHostRef: (node: HTMLDivElement | null) => void;
+  hasActiveInvertedExpansionScrollLock: () => boolean;
   hasSearchTerm: boolean;
   invertedPaginationAnchorRef: {
     current: InvertedPaginationAnchorState | null;
   };
   isCachedPageRevealing: boolean;
   isInvertedScroll: boolean;
+  isPendingServerRevealVisible: boolean;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
   maybeAutoFillViewport: (committedListHeight?: number) => void;
   scrollViewport: HTMLElement | null;
@@ -101,6 +103,7 @@ interface FeedSurfacePaginationOptionsOptions {
   articlesPerPage: number;
   canLoadMoreFromServer?: boolean;
   collapsingArticles: Readonly<Record<string, unknown>>;
+  expandedArticleKey: null | string;
   expansionLockState: ReturnType<typeof useFeedSurfaceExpansionLock>;
   feedViewKey: string;
   filteredFeedLength: number;
@@ -142,11 +145,14 @@ export function buildFeedListSurfaceStateResult(
     contentKey: `${options.feedSurfaceMode}:${options.trimmedSearchTerm}`,
     feedSurfaceMode: options.feedSurfaceMode,
     handleViewportHostRef: options.handleViewportHostRef,
+    hasActiveInvertedExpansionScrollLock:
+      options.hasActiveInvertedExpansionScrollLock,
     hasMoreArticles: options.visibleArticleCount < options.filteredFeedLength,
     hasSearchTerm: options.hasSearchTerm,
     invertedPaginationAnchorRef: options.invertedPaginationAnchorRef,
     isCachedPageRevealing: options.isCachedPageRevealing,
     isInvertedScroll: options.isInvertedScroll,
+    isPendingServerRevealVisible: options.isPendingServerRevealVisible,
     loadMoreSentinelRef: options.loadMoreSentinelRef,
     maybeAutoFillViewport: options.maybeAutoFillViewport,
     scrollViewport: options.scrollViewport,
@@ -313,6 +319,7 @@ function buildFeedSurfacePaginationOptions(
     canLoadMoreFromServer: options.canLoadMoreFromServer,
     clearInitialNormalScrollLock:
       options.viewportState.clearInitialNormalScrollLock,
+    expandedArticleKey: options.expandedArticleKey,
     feedViewKey: options.feedViewKey,
     filteredFeedLength: options.filteredFeedLength,
     hasActiveInvertedExpansionScrollLock:
@@ -371,6 +378,7 @@ function useFeedSurfaceControllerStates(options: FeedSurfaceControllerOptions) {
       articlesPerPage: options.articlesPerPage,
       canLoadMoreFromServer: options.canLoadMoreFromServer,
       collapsingArticles: options.collapsingArticles,
+      expandedArticleKey: options.expandedArticleKey,
       expansionLockState,
       feedViewKey: options.feedViewKey,
       filteredFeedLength: options.filteredFeedLength,

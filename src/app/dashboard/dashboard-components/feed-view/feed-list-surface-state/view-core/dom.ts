@@ -10,11 +10,19 @@ import {
   resolveFeedViewport,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+interface VisibleAnchorCandidate {
+  element: HTMLElement;
+  intersectsViewport: boolean;
+  visibleScore: number;
+}
+
 interface VisibleArticleHeaderEntry {
   articleKey: string;
   fullyVisible: boolean;
   headerTop: number;
 }
+
+const INVERTED_PAGINATION_STABLE_ANCHOR_OFFSET_PX = 144;
 
 /**
  * Process the collect fully visible article keys.
@@ -42,30 +50,40 @@ export function collectFullyVisibleArticleKeys(viewport: HTMLElement) {
 /**
  * Process the find inverted expansion header anchor.
  * @param articleKey - The article key.
+ * @param viewport - The preferred viewport that should own the anchor lookup.
  * @returns The find inverted expansion header anchor.
  */
-export function findInvertedExpansionHeaderAnchor(articleKey: null | string) {
+export function findInvertedExpansionHeaderAnchor(
+  articleKey: null | string,
+  viewport?: HTMLElement,
+) {
   if (!articleKey) {
     return null;
   }
 
-  return document.querySelector<HTMLElement>(
+  return findBestVisibleAnchorCandidate(
     `article[data-article-key="${CSS.escape(articleKey)}"] [data-article-swipe-zone='header']`,
+    viewport,
   );
 }
 
 /**
  * Process the find inverted expansion lock anchor.
  * @param articleKey - The article key.
+ * @param viewport - The preferred viewport that should own the anchor lookup.
  * @returns The find inverted expansion lock anchor.
  */
-export function findInvertedExpansionLockAnchor(articleKey: null | string) {
+export function findInvertedExpansionLockAnchor(
+  articleKey: null | string,
+  viewport?: HTMLElement,
+) {
   if (!articleKey) {
     return null;
   }
 
-  return document.querySelector<HTMLElement>(
+  return findBestVisibleAnchorCandidate(
     `[data-scroll-restore-key="${CSS.escape(articleKey)}"], article[data-article-key="${CSS.escape(articleKey)}"]`,
+    viewport,
   );
 }
 
@@ -79,20 +97,66 @@ export function findInvertedExpansionLockViewport() {
 
 /**
  * Process the find top visible inverted pagination anchor article key.
+ * @param viewport - The viewport to inspect for currently visible articles.
  * @returns The find top visible inverted pagination anchor article key.
  */
-export function findTopVisibleInvertedPaginationAnchorArticleKey() {
-  const viewport = findInvertedExpansionLockViewport();
+export function findTopVisibleInvertedPaginationAnchorArticleKey(
+  viewport?: HTMLElement,
+) {
+  const resolvedViewport = viewport ?? findInvertedExpansionLockViewport();
 
-  if (!viewport) {
+  if (!resolvedViewport) {
     return null;
   }
 
-  const visibleHeaders = collectVisibleArticleHeaderEntries(viewport).sort(
-    (left, right) => left.headerTop - right.headerTop,
-  );
+  const viewportRect = resolvedViewport.getBoundingClientRect();
+  const visibleArticles = Array.from(
+    resolvedViewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
+  )
+    .map((articleElement) => {
+      const articleKey = articleElement.dataset.articleKey ?? null;
 
-  return visibleHeaders[0]?.articleKey ?? null;
+      if (!articleKey) {
+        return null;
+      }
+
+      const articleRect = articleElement.getBoundingClientRect();
+
+      if (
+        articleRect.bottom <= viewportRect.top ||
+        articleRect.top >= viewportRect.bottom
+      ) {
+        return null;
+      }
+
+      return {
+        articleKey,
+        fullyVisible:
+          articleRect.top >= viewportRect.top &&
+          articleRect.bottom <= viewportRect.bottom,
+        offsetTop: articleRect.top - viewportRect.top,
+      };
+    })
+    .filter(
+      (
+        article,
+      ): article is {
+        articleKey: string;
+        fullyVisible: boolean;
+        offsetTop: number;
+      } => article !== null,
+    )
+    .sort((left, right) => left.offsetTop - right.offsetTop);
+
+  const stableVisibleArticle = visibleArticles.find((entry) => {
+    return entry.offsetTop >= INVERTED_PAGINATION_STABLE_ANCHOR_OFFSET_PX;
+  });
+
+  if (stableVisibleArticle) {
+    return stableVisibleArticle.articleKey;
+  }
+
+  return visibleArticles.length > 0 ? visibleArticles[0].articleKey : null;
 }
 
 /**
@@ -166,8 +230,8 @@ export function observeInvertedExpansionScrollLockLayout(
      * @returns The best available anchor element for the active article.
      */
     findAnchor: () =>
-      findInvertedExpansionHeaderAnchor(articleKey) ??
-      findInvertedExpansionLockAnchor(articleKey),
+      findInvertedExpansionHeaderAnchor(articleKey, viewport) ??
+      findInvertedExpansionLockAnchor(articleKey, viewport),
     onLayoutChange,
     viewport,
   });
@@ -200,14 +264,63 @@ export function resolveInvertedExpansionLockViewport(
 ) {
   return resolveFeedViewport({
     candidateViewports: [
-      findInvertedExpansionLockAnchor(articleKey)?.closest<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      ) ?? null,
+      findInvertedExpansionLockAnchor(
+        articleKey,
+        viewport,
+      )?.closest<HTMLElement>("[data-radix-scroll-area-viewport]") ?? null,
       isInvertedExpansionLockViewport(viewport) ? viewport : null,
       findInvertedExpansionLockViewport(),
     ],
     fallbackViewport: viewport,
   });
+}
+
+/**
+ * Select the best currently visible element from a set of candidates.
+ * @param candidates - Candidate elements that may anchor a viewport restore.
+ * @param viewport - The viewport used to score candidate visibility.
+ * @returns The highest-ranked visible candidate, or the first available element.
+ */
+export function selectBestVisibleElement(
+  candidates: HTMLElement[],
+  viewport: HTMLElement,
+) {
+  const viewportRect = viewport.getBoundingClientRect();
+  const sortedCandidates = candidates
+    .map<null | VisibleAnchorCandidate>((element) => {
+      if (!element.isConnected) {
+        return null;
+      }
+
+      const rect = element.getBoundingClientRect();
+      const headerTop = rect.top - viewportRect.top;
+      const headerBottom = rect.bottom - viewportRect.top;
+
+      return {
+        element,
+        intersectsViewport:
+          headerBottom > 0 && headerTop < viewport.clientHeight,
+        visibleScore:
+          Math.abs(Math.max(0, headerTop)) +
+          Math.abs(Math.min(0, viewport.clientHeight - headerBottom)),
+      };
+    })
+    .filter(
+      (candidate): candidate is VisibleAnchorCandidate => candidate !== null,
+    )
+    .sort((left, right) => {
+      if (left.intersectsViewport !== right.intersectsViewport) {
+        return left.intersectsViewport ? -1 : 1;
+      }
+
+      return left.visibleScore - right.visibleScore;
+    });
+
+  if (sortedCandidates.length > 0) {
+    return sortedCandidates[0].element;
+  }
+
+  return candidates.length > 0 ? candidates[0] : null;
 }
 
 /**
@@ -276,4 +389,26 @@ function collectVisibleArticleHeaderEntries(
       } satisfies VisibleArticleHeaderEntry;
     })
     .filter((entry): entry is VisibleArticleHeaderEntry => entry !== null);
+}
+
+/**
+ * Find the best visible anchor candidate for a selector within the preferred viewport.
+ * @param selector - The selector used to collect candidate elements.
+ * @param viewport - The preferred viewport that should own the anchor lookup.
+ * @returns The most relevant visible anchor element for the selector.
+ */
+function findBestVisibleAnchorCandidate(
+  selector: string,
+  viewport?: HTMLElement,
+) {
+  const resolvedViewport = viewport ?? findDashboardFeedViewport();
+
+  if (resolvedViewport) {
+    return selectBestVisibleElement(
+      Array.from(resolvedViewport.querySelectorAll<HTMLElement>(selector)),
+      resolvedViewport,
+    );
+  }
+
+  return document.querySelector<HTMLElement>(selector);
 }

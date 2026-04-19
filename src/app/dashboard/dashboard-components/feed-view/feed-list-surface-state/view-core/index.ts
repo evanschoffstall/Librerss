@@ -8,7 +8,6 @@ export {
   FEED_MIN_SCROLLABLE_OVERFLOW_PX,
   FEED_SERVER_LOAD_REARM_COOLDOWN_MS,
   FEED_STANDARD_LOAD_MORE_TRIGGER_RATIO,
-  SENTINEL_OVERFLOW_ARTICLES,
   SKELETON_MIN_VISIBLE_MS,
 } from "./constants";
 export {
@@ -23,6 +22,7 @@ export {
   observeInvertedExpansionScrollLockLayout,
   readPreparedArticleKey,
   resolveInvertedExpansionLockViewport,
+  selectBestVisibleElement,
   shouldAutoAnchorInvertedScrollViewport,
 } from "./dom";
 export { buildFeedSurfacePresentationState } from "./presentation";
