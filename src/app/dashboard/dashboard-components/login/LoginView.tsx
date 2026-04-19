@@ -34,6 +34,11 @@ export const LoginView = (props: LoginViewProps) => {
     initialFormError,
     onAuthenticated,
   });
+  const cardContentProps = buildLoginCardContentProps(
+    allowSignup,
+    loginViewState,
+    onEnterPreview,
+  );
 
   return (
     <div
@@ -50,42 +55,76 @@ export const LoginView = (props: LoginViewProps) => {
       >
         <Card className="relative w-full max-w-md">
           <LoginCardHeader mode={loginViewState.mode} />
-          <LoginCardContent
-            allowSignup={allowSignup}
-            confirmPassword={loginViewState.confirmPassword}
-            email={loginViewState.email}
-            fieldErrors={loginViewState.fieldErrors}
-            hasAcceptedLegalTerms={loginViewState.hasAcceptedLegalTerms}
-            isSubmitting={loginViewState.isSubmitting}
-            mode={loginViewState.mode}
-            onChangeConfirmPassword={(value) => {
-              loginViewState.setConfirmPassword(value);
-              loginViewState.clearFieldError("confirm");
-            }}
-            onChangeEmail={(value) => {
-              loginViewState.setEmail(value);
-              loginViewState.clearFieldError("email");
-            }}
-            onChangeLegalTerms={(checked) => {
-              loginViewState.setHasAcceptedLegalTerms(checked);
-              if (checked) {
-                loginViewState.clearFieldError("legal");
-              }
-            }}
-            onChangePassword={(value) => {
-              loginViewState.setPassword(value);
-              loginViewState.clearFieldError("password");
-            }}
-            onEnterPreview={onEnterPreview}
-            onKeyDown={loginViewState.handleKeyDown}
-            onSubmit={() => {
-              void loginViewState.handleSubmit();
-            }}
-            onToggleMode={loginViewState.toggleMode}
-            password={loginViewState.password}
-          />
+          <LoginCardContent {...cardContentProps} />
         </Card>
       </motion.div>
     </div>
   );
 };
+
+/**
+ * Build the props passed to the login card content component.
+ * @param allowSignup - Whether signup should be enabled.
+ * @param loginViewState - The current login view state and callbacks.
+ * @param onEnterPreview - Optional preview-entry callback.
+ * @returns The login card content props.
+ */
+function buildLoginCardContentProps(
+  allowSignup: boolean,
+  loginViewState: ReturnType<typeof useLoginViewState>,
+  onEnterPreview: LoginViewProps["onEnterPreview"],
+) {
+  return {
+    allowSignup,
+    confirmPassword: loginViewState.confirmPassword,
+    email: loginViewState.email,
+    fieldErrors: loginViewState.fieldErrors,
+    hasAcceptedLegalTerms: loginViewState.hasAcceptedLegalTerms,
+    isSubmitting: loginViewState.isSubmitting,
+    mode: loginViewState.mode,
+    /**
+     * Sync the confirm-password field and clear its validation error.
+     * @param value - The next confirm-password field value.
+     */
+    onChangeConfirmPassword: (value: string) => {
+      loginViewState.setConfirmPassword(value);
+      loginViewState.clearFieldError("confirm");
+    },
+    /**
+     * Sync the email field and clear its validation error.
+     * @param value - The next email field value.
+     */
+    onChangeEmail: (value: string) => {
+      loginViewState.setEmail(value);
+      loginViewState.clearFieldError("email");
+    },
+    /**
+     * Sync the legal-terms checkbox and clear its validation error once accepted.
+     * @param checked - Whether the legal-terms checkbox is checked.
+     */
+    onChangeLegalTerms: (checked: boolean) => {
+      loginViewState.setHasAcceptedLegalTerms(checked);
+      if (checked) {
+        loginViewState.clearFieldError("legal");
+      }
+    },
+    /**
+     * Sync the password field and clear its validation error.
+     * @param value - The next password field value.
+     */
+    onChangePassword: (value: string) => {
+      loginViewState.setPassword(value);
+      loginViewState.clearFieldError("password");
+    },
+    onEnterPreview,
+    onKeyDown: loginViewState.handleKeyDown,
+    /**
+     * Submit the current login form state.
+     */
+    onSubmit: () => {
+      void loginViewState.handleSubmit();
+    },
+    onToggleMode: loginViewState.toggleMode,
+    password: loginViewState.password,
+  };
+}

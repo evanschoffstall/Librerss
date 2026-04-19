@@ -1,4 +1,6 @@
-import { KeyboardEvent, useState } from "react";
+import type { KeyboardEvent } from "react";
+
+import { useState } from "react";
 import { toast } from "sonner";
 
 import type { AuthUser } from "@/lib/core";
@@ -18,6 +20,15 @@ interface SubmitAuthenticationRequestOptions {
   email: string;
   mode: "login" | "signup";
   password: string;
+}
+
+interface SubmitLoginViewFormOptions extends SubmitAuthenticationRequestOptions {
+  allowSignup: boolean;
+  confirmPassword: string;
+  hasAcceptedLegalTerms: boolean;
+  onAuthenticated: (user: AuthUser) => void;
+  setFieldErrors: React.Dispatch<React.SetStateAction<LoginFieldErrors>>;
+  setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface UseLoginViewStateOptions {
@@ -59,32 +70,17 @@ export function useLoginViewState(options: UseLoginViewStateOptions) {
    * Process the handle submit.
    */
   const handleSubmit = async () => {
-    const errors = validateLoginFields({
+    await submitLoginViewForm({
       allowSignup,
       confirmPassword,
       email,
       hasAcceptedLegalTerms,
       mode,
+      onAuthenticated,
       password,
+      setFieldErrors,
+      setIsSubmitting,
     });
-
-    if (errors) {
-      setFieldErrors(errors);
-      return;
-    }
-
-    setFieldErrors({});
-    setIsSubmitting(true);
-    try {
-      const user = await submitAuthenticationRequest({ email, mode, password });
-
-      onAuthenticated(user);
-      toast.success(mode === "signup" ? "Account created." : "Welcome back.");
-    } catch (error: unknown) {
-      setFieldErrors({ form: resolveAuthenticationErrorMessage(error) });
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   /**
@@ -120,6 +116,7 @@ export function useLoginViewState(options: UseLoginViewStateOptions) {
     toggleMode,
   };
 }
+
 /**
  * Resolve the authentication error message.
  * @param error - The error.
@@ -131,7 +128,6 @@ function resolveAuthenticationErrorMessage(error: unknown) {
     ? error.response.data.error
     : "Authentication failed.";
 }
-
 /**
  * Process the submit authentication request.
  * @param options - The options used to process the submit authentication request.
@@ -144,4 +140,50 @@ async function submitAuthenticationRequest(
   return mode === "signup"
     ? AuthService.signup(email.trim(), password)
     : AuthService.login(email.trim(), password);
+}
+
+/**
+ * Submit the login form after validating the current field values.
+ * @param options - The login form values and state setters used during submission.
+ */
+async function submitLoginViewForm(
+  options: SubmitLoginViewFormOptions,
+): Promise<void> {
+  const {
+    allowSignup,
+    confirmPassword,
+    email,
+    hasAcceptedLegalTerms,
+    mode,
+    onAuthenticated,
+    password,
+    setFieldErrors,
+    setIsSubmitting,
+  } = options;
+  const errors = validateLoginFields({
+    allowSignup,
+    confirmPassword,
+    email,
+    hasAcceptedLegalTerms,
+    mode,
+    password,
+  });
+
+  if (errors) {
+    setFieldErrors(errors);
+    return;
+  }
+
+  setFieldErrors({});
+  setIsSubmitting(true);
+  try {
+    const user = await submitAuthenticationRequest({ email, mode, password });
+
+    onAuthenticated(user);
+    toast.success(mode === "signup" ? "Account created." : "Welcome back.");
+  } catch (error: unknown) {
+    setFieldErrors({ form: resolveAuthenticationErrorMessage(error) });
+  } finally {
+    setIsSubmitting(false);
+  }
 }

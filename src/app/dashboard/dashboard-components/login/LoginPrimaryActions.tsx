@@ -28,7 +28,16 @@ export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
   } = props;
   return (
     <>
-      <Button className="w-full" disabled={isSubmitting} onClick={onSubmit}>
+      <Button
+        className="w-full"
+        disabled={isSubmitting}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onSubmit();
+        }}
+        type="button"
+      >
         {isSubmitting ? (
           <motion.div
             animate={{ rotate: 360 }}
@@ -48,7 +57,12 @@ export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
         <Button
           className="px-0"
           disabled={isSubmitting}
-          onClick={onToggleMode}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onToggleMode();
+          }}
+          type="button"
           variant="link"
         >
           {mode === "signup"
@@ -60,7 +74,12 @@ export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
         <Button
           className="w-full px-0 text-muted-foreground"
           disabled={isSubmitting}
-          onClick={onEnterPreview}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onEnterPreview();
+          }}
+          type="button"
           variant="link"
         >
           Explore without an account
