@@ -10,6 +10,19 @@ import {
   resolveInvertedExpansionLockViewport,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+interface ExpansionLockReleaseDeadlineOptions {
+  lockState: InvertedExpansionScrollLockState;
+  releaseInvertedExpansionScrollLock: () => void;
+  syncInvertedExpansionScrollLock: () => void;
+}
+
+interface ExpansionLockSyncOptions {
+  invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>;
+  lockState: InvertedExpansionScrollLockState;
+  releaseInvertedExpansionScrollLock: () => void;
+  syncInvertedExpansionScrollLock: () => void;
+}
+
 interface ReleaseLockOptions {
   expandedArticleKeyRef: React.RefObject<null | string>;
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>;
@@ -70,30 +83,12 @@ export function useInvertedExpansionLockMachine(
       return;
     }
 
-    const targetScrollTop = resolveLockTargetScrollTop(lockState);
-
-    if (Math.abs(lockState.viewport.scrollTop - targetScrollTop) > 0.5) {
-      lockState.viewport.scrollTop = targetScrollTop;
-    }
-
-    if (lockState.releaseAt !== null) {
-      if (performance.now() >= lockState.releaseAt) {
-        releaseInvertedExpansionScrollLock();
-        return;
-      }
-
-      scheduleExpansionLockSync(
-        invertedExpansionScrollLockRef,
-        syncInvertedExpansionScrollLock,
-      );
-    }
-
-    if (shouldSchedulePersistentExpansionLock(lockState)) {
-      scheduleExpansionLockSync(
-        invertedExpansionScrollLockRef,
-        syncInvertedExpansionScrollLock,
-      );
-    }
+    syncResolvedExpansionLock({
+      invertedExpansionScrollLockRef,
+      lockState,
+      releaseInvertedExpansionScrollLock,
+      syncInvertedExpansionScrollLock,
+    });
   }, [releaseInvertedExpansionScrollLock]);
 
   const startInvertedExpansionScrollLock = useMemo(
@@ -166,23 +161,23 @@ function createStartInvertedExpansionScrollLock(options: StartLockOptions) {
       disposeExpansionLock(existingLockState, false);
     }
 
+    const snapshotViewport =
+      snapshot?.viewport.isConnected === true ? snapshot.viewport : null;
     const resolvedViewport =
+      snapshotViewport ??
       resolveInvertedExpansionLockViewport(articleKey, scrollViewport) ??
       scrollViewport;
-    const baselineScrollTop = snapshot
-      ? snapshot.viewportScrollTop
-      : existingLockState?.viewport === resolvedViewport
-        ? existingLockState.baselineScrollTop
-        : resolvedViewport.scrollTop;
-    const anchorViewportOffsetTop = snapshot
-      ? snapshot.articleHeaderViewportOffsetTop
-      : existingLockState?.viewport === resolvedViewport &&
-          existingLockState.articleKey === articleKey
-        ? existingLockState.anchorViewportOffsetTop
-        : getViewportOffsetTop(
-            findInvertedExpansionHeaderAnchor(articleKey),
-            resolvedViewport,
-          );
+    const baselineScrollTop = resolveBaselineScrollTop(
+      existingLockState,
+      resolvedViewport,
+      snapshot,
+    );
+    const anchorViewportOffsetTop = resolveAnchorViewportOffsetTop(
+      articleKey,
+      existingLockState,
+      resolvedViewport,
+      snapshot,
+    );
 
     invertedExpansionScrollLockRef.current = {
       anchorViewportOffsetTop,
@@ -232,6 +227,42 @@ function disposeExpansionLock(
 }
 
 /**
+ * Handle release-deadline scheduling for the current lock and report whether it consumed the sync.
+ * @param options - The active lock state together with the release and resync callbacks.
+ * @param targetScrollTop - The scroll position the current lock pass is targeting.
+ * @param invertedExpansionScrollLockRef - Tracks the active lock state for rescheduling.
+ * @returns Whether deadline handling fully consumed the current sync pass.
+ */
+function handleExpansionLockReleaseDeadline(
+  options: ExpansionLockReleaseDeadlineOptions,
+  targetScrollTop: number,
+  invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>,
+) {
+  if (options.lockState.releaseAt === null) {
+    return false;
+  }
+
+  if (performance.now() >= options.lockState.releaseAt) {
+    if (shouldReleaseExpansionLock(options.lockState, targetScrollTop)) {
+      options.releaseInvertedExpansionScrollLock();
+      return true;
+    }
+
+    scheduleExpansionLockSync(
+      invertedExpansionScrollLockRef,
+      options.syncInvertedExpansionScrollLock,
+    );
+    return true;
+  }
+
+  scheduleExpansionLockSync(
+    invertedExpansionScrollLockRef,
+    options.syncInvertedExpansionScrollLock,
+  );
+  return true;
+}
+
+/**
  * Process the rebind expansion lock viewport.
  * @param lockState - The lock state.
  * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
@@ -241,6 +272,13 @@ function rebindExpansionLockViewport(
   lockState: InvertedExpansionScrollLockState,
   syncInvertedExpansionScrollLock: () => void,
 ) {
+  const currentAnchor = findInvertedExpansionHeaderAnchor(
+    lockState.articleKey,
+    lockState.viewport,
+  );
+  const currentAnchorViewportOffsetTop = currentAnchor
+    ? getViewportOffsetTop(currentAnchor, lockState.viewport)
+    : lockState.anchorViewportOffsetTop;
   const resolvedViewport = resolveInvertedExpansionLockViewport(
     lockState.articleKey,
     lockState.viewport,
@@ -264,9 +302,64 @@ function rebindExpansionLockViewport(
       onLayoutChange: syncInvertedExpansionScrollLock,
       viewport: resolvedViewport,
     });
+  if (lockState.mode === "expand" || lockState.mode === "stable") {
+    lockState.anchorViewportOffsetTop = currentAnchorViewportOffsetTop;
+  }
   resolvedViewport.style.overflowAnchor = "none";
 
   return resolvedViewport;
+}
+
+/**
+ * Resolve the viewport offset that the expansion lock should preserve.
+ * @param articleKey - The article key that owns the expansion lock.
+ * @param existingLockState - The current lock state before rebinding.
+ * @param resolvedViewport - The viewport that will own the new lock.
+ * @param snapshot - The captured expansion snapshot, when one exists.
+ * @returns The viewport offset the lock should maintain for the anchor header.
+ */
+function resolveAnchorViewportOffsetTop(
+  articleKey: null | string,
+  existingLockState: InvertedExpansionScrollLockState | null,
+  resolvedViewport: HTMLElement,
+  snapshot: InvertedExpansionViewportSnapshot | null | undefined,
+) {
+  if (snapshot) {
+    return snapshot.articleHeaderViewportOffsetTop;
+  }
+
+  if (
+    existingLockState?.viewport === resolvedViewport &&
+    existingLockState.articleKey === articleKey
+  ) {
+    return existingLockState.anchorViewportOffsetTop;
+  }
+
+  return getViewportOffsetTop(
+    findInvertedExpansionHeaderAnchor(articleKey, resolvedViewport),
+    resolvedViewport,
+  );
+}
+
+/**
+ * Resolve the baseline scroll position to restore while the lock is active.
+ * @param existingLockState - The current lock state before rebinding.
+ * @param resolvedViewport - The viewport that will own the new lock.
+ * @param snapshot - The captured expansion snapshot, when one exists.
+ * @returns The baseline scroll top for the lock lifecycle.
+ */
+function resolveBaselineScrollTop(
+  existingLockState: InvertedExpansionScrollLockState | null,
+  resolvedViewport: HTMLElement,
+  snapshot: InvertedExpansionViewportSnapshot | null | undefined,
+) {
+  if (snapshot) {
+    return snapshot.viewportScrollTop;
+  }
+
+  return existingLockState?.viewport === resolvedViewport
+    ? existingLockState.baselineScrollTop
+    : resolvedViewport.scrollTop;
 }
 
 /**
@@ -277,7 +370,17 @@ function rebindExpansionLockViewport(
 function resolveLockTargetScrollTop(
   lockState: InvertedExpansionScrollLockState,
 ) {
-  const anchor = findInvertedExpansionHeaderAnchor(lockState.articleKey);
+  if (
+    lockState.articleKey !== null &&
+    (lockState.mode === "collapsing" || lockState.mode === "restore")
+  ) {
+    return lockState.baselineScrollTop;
+  }
+
+  const anchor = findInvertedExpansionHeaderAnchor(
+    lockState.articleKey,
+    lockState.viewport,
+  );
   const anchoredScrollTop = anchor
     ? lockState.viewport.scrollTop +
       getViewportOffsetTop(anchor, lockState.viewport) -
@@ -320,6 +423,40 @@ function scheduleExpansionLockSync(
 }
 
 /**
+ * Return whether the release deadline can safely hand control back to the feed.
+ * In restore mode, keep the lock alive until the article header has actually
+ * returned to its captured viewport offset.
+ * @param lockState - The active expansion lock state being evaluated.
+ * @param targetScrollTop - The scroll position the current lock pass is targeting.
+ * @returns Whether the current lock can safely release control back to pagination.
+ */
+function shouldReleaseExpansionLock(
+  lockState: InvertedExpansionScrollLockState,
+  targetScrollTop: number,
+) {
+  if (lockState.mode !== "restore") {
+    return true;
+  }
+
+  const anchor = findInvertedExpansionHeaderAnchor(
+    lockState.articleKey,
+    lockState.viewport,
+  );
+
+  if (!anchor) {
+    return false;
+  }
+
+  return (
+    Math.abs(lockState.viewport.scrollTop - targetScrollTop) <= 1 &&
+    Math.abs(
+      getViewportOffsetTop(anchor, lockState.viewport) -
+        lockState.anchorViewportOffsetTop,
+    ) <= 1
+  );
+}
+
+/**
  * Return whether should schedule persistent expansion lock.
  * @param lockState - The lock state.
  * @returns Whether should schedule persistent expansion lock.
@@ -331,4 +468,33 @@ function shouldSchedulePersistentExpansionLock(
     lockState.releaseAt === null &&
     (lockState.mode === "expand" || lockState.mode === "collapsing")
   );
+}
+
+/**
+ * Apply the resolved lock state to the viewport and schedule any follow-up sync work.
+ * @param options - The active lock state together with the release and resync callbacks.
+ */
+function syncResolvedExpansionLock(options: ExpansionLockSyncOptions) {
+  const targetScrollTop = resolveLockTargetScrollTop(options.lockState);
+
+  if (Math.abs(options.lockState.viewport.scrollTop - targetScrollTop) > 0.5) {
+    options.lockState.viewport.scrollTop = targetScrollTop;
+  }
+
+  if (
+    handleExpansionLockReleaseDeadline(
+      options,
+      targetScrollTop,
+      options.invertedExpansionScrollLockRef,
+    )
+  ) {
+    return;
+  }
+
+  if (shouldSchedulePersistentExpansionLock(options.lockState)) {
+    scheduleExpansionLockSync(
+      options.invertedExpansionScrollLockRef,
+      options.syncInvertedExpansionScrollLock,
+    );
+  }
 }

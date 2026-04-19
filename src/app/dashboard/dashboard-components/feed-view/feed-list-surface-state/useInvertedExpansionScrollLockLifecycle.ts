@@ -321,7 +321,8 @@ export function useInvertedExpansionViewportSnapshot(
 
       return {
         articleHeaderViewportOffsetTop: getViewportOffsetTop(
-          findInvertedExpansionHeaderAnchor(articleKey) ?? articleElement,
+          findInvertedExpansionHeaderAnchor(articleKey, viewport) ??
+            articleElement,
           viewport,
         ),
         articleKey,
