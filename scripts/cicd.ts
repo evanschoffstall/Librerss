@@ -56,7 +56,7 @@ class ReleaseWorkflowError extends Error {
  * @param arguments_ - The arguments.
  * @returns The git.
  */
-const git = (arguments_: [string, ...string[]]): Command => [
+const git = (...arguments_: [string, ...string[]]): Command => [
   "git",
   ...arguments_,
 ];
