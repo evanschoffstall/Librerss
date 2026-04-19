@@ -27,18 +27,17 @@ export function useSettingsCategoryState(
   const [savingCategoryLabel, setSavingCategoryLabel] = useState<null | string>(
     null,
   );
+  const onStartCategoryEdit = createStartCategoryEditHandler(
+    setEditingCategory,
+    setEditingCategoryName,
+  );
 
-  useEffect(() => {
-    if (
-      editingCategory &&
-      !categories.some((categoryNode) =>
-        isSameCategoryLabel(categoryNode.label, editingCategory),
-      )
-    ) {
-      setEditingCategory(null);
-      setEditingCategoryName("");
-    }
-  }, [categories, editingCategory]);
+  useClearMissingEditingCategory(
+    categories,
+    editingCategory,
+    setEditingCategory,
+    setEditingCategoryName,
+  );
 
   /**
    * Process the clear category edit.
@@ -88,16 +87,51 @@ export function useSettingsCategoryState(
     handleSaveCategoryRename,
     newCategoryName,
     onCancelCategoryEdit: clearCategoryEdit,
-    /**
-     * Starts editing a category using its current label as the draft value.
-     * @param label - Category label to open in edit mode.
-     */
-    onStartCategoryEdit: (label: string) => {
-      setEditingCategory(label);
-      setEditingCategoryName(label);
-    },
+    onStartCategoryEdit,
     savingCategoryLabel,
     setEditingCategoryName,
     setNewCategoryName,
   };
+}
+
+/**
+ * Create the category edit starter that syncs the draft name with the selected label.
+ * @param setEditingCategory - Updates the active editing label.
+ * @param setEditingCategoryName - Updates the editing input value.
+ * @returns The handler that starts editing a category.
+ */
+function createStartCategoryEditHandler(
+  setEditingCategory: React.Dispatch<React.SetStateAction<null | string>>,
+  setEditingCategoryName: React.Dispatch<React.SetStateAction<string>>,
+) {
+  return (label: string) => {
+    setEditingCategory(label);
+    setEditingCategoryName(label);
+  };
+}
+
+/**
+ * Manage clearing the active edit when its category disappears from the tree.
+ * @param categories - The available category nodes.
+ * @param editingCategory - The label currently being edited.
+ * @param setEditingCategory - Updates the active editing label.
+ * @param setEditingCategoryName - Updates the editing input value.
+ */
+function useClearMissingEditingCategory(
+  categories: CategoryTreeNode[],
+  editingCategory: null | string,
+  setEditingCategory: React.Dispatch<React.SetStateAction<null | string>>,
+  setEditingCategoryName: React.Dispatch<React.SetStateAction<string>>,
+) {
+  useEffect(() => {
+    if (
+      editingCategory &&
+      !categories.some((categoryNode) =>
+        isSameCategoryLabel(categoryNode.label, editingCategory),
+      )
+    ) {
+      setEditingCategory(null);
+      setEditingCategoryName("");
+    }
+  }, [categories, editingCategory, setEditingCategory, setEditingCategoryName]);
 }

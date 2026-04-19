@@ -73,84 +73,118 @@ export function useDashboardShellLoadingState(startInShellLoading: boolean) {
   const [isShellLoading, setIsShellLoading] = useState(startInShellLoading);
 
   useLayoutEffect(() => {
-    /**
-     * Process the sync shell loading from document.
-     * @returns Whether sync shell loading from document.
-     */
-    const syncShellLoadingFromDocument = () => {
-      const shellLoading = readDashboardShellLoadingFromDocument();
-
-      if (shellLoading === null) {
-        return false;
-      }
-
-      hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(shellLoading);
-      return true;
-    };
-
-    /**
-     * Process the settle optimistic shell loading.
-     */
-    const settleOptimisticShellLoading = () => {
-      const shellLoading = resolveDashboardShellLoadingState({
-        hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
-        readyState: document.readyState,
-        shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
-      });
-
-      if (shellLoading !== null) {
-        hasReceivedShellLoadingEventRef.current = true;
-        setIsShellLoading(shellLoading);
-      }
-    };
-
-    /**
-     * Process the handle shell loading.
-     * @param event - The incoming event.
-     */
-    const handleShellLoading = (event: Event) => {
-      hasReceivedShellLoadingEventRef.current = true;
-      setIsShellLoading(readDashboardShellLoadingFromEvent(event));
-    };
-
-    /**
-     * Process the handle ready state change.
-     */
-    const handleReadyStateChange = () => {
-      settleOptimisticShellLoading();
-    };
+    const lifecycle = createDashboardShellLoadingLifecycle(
+      hasReceivedShellLoadingEventRef,
+      setIsShellLoading,
+    );
 
     window.addEventListener(
       DASHBOARD_EVENTS.SHELL_LOADING,
-      handleShellLoading as EventListener,
+      lifecycle.handleShellLoading as EventListener,
     );
 
-    const shellLoadingObserver =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(() => {
-            syncShellLoadingFromDocument();
-          });
+    const shellLoadingObserver = createDashboardShellLoadingObserver(
+      lifecycle.syncShellLoadingFromDocument,
+    );
 
     shellLoadingObserver?.observe(document.documentElement, {
       attributeFilter: ["data-dashboard-shell-loading"],
       attributes: true,
     });
 
-    syncShellLoadingFromDocument();
-    document.addEventListener("readystatechange", handleReadyStateChange);
-    queueMicrotask(settleOptimisticShellLoading);
+    lifecycle.syncShellLoadingFromDocument();
+    document.addEventListener(
+      "readystatechange",
+      lifecycle.handleReadyStateChange,
+    );
+    queueMicrotask(lifecycle.settleOptimisticShellLoading);
 
     return () => {
       window.removeEventListener(
         DASHBOARD_EVENTS.SHELL_LOADING,
-        handleShellLoading as EventListener,
+        lifecycle.handleShellLoading as EventListener,
       );
       shellLoadingObserver?.disconnect();
-      document.removeEventListener("readystatechange", handleReadyStateChange);
+      document.removeEventListener(
+        "readystatechange",
+        lifecycle.handleReadyStateChange,
+      );
     };
   }, [startInShellLoading]);
 
   return isShellLoading;
+}
+
+/**
+ * Create the shell-loading lifecycle callbacks used by the dashboard shell listener.
+ * @param hasReceivedShellLoadingEventRef - Tracks whether a shell-loading signal has arrived.
+ * @param setIsShellLoading - Updates the shell-loading state.
+ * @returns The lifecycle callbacks used during effect setup and cleanup.
+ */
+function createDashboardShellLoadingLifecycle(
+  hasReceivedShellLoadingEventRef: React.RefObject<boolean>,
+  setIsShellLoading: React.Dispatch<React.SetStateAction<boolean>>,
+) {
+  /**
+   * Sync shell-loading state from the document attribute when it is present.
+   * @returns Whether the document attribute produced a concrete shell-loading state.
+   */
+  const syncShellLoadingFromDocument = () => {
+    const shellLoading = readDashboardShellLoadingFromDocument();
+
+    if (shellLoading === null) {
+      return false;
+    }
+
+    hasReceivedShellLoadingEventRef.current = true;
+    setIsShellLoading(shellLoading);
+    return true;
+  };
+  /**
+   * Resolve shell-loading state after document readiness or microtask settlement.
+   */
+  const settleOptimisticShellLoading = () => {
+    const shellLoading = resolveDashboardShellLoadingState({
+      hasReceivedShellLoadingEvent: hasReceivedShellLoadingEventRef.current,
+      readyState: document.readyState,
+      shellLoadingFromDocument: readDashboardShellLoadingFromDocument(),
+    });
+
+    if (shellLoading !== null) {
+      hasReceivedShellLoadingEventRef.current = true;
+      setIsShellLoading(shellLoading);
+    }
+  };
+  /**
+   * Handle explicit shell-loading events emitted by the dashboard shell.
+   * @param event - The event carrying the latest shell-loading state.
+   */
+  const handleShellLoading = (event: Event) => {
+    hasReceivedShellLoadingEventRef.current = true;
+    setIsShellLoading(readDashboardShellLoadingFromEvent(event));
+  };
+
+  return {
+    handleReadyStateChange: settleOptimisticShellLoading,
+    handleShellLoading,
+    settleOptimisticShellLoading,
+    syncShellLoadingFromDocument,
+  };
+}
+
+/**
+ * Create the MutationObserver that watches shell-loading document attributes.
+ * @param syncShellLoadingFromDocument - Re-reads shell-loading state from the document.
+ * @returns The observer instance, or null when MutationObserver is unavailable.
+ */
+function createDashboardShellLoadingObserver(
+  syncShellLoadingFromDocument: () => boolean,
+) {
+  if (typeof MutationObserver === "undefined") {
+    return null;
+  }
+
+  return new MutationObserver(() => {
+    syncShellLoadingFromDocument();
+  });
 }

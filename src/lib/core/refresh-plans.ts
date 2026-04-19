@@ -122,10 +122,7 @@ export async function executeParallelRefreshes(
       forceRefresh,
       forceResolveUpstream,
     );
-
-    for (const feed of staleFeeds) {
-      refreshedUrls.add(feed.url);
-    }
+    trackRefreshedUrls(staleFeeds, refreshedUrls);
 
     if (staleFeeds.length > 0) {
       const results = await refreshCandidateFeeds(
@@ -136,16 +133,7 @@ export async function executeParallelRefreshes(
       recordRefreshSettlements(staleFeeds, results, upstreamErrors);
     }
   }
-
-  for (const url of allowedUrls) {
-    if (upstreamErrors.has(url)) {
-      continue;
-    }
-    const feed = feedByUrl.get(url);
-    if (feed?.lastFetchError) {
-      upstreamErrors.set(url, feed.lastFetchError);
-    }
-  }
+  appendPersistedRefreshErrors(feedByUrl, allowedUrls, upstreamErrors);
 
   return {
     cooldownLimitedCount,
@@ -153,6 +141,29 @@ export async function executeParallelRefreshes(
     refreshedCount: refreshedUrls.size,
     refreshedUrls,
   };
+}
+
+/**
+ * Merge persisted feed errors for urls that did not fail during this refresh pass.
+ * @param feedByUrl - The feed records keyed by url.
+ * @param allowedUrls - The urls included in the current batch.
+ * @param upstreamErrors - The refresh errors accumulated so far.
+ */
+function appendPersistedRefreshErrors(
+  feedByUrl: Map<string, FeedRecord>,
+  allowedUrls: string[],
+  upstreamErrors: Map<string, string>,
+): void {
+  for (const url of allowedUrls) {
+    if (upstreamErrors.has(url)) {
+      continue;
+    }
+
+    const feed = feedByUrl.get(url);
+    if (feed?.lastFetchError) {
+      upstreamErrors.set(url, feed.lastFetchError);
+    }
+  }
 }
 
 /**
@@ -325,4 +336,18 @@ function shouldBatchRefreshFeed(
   }
 
   return shouldRefreshFeed(feed.lastFetched);
+}
+
+/**
+ * Track the urls that were refreshed during the current batch.
+ * @param staleFeeds - The feed records selected for upstream refresh.
+ * @param refreshedUrls - The url set that records refreshed feeds.
+ */
+function trackRefreshedUrls(
+  staleFeeds: FeedRecord[],
+  refreshedUrls: Set<string>,
+): void {
+  for (const { url } of staleFeeds) {
+    refreshedUrls.add(url);
+  }
 }

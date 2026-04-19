@@ -120,6 +120,34 @@ function addDashboardToolbarWindowListeners(
 }
 
 /**
+ * Create the dashboard search listeners that synchronize toolbar search state.
+ * @param setIsSearchPending - Updates the pending-search state.
+ * @param setSearch - Updates the toolbar search term.
+ * @returns The search listeners consumed by the window event registration.
+ */
+function createDashboardToolbarSearchListeners(
+  setIsSearchPending: React.Dispatch<React.SetStateAction<boolean>>,
+  setSearch: React.Dispatch<React.SetStateAction<string>>,
+) {
+  return {
+    /**
+     * Sync the pending-search flag from dashboard window events.
+     * @param event - The dashboard event carrying the pending flag.
+     */
+    searchPending: (event: Event) => {
+      setIsSearchPending(readSearchPendingEvent(event));
+    },
+    /**
+     * Sync the toolbar search term from dashboard window events.
+     * @param event - The dashboard event carrying the search term.
+     */
+    searchSync: (event: Event) => {
+      setSearch(readSearchSyncTerm(event));
+    },
+  };
+}
+
+/**
  * Create the dashboard toolbar window listeners.
  * @param options - The options used to create the dashboard toolbar window listeners.
  * @returns The dashboard toolbar window listeners.
@@ -136,6 +164,18 @@ function createDashboardToolbarWindowListeners(
     setSearch,
     setTitle,
   } = options;
+  const searchListeners = createDashboardToolbarSearchListeners(
+    setIsSearchPending,
+    setSearch,
+  );
+  /**
+   * Sync the dashboard title from window events.
+   * @param event - The dashboard event carrying the current title.
+   */
+  const titleChange = (event: Event) => {
+    setTitle(readDashboardTitle(event));
+  };
+
   return {
     /**
      * Process the enter preview.
@@ -153,65 +193,76 @@ function createDashboardToolbarWindowListeners(
      * Process the mark all read end.
      */
     markAllReadEnd: () => {
-      setIsMarkingAllRead(false);
+      setBooleanState(setIsMarkingAllRead, false);
     },
     /**
      * Process the mark all read start.
      */
     markAllReadStart: () => {
-      setIsMarkingAllRead(true);
+      setBooleanState(setIsMarkingAllRead, true);
     },
     /**
      * Process the mark viewport read end.
      */
     markViewportReadEnd: () => {
-      setIsMarkingViewportRead(false);
+      setBooleanState(setIsMarkingViewportRead, false);
     },
     /**
      * Process the mark viewport read start.
      */
     markViewportReadStart: () => {
-      setIsMarkingViewportRead(true);
+      setBooleanState(setIsMarkingViewportRead, true);
     },
     /**
      * Process the refresh end.
      */
     refreshEnd: () => {
-      setIsRefreshing(false);
+      setBooleanState(setIsRefreshing, false);
     },
     /**
      * Process the refresh start.
      */
     refreshStart: () => {
-      setIsRefreshing(true);
+      setBooleanState(setIsRefreshing, true);
     },
-    /**
-     * Process the search pending.
-     * @param event - The incoming event.
-     */
-    searchPending: (event: Event) => {
-      const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
-      setIsSearchPending(detail.pending === true);
-    },
-    /**
-     * Process the search sync.
-     * @param event - The incoming event.
-     */
-    searchSync: (event: Event) => {
-      const detail = (event as CustomEvent<{ term?: string }>).detail;
-      setSearch(typeof detail.term === "string" ? detail.term : "");
-    },
-    /**
-     * Process the title change.
-     * @param event - The incoming event.
-     */
-    titleChange: (event: Event) => {
-      const detail = (event as CustomEvent<{ title?: string }>).detail;
-      const nextTitle =
-        typeof detail.title === "string" ? detail.title.trim() : "";
-      setTitle(nextTitle === "" ? "LibreRSS" : nextTitle);
-    },
+    searchPending: searchListeners.searchPending,
+    searchSync: searchListeners.searchSync,
+    titleChange,
   };
+}
+
+/**
+ * Read the dashboard title from a window event and normalize empty values.
+ * @param event - The dashboard event carrying the title.
+ * @returns The normalized dashboard title.
+ */
+function readDashboardTitle(event: Event): string {
+  const detail = (event as CustomEvent<{ title?: string }>).detail;
+  const nextTitle = typeof detail.title === "string" ? detail.title.trim() : "";
+
+  return nextTitle === "" ? "LibreRSS" : nextTitle;
+}
+
+/**
+ * Read the pending search flag from a dashboard window event.
+ * @param event - The dashboard event carrying the pending flag.
+ * @returns Whether search is currently pending.
+ */
+function readSearchPendingEvent(event: Event): boolean {
+  const detail = (event as CustomEvent<{ pending?: boolean }>).detail;
+
+  return detail.pending === true;
+}
+
+/**
+ * Read the search term from a dashboard search sync event.
+ * @param event - The dashboard event carrying the search term.
+ * @returns The normalized search term.
+ */
+function readSearchSyncTerm(event: Event): string {
+  const detail = (event as CustomEvent<{ term?: string }>).detail;
+
+  return typeof detail.term === "string" ? detail.term : "";
 }
 
 /**
@@ -262,4 +313,16 @@ function removeDashboardToolbarWindowListeners(
     DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
     listeners.markViewportReadEnd,
   );
+}
+
+/**
+ * Set a boolean React state value.
+ * @param setter - The React state setter.
+ * @param value - The boolean value to apply.
+ */
+function setBooleanState(
+  setter: React.Dispatch<React.SetStateAction<boolean>>,
+  value: boolean,
+): void {
+  setter(value);
 }
