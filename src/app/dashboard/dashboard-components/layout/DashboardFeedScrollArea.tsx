@@ -70,7 +70,8 @@ export const DashboardFeedScrollArea = React.forwardRef<
    * @returns The rendered dashboard feed scroll area component.
    */
   function DashboardFeedScrollArea(props, ref) {
-    const { children, className, viewportClassName, ...props } = props;
+    const { children, className, viewportClassName, ...scrollAreaProps } =
+      props;
     const [viewportElement, setViewportElement] =
       React.useState<HTMLDivElement | null>(null);
     const [scrollbarMetrics, setScrollbarMetrics] =
@@ -214,7 +215,7 @@ export const DashboardFeedScrollArea = React.forwardRef<
       <div
         className={cn("relative overflow-hidden", className)}
         ref={ref}
-        {...props}
+        {...scrollAreaProps}
       >
         <div
           className={cn(

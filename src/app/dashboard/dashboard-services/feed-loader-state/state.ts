@@ -1,9 +1,8 @@
 import { toast } from "sonner";
 
+import type { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 import type { FeedBatchResult } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import type { FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
-
-import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 
 const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
 

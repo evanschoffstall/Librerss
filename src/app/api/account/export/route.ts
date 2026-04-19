@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
+import { NextResponse } from "next/server";
+
+import type { logger } from "@/lib";
+import type { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import type { getDb } from "@/lib/db";
 
-import { logger } from "@/lib";
 import { jsonError } from "@/lib/api/http";
-import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import { exportAccountData, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";

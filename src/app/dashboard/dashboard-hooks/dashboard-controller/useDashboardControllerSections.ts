@@ -2,14 +2,15 @@
 
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 
+import type { useDashboardState } from "@/app/dashboard/dashboard-hooks";
+import type { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
+
 import {
   useArticleActions,
   useDashboardCategoryTree,
-  useDashboardState,
 } from "@/app/dashboard/dashboard-hooks";
 import { useDashboardShellLoadingState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardControllerViewState";
 import { useDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow";
-import { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
 import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
 import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
 import { buildDashboardViewModel } from "@/app/dashboard/dashboard-services/dashboard-state";

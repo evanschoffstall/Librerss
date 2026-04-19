@@ -1,4 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
+
+import type { isAllowedFeedUrl } from "@/lib/core";
+import type { getDb } from "@/lib/db";
 
 import {
   asTrimmedString,
@@ -6,8 +11,6 @@ import {
   parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
-import { isAllowedFeedUrl } from "@/lib/core";
-import { getDb } from "@/lib/db";
 import {
   createArticle,
   type CreateArticleParams,

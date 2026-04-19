@@ -1,11 +1,14 @@
 import { envBooleanOptional, isDevelopment } from "@/lib";
 
+import type {
+  CachedExtractResponse,
+  ExtractResponsePayload,
+} from "./constants";
+
 import {
   ARTICLE_EXTRACT_CACHE_MAX_ENTRIES,
   ARTICLE_EXTRACT_CACHE_TTL_MS,
   ARTICLE_EXTRACT_CACHE_VERSION,
-  CachedExtractResponse,
-  ExtractResponsePayload,
 } from "./constants";
 
 const articleExtractCache = new Map<string, CachedExtractResponse>();

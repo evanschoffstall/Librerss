@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 const BLOCKED_REQUEST_STATUS = 403;
 const FORBIDDEN_PAGE_PATH = "/forbidden";

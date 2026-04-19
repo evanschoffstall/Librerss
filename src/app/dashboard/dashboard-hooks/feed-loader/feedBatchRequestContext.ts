@@ -2,10 +2,10 @@
 
 import type { QueryClient } from "@tanstack/react-query";
 
+import type { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
+import type { useFeedBatchRequestState } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchRequestState";
 import type { ArticleFilter } from "@/lib/core";
 
-import { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
-import { useFeedBatchRequestState } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchRequestState";
 import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 import {
   type FeedBatchSource,

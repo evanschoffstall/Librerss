@@ -7,12 +7,15 @@
  */
 import { eq } from "drizzle-orm";
 
+import type {
+  CreateFeedPayload,
+  FeedSourceRecord,
+} from "@/lib/api/feed-source-api";
+
 import { ServerServiceError } from "@/lib";
 import {
-  CreateFeedPayload,
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
-  FeedSourceRecord,
   renameFeedSourceForUser,
   setFeedSourceEnabledForUser,
   updateFeedSettingsForUser,

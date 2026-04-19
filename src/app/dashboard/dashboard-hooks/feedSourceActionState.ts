@@ -1,8 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
+import type { FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 import type { Article, CategoryTreeNode } from "@/lib/core";
-
-import { FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
 export type FeedSourceActionState = FeedSelectionFetchers & {
   categories: CategoryTreeNode[];

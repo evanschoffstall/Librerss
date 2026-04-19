@@ -6,9 +6,9 @@ import {
   useRef,
 } from "react";
 
+import type { buildFeedVirtualListEntries } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import type { Article } from "@/lib/core";
 
-import { buildFeedVirtualListEntries } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import {
   FeedVirtualListArticleRow,
   FeedVirtualListBoundaryRow,

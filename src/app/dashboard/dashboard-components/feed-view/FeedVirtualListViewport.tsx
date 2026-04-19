@@ -1,11 +1,11 @@
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { useLayoutEffect, useMemo, useRef } from "react";
 
+import type { buildFeedVirtualListEntries } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import type { FeedVirtualListSharedProps } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListContracts";
 import type { Article } from "@/lib/core";
 
 import {
-  buildFeedVirtualListEntries,
   isInvertedFeedScrollMode,
   resolveFeedVirtualListOverscanCount,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";

@@ -1,6 +1,7 @@
+import type { logger } from "@/lib";
 import type { DistilledArticle, DistillStrategy } from "@/lib/distill";
+import type { HttpCloakUpstreamError } from "@/lib/fetch";
 
-import { logger } from "@/lib";
 import { jsonErrorWithReason, toBodySnippet } from "@/lib/api/http";
 import {
   ARTICLE_UPSTREAM_FETCH_ERROR_MESSAGE,
@@ -8,7 +9,7 @@ import {
   type ExtractRequestContext,
   type ExtractResponsePayload,
 } from "@/lib/extract";
-import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
+import { pickDiagnosticHeaders } from "@/lib/fetch";
 import {
   buildMetadataImageFallbackHtml,
   hasReadableArticleBody,

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { resolveUserProxy } from "@/lib/outbound-proxy";
 import { serverApi } from "@/lib/server";

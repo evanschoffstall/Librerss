@@ -1,9 +1,10 @@
+import type { CategoryTreeNode, FeedSource } from "@/lib/core";
+
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
 } from "@/app/dashboard/dashboard-services/category-tree";
 import { FeedService } from "@/lib/api";
-import { CategoryTreeNode, FeedSource } from "@/lib/core";
 
 interface FeedSourceTreeDependencies {
   buildCategoriesFromSources: (sources: FeedSource[]) => CategoryTreeNode[];

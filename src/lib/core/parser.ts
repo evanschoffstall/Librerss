@@ -3,7 +3,7 @@
  * Pure transformations: no IO, no DB access.
  */
 
-import Parser from "rss-parser";
+import type Parser from "rss-parser";
 
 import {
   sanitizeAndTruncateArticleContent,

@@ -2,17 +2,18 @@
 
 import { useCallback, useMemo } from "react";
 
-import { useDashboardState } from "@/app/dashboard/dashboard-hooks";
-import { useDashboardControllerViewState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardControllerViewState";
-import { useDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow";
-import { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
-import {
+import type { useDashboardState } from "@/app/dashboard/dashboard-hooks";
+import type { useDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow";
+import type { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
+import type {
   useDashboardAnimatingArticleState,
   useDashboardControllerResources,
   useDashboardFeedLoadingState,
   useDashboardViewModelState,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections";
-import { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
+import type { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
+
+import { useDashboardControllerViewState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardControllerViewState";
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 

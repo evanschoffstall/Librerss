@@ -106,6 +106,15 @@ const sourceTailwindRules = {
   "better-tailwindcss/no-unnecessary-whitespace": "off",
 };
 const sourceTypeScriptRules = {
+  "@typescript-eslint/consistent-type-exports": "error",
+  "@typescript-eslint/consistent-type-imports": [
+    "error",
+    {
+      disallowTypeAnnotations: false,
+      fixStyle: "separate-type-imports",
+      prefer: "type-imports",
+    },
+  ],
   "@typescript-eslint/no-base-to-string": "error",
   "@typescript-eslint/no-confusing-void-expression": "error",
   "@typescript-eslint/no-deprecated": "error",
@@ -134,6 +143,7 @@ const sourceTypeScriptRules = {
       allowRegExp: false,
     },
   ],
+  "@typescript-eslint/switch-exhaustiveness-check": "error",
   "@typescript-eslint/unbound-method": "error",
 };
 const restrictedTypeScriptRules = {
@@ -207,10 +217,10 @@ const strictDocumentationRules = {
   "tsdoc/syntax": "error",
 };
 
-const _sourceReadabilityRules = {
+const sourceReadabilityRules = {
   "max-statements": ["error", 30],
   "no-else-return": ["error", { allowElseIf: false }],
-  "sonarjs/cognitive-complexity": ["error", 12],
+  "sonarjs/cognitive-complexity": ["error", 15],
 };
 
 function normalizeIgnorePattern(pattern) {
@@ -331,6 +341,10 @@ export default [
     rules: sourceTypeScriptRules,
   },
   {
+    files: apiAndLibraryFiles,
+    rules: sourceReadabilityRules,
+  },
+  {
     files: documentationFiles,
     rules: strictDocumentationRules,
     settings: {
@@ -357,6 +371,22 @@ export default [
   {
     ...perfectionist.configs["recommended-natural"],
     files: projectFiles,
+  },
+  {
+    files: projectFiles,
+    rules: {
+      "unicorn/filename-case": [
+        "error",
+        {
+          cases: {
+            camelCase: true,
+            kebabCase: true,
+            pascalCase: true,
+          },
+          ignore: ["^\\[.*\\]$"],
+        },
+      ],
+    },
   },
   {
     files: nonSourceProjectFiles,

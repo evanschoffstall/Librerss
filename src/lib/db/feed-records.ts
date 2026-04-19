@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 
-import { getDb } from "@/lib/db/db";
+import type { getDb } from "@/lib/db/db";
+
 import { feedCategories, feeds } from "@/lib/db/schema";
 
 type FeedDbExecutor =

@@ -1,10 +1,10 @@
-import { distillArticle } from "@/lib/distill";
-import { fetchHtml, parseAndValidateArticleUrl } from "@/lib/extract";
-import { logger } from "@/lib/logger";
-import { cleanSanitizedHtml, sanitizeRawContent } from "@/lib/sanitize";
-import { toErrorMessage } from "@/lib/utils";
+import type { distillArticle } from "@/lib/distill";
+import type { fetchHtml, parseAndValidateArticleUrl } from "@/lib/extract";
+import type { logger } from "@/lib/logger";
+import type { cleanSanitizedHtml, sanitizeRawContent } from "@/lib/sanitize";
+import type { toErrorMessage } from "@/lib/utils";
 
-import { requireMutableAuthenticatedUser } from "./guards";
+import type { requireMutableAuthenticatedUser } from "./guards";
 
 export interface ExtractPostDeps {
   cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;

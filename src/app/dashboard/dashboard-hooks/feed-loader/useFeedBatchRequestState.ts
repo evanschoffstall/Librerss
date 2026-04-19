@@ -3,7 +3,8 @@
 import { type QueryClient } from "@tanstack/react-query";
 import { useCallback, useRef, useState } from "react";
 
-import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
+import type { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
+
 import { isCanceledBatchRequest } from "@/app/dashboard/dashboard-services/feed-loader-state";
 
 interface BeginFeedRequestOptions {

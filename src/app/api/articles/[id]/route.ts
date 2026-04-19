@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import { jsonError, parsePositiveInt } from "@/lib/api/http";
 import { getArticleById, serverApi } from "@/lib/server";

@@ -1,3 +1,4 @@
+import type { ArticleCard } from "@/app/dashboard/dashboard-components/article-view";
 import type {
   ArticleRemovalAnimationMode,
   ArticleViewportSnapshot,
@@ -5,7 +6,6 @@ import type {
 } from "@/app/dashboard/display-types";
 import type { Article } from "@/lib/core";
 
-import { ArticleCard } from "@/app/dashboard/dashboard-components/article-view";
 import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
 
 export interface FeedArticleRowProps extends Omit<

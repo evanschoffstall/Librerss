@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
 import { RUNTIME_FLAGS } from "@/lib/core/placeholder";

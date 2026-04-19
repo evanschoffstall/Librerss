@@ -2,21 +2,20 @@
 
 import { useRef } from "react";
 
-import {
+import type {
   useArticleActions,
-  useDashboardArticleCallbacks,
   useDashboardState,
 } from "@/app/dashboard/dashboard-hooks";
-import { useDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow";
-import {
-  useDashboardControllerRefreshState,
-  useDashboardControllerRuntime,
-} from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
-import {
+import type { useDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow";
+import type { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
+import type {
   useDashboardFeedLoadingState,
   useDashboardViewModelState,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections";
-import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
+import type { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
+
+import { useDashboardArticleCallbacks } from "@/app/dashboard/dashboard-hooks";
+import { useDashboardControllerRuntime } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
 
 interface DashboardRuntimeSetterStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;

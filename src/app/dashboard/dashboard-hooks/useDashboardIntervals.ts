@@ -1,11 +1,7 @@
 "use client";
-import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useEffectEvent,
-  useRef,
-} from "react";
+import type { Dispatch, SetStateAction } from "react";
+
+import { useEffect, useEffectEvent, useRef } from "react";
 import { toast } from "sonner";
 
 import { toAutoRefreshIntervalMs } from "@/app/dashboard/dashboard-services";

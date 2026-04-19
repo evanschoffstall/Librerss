@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import { CONFIG, logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";

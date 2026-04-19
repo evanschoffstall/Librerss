@@ -1,4 +1,4 @@
-import { KeyboardEvent } from "react";
+import type { KeyboardEvent } from "react";
 
 import { LoginFieldError } from "@/app/dashboard/dashboard-components/login/LoginFieldError";
 import { Input } from "@/components/ui/input";

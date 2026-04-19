@@ -1,5 +1,7 @@
+import type { NextRequest } from "next/server";
+
 import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { getDb, users } from "@/lib/db";
 import { logger } from "@/lib/logger";

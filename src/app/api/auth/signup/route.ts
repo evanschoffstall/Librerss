@@ -1,5 +1,7 @@
+import type { NextRequest } from "next/server";
+
 import { eq } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 import { CONFIG, LEGAL_CONSENT_VERSION, logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";

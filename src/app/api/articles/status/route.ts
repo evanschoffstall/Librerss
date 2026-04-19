@@ -1,10 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { jsonError } from "@/lib/api/http";
-import {
+import { NextResponse } from "next/server";
+
+import type {
   getUserOwnedArticleById,
   upsertArticleStatuses,
 } from "@/lib/core/server";
+
+import { jsonError } from "@/lib/api/http";
 import { serverApi, updateArticleStatus } from "@/lib/server";
 import { isSafePositiveItemId } from "@/lib/utils";
 

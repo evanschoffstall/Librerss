@@ -1,7 +1,6 @@
-import {
-  FeedCategoryButton,
-  FeedCategoryButtonProps,
-} from "@/app/dashboard/dashboard-components";
+import type { FeedCategoryButtonProps } from "@/app/dashboard/dashboard-components";
+
+import { FeedCategoryButton } from "@/app/dashboard/dashboard-components";
 
 type FeedCategoryProps = Omit<FeedCategoryButtonProps, "fallbackIconClassName">;
 

@@ -1,4 +1,25 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
+
+import type {
+  ExtractPostDeps,
+  ExtractResolvedUserProxy,
+  requireMutableAuthenticatedUser,
+  RouteHandlerContext,
+} from "./handler-dependencies";
+import type {
+  cleanSanitizedHtml,
+  distillArticle,
+  DistillStrategy,
+  ExtractRequestContext,
+  ExtractResponsePayload,
+  fetchHtml,
+  logger,
+  parseAndValidateArticleUrl,
+  sanitizeRawContent,
+  toErrorMessage,
+} from "./payload-primitives";
 
 import {
   createExtractPayload,
@@ -13,37 +34,23 @@ import {
 } from "./content-resolution";
 import {
   createExtractRuntimeDeps,
-  type ExtractPostDeps,
-  type ExtractResolvedUserProxy,
-  requireMutableAuthenticatedUser,
-  type RouteHandlerContext,
   ServerServiceError,
 } from "./handler-dependencies";
 import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
-  cleanSanitizedHtml,
   CONFIG,
   decodePossiblyCompressedText,
   decodeTextBody,
   DISTILL_STRATEGIES,
-  distillArticle,
-  type DistillStrategy,
-  type ExtractRequestContext,
-  type ExtractResponsePayload,
-  fetchHtml,
   getCachedExtractPayload,
   getPlaceholderSnapshotPathByArticleUrl,
   HttpCloakUpstreamError,
   jsonErrorWithReason,
-  logger,
-  parseAndValidateArticleUrl,
   parseJsonBodyOrResponse,
   preCleanHtml,
   readPlaceholderSnapshotHtml,
   redactUrlForLogs,
-  sanitizeRawContent,
   setCachedExtractPayload,
-  toErrorMessage,
   tryGetUrlHostname,
 } from "./payload-primitives";
 

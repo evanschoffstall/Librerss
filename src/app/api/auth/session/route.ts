@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import { getUserFromRequest } from "@/lib/auth";
 import { RUNTIME_FLAGS } from "@/lib/core/placeholder";

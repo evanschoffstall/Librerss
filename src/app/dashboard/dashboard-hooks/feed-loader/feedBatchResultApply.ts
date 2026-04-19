@@ -1,9 +1,9 @@
 "use client";
 
 import type { FeedBatchRequestContext } from "@/app/dashboard/dashboard-hooks/feed-loader/feedBatchRequestContext";
+import type { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
 import type { Article } from "@/lib/core";
 
-import { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import {
   buildFeedBatchOutcome,
