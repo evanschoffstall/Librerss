@@ -14,7 +14,6 @@ export interface ResetPaginationStateOptions {
   hasResolvedStandardViewportRevealRef: { current: boolean };
   hasUserScrolledRef: { current: boolean };
   isInvertedLoadBoundaryArmedRef: { current: boolean };
-  isPendingServerRevealVisible: boolean;
   isStandardLoadBoundaryArmedRef: { current: boolean };
   isStandardViewportRefillActiveRef: { current: boolean };
   lastAutoFillListHeightRef: { current: null | number };
@@ -86,7 +85,6 @@ function useResetPaginationRuntimeStateArgs(
         options.hasResolvedStandardViewportRevealRef,
       hasUserScrolledRef: options.hasUserScrolledRef,
       isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
-      isPendingServerRevealVisible: options.isPendingServerRevealVisible,
       isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
       isStandardViewportRefillActiveRef:
         options.isStandardViewportRefillActiveRef,
@@ -110,7 +108,6 @@ function useResetPaginationRuntimeStateArgs(
       options.hasResolvedStandardViewportRevealRef,
       options.hasUserScrolledRef,
       options.isInvertedLoadBoundaryArmedRef,
-      options.isPendingServerRevealVisible,
       options.isStandardLoadBoundaryArmedRef,
       options.isStandardViewportRefillActiveRef,
       options.lastAutoFillListHeightRef,

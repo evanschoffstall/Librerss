@@ -34,12 +34,18 @@ export interface ResolvePaginationBoundaryStateOptions {
 }
 
 export interface ShouldAutoFillViewportOptions {
+  activeViewportRefillTargetVisibleCount?: null | number;
+  articleFilter: string;
+  articlesPerPage: number;
   clientHeight: number;
   committedListHeight: number;
   currentVisibleCount: number;
   filteredFeedLength: number;
+  hasListShrunk?: boolean;
   hasUserScrolled: boolean;
   isInitialLoading: boolean;
+  isInvertedScroll?: boolean;
+  shouldContinueOwnedRefillWithoutLocalBacklog?: boolean;
 }
 
 /**
@@ -161,29 +167,65 @@ export function resolvePaginationBoundaryState(
  * @returns Whether should auto fill viewport.
  */
 export function shouldAutoFillViewport(options: ShouldAutoFillViewportOptions) {
-  const {
-    clientHeight,
-    committedListHeight,
-    currentVisibleCount,
-    filteredFeedLength,
-    hasUserScrolled,
-    isInitialLoading,
-  } = options;
-  if (
-    isInitialLoading ||
-    !Number.isFinite(clientHeight) ||
-    clientHeight <= 0 ||
-    hasUserScrolled ||
-    currentVisibleCount >= filteredFeedLength
-  ) {
+  if (shouldSkipViewportAutoFill(options)) {
     return false;
   }
 
-  const scrollableOverflowPx = committedListHeight - clientHeight;
+  const scrollableOverflowPx =
+    options.committedListHeight - options.clientHeight;
 
   return (
     Number.isFinite(scrollableOverflowPx) &&
     scrollableOverflowPx <= FEED_MIN_AUTOFILL_OVERFLOW_PX
+  );
+}
+
+/**
+ * Return whether the visible unread window has exhausted its local backlog and
+ * no owned refill continuation is still allowed.
+ * @param options - The auto-fill inputs for the current feed surface.
+ * @returns Whether the local unread backlog is exhausted for generic auto-fill.
+ */
+function hasExhaustedViewportAutoFillBacklog(
+  options: ShouldAutoFillViewportOptions,
+) {
+  return (
+    options.currentVisibleCount >= options.filteredFeedLength &&
+    !options.shouldContinueOwnedRefillWithoutLocalBacklog
+  );
+}
+
+/**
+ * Return whether the active owned viewport-refill target has already been
+ * satisfied.
+ * @param options - The auto-fill inputs for the current feed surface.
+ * @returns Whether the owned visible-count target has been reached.
+ */
+function hasReachedOwnedViewportRefillTarget(
+  options: ShouldAutoFillViewportOptions,
+) {
+  const ownedViewportRefillTarget = resolveOwnedViewportRefillTarget(options);
+
+  return (
+    ownedViewportRefillTarget !== null &&
+    options.currentVisibleCount >= ownedViewportRefillTarget
+  );
+}
+
+/**
+ * Return whether the generic viewport auto-fill inputs contain usable numeric
+ * measurements.
+ * @param options - The auto-fill inputs for the current feed surface.
+ * @returns Whether the numeric inputs are valid for auto-fill evaluation.
+ */
+function hasValidViewportAutoFillMeasurements(
+  options: ShouldAutoFillViewportOptions,
+) {
+  return (
+    Number.isFinite(options.articlesPerPage) &&
+    options.articlesPerPage > 0 &&
+    Number.isFinite(options.clientHeight) &&
+    options.clientHeight > 0
   );
 }
 
@@ -216,6 +258,20 @@ function resolveInvertedBoundaryState(
     hasReachedBoundary:
       hasFiniteScrollTop && scrollTop <= FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
   };
+}
+
+/**
+ * Resolve the active owned viewport-refill target when one is present.
+ * @param options - The auto-fill inputs for the current feed surface.
+ * @returns The active owned target, or `null` when no owned target is active.
+ */
+function resolveOwnedViewportRefillTarget(
+  options: ShouldAutoFillViewportOptions,
+) {
+  return typeof options.activeViewportRefillTargetVisibleCount === "number" &&
+    Number.isFinite(options.activeViewportRefillTargetVisibleCount)
+    ? options.activeViewportRefillTargetVisibleCount
+    : null;
 }
 
 /**
@@ -253,4 +309,51 @@ function resolveStandardBoundaryState(
         remainingDistance <= FEED_MIN_SCROLLABLE_OVERFLOW_PX) ||
       hasReachedProgressBoundary,
   };
+}
+
+/**
+ * Return whether the generic viewport auto-fill pass should short-circuit
+ * before measuring overflow.
+ *
+ * The one-page ceiling check enforces the Initial Hydration Contract: without
+ * an active owned refill target the visible window must never grow past one
+ * configured page by auto-fill alone. This prevents unbounded DOM expansion on
+ * first render and after browser reloads, regardless of the scroll-container
+ * measurement at the time of each auto-fill pass. An owned refill target (for
+ * example the two-page window that the post-refresh reset arms) is the only
+ * path that may legally exceed this ceiling.
+ *
+ * @param options - The auto-fill inputs for the current feed surface.
+ * @returns Whether the caller should skip generic viewport auto-fill.
+ */
+function shouldSkipViewportAutoFill(options: ShouldAutoFillViewportOptions) {
+  if (
+    options.isInitialLoading ||
+    options.hasUserScrolled ||
+    !hasValidViewportAutoFillMeasurements(options)
+  ) {
+    return true;
+  }
+
+  if (hasExhaustedViewportAutoFillBacklog(options)) {
+    return true;
+  }
+
+  const canBypassOnePageCeilingForShrinkRecovery =
+    options.articleFilter === "unread" && options.hasListShrunk === true;
+
+  if (
+    resolveOwnedViewportRefillTarget(options) === null &&
+    options.currentVisibleCount >= options.articlesPerPage &&
+    !canBypassOnePageCeilingForShrinkRecovery
+  ) {
+    // Hard count ceiling: auto-fill must never expand the visible window past
+    // one configured page without an owned refill target. This enforces the
+    // Initial Hydration Contract regardless of whether the committed list height
+    // has reached the viewport height, ensuring consistent behaviour between
+    // unit tests (mocked heights) and real browser (variable article heights).
+    return true;
+  }
+
+  return hasReachedOwnedViewportRefillTarget(options);
 }

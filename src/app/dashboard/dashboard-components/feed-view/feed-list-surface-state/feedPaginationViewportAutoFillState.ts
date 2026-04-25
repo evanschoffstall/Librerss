@@ -57,7 +57,7 @@ interface NullableNumberRef {
 export function activateStandardViewportRefill(
   options: ActivateStandardViewportRefillOptions,
 ) {
-  if (options.isInvertedScroll) {
+  if (options.isInvertedScroll || options.articleFilter !== "unread") {
     return;
   }
 
@@ -127,14 +127,9 @@ export function hasReachedStandardViewportRefillTarget(
     return false;
   }
 
-  const refillTargetVisibleCount = Math.min(
+  const refillTargetVisibleCount =
     options.standardViewportRefillTargetVisibleCountRef?.current ??
-      options.visibleArticleCountRef.current + options.articlesPerPage,
-    Math.max(
-      options.currentFilteredFeedLength,
-      options.visibleArticleCountRef.current,
-    ),
-  );
+    options.visibleArticleCountRef.current + options.articlesPerPage;
 
   return (
     options.isStandardViewportRefillActiveRef.current &&

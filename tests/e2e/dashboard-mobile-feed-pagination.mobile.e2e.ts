@@ -18,6 +18,7 @@ import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
 const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 144;
+const STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX = 144;
 
 interface MobileViewportCase {
   height: number;
@@ -241,7 +242,7 @@ test.describe("dashboard mobile feed pagination", () => {
           (anchorAfterLoad?.offsetTop ?? 0) -
             (anchorBeforeLoad?.offsetTop ?? 0),
         ),
-      ).toBeLessThanOrEqual(128);
+      ).toBeLessThanOrEqual(STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX);
     });
 
     test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({

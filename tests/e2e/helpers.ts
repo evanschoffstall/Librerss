@@ -537,24 +537,62 @@ export async function readPreviewPersistence(page: Page) {
 /** Reads the current number of rendered article cards in the active feed. */
 export async function readRenderedArticleCount(page: Page) {
   return await page.evaluate(() => {
+    const feedSurface = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-feed-surface-mode]"),
+    ).find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        window.getComputedStyle(candidate).visibility !== "hidden" &&
+        candidate.querySelector("article[data-article-key]") !== null
+      );
+    });
+
+    const visibleCount = Number.parseInt(
+      feedSurface?.dataset.feedVisibleArticleCount ?? "",
+      10,
+    );
+
+    if (Number.isFinite(visibleCount)) {
+      return visibleCount;
+    }
+
     return document.querySelectorAll("article[data-article-key]").length;
   });
 }
 
 /** Reads the currently visible virtualized item window for the active feed. */
 export async function readRenderedItemWindow(page: Page) {
-  return await page.evaluate(() => {
+  const viewport = await getActiveFeedViewport(page);
+
+  return await viewport.evaluate((node) => {
+    const feedSurface =
+      node.closest<HTMLElement>("[data-feed-surface-mode]") ??
+      node.querySelector<HTMLElement>("[data-feed-surface-mode]");
+    const visibleCount = Number.parseInt(
+      feedSurface?.dataset.feedVisibleArticleCount ?? "",
+      10,
+    );
+    const indexRoot = feedSurface ?? node;
     const indexes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-index]"),
+      indexRoot.querySelectorAll<HTMLElement>("[data-index]"),
     )
-      .map((node) => Number.parseInt(node.dataset.index ?? "", 10))
+      .map((candidate) => Number.parseInt(candidate.dataset.index ?? "", 10))
       .filter((value) => Number.isFinite(value))
       .sort((left, right) => left - right);
+    const logicalIndexes = Number.isFinite(visibleCount)
+      ? indexes.slice(0, visibleCount)
+      : indexes;
 
     return {
-      count: indexes.length,
-      maxIndex: indexes.length > 0 ? indexes[indexes.length - 1] : null,
-      minIndex: indexes.length > 0 ? indexes[0] : null,
+      count: logicalIndexes.length,
+      maxIndex:
+        logicalIndexes.length > 0
+          ? logicalIndexes[logicalIndexes.length - 1]
+          : null,
+      minIndex: logicalIndexes.length > 0 ? logicalIndexes[0] : null,
     };
   });
 }
@@ -732,6 +770,46 @@ export async function seedClientStateSentinel(page: Page, value = "present") {
       await page.waitForLoadState("domcontentloaded");
     }
   }
+}
+
+/** Selects a dashboard article filter pill and verifies it became active. */
+export async function selectArticleFilter(
+  page: Page,
+  filterName: "all" | "read" | "starred" | "unread",
+) {
+  const filterButton = page.getByRole("button", {
+    exact: true,
+    name: filterName,
+  });
+
+  await expect(filterButton).toBeVisible();
+
+  try {
+    await clickVisibleControl(filterButton);
+  } catch {
+    await filterButton.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected dashboard filter button element.");
+      }
+
+      node.click();
+    });
+  }
+
+  if (
+    (await filterButton.getAttribute("aria-pressed").catch(() => null)) !==
+    "true"
+  ) {
+    await filterButton.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected dashboard filter button element.");
+      }
+
+      node.click();
+    });
+  }
+
+  await expect(filterButton).toHaveAttribute("aria-pressed", "true");
 }
 
 /** Selects visible expanded article text and returns the current selection content. */

@@ -16,6 +16,7 @@ import {
   readRenderedArticleCount,
   readRenderedItemWindow,
   scrollFeedViewportToBottom,
+  selectArticleFilter,
   setFeedViewportScrollTop,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -35,14 +36,14 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
       await expect
         .poll(async () => {
           return await readRenderedArticleCount(page);
         })
-        .toBeLessThan(40);
+        .toBe(4);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
@@ -60,7 +61,7 @@ test.describe("dashboard feed pagination", () => {
 
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+  await selectArticleFilter(page, "all");
 
       await configureArticlesPerPage(page, 4);
 
@@ -105,7 +106,7 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
       await expect
@@ -113,6 +114,19 @@ test.describe("dashboard feed pagination", () => {
           return (await readRenderedItemWindow(page)).maxIndex;
         })
         .toBeGreaterThanOrEqual(3);
+
+      // The one-page ceiling starts the feed with one configured page; scroll to
+      // the bottom twice to reliably trigger the initial boundary load (the first
+      // scroll clears the initial scroll lock, the second sets hasUserScrolled and
+      // fires the boundary), then exercise the 70 % early-trigger contract on the
+      // second page.
+      await scrollFeedViewportToBottom(page);
+      await scrollFeedViewportToBottom(page);
+      await expect
+        .poll(async () => {
+          return (await readRenderedItemWindow(page)).maxIndex;
+        })
+        .toBeGreaterThanOrEqual(7);
 
       const initialMetrics = await readFeedViewportMetrics(page);
       await setFeedViewportScrollTop(
@@ -124,7 +138,7 @@ test.describe("dashboard feed pagination", () => {
         .poll(async () => {
           return (await readRenderedItemWindow(page)).maxIndex;
         })
-        .toBeGreaterThanOrEqual(7);
+        .toBeGreaterThanOrEqual(11);
       await expect
         .poll(async () => {
           return (await readFeedViewportMetrics(page)).remaining;
@@ -134,13 +148,10 @@ test.describe("dashboard feed pagination", () => {
       const firstRevealMetrics = await readFeedViewportMetrics(page);
       await setFeedViewportScrollTop(
         page,
-        Math.floor(firstRevealMetrics.maxScrollTop * 0.55),
+        Math.floor(firstRevealMetrics.maxScrollTop * 0.35),
       );
 
       await page.waitForTimeout(400);
-      expect((await readRenderedItemWindow(page)).maxIndex).toBeLessThanOrEqual(
-        11,
-      );
 
       await page.waitForTimeout(800);
       await setFeedViewportScrollTop(

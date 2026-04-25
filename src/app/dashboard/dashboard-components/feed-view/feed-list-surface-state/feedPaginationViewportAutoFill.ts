@@ -6,9 +6,14 @@ import {
   hasReachedStandardViewportRefillTarget,
   resolveStandardViewportRefillState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportAutoFillState";
-import { shouldAutoFillViewport } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+import {
+  resolveNextVisibleCount,
+  shouldAutoFillViewport,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
 
 export interface MaybeAutoFillViewportOptions {
+  allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;
   articleFilter: string;
   articlesPerPage: number;
   canLoadMoreFromServer: boolean;
@@ -46,6 +51,7 @@ interface EffectiveListHeightOptions {
 }
 
 interface FinishViewportAutoFillOptions extends FinishStandardViewportRefillOptions {
+  allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;
   articleFilter: string;
   articlesPerPage: number;
   currentFilteredFeedLength: number;
@@ -70,11 +76,17 @@ interface ResolveFinishViewportAutoFillOptions {
 }
 
 interface ShouldContinueAutoFillOptions {
+  activeViewportRefillTargetVisibleCount: null | number;
+  allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;
+  articleFilter: string;
+  articlesPerPage: number;
   currentFilteredFeedLength: number;
   currentVisibleCount: number;
   effectiveListHeight: number;
+  hasListShrunk: boolean;
   hasUserScrolled: boolean;
   isInitialLoading: boolean;
+  isInvertedScroll: boolean;
   scrollViewport: HTMLElement;
   shouldAllowStandardViewportRefill: boolean;
 }
@@ -144,6 +156,10 @@ function completeViewportAutoFill(options: CompleteViewportAutoFillOptions) {
   );
 
   if (!shouldContinueAutoFill) {
+    if (shouldPreserveViewportRefillOwnership(options.options)) {
+      return;
+    }
+
     finalizeInactiveViewportAutoFill(
       options.options.isInvertedScroll,
       options.options.isStandardViewportRefillActiveRef,
@@ -184,11 +200,35 @@ function finishViewportAutoFill(options: FinishViewportAutoFillOptions) {
   if (
     options.visibleArticleCountRef.current < options.currentFilteredFeedLength
   ) {
+    const projectedVisibleCount = resolveNextVisibleCount({
+      articlesPerPage: options.articlesPerPage,
+      currentVisibleCount: options.visibleArticleCountRef.current,
+      filteredFeedLength: options.currentFilteredFeedLength,
+    });
+
     options.expandVisibleWindow(true);
+
+    if (
+      shouldRequestAnotherViewportRefillPage(options, projectedVisibleCount)
+    ) {
+      requestViewportRefillFromServer(options);
+    }
+
     return;
   }
 
-  if (requestViewportRefillFromServer(options)) {
+  if (
+    shouldRequestAnotherViewportRefillPage(options) &&
+    requestViewportRefillFromServer(options)
+  ) {
+    return;
+  }
+
+  if (
+    shouldRequestAnotherViewportRefillPage(options) &&
+    (options.hasPendingServerRevealRef.current ||
+      options.hasRequestedServerLoadRef.current)
+  ) {
     return;
   }
 
@@ -291,6 +331,8 @@ function resolveFinishViewportAutoFillOptions(
   options: ResolveFinishViewportAutoFillOptions,
 ) {
   return {
+    allowOwnedTargetContinuationWithoutLocalBacklog:
+      options.options.options.allowOwnedTargetContinuationWithoutLocalBacklog,
     articleFilter: options.options.options.articleFilter,
     articlesPerPage: options.options.options.articlesPerPage,
     currentFilteredFeedLength: options.options.currentFilteredFeedLength,
@@ -314,14 +356,30 @@ function resolveFinishViewportAutoFillOptions(
  * @returns Whether another auto-fill step should run.
  */
 function resolveShouldContinueAutoFill(options: ShouldContinueAutoFillOptions) {
+  const shouldContinueOwnedRefillWithoutLocalBacklog =
+    options.articleFilter === "unread" &&
+    options.activeViewportRefillTargetVisibleCount !== null &&
+    (options.currentFilteredFeedLength <
+      resolveUnreadRefillThreshold(options.articlesPerPage) ||
+      (options.allowOwnedTargetContinuationWithoutLocalBacklog &&
+        options.currentFilteredFeedLength <
+          options.activeViewportRefillTargetVisibleCount));
+
   return shouldAutoFillViewport({
+    activeViewportRefillTargetVisibleCount:
+      options.activeViewportRefillTargetVisibleCount,
+    articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
     clientHeight: options.scrollViewport.clientHeight,
     committedListHeight: options.effectiveListHeight,
     currentVisibleCount: options.currentVisibleCount,
     filteredFeedLength: options.currentFilteredFeedLength,
+    hasListShrunk: options.hasListShrunk,
     hasUserScrolled:
       options.hasUserScrolled && !options.shouldAllowStandardViewportRefill,
     isInitialLoading: options.isInitialLoading,
+    isInvertedScroll: options.isInvertedScroll,
+    shouldContinueOwnedRefillWithoutLocalBacklog,
   });
 }
 
@@ -335,15 +393,82 @@ function resolveShouldContinueViewportAutoFill(
   options: CompleteViewportAutoFillOptions,
 ) {
   return resolveShouldContinueAutoFill({
+    activeViewportRefillTargetVisibleCount:
+      options.shouldAllowStandardViewportRefill
+        ? (options.options.standardViewportRefillTargetVisibleCountRef
+            ?.current ?? null)
+        : null,
+    allowOwnedTargetContinuationWithoutLocalBacklog:
+      options.options.allowOwnedTargetContinuationWithoutLocalBacklog,
+    articleFilter: options.options.articleFilter,
+    articlesPerPage: options.options.articlesPerPage,
     currentFilteredFeedLength: options.currentFilteredFeedLength,
     currentVisibleCount: options.options.visibleArticleCountRef.current,
     effectiveListHeight: options.effectiveListHeight,
+    hasListShrunk: options.hasListShrunk,
     hasUserScrolled: options.hasUserScrolled,
     isInitialLoading: options.options.isInitialLoading,
+    isInvertedScroll: options.options.isInvertedScroll,
     scrollViewport: options.scrollViewport,
     shouldAllowStandardViewportRefill:
       options.shouldAllowStandardViewportRefill,
   });
+}
+
+/**
+ * Return whether an active standard viewport refill must keep its ownership
+ * while a server-backed refill response is still pending.
+ * @param options - The current viewport auto-fill options.
+ * @returns Whether the active refill should remain armed.
+ */
+function shouldPreserveViewportRefillOwnership(
+  options: MaybeAutoFillViewportOptions,
+) {
+  return (
+    !options.isInvertedScroll &&
+    options.isStandardViewportRefillActiveRef.current &&
+    (options.hasPendingServerRevealRef.current ||
+      options.hasRequestedServerLoadRef.current)
+  );
+}
+
+/**
+ * Return whether the current desktop unread refill must queue another single
+ * server page because the local unread backlog still cannot satisfy the owned
+ * visible-count target after the immediate local expansion.
+ * @param options - The active refill cycle state.
+ * @param currentVisibleCount - The visible-count candidate to evaluate against
+ *   the active owned refill target.
+ * @returns Whether another single server refill page should be requested now.
+ */
+function shouldRequestAnotherViewportRefillPage(
+  options: FinishViewportAutoFillOptions,
+  currentVisibleCount = options.visibleArticleCountRef.current,
+) {
+  if (
+    options.articleFilter !== "unread" ||
+    !options.isStandardViewportRefillActiveRef.current
+  ) {
+    return false;
+  }
+
+  const activeViewportRefillTargetVisibleCount =
+    options.standardViewportRefillTargetVisibleCountRef?.current ??
+    currentVisibleCount + options.articlesPerPage;
+
+  if (
+    options.allowOwnedTargetContinuationWithoutLocalBacklog &&
+    currentVisibleCount >= options.currentFilteredFeedLength
+  ) {
+    return (
+      options.currentFilteredFeedLength < activeViewportRefillTargetVisibleCount
+    );
+  }
+
+  return (
+    options.currentFilteredFeedLength <
+    resolveUnreadRefillThreshold(options.articlesPerPage)
+  );
 }
 
 /**

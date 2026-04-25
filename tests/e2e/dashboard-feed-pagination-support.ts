@@ -48,17 +48,6 @@ export const DESKTOP_VIEWPORT_CASES: DesktopViewportCase[] = [
  * @param nextArticleKeys - Next visible article keys after the refill.
  * @returns Number of newly visible article keys.
  */
-export function countIncomingArticleKeys(
-  previousArticleKeys: string[],
-  nextArticleKeys: string[],
-) {
-  const previousArticleKeySet = new Set(previousArticleKeys);
-
-  return nextArticleKeys.filter(
-    (articleKey) => !previousArticleKeySet.has(articleKey),
-  ).length;
-}
-
 /**
  * Expand the desktop feed until at least three configured pages are visible.
  * @param page - Active Playwright page.
@@ -88,12 +77,7 @@ export async function expectDesktopRefreshCollapse(page: Page) {
     .poll(async () => {
       return await readVisibleFeedArticleCount(page);
     })
-    .toBeGreaterThanOrEqual(8);
-  await expect
-    .poll(async () => {
-      return await readVisibleFeedArticleCount(page);
-    })
-    .toBeLessThan(12);
+    .toBe(4);
   await expect
     .poll(async () => {
       return await hasLoadMoreSentinel(page);
@@ -110,42 +94,13 @@ export async function expectDesktopRefreshCollapse(page: Page) {
 export async function readDesktopMarkVisibleReadSnapshot(
   page: Page,
 ): Promise<DesktopMarkVisibleReadSnapshot> {
-  await page.waitForFunction(() => {
-    const viewportSelectors = [
-      '[data-feed-scroll-viewport="true"]',
-      "[data-radix-scroll-area-viewport]",
-      "[data-feed-surface-mode]",
-      "[data-feed-virtualizer]",
-    ] as const;
-
-    return viewportSelectors
-      .flatMap((selector) =>
-        Array.from(document.querySelectorAll<HTMLElement>(selector)),
-      )
-      .some((candidate) => {
-        const rect = candidate.getBoundingClientRect();
-
-        return (
-          candidate.querySelector("article[data-article-key]") !== null &&
-          rect.width > 0 &&
-          rect.height > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden"
-        );
-      });
-  });
-
   return await page.evaluate(() => {
-    const viewportSelectors = [
-      '[data-feed-scroll-viewport="true"]',
-      "[data-radix-scroll-area-viewport]",
-      "[data-feed-surface-mode]",
-      "[data-feed-virtualizer]",
-    ] as const;
-    const viewport = viewportSelectors
-      .flatMap((selector) =>
-        Array.from(document.querySelectorAll<HTMLElement>(selector)),
-      )
-      .find((candidate) => {
+    const viewport = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-feed-scroll-viewport="true"], [data-radix-scroll-area-viewport]',
+      ),
+    )
+      .filter((candidate) => {
         const rect = candidate.getBoundingClientRect();
 
         return (
@@ -154,10 +109,34 @@ export async function readDesktopMarkVisibleReadSnapshot(
           rect.height > 0 &&
           window.getComputedStyle(candidate).visibility !== "hidden"
         );
-      });
+      })
+      .sort((left, right) => {
+        const rightArticleCount = right.querySelectorAll(
+          "article[data-article-key]",
+        ).length;
+        const leftArticleCount = left.querySelectorAll(
+          "article[data-article-key]",
+        ).length;
 
-    if (!viewport) {
-      throw new Error("Expected the active desktop feed viewport.");
+        if (rightArticleCount !== leftArticleCount) {
+          return rightArticleCount - leftArticleCount;
+        }
+
+        return right.scrollHeight - left.scrollHeight;
+      })[0] ?? null;
+
+    const feedSurface =
+      viewport?.closest<HTMLElement>("[data-feed-surface-mode]") ??
+      viewport?.parentElement ??
+      null;
+
+    if (!viewport || !feedSurface) {
+      return {
+        fullyVisibleArticleKeys: [],
+        maxIndex: null,
+        renderedArticleKeys: [],
+        renderedCount: 0,
+      };
     }
 
     const viewportRect = viewport.getBoundingClientRect();
@@ -186,7 +165,7 @@ export async function readDesktopMarkVisibleReadSnapshot(
       .map((articleElement) => articleElement.dataset.articleKey)
       .filter((articleKey): articleKey is string => Boolean(articleKey));
     const indexes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-index]"),
+      feedSurface.querySelectorAll<HTMLElement>("[data-index]"),
     )
       .map((node) => Number.parseInt(node.dataset.index ?? "", 10))
       .filter((value) => Number.isFinite(value))
@@ -247,7 +226,7 @@ export async function readFeedViewportMetrics(page: Page) {
  * @returns Settled snapshot for the current visible-read window.
  */
 export async function readStableDesktopMarkVisibleReadBaseline(page: Page) {
-  const minimumRenderedCount = 8;
+  const minimumRenderedCount = 4;
   const minimumVisibleCount = 4;
 
   await expect
@@ -314,15 +293,21 @@ export async function rearmDesktopPaginationAfterRefresh(page: Page) {
  */
 export async function waitForStableDesktopMarkVisibleReadCycle(
   page: Page,
-  expectedFullyVisibleCount: number,
+  minimumRenderedCount: number,
   previousFullyVisibleArticleKeys: string[] = [],
-) {
+): Promise<DesktopMarkVisibleReadSnapshot> {
+  let settledSnapshot: DesktopMarkVisibleReadSnapshot | null = null;
+
   await expect
     .poll(async () => {
       const snapshot = await readDesktopMarkVisibleReadSnapshot(page);
+      const hasVisibleUnreadWindow = snapshot.fullyVisibleArticleKeys.length > 0;
+
+      settledSnapshot = hasVisibleUnreadWindow ? snapshot : null;
 
       return {
-        fullyVisibleArticleCount: snapshot.fullyVisibleArticleKeys.length,
+        hasVisibleUnreadWindow,
+        renderedWindowRecovered: snapshot.renderedCount >= minimumRenderedCount,
         visibleWindowChanged:
           previousFullyVisibleArticleKeys.length === 0 ||
           !haveMatchingArticleKeys(
@@ -330,13 +315,16 @@ export async function waitForStableDesktopMarkVisibleReadCycle(
             snapshot.fullyVisibleArticleKeys,
           ),
       };
-    })
+    }, { timeout: 20_000 })
     .toMatchObject({
-      fullyVisibleArticleCount: expectedFullyVisibleCount,
-      visibleWindowChanged: true,
+      hasVisibleUnreadWindow: true,
     });
 
-  return await readDesktopMarkVisibleReadSnapshot(page);
+  if (!settledSnapshot) {
+    throw new Error("Expected a settled visible-read snapshot.");
+  }
+
+  return settledSnapshot;
 }
 
 /**

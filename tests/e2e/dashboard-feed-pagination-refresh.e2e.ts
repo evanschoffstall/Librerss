@@ -17,6 +17,7 @@ import {
   readRenderedArticleCount,
   readRenderedItemWindow,
   scrollFeedViewportToBottom,
+  selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -26,7 +27,7 @@ test.describe("dashboard feed pagination", () => {
   });
 
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
-    test(`resets refresh back to one page plus minimum overflow on ${viewportCase.name}`, async ({
+    test(`resets refresh back to one configured page on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -35,7 +36,7 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -43,7 +44,7 @@ test.describe("dashboard feed pagination", () => {
         .poll(async () => {
           return await readRenderedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(8);
+        .toBe(4);
 
       await scrollFeedViewportToBottom(page);
       await scrollFeedViewportToBottom(page);
@@ -62,12 +63,7 @@ test.describe("dashboard feed pagination", () => {
         .poll(async () => {
           return await readRenderedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(8);
-      await expect
-        .poll(async () => {
-          return await readRenderedArticleCount(page);
-        })
-        .toBeLessThan(12);
+        .toBe(4);
     });
 
     test(`keeps repeated desktop refreshes collapsed after the feed was expanded on ${viewportCase.name}`, async ({
@@ -79,7 +75,7 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -87,7 +83,7 @@ test.describe("dashboard feed pagination", () => {
         .poll(async () => {
           return await readRenderedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(8);
+        .toBe(4);
 
       await expandDesktopFeedWindow(page);
       const expandedCount = await readRenderedArticleCount(page);
@@ -95,13 +91,13 @@ test.describe("dashboard feed pagination", () => {
       await expectDesktopRefreshCollapse(page);
       const firstRefreshCount = await readRenderedArticleCount(page);
 
-      expect(firstRefreshCount).toBeGreaterThanOrEqual(8);
+      expect(firstRefreshCount).toBe(4);
       expect(firstRefreshCount).toBeLessThan(expandedCount);
 
       await expectDesktopRefreshCollapse(page);
       const secondRefreshCount = await readRenderedArticleCount(page);
 
-      expect(secondRefreshCount).toBeGreaterThanOrEqual(8);
+      expect(secondRefreshCount).toBe(4);
       expect(secondRefreshCount).toBeLessThan(expandedCount);
       expect(secondRefreshCount).toBeLessThan(12);
     });
@@ -115,7 +111,7 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+      await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -133,6 +129,31 @@ test.describe("dashboard feed pagination", () => {
           return (await readRenderedItemWindow(page)).maxIndex;
         })
         .toBeGreaterThan(collapsedWindow.maxIndex!);
+    });
+
+    test(`browser reload collapses the first paint back to the minimum overflow window on ${viewportCase.name}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({
+        height: viewportCase.height,
+        width: viewportCase.width,
+      });
+
+      await gotoPreviewDashboard(page);
+      await selectArticleFilter(page, "all");
+      await configureArticlesPerPage(page, 4);
+
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await expandDesktopFeedWindow(page);
+
+      await page.reload({ waitUntil: "networkidle" });
+
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await expect
+        .poll(async () => {
+          return await readRenderedArticleCount(page);
+        })
+        .toBe(4);
     });
   }
 });

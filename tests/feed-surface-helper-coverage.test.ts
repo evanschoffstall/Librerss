@@ -273,6 +273,8 @@ describe("feed pagination rule helpers", () => {
     ).toBe(12);
     expect(
       shouldAutoFillViewport({
+        articleFilter: "all",
+        articlesPerPage: 4,
         clientHeight: 480,
         committedListHeight: Number.NaN,
         currentVisibleCount: 4,

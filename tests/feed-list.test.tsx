@@ -144,7 +144,7 @@ afterEach(() => {
 });
 
 describe("FeedList", () => {
-  test("keeps auto-filling additional pages when the viewport still cannot scroll", async () => {
+  test("shows only one page when the viewport still cannot scroll (count ceiling enforced)", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 10 }, (_value, index) =>
       buildFeedListArticle({
@@ -203,15 +203,15 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Viewport fill article 10")).toBeTruthy();
-      expect(queryByText("Viewport fill article 11")).toBeNull();
+      expect(getByText("Viewport fill article 4")).toBeTruthy();
+      expect(queryByText("Viewport fill article 5")).toBeNull();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(10);
+      ).toHaveLength(4);
     });
   });
 
-  test("stops auto-filling once starred results become scrollable", async () => {
+  test("shows only one page for starred results when the viewport cannot scroll (count ceiling enforced)", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 13 }, (_value, index) =>
       buildFeedListArticle({
@@ -276,16 +276,16 @@ describe("FeedList", () => {
         const renderedRows = container.querySelectorAll(
           "[data-scroll-restore-key]",
         ).length;
-        expect(renderedRows).toBe(12);
+        expect(renderedRows).toBe(4);
       },
       { timeout: 5000 },
     );
 
-    expect(getByText("Starred auto-fill article 12")).toBeTruthy();
-    expect(queryByText("Starred auto-fill article 14")).toBeNull();
+    expect(getByText("Starred auto-fill article 4")).toBeTruthy();
+    expect(queryByText("Starred auto-fill article 5")).toBeNull();
   });
 
-  test("stops auto-filling with a no-op once all starred results are visible", async () => {
+  test("keeps starred auto-fill bounded to one page without an owned refill target", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 6 }, (_value, index) =>
       buildFeedListArticle({
@@ -346,13 +346,14 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Starred exhausted article 6")).toBeTruthy();
+      expect(getByText("Starred exhausted article 4")).toBeTruthy();
+      expect(() => getByText("Starred exhausted article 6")).toThrow();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(6);
+      ).toHaveLength(4);
       expect(
         container.querySelector("[data-feed-load-more-sentinel='true']"),
-      ).toBeNull();
+      ).not.toBeNull();
     });
   });
 
@@ -595,10 +596,10 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("Idle auto-fill article 8")).toBeTruthy();
+      expect(getByText("Idle auto-fill article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
+      ).toHaveLength(4);
     });
 
     await flushFeedListAsyncWork();
@@ -675,10 +676,10 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("desktop-refill article 12")).toBeTruthy();
+      expect(getByText("desktop-refill article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(12);
+      ).toHaveLength(4);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -769,7 +770,7 @@ describe("FeedList", () => {
     let testContainer: HTMLElement | null = null;
     const initialArticles = buildSequentialFeedListArticles(
       "desktop-deplete",
-      12,
+      6,
     );
     const onLoadMore = mock(() => {});
 
@@ -824,10 +825,10 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("desktop-deplete article 12")).toBeTruthy();
+      expect(getByText("desktop-deplete article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(12);
+      ).toHaveLength(4);
     });
 
     rerender(
@@ -906,7 +907,7 @@ describe("FeedList", () => {
 
     const initialArticles = buildSequentialFeedListArticles(
       "inverted-deplete",
-      12,
+      6,
     );
     const onLoadMore = mock(() => {});
     let testContainer: HTMLElement | null = null;
@@ -972,10 +973,10 @@ describe("FeedList", () => {
     testContainer = container;
 
     await waitFor(() => {
-      expect(getByText("inverted-deplete article 12")).toBeTruthy();
+      expect(getByText("inverted-deplete article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(12);
+      ).toHaveLength(4);
     });
 
     rerender(
@@ -3334,12 +3335,12 @@ describe("FeedList", () => {
 
     testContainer = container;
 
-    // Auto-fill expands all 10 articles (same pattern as existing viewport-fill test)
+    // With the count ceiling enforced, only one page (articlesPerPage=4) renders initially.
     await waitFor(() => {
-      expect(getByText("Refresh epoch article 10")).toBeTruthy();
+      expect(getByText("Refresh epoch article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(10);
+      ).toHaveLength(4);
     });
 
     // Simulate the user having scrolled
@@ -3374,14 +3375,13 @@ describe("FeedList", () => {
 
     // Scroll position should be reset to top
     expect(scrollTop).toBe(0);
-    // Visible count resets to articlesPerPage, then re-autofills until the viewport regains overflow.
+    // Visible count resets to articlesPerPage and stays at one page (count ceiling enforced).
     await waitFor(() => {
       const renderedRows = container.querySelectorAll(
         "[data-scroll-restore-key]",
       ).length;
 
-      expect(renderedRows).toBeGreaterThanOrEqual(8);
-      expect(renderedRows).toBeLessThanOrEqual(10);
+      expect(renderedRows).toBe(4);
     });
   });
 });
