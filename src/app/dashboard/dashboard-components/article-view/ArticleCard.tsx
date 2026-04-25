@@ -18,6 +18,7 @@ import { ArticleCardHeader } from "@/app/dashboard/dashboard-components/article-
 import {
   SWIPE_COMMIT_SLIDE_MS,
   SWIPE_RELEASE_MS,
+  SWIPE_THRESHOLD,
   useArticleExpansion,
   useArticleFavicon,
   useSwipeGesture,
@@ -408,6 +409,14 @@ export const ArticleCard = memo(
     const readActive = readSwipeState.phase !== "idle";
     const starActive = starSwipeState.phase !== "idle";
     const anyActive = readActive || starActive;
+    // True once the user has dragged past the commit threshold, whether or not
+    // the finger is still down. This drives the "committed" visual state
+    // (colour change, icon swap, label reveal) while swiping so feedback is
+    // immediate rather than deferred to the post-release animation.
+    const readSwipeAtThreshold =
+      readSwipeState.committed || readSwipeState.progress >= SWIPE_THRESHOLD;
+    const starSwipeAtThreshold =
+      starSwipeState.committed || starSwipeState.progress >= SWIPE_THRESHOLD;
     const isActivelySwiping =
       readSwipeState.phase === "swiping" || starSwipeState.phase === "swiping";
     const isSwipeAnimating =
@@ -852,11 +861,11 @@ export const ArticleCard = memo(
         <div
           className={`
           pointer-events-none absolute inset-0 z-0 flex items-center rounded-xl
-          ${readSwipeState.committed ? "bg-emerald-500/25" : "bg-emerald-500/10"}
+          ${readSwipeAtThreshold ? "bg-emerald-500/25" : "bg-emerald-500/10"}
         `}
           style={{
             opacity: readActive ? 1 : 0,
-            transform: readSwipeState.committed ? "scale(1)" : "scale(0.985)",
+            transform: readSwipeAtThreshold ? "scale(1)" : "scale(0.985)",
             transition:
               readSwipeState.phase === "releasing"
                 ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
@@ -875,22 +884,22 @@ export const ArticleCard = memo(
               <Circle
                 className={`
                 size-5
-                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
+                ${readSwipeAtThreshold ? "scale-110" : "scale-90 opacity-60"}
               `}
               />
             ) : (
               <CircleCheck
                 className={`
                 size-5
-                ${readSwipeState.committed ? "scale-110" : "scale-90 opacity-60"}
+                ${readSwipeAtThreshold ? "scale-110" : "scale-90 opacity-60"}
               `}
               />
             )}
             <span
               className="text-xs font-medium"
               style={{
-                opacity: readSwipeState.committed ? 1 : 0,
-                transform: `translate3d(${readSwipeState.committed ? 0 : -4}px, 0, 0)`,
+                opacity: readSwipeAtThreshold ? 1 : 0,
+                transform: `translate3d(${readSwipeAtThreshold ? 0 : -4}px, 0, 0)`,
               }}
             >
               {article.isRead ? "Mark unread" : "Mark read"}
@@ -901,11 +910,11 @@ export const ArticleCard = memo(
           className={`
           pointer-events-none absolute inset-0 z-0 flex items-center justify-end
           rounded-xl
-          ${starSwipeState.committed ? "bg-amber-500/25" : "bg-amber-500/10"}
+          ${starSwipeAtThreshold ? "bg-amber-500/25" : "bg-amber-500/10"}
         `}
           style={{
             opacity: starActive ? 1 : 0,
-            transform: starSwipeState.committed ? "scale(1)" : "scale(0.985)",
+            transform: starSwipeAtThreshold ? "scale(1)" : "scale(0.985)",
             transition:
               starSwipeState.phase === "releasing"
                 ? `opacity ${SWIPE_RELEASE_MS}ms ease-out`
@@ -923,8 +932,8 @@ export const ArticleCard = memo(
             <span
               className="text-xs font-medium"
               style={{
-                opacity: starSwipeState.committed ? 1 : 0,
-                transform: `translate3d(${starSwipeState.committed ? 0 : 4}px, 0, 0)`,
+                opacity: starSwipeAtThreshold ? 1 : 0,
+                transform: `translate3d(${starSwipeAtThreshold ? 0 : 4}px, 0, 0)`,
               }}
             >
               {article.isStarred ? "Unstar" : "Star"}
@@ -933,7 +942,7 @@ export const ArticleCard = memo(
               className={`
               size-5
               ${
-                starSwipeState.committed
+                starSwipeAtThreshold
                   ? "scale-110 fill-current"
                   : "scale-90 opacity-60"
               }
@@ -962,6 +971,8 @@ export const ArticleCard = memo(
           data-swipe-direction={
             readActive ? "read" : starActive ? "star" : "idle"
           }
+          data-swipe-read-at-threshold={readSwipeAtThreshold ? "true" : "false"}
+          data-swipe-star-at-threshold={starSwipeAtThreshold ? "true" : "false"}
           onClick={toggleExpanded}
           onKeyDown={handleKeyDown}
           onMouseEnter={() => {

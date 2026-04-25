@@ -11,6 +11,7 @@ import {
 export {
   SWIPE_COMMIT_SLIDE_MS,
   SWIPE_RELEASE_MS,
+  SWIPE_THRESHOLD,
 } from "./swipeGestureController";
 export type { SwipePhase, SwipeState } from "./swipeGestureController";
 

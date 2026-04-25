@@ -1,12 +1,19 @@
 import type React from "react";
 
-const SWIPE_THRESHOLD = 0.25;
+/**
+ * The fraction of the container width the user must drag before the swipe
+ * commits. Both the commit-threshold check and the rubber-band boundary use
+ * this value so that the visual "committed" signal appears exactly when the
+ * gesture would commit on release.
+ */
+export const SWIPE_THRESHOLD = 0.3;
 const MIN_SWIPE_PX = 8;
 const HORIZONTAL_LOCK_RATIO = 1.0;
 const VERTICAL_LOCK_RATIO = 1.5;
 const VELOCITY_MIN_DISTANCE_PX = 30;
 const VELOCITY_MIN_PROGRESS = 0.2;
 const VELOCITY_COMMIT_PX_PER_MS = 0.45;
+/** Fraction of the over-threshold overshoot that feeds into the visual offset. */
 const ELASTIC_DAMPING = 0.45;
 
 export const SWIPE_RELEASE_MS = 300;
@@ -175,19 +182,41 @@ export function shouldTrackSwipeMove(
 }
 
 /**
- * Apply elastic damping so the swipe gesture resists over-dragging.
- * @param offsetX - The unsigned swipe offset.
- * @returns The damped swipe offset.
+ * Apply rubber-band damping to the swipe offset.
+ *
+ * The gesture tracks the pointer 1:1 up to the commit threshold distance so
+ * the progress value reaches exactly {@link SWIPE_THRESHOLD} — the same value
+ * used by the commit check — meaning the visual "committed" signal appears at
+ * the precise moment the gesture would commit on release.
+ *
+ * Beyond the threshold the overshoot is scaled by {@link ELASTIC_DAMPING} to
+ * give a tactile "stretching" resistance that communicates the point of no
+ * return without letting the card fly too far.
+ *
+ * @param signedDelta - The signed distance the pointer has travelled in the
+ *   direction of the swipe (always non-negative when this is called).
+ * @param containerWidth - The width of the swipe container used to derive the
+ *   absolute threshold distance in pixels.
+ * @returns The display offset in pixels.
  */
-function applyElasticDamping(offsetX: number) {
-  return offsetX < 0 ? 0 : offsetX * ELASTIC_DAMPING;
+function applyElasticDamping(
+  signedDelta: number,
+  containerWidth: number,
+): number {
+  const thresholdPx = containerWidth * SWIPE_THRESHOLD;
+  if (signedDelta <= thresholdPx) {
+    // Full 1:1 tracking up to the commit threshold.
+    return signedDelta;
+  }
+  // Rubber-band: damp the overshoot while preserving the threshold distance.
+  return thresholdPx + (signedDelta - thresholdPx) * ELASTIC_DAMPING;
 }
 
 /**
  * Resolve the signed swipe offset for the current pointer position.
  * @param clientX - The current pointer X position.
  * @param context - The swipe gesture context.
- * @returns The signed swipe offset.
+ * @returns The signed swipe offset in pixels.
  */
 function resolveSignedSwipeOffsetX(
   clientX: number,
@@ -204,5 +233,6 @@ function resolveSignedSwipeOffsetX(
     return 0;
   }
 
-  return (context.isRight ? 1 : -1) * applyElasticDamping(signedDelta);
+  const width = context.containerWidthRef.current || 1;
+  return (context.isRight ? 1 : -1) * applyElasticDamping(signedDelta, width);
 }

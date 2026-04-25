@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   SWIPE_COMMIT_SLIDE_MS,
   SWIPE_RELEASE_MS,
+  SWIPE_THRESHOLD,
   type SwipePhase,
   useSwipeGesture,
 } from "@/app/dashboard/dashboard-components/article-view/hooks";
@@ -417,6 +418,144 @@ describe("useSwipeGesture", () => {
     // Pointer cancel should trigger a releasing phase, not jump to idle.
     await waitFor(() => {
       expect(surface.getAttribute("data-phase")).toBe("releasing");
+    });
+  });
+
+  test("threshold is 30% of container width", () => {
+    // SWIPE_THRESHOLD is exported so ArticleCard can use the same constant for
+    // visual feedback. This test pins the value so any accidental change is
+    // caught immediately.
+    expect(SWIPE_THRESHOLD).toBe(0.3);
+  });
+
+  test("tracks pointer 1:1 below the commit threshold", async () => {
+    // Below the threshold the offset must equal the raw drag distance so the
+    // card moves flush with the finger — no damping should be applied before
+    // the user reaches the commit point.
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    // Container width defaults to offsetWidth which jsdom returns as 0; the
+    // hook falls back to 300px in that case.
+    const CONTAINER_WIDTH = 300;
+    const dragPx = CONTAINER_WIDTH * SWIPE_THRESHOLD * 0.5; // 15% – well below threshold
+
+    fireEvent.pointerDown(handle, {
+      clientX: 0,
+      clientY: 10,
+      pointerId: 20,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: dragPx,
+      clientY: 10,
+      pointerId: 20,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("swiping");
+      // offsetX must equal the raw drag distance (1:1 tracking).
+      expect(Number(surface.getAttribute("data-offset-x"))).toBeCloseTo(
+        dragPx,
+        0,
+      );
+    });
+
+    fireEvent.pointerUp(handle, {
+      clientX: dragPx,
+      clientY: 10,
+      pointerId: 20,
+      pointerType: "touch",
+    });
+  });
+
+  test("progress reaches exactly SWIPE_THRESHOLD at the threshold drag distance", async () => {
+    // progress = |offsetX| / containerWidth, and offsetX == signedDelta when
+    // signedDelta == thresholdPx (1:1 zone). So progress should equal
+    // SWIPE_THRESHOLD exactly at that drag distance.
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    const CONTAINER_WIDTH = 300;
+    const thresholdPx = CONTAINER_WIDTH * SWIPE_THRESHOLD; // exactly 90px
+
+    fireEvent.pointerDown(handle, {
+      clientX: 0,
+      clientY: 10,
+      pointerId: 21,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: thresholdPx,
+      clientY: 10,
+      pointerId: 21,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("swiping");
+      const progress = Number(surface.getAttribute("data-progress"));
+      expect(progress).toBeCloseTo(SWIPE_THRESHOLD, 5);
+    });
+
+    fireEvent.pointerUp(handle, {
+      clientX: thresholdPx,
+      clientY: 10,
+      pointerId: 21,
+      pointerType: "touch",
+    });
+  });
+
+  test("rubber-band damping kicks in above the threshold, limiting offsetX", async () => {
+    // Past the threshold the card must resist over-drag: offsetX grows slower
+    // than the raw pointer distance. The threshold-distance component must be
+    // preserved exactly so the commit boundary is visually stable.
+    const onCommit = mock(() => {});
+    const { getByTestId } = render(<SwipeHarness onCommit={onCommit} />);
+    const surface = getByTestId("surface");
+    const handle = getByTestId("handle");
+    installPointerCaptureSpies(surface);
+
+    const CONTAINER_WIDTH = 300;
+    const thresholdPx = CONTAINER_WIDTH * SWIPE_THRESHOLD; // 90px
+    const overshootPx = 60; // 20% above threshold
+    const rawDragPx = thresholdPx + overshootPx; // 150px total
+
+    fireEvent.pointerDown(handle, {
+      clientX: 0,
+      clientY: 10,
+      pointerId: 22,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(handle, {
+      clientX: rawDragPx,
+      clientY: 10,
+      pointerId: 22,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(surface.getAttribute("data-phase")).toBe("swiping");
+      const offsetX = Number(surface.getAttribute("data-offset-x"));
+      // The threshold portion (90px) is tracked 1:1, so offsetX must be at
+      // least thresholdPx. The overshoot must be damped, so offsetX must be
+      // strictly less than the raw drag distance.
+      expect(offsetX).toBeGreaterThanOrEqual(thresholdPx);
+      expect(offsetX).toBeLessThan(rawDragPx);
+    });
+
+    fireEvent.pointerUp(handle, {
+      clientX: rawDragPx,
+      clientY: 10,
+      pointerId: 22,
+      pointerType: "touch",
     });
   });
 });
