@@ -159,8 +159,11 @@ The Playwright workflow is isolated by design. It starts a dedicated Next.js dev
 > [!IMPORTANT]
 > This separation is intentional. It prevents Playwright runs from clobbering your normal development server or `.next` output.
 
+> [!NOTE]
+> Playwright is optional. LibreRSS does not install browsers or OS-level dependencies during `bun install`, so deployments and local setups stay environment-agnostic. If you want to try the Playwright suite, install the browser binaries explicitly on a machine that supports them.
+
 ```bash
-bunx playwright install --with-deps chromium
+bun run setup:playwright
 bun run test:e2e
 ```
 
