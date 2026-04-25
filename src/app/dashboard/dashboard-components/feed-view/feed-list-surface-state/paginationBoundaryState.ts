@@ -9,6 +9,12 @@ export interface PaginationBoundaryUserIntentOptions extends PaginationBoundaryR
   isInvertedLoadBoundaryArmedRef: BooleanRef;
   isInvertedScroll: boolean;
   isStandardLoadBoundaryArmedRef: BooleanRef;
+  /** Tracks the last recorded inverted scroll position. Passed through so the
+   * inverted touchmove intent handler can advance the position history when the
+   * user gestures from a non-boundary position, enabling the server-load gate
+   * in `maybeLoadInvertedNextPage` to distinguish genuine return-from-away
+   * intent from a repeated at-boundary touch. */
+  lastInvertedScrollTopRef?: { current: null | number };
   scrollViewport: HTMLElement | null;
 }
 

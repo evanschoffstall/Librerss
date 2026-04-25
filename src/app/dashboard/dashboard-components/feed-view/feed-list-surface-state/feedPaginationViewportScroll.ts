@@ -125,6 +125,9 @@ function createRearmInvertedBoundaryHandler(
 ) {
   return () => {
     const currentScrollTop = options.scrollViewport.scrollTop;
+    // Capture the previous position before any update so hasMovedAway
+    // comparisons are consistent throughout this handler.
+    const previousScrollTop = options.lastInvertedScrollTopRef.current;
 
     if (
       !options.isInvertedScroll ||
@@ -134,18 +137,44 @@ function createRearmInvertedBoundaryHandler(
         options.invertedPaginationAnchorRef,
       )
     ) {
-      options.lastInvertedScrollTopRef.current = currentScrollTop;
+      // For non-inverted scroll the ref is always advanced to keep the field
+      // consistent.  For inverted scroll during an abort (e.g. a pending
+      // server reveal), only advance when the user has already left the boundary
+      // at some point (previousScrollTop !== null) or is currently away — this
+      // preserves null while the user is pinned at the boundary right after a
+      // reveal so maybeLoadInvertedNextPage can gate the next server load.
+      if (options.isInvertedScroll) {
+        const hasMovedAway = hasMovedAwayFromBoundarySincePreviousScroll({
+          isInvertedScroll: true,
+          previousScrollTop,
+          scrollViewport: options.scrollViewport,
+        });
+
+        if (hasMovedAway || previousScrollTop !== null) {
+          options.lastInvertedScrollTopRef.current = currentScrollTop;
+        }
+      } else {
+        options.lastInvertedScrollTopRef.current = currentScrollTop;
+      }
+
       return;
     }
 
     const hasMovedAwayFromBoundary =
       hasMovedAwayFromBoundarySincePreviousScroll({
         isInvertedScroll: true,
-        previousScrollTop: options.lastInvertedScrollTopRef.current,
+        previousScrollTop,
         scrollViewport: options.scrollViewport,
       });
 
-    options.lastInvertedScrollTopRef.current = currentScrollTop;
+    // Only advance the position history when the user has demonstrably moved
+    // away from the boundary at some point.  Keeping the ref at null when the
+    // user scrolls in-place at the boundary (both previous and current are at
+    // the boundary and previous was null) ensures the server-load gate in
+    // maybeLoadInvertedNextPage stays closed until a real away gesture occurs.
+    if (hasMovedAwayFromBoundary || previousScrollTop !== null) {
+      options.lastInvertedScrollTopRef.current = currentScrollTop;
+    }
 
     if (!hasMovedAwayFromBoundary) {
       return;

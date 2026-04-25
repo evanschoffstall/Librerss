@@ -78,6 +78,38 @@ export function hasMovedAwayFromBoundarySincePreviousScroll(
 }
 
 /**
+ * When the user is away from the inverted top boundary, record the current
+ * scroll position so that `maybeLoadInvertedNextPage` can distinguish a genuine
+ * return-from-away gesture from a repeated pinned-at-boundary touch.
+ *
+ * The ref is only advanced when `hasMovedAwayFromBoundary` is true, which
+ * preserves `null` while the user is pinned at the boundary — this keeps the
+ * server-load gate in `maybeLoadInvertedNextPage` closed until the user
+ * demonstrates real away intent.
+ *
+ * @param scrollViewport - The scroll container element.
+ * @param lastInvertedScrollTopRef - Mutable ref tracking the last away-scroll
+ *   position; skipped when absent (optional on the calling options object).
+ */
+export function maybeAdvanceInvertedScrollTopHistory(
+  scrollViewport: HTMLElement,
+  lastInvertedScrollTopRef: undefined | { current: null | number },
+) {
+  if (!lastInvertedScrollTopRef) {
+    return;
+  }
+
+  const { hasMovedAwayFromBoundary } = resolvePaginationBoundaryState({
+    isInvertedScroll: true,
+    scrollViewport,
+  });
+
+  if (hasMovedAwayFromBoundary) {
+    lastInvertedScrollTopRef.current = scrollViewport.scrollTop;
+  }
+}
+
+/**
  * Resolve the inverted pagination anchor scroll top.
  * @param options - The options used to resolve the inverted pagination anchor scroll top.
  * @returns The inverted pagination anchor scroll top.
