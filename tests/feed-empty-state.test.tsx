@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { FeedEmptyState } from "@/app/dashboard/components/feed/FeedEmptyState";
+import { FeedEmptyState } from "@/app/dashboard/dashboard-components/feed-view/FeedEmptyState";
 
 describe("FeedEmptyState", () => {
   test("renders the search empty state with the trimmed query token", () => {
@@ -30,8 +30,12 @@ describe("FeedEmptyState", () => {
     );
 
     expect(getByText("No feed sources yet")).toBeTruthy();
-    expect(getByText("Add your feeds in Settings to start reading.")).toBeTruthy();
-    expect(container.querySelector("[data-feed-empty-state='true']")).toBeTruthy();
+    expect(
+      getByText("Add your feeds in Settings to start reading."),
+    ).toBeTruthy();
+    expect(
+      container.querySelector("[data-feed-empty-state='true']"),
+    ).toBeTruthy();
   });
 
   test("renders the starred empty state copy", () => {

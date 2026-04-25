@@ -6,22 +6,22 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import {
-  dedupeAndSortArticles,
-  getArticleKey,
-} from "@/app/dashboard/services/article-collection";
-import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
-} from "@/app/dashboard/services/article-content";
-import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-view-model";
+} from "@/app/dashboard/dashboard-services/article";
+import {
+  dedupeAndSortArticles,
+  getArticleKey,
+} from "@/app/dashboard/dashboard-services/article-collection";
+import { filterArticlesBySearchTerm } from "@/app/dashboard/dashboard-services/dashboard-state";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
-} from "@/app/dashboard/services/feed-batch-outcome";
-import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-batch-resolver";
-import { loadFeedSourceTree } from "@/app/dashboard/services/feed-source-tree";
-import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/viewport-read";
+  loadFeedSourceTree,
+  resolveFeedBatchResults,
+} from "@/app/dashboard/dashboard-services/feed-data";
+import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/dashboard-services/feed-view-model";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
 
@@ -314,6 +314,156 @@ describe("feed-batch-resolver", () => {
     ]);
   });
 
+  test("applies placeholder article filters and limits before returning preview results", async () => {
+    const fetchFeedsBatch = mock(async () => {
+      throw new Error("placeholder mode should not call the API");
+    });
+    const placeholderArticles = [
+      {
+        content: "Read article",
+        feedId: 1,
+        id: 1,
+        isRead: true,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/read",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Read Placeholder",
+      },
+      {
+        content: "Unread article",
+        feedId: 1,
+        id: 2,
+        isRead: false,
+        lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+        link: "https://example.com/unread",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        title: "Unread Placeholder",
+      },
+    ];
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      true,
+      { articleFilter: "read", articleLimit: 1 },
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => placeholderArticles,
+      },
+    );
+
+    expect(fetchFeedsBatch).not.toHaveBeenCalled();
+    expect(results).toEqual([
+      {
+        articles: [
+          {
+            ...placeholderArticles[0],
+            feedName: "Example Feed",
+            feedUrl: "https://example.com/feed.xml",
+          },
+        ],
+        ok: true,
+        url: "https://example.com/feed.xml",
+      },
+    ]);
+  });
+
+  test("applies placeholder article limits globally across multiple feed sources", async () => {
+    const fetchFeedsBatch = mock(async () => {
+      throw new Error("placeholder mode should not call the API");
+    });
+    const primaryFeedUrl = "https://example.com/primary.xml";
+    const secondaryFeedUrl = "https://example.com/secondary.xml";
+    const placeholderArticlesByUrl: Record<
+      string,
+      {
+        content: string;
+        feedId: number;
+        id: number;
+        isRead: boolean;
+        lastChecked: Date;
+        link: string;
+        publicationDate: Date;
+        title: string;
+      }[]
+    > = {
+      [primaryFeedUrl]: [
+        {
+          content: "Newest global article",
+          feedId: 1,
+          id: 10,
+          isRead: false,
+          lastChecked: new Date("2024-01-03T00:00:00.000Z"),
+          link: "https://example.com/primary/newest",
+          publicationDate: new Date("2024-01-03T00:00:00.000Z"),
+          title: "Primary Newest",
+        },
+        {
+          content: "Older primary article",
+          feedId: 1,
+          id: 9,
+          isRead: false,
+          lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+          link: "https://example.com/primary/older",
+          publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+          title: "Primary Older",
+        },
+      ],
+      [secondaryFeedUrl]: [
+        {
+          content: "Second newest global article",
+          feedId: 2,
+          id: 8,
+          isRead: false,
+          lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+          link: "https://example.com/secondary/newer",
+          publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+          title: "Secondary Newer",
+        },
+      ],
+    };
+
+    const results = await resolveFeedBatchResults(
+      [
+        { name: "Primary Feed", url: primaryFeedUrl },
+        { name: "Secondary Feed", url: secondaryFeedUrl },
+      ],
+      true,
+      { articleFilter: "all", articleLimit: 2 },
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: (url) => placeholderArticlesByUrl[url] ?? [],
+      },
+    );
+
+    expect(fetchFeedsBatch).not.toHaveBeenCalled();
+    expect(results).toEqual([
+      {
+        articles: [
+          {
+            ...placeholderArticlesByUrl[primaryFeedUrl][0],
+            feedName: "Primary Feed",
+            feedUrl: primaryFeedUrl,
+          },
+        ],
+        ok: true,
+        url: primaryFeedUrl,
+      },
+      {
+        articles: [
+          {
+            ...placeholderArticlesByUrl[secondaryFeedUrl][0],
+            feedName: "Secondary Feed",
+            feedUrl: secondaryFeedUrl,
+          },
+        ],
+        ok: true,
+        url: secondaryFeedUrl,
+      },
+    ]);
+  });
+
   test("passes normalized URLs and fetch options through to the batch API", async () => {
     const signal = new AbortController().signal;
     const batchResults = [
@@ -477,13 +627,15 @@ describe("feed-batch-outcome", () => {
 
 describe("favicons", () => {
   test("getFaviconUrl generates favicon URL", async () => {
-    const { getFaviconUrl } = await import("@/app/dashboard/services/favicons");
+    const { getFaviconUrl } =
+      await import("@/app/dashboard/dashboard-services/favicon");
     const url = getFaviconUrl("https://example.com");
     expect(url).toContain("example.com");
   });
 
   test("getFaviconUrl handles URLs without protocol", async () => {
-    const { getFaviconUrl } = await import("@/app/dashboard/services/favicons");
+    const { getFaviconUrl } =
+      await import("@/app/dashboard/dashboard-services/favicon");
     const url = getFaviconUrl("example.com");
     expect(typeof url).toBe("string");
     expect(url).toBe("");
@@ -720,9 +872,7 @@ describe("article-content – buildPreview preserves characters", () => {
 
   test("preserves angle brackets decoded from entities", () => {
     const result = buildPreview("Use 2 < 3 and 5 > 4 in comparisons");
-    expect(result.preview).toBe(
-      "Use 2 < 3 and 5 > 4 in comparisons",
-    );
+    expect(result.preview).toBe("Use 2 < 3 and 5 > 4 in comparisons");
   });
 
   test("preserves ellipsis character", () => {
@@ -732,9 +882,7 @@ describe("article-content – buildPreview preserves characters", () => {
 
   test("preserves accented characters", () => {
     const result = buildPreview("Caf\u00E9 cr\u00E8me with na\u00EFvet\u00E9");
-    expect(result.preview).toBe(
-      "Caf\u00E9 cr\u00E8me with na\u00EFvet\u00E9",
-    );
+    expect(result.preview).toBe("Caf\u00E9 cr\u00E8me with na\u00EFvet\u00E9");
   });
 
   test("truncation preserves special characters at word boundary", () => {
@@ -769,7 +917,8 @@ describe("article-content – buildPreview preserves characters", () => {
     const { toPlainText } = require("@/lib/sanitize");
     const { normalizeArticleHtmlSpacing } = require("@/lib/sanitize");
 
-    const rawHtml = "<p>It&#8217;s a &#8220;great&#8221; day &#8212; really.</p>";
+    const rawHtml =
+      "<p>It&#8217;s a &#8220;great&#8221; day &#8212; really.</p>";
     const normalized = normalizeArticleHtmlSpacing(rawHtml);
     const plain = toPlainText(normalized).trim();
     const result = buildPreview(plain);
@@ -946,7 +1095,7 @@ const makeArticle = (overrides: Partial<ArticleLike> = {}): ArticleLike => ({
 describe("dashboard article helpers comprehensive", () => {
   test("dedupeAndSortArticles drops empty links and prefers longer content", async () => {
     const { dedupeAndSortArticles, getArticleKey } =
-      await import("@/app/dashboard/services/article-collection");
+      await import("@/app/dashboard/dashboard-services/article-collection");
 
     const a1 = makeArticle({
       content: "short",
@@ -977,7 +1126,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("dedupeAndSortArticles uses newer publicationDate as tiebreaker", async () => {
     const { dedupeAndSortArticles } =
-      await import("@/app/dashboard/services/article-collection");
+      await import("@/app/dashboard/dashboard-services/article-collection");
 
     const older = makeArticle({
       content: "same-size",
@@ -999,7 +1148,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("buildPreview handles overflow and non-overflow content", async () => {
     const { buildPreview } =
-      await import("@/app/dashboard/services/article-content");
+      await import("@/app/dashboard/dashboard-services/article");
 
     const short = buildPreview("small");
     expect(short.preview).toBe("small");
@@ -1022,7 +1171,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getArticleSourceLabel prioritizes feedName then hostname fallback", async () => {
     const { getArticleSourceLabel } =
-      await import("@/app/dashboard/services/article-content");
+      await import("@/app/dashboard/dashboard-services/article");
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const named = makeArticle({
@@ -1051,7 +1200,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getRichContentClass returns expanded and collapsed variants", async () => {
     const { getRichContentClass } =
-      await import("@/app/dashboard/services/article-content");
+      await import("@/app/dashboard/dashboard-services/article");
 
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
@@ -1064,7 +1213,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles keeps article feedName when source name missing", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1090,7 +1239,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles does not set feedName to feed URL", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1119,7 +1268,7 @@ describe("dashboard article helpers comprehensive", () => {
 describe("dashboard favicons comprehensive", () => {
   test("getFaviconCacheKey picks first valid hostname from candidates", async () => {
     const { getFaviconCacheKey } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     expect(
       getFaviconCacheKey(
@@ -1134,7 +1283,7 @@ describe("dashboard favicons comprehensive", () => {
   test("hydrate loads valid persisted entries and drops stale failure entries", async () => {
     const v2Key = "librerss:favicon-index-cache:v2";
 
-    await import("@/app/dashboard/services/favicons");
+    await import("@/app/dashboard/dashboard-services/favicon");
 
     window.localStorage.setItem(
       v2Key,
@@ -1149,7 +1298,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     expect(getCachedFaviconIndex("ok.example.com")).toBe(4);
     expect(getCachedFaviconIndex("expired.example.com")).toBe(0);
@@ -1158,7 +1307,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache index set/get works for success and failure entries", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     expect(getCachedFaviconIndex("example.com")).toBe(0);
 
@@ -1174,7 +1323,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache trimming keeps storage bounded after many inserts", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     for (let index = 0; index < 430; index += 1) {
       setCachedFaviconIndex(`bulk-${index}.example.com`, index % 3);
@@ -1203,7 +1352,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     const ok = getCachedFaviconIndex("ok.example.com");
     const legacy = getCachedFaviconIndex("legacy.example.com");
@@ -1216,7 +1365,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("merged favicon candidates include provider and direct icon URLs", async () => {
     const { getFaviconUrl, getMergedFaviconCandidates } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const candidates = getMergedFaviconCandidates(
@@ -1246,7 +1395,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("favicon tint colors are deterministic and include default fallback", async () => {
     const { getFaviconTintColors } =
-      await import("@/app/dashboard/services/favicons");
+      await import("@/app/dashboard/dashboard-services/favicon");
 
     const a = getFaviconTintColors("https://example.com/a");
     const b = getFaviconTintColors("https://example.com/a");
@@ -1266,7 +1415,7 @@ describe("dashboard favicons comprehensive", () => {
 describe("feed-batch pure helpers", () => {
   test("mapBatchResultsToArticles: usePlaceholderData returns placeholder articles on failed result", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const placeholderArticle = makeArticle({
       feedName: "Placeholder",
       id: 99,
@@ -1284,7 +1433,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: failed result with usePlaceholderData=false returns empty", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const result = mapBatchResultsToArticles(
       [{ articles: [], ok: false, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "My Feed"]]),
@@ -1296,7 +1445,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: ok=true but empty articles falls to placeholder branch", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const placeholder = makeArticle({
       id: 50,
       link: "https://placeholder.example/x",
@@ -1312,7 +1461,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles reuses previous feed articles for unchanged batch items", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const previousArticle = makeArticle({
       feedName: "Feed A",
       feedUrl: "https://example.com/feed",
@@ -1342,7 +1491,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles keeps multiple unchanged articles from the same feed together", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const previousArticles = [
       makeArticle({
         feedName: "Feed A",
@@ -1382,7 +1531,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const sources = [
       { name: "A", url: "https://a.com/feed" },
       { name: "B", url: "https://b.com/feed" },
@@ -1398,7 +1547,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources returns empty array for all-duplicate input", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const result = normalizeFeedBatchSources([
       { name: "X", url: "https://x.com/feed" },
       { name: "X", url: "https://x.com/feed" },
@@ -1408,7 +1557,7 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature produces stable sorted string", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const a = buildBatchRequestSignature([
       { name: "B", url: "https://b.com/feed" },
       { name: "A", url: "https://a.com/feed" },
@@ -1424,13 +1573,13 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature returns empty string for empty input", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     expect(buildBatchRequestSignature([])).toBe("");
   });
 
   test("mapFeedNodesToBatchSources filters nodes without url", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const nodes = [
       { data: { url: "https://a.com/rss" }, label: "Feed A" },
       { data: {}, label: "No URL" },
@@ -1444,7 +1593,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapFeedNodesToBatchSources handles null/undefined data", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     const nodes = [
       { data: null, label: "No data" },
       { data: undefined, label: "No node" },
@@ -1455,7 +1604,7 @@ describe("feed-batch pure helpers", () => {
 
   test("FEED_LOADING_FAILSAFE_MS is a positive number", async () => {
     const { FEED_LOADING_FAILSAFE_MS } =
-      await import("@/app/dashboard/services/feed-batch");
+      await import("@/app/dashboard/dashboard-services/feed-data");
     expect(typeof FEED_LOADING_FAILSAFE_MS).toBe("number");
     expect(FEED_LOADING_FAILSAFE_MS).toBeGreaterThan(0);
   });

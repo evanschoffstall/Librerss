@@ -5,14 +5,24 @@ import type { BatchRouteDeps } from "@/app/api/feeds/batch/route";
 
 import { CONFIG } from "@/lib/config";
 import { logger } from "@/lib/logger";
-import { ServerServiceError } from "@/lib/server";
+import { serverApi } from "@/lib/server";
+
+const originalLoggerInfo = logger.info;
+const originalLoggerWarn = logger.warn;
+const originalLoggerError = logger.error;
 
 beforeEach(() => {
   mock.restore();
+  logger.info = (() => {}) as typeof logger.info;
+  logger.warn = (() => {}) as typeof logger.warn;
+  logger.error = (() => {}) as typeof logger.error;
 });
 
 afterEach(() => {
   mock.restore();
+  logger.info = originalLoggerInfo;
+  logger.warn = originalLoggerWarn;
+  logger.error = originalLoggerError;
 });
 
 describe("api/feeds/batch route", () => {
@@ -232,6 +242,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: false,
         requestedUrlCount: 0,
         requestSource: "dashboard",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -327,16 +338,19 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
-  test("returns a structured proxy password error when lazy proxy resolution fails", async () => {
+  test("falls back to direct egress when lazy proxy resolution fails", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps } = createRouteDeps();
+    let resolvedProxyTransport:
+      | undefined
+      | { allowInsecureTls: boolean; proxyUrl: string | undefined };
 
     deps.fetchAndCacheFeedArticlesBatchFn = mock(
       async (_db, _userId, _feedUrls, options) => {
-        await options?.resolveProxyTransport?.();
+        resolvedProxyTransport = await options?.resolveProxyTransport?.();
 
         return {
-          articles: new Map(),
+          articles: new Map([["https://example.com/feed", []]]),
           cachedCount: 0,
           cooldownLimitedCount: 0,
           errors: new Map(),
@@ -348,7 +362,7 @@ describe("api/feeds/batch route", () => {
       },
     ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
     deps.resolveUserProxyFn = async () => {
-      throw new ServerServiceError(
+      throw new serverApi.ServerServiceError(
         "Saved proxy password could not be read. Update it in settings and try again.",
         500,
         "proxy-password-unreadable",
@@ -364,12 +378,18 @@ describe("api/feeds/batch route", () => {
     const response = await POST(request, deps);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data).toEqual({
-      error:
-        "Saved proxy password could not be read. Update it in settings and try again.",
-      reason: "proxy-password-unreadable",
+    expect(response.status).toBe(200);
+    expect(resolvedProxyTransport).toEqual({
+      allowInsecureTls: false,
+      proxyUrl: undefined,
     });
+    expect(data).toEqual([
+      {
+        articles: [],
+        ok: true,
+        url: "https://example.com/feed",
+      },
+    ]);
   });
 
   test("returns 207 for mixed invalid URLs and upstream errors", async () => {
@@ -445,6 +465,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: false,
         requestedUrlCount: 2,
         requestSource: "unspecified",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -528,6 +549,7 @@ describe("api/feeds/batch route", () => {
         forceRefresh: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -621,6 +643,7 @@ describe("api/feeds/batch route", () => {
         forceResolveUpstream: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         userId: user.userId,
       });
@@ -728,14 +751,66 @@ describe("api/feeds/batch route", () => {
       knownLastFetchedAtByUrl: new Map(),
       requestSource: "unspecified",
       resolveProxyTransport: expect.any(Function),
+      searchTerm: undefined,
       skipRefresh: false,
     });
+  });
+
+  test("trims and forwards searchTerm to the batch fetcher", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        searchTerm: "  mars rover  ",
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(200);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
+      articleFilter: "all",
+      forceRefresh: false,
+      knownLastFetchedAtByUrl: new Map(),
+      requestSource: "unspecified",
+      resolveProxyTransport: expect.any(Function),
+      searchTerm: "mars rover",
+      skipRefresh: false,
+    });
+  });
+
+  test("rejects non-string searchTerm values", async () => {
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        searchTerm: 123,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "searchTerm must be a string when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
   test("uses the error responder when the batch fetch throws", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const logAndRespondErrorFn = mock(
-      () => new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      () =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
     );
     const deps: BatchRouteDeps = {
       fetchAndCacheFeedArticlesBatchFn: mock(async () => {

@@ -2,7 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 import { createRef } from "react";
 
-import { DashboardDesktopSidebar } from "@/app/dashboard/components/DashboardDesktopSidebar";
+import { DashboardDesktopSidebar } from "@/app/dashboard/dashboard-components/layout/DashboardDesktopSidebar";
 
 const sidebarContentProps = {
   isCategoriesLoading: true,

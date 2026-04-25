@@ -3,12 +3,12 @@ export {
   BATCH_REQUEST_TIMEOUT_MS,
   createLinkedAbortController,
   getApiClient,
+  isApiError,
   resetApiClientForTesting,
   resolveBatchRequestTimeoutMs,
   setApiClientForTesting,
   withRequestDeadline,
 } from "./client";
-export { isApiError } from "./client";
 export {
   buildApiFailureDiagnostics,
   isVerboseLoggingEnabled,
@@ -24,7 +24,6 @@ export {
   parseNonNegativeInt,
   parsePositiveInt,
 } from "./request";
-export type { BatchFeedResponseItem } from "./responses";
 export {
   ensureArrayResponse,
   forbiddenResponse,
@@ -32,3 +31,4 @@ export {
   jsonErrorWithReason,
   normalizeBatchItem,
 } from "./responses";
+export type { BatchFeedResponseItem } from "./responses";

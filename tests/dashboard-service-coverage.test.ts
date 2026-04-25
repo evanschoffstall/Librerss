@@ -1,32 +1,30 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import {
-  dedupeAndSortArticles,
-  getArticleKey,
-} from "@/app/dashboard/services/article-collection";
-import { filterArticlesByState } from "@/app/dashboard/services/article-filters";
-import {
+  filterArticlesByState,
   resolveArticleWindowAvailability,
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
-} from "@/app/dashboard/services/article-window-availability";
+} from "@/app/dashboard/dashboard-services/article";
+import {
+  dedupeAndSortArticles,
+  getArticleKey,
+} from "@/app/dashboard/dashboard-services/article-collection";
 import {
   buildDisplayCategories,
   computeNextOrderedCategoryLabels,
-} from "@/app/dashboard/services/category-display";
+} from "@/app/dashboard/dashboard-services/category";
 import {
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
-} from "@/app/dashboard/services/dashboard-controller-state";
-import {
   buildDashboardViewModel,
   filterArticlesBySearchTerm,
-} from "@/app/dashboard/services/dashboard-view-model";
+} from "@/app/dashboard/dashboard-services/dashboard-state";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
-} from "@/app/dashboard/services/feed-batch-outcome";
-import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-batch-resolver";
+  resolveFeedBatchResults,
+} from "@/app/dashboard/dashboard-services/feed-data";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 
@@ -75,42 +73,68 @@ describe("dashboard pure service coverage", () => {
     });
 
     expect(getArticleKey(newerLong)).toBe("https://example.com/a");
-    expect(dedupeAndSortArticles([blank, olderShort, newerLong, newest])).toEqual([
-      newest,
-      newerLong,
-    ]);
+    expect(
+      dedupeAndSortArticles([blank, olderShort, newerLong, newest]),
+    ).toEqual([newest, newerLong]);
   });
 
   test("filter articles by dashboard state", () => {
-    const unread = buildFeedListArticle({ id: 10, isRead: false, link: "https://example.com/u" });
-    const read = buildFeedListArticle({ id: 11, isRead: true, link: "https://example.com/r" });
-    const starred = buildFeedListArticle({ id: 12, isRead: true, isStarred: true, link: "https://example.com/s" });
+    const unread = buildFeedListArticle({
+      id: 10,
+      isRead: false,
+      link: "https://example.com/u",
+    });
+    const read = buildFeedListArticle({
+      id: 11,
+      isRead: true,
+      link: "https://example.com/r",
+    });
+    const starred = buildFeedListArticle({
+      id: 12,
+      isRead: true,
+      isStarred: true,
+      link: "https://example.com/s",
+    });
     const articles = [unread, read, starred];
 
     expect(filterArticlesByState(articles, "all", null, [])).toEqual(articles);
-    expect(filterArticlesByState(articles, "read", null, [])).toEqual([read, starred]);
-    expect(filterArticlesByState(articles, "starred", null, [])).toEqual([starred]);
-    expect(filterArticlesByState(articles, "unread", null, [])).toEqual([unread]);
-    expect(filterArticlesByState(articles, "unread", read.link, [])).toEqual([unread, read]);
-    expect(filterArticlesByState(articles, "unread", null, [starred.link])).toEqual([
-      unread,
+    expect(filterArticlesByState(articles, "read", null, [])).toEqual([
+      read,
       starred,
     ]);
+    expect(filterArticlesByState(articles, "starred", null, [])).toEqual([
+      starred,
+    ]);
+    expect(filterArticlesByState(articles, "unread", null, [])).toEqual([
+      unread,
+    ]);
+    expect(filterArticlesByState(articles, "unread", read.link, [])).toEqual([
+      unread,
+      read,
+    ]);
+    expect(
+      filterArticlesByState(articles, "unread", null, [starred.link]),
+    ).toEqual([unread, starred]);
   });
 
   test("build display categories and preserve ordered category labels", () => {
-    const tech = createCategory("Tech", [createFeedNode("feed-1", "Feed 1", "https://example.com/1")]);
-    const news = createCategory("News", [createFeedNode("feed-2", "Feed 2", "https://example.com/2")]);
-
-    expect(
-      buildDisplayCategories([tech], ["Custom"], ["Custom", "Tech"]),
-    ).toEqual([
-      { children: [], key: "cat-custom", label: "Custom" },
-      tech,
+    const tech = createCategory("Tech", [
+      createFeedNode("feed-1", "Feed 1", "https://example.com/1"),
+    ]);
+    const news = createCategory("News", [
+      createFeedNode("feed-2", "Feed 2", "https://example.com/2"),
     ]);
 
     expect(
-      computeNextOrderedCategoryLabels([tech, news], ["Custom"], ["News", "Missing", "Tech"]),
+      buildDisplayCategories([tech], ["Custom"], ["Custom", "Tech"]),
+    ).toEqual([{ children: [], key: "cat-custom", label: "Custom" }, tech]);
+
+    expect(
+      computeNextOrderedCategoryLabels(
+        [tech, news],
+        ["Custom"],
+        ["News", "Missing", "Tech"],
+      ),
     ).toEqual(["News", "Tech", "Custom"]);
   });
 
@@ -146,6 +170,7 @@ describe("dashboard pure service coverage", () => {
         hasStartedAwaitedWindowSettlement: false,
         isAwaitingWindowSettlement: false,
         isLoading: false,
+        isLoadingMoreArticles: false,
         previousFeedLength: 0,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 8,
@@ -163,6 +188,7 @@ describe("dashboard pure service coverage", () => {
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         previousFeedLength: 0,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 8,
@@ -180,6 +206,7 @@ describe("dashboard pure service coverage", () => {
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         previousFeedLength: 0,
         previousHasMoreServerArticles: false,
         requestedArticleLimit: 8,
@@ -197,6 +224,7 @@ describe("dashboard pure service coverage", () => {
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         previousFeedLength: 12,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 24,
@@ -214,6 +242,7 @@ describe("dashboard pure service coverage", () => {
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         previousFeedLength: 18,
         previousHasMoreServerArticles: true,
         requestedArticleLimit: 36,
@@ -232,6 +261,7 @@ describe("dashboard pure service coverage", () => {
         currentFilteredFeedLength: 4,
         hasMoreServerArticles: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
         shouldUseArticleWindow: true,
       }),
@@ -245,6 +275,7 @@ describe("dashboard pure service coverage", () => {
         currentFilteredFeedLength: 0,
         hasMoreServerArticles: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
         shouldUseArticleWindow: true,
       }),
@@ -282,8 +313,17 @@ describe("dashboard pure service coverage", () => {
   });
 
   test("build the dashboard view model and search filters from current selection state", () => {
-    const enabledFeed = createFeedNode("feed-1", "Feed 1", "https://example.com/1");
-    const disabledFeed = createFeedNode("feed-2", "Feed 2", "https://example.com/2", false);
+    const enabledFeed = createFeedNode(
+      "feed-1",
+      "Feed 1",
+      "https://example.com/1",
+    );
+    const disabledFeed = createFeedNode(
+      "feed-2",
+      "Feed 2",
+      "https://example.com/2",
+      false,
+    );
     const categories = [
       createCategory("Tech", [enabledFeed]),
       createCategory("Disabled", [disabledFeed]),
@@ -323,27 +363,59 @@ describe("dashboard pure service coverage", () => {
       orderedCategoryLabels: ["Custom", "Tech", "Disabled"],
       searchTerm: "needle",
       selectedCategory: "feed-2",
+      useLocalSearch: true,
     });
 
     expect(viewModel.filteredFeed.map((article) => article.link)).toEqual([
       "https://example.com/title",
       "https://example.com/body",
     ]);
-    expect(viewModel.displayCategories.map((category) => category.label)).toEqual([
-      "Custom",
-      "Tech",
-      "Disabled",
-    ]);
-    expect(viewModel.sidebarCategories.map((category) => category.label)).toEqual([
-      "All Feeds",
-      "Tech",
-    ]);
+    expect(
+      viewModel.displayCategories.map((category) => category.label),
+    ).toEqual(["Custom", "Tech", "Disabled"]);
+    expect(
+      viewModel.sidebarCategories.map((category) => category.label),
+    ).toEqual(["All Feeds", "Tech"]);
     expect(viewModel.selectedFeed).toBe("Feed 2");
     expect(viewModel.selectedFeedUrl).toBeUndefined();
   });
 
+  test("buildDashboardViewModel preserves server-backed live search results without local re-filtering", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({
+        content: "truncated preview without match",
+        id: 20,
+        link: "https://example.com/server-match",
+        title: "Server matched article",
+      }),
+    ];
+
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "needle",
+      selectedCategory: "feed-1",
+      useLocalSearch: false,
+    });
+
+    expect(viewModel.filteredFeed).toEqual(articles);
+  });
+
   test("build batch outcomes and resolve batch results through both placeholder and fetch paths", async () => {
-    const article = buildFeedListArticle({ id: 30, link: "https://example.com/article" });
+    const article = buildFeedListArticle({
+      id: 30,
+      link: "https://example.com/article",
+    });
     const normalizedSources = [
       { name: "Feed 1", url: "https://example.com/1" },
       { name: "Feed 2", url: "https://example.com/2" },
@@ -390,10 +462,12 @@ describe("dashboard pure service coverage", () => {
 
     expect(outcome.articles[0]?.feedName).toBe("Feed 1");
     expect(outcome.failedFeeds).toHaveLength(3);
-    expect(outcome.newestLastFetchedAt?.toISOString()).toBe("2024-01-03T00:00:00.000Z");
-    expect(formatFeedFailureLabel(outcome.failedFeeds, outcome.sourceNamesByUrl)).toBe(
-      "Feed 2, Feed 3, Feed 4",
+    expect(outcome.newestLastFetchedAt?.toISOString()).toBe(
+      "2024-01-03T00:00:00.000Z",
     );
+    expect(
+      formatFeedFailureLabel(outcome.failedFeeds, outcome.sourceNamesByUrl),
+    ).toBe("Feed 2, Feed 3, Feed 4");
     expect(
       formatFeedFailureLabel(
         [...outcome.failedFeeds, { url: "https://example.com/5" } as any],
@@ -412,10 +486,16 @@ describe("dashboard pure service coverage", () => {
     ]);
 
     expect(
-      await resolveFeedBatchResults(normalizedSources, true, undefined, undefined, {
-        fetchFeedsBatch,
-        getPlaceholderArticles,
-      }),
+      await resolveFeedBatchResults(
+        normalizedSources,
+        true,
+        undefined,
+        undefined,
+        {
+          fetchFeedsBatch,
+          getPlaceholderArticles,
+        },
+      ),
     ).toEqual([
       {
         articles: [
@@ -468,7 +548,9 @@ describe("dashboard pure service coverage", () => {
           articleLimit: 25,
           forceRefresh: true,
           forceResolveUpstream: true,
-          knownLastFetchedAtByUrl: new Map([["https://example.com/1", new Date("2024-01-01T00:00:00.000Z")]]),
+          knownLastFetchedAtByUrl: new Map([
+            ["https://example.com/1", new Date("2024-01-01T00:00:00.000Z")],
+          ]),
           requestSource: "manual-refresh",
           skipRefresh: true,
         },

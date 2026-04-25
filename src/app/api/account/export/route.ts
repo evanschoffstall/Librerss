@@ -1,38 +1,44 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
+
+import type { logger } from "@/lib";
+import type { RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import type { getDb } from "@/lib/db";
 
 import { jsonError } from "@/lib/api/http";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { logger } from "@/lib/logger";
-import {
-  exportAccountData,
-  requireMutableAuthenticatedUser,
-  type RouteHandlerContext,
-  ServerServiceError,
-} from "@/lib/server";
+import { exportAccountData, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
 interface AccountExportRouteDeps {
   exportAccountDataFn?: typeof exportAccountData;
-  getDbFn?: () => unknown;
+  getDbFn?: () => Pick<ReturnType<typeof getDb>, "select">;
   infoFn?: typeof logger.info;
   requireAuthFn?: (
     request: NextRequest,
   ) => Promise<Response | { userId: number }>;
   runtimeFlags?: Pick<typeof RUNTIME_FLAGS, "usePlaceholderData">;
-  serverServiceErrorClass?: typeof ServerServiceError;
+  serverServiceErrorClass?: typeof serverApi.ServerServiceError;
 }
 
+/**
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
+ */
 export async function GET(
   request: NextRequest,
-  depsOrContext: AccountExportRouteDeps | RouteHandlerContext = {},
+  depsOrContext: AccountExportRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
   const deps = resolveAccountExportRouteDeps(depsOrContext);
   const exportAccountDataForRoute =
     deps.exportAccountDataFn ?? exportAccountData;
   const ServerServiceErrorForRoute =
-    deps.serverServiceErrorClass ?? ServerServiceError;
-  const requireAuth = deps.requireAuthFn ?? requireMutableAuthenticatedUser;
+    deps.serverServiceErrorClass ?? serverApi.ServerServiceError;
+  const requireAuth =
+    deps.requireAuthFn ?? serverApi.requireMutableAuthenticatedUser;
   const authResult = await requireAuth(request);
   if (authResult instanceof Response) return authResult;
 
@@ -63,13 +69,15 @@ export async function GET(
 }
 
 /**
- * Distinguishes test dependency bags from the framework's route context.
- *
- * Keeping this resolver local lets the route tests inject a stable export
- * function without depending on the globally mocked server barrel.
+ * Resolve the account export route deps.
+ * @param depsOrContext - The deps or context.
+ * @returns The account export route deps.
  */
 export function resolveAccountExportRouteDeps(
-  depsOrContext: AccountExportRouteDeps | RouteHandlerContext | undefined,
+  depsOrContext:
+    | AccountExportRouteDeps
+    | serverApi.RouteHandlerContext
+    | undefined,
 ): AccountExportRouteDeps {
   if (
     depsOrContext === undefined ||

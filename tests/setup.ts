@@ -3,31 +3,27 @@
  * Runs before all tests
  */
 
+import * as realNeonServerlessModule from "@neondatabase/serverless";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, mock } from "bun:test";
+import * as realDrizzleNeonServerlessModule from "drizzle-orm/neon-serverless";
 // Setup happy-dom for DOM APIs in tests (e.g., DOMParser for OPML parsing)
 import { Window } from "happy-dom";
+import * as realMotionReactModule from "motion/react";
 import * as realNextThemesModule from "next-themes";
 import * as realNextNavigationModule from "next/navigation";
+import * as realSonnerModule from "sonner";
 
-import * as realFeedListModule from "@/app/dashboard/components/feed/FeedList";
-import * as realSettingsAccountSectionModule from "@/app/dashboard/components/settings/SettingsAccountSection";
-import * as realSettingsDisplaySectionModule from "@/app/dashboard/components/settings/SettingsDisplaySection";
-import * as realSettingsFeedManagementSectionModule from "@/app/dashboard/components/settings/SettingsFeedManagementSection";
-import * as realSettingsPanelModule from "@/app/dashboard/components/settings/SettingsPanel";
-import * as realSettingsProxySectionModule from "@/app/dashboard/components/settings/SettingsProxySection";
-import * as realDashboardViewModule from "@/app/dashboard/DashboardView";
-import * as realUseCategoryCrudActionsModule from "@/app/dashboard/hooks/useCategoryCrudActions";
-import * as realUseCategoryOrderStateModule from "@/app/dashboard/hooks/useCategoryOrderState";
-import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/hooks/useDashboardCategoryTree";
-import * as realUseDashboardIntervalsModule from "@/app/dashboard/hooks/useDashboardIntervals";
-import * as realUseFeedSourceActionsModule from "@/app/dashboard/hooks/useFeedSourceActions";
-import * as realUseSettingsModalStateModule from "@/app/dashboard/hooks/useSettingsModalState";
-import * as realUseSettingsProxyStateModule from "@/app/dashboard/hooks/useSettingsProxyState";
-import * as realCategoryOperationsModule from "@/app/dashboard/services/category-operations";
-import * as realCategoryTreeModule from "@/app/dashboard/services/category-tree";
-import * as realFeedSourceOperationsModule from "@/app/dashboard/services/feed-source-operations";
-import * as realOpmlImportModule from "@/app/dashboard/services/opml-import";
+import * as realBackgroundHooksModule from "@/app/dashboard/dashboard-components/background-hooks";
+import * as realDashboardToolbarModule from "@/app/dashboard/dashboard-components/DashboardToolbar";
+import * as realMotionSpinnerModule from "@/app/dashboard/dashboard-components/status/MotionSpinner";
+import * as realUseFeedSourceActionsModule from "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions";
+import * as realUseCategoryCrudActionsModule from "@/app/dashboard/dashboard-hooks/useCategoryCrudActions";
+import * as realUseCategoryOrderStateModule from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
+import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/dashboard-hooks/useDashboardCategoryTree";
+import * as realUseDashboardIntervalsModule from "@/app/dashboard/dashboard-hooks/useDashboardIntervals";
+import * as realSettingsStateModule from "@/app/dashboard/settings-state";
+import * as realToolbarModule from "@/app/dashboard/toolbar";
 import * as realUiButtonModule from "@/components/ui/button";
 import * as realUiDialogModule from "@/components/ui/dialog";
 import * as realUiDrawerModule from "@/components/ui/drawer";
@@ -37,23 +33,26 @@ import * as realUiScrollAreaModule from "@/components/ui/scroll-area";
 import * as realUiSkeletonModule from "@/components/ui/skeleton";
 import * as realUiTabsModule from "@/components/ui/tabs";
 import * as realUiTooltipModule from "@/components/ui/tooltip";
-import * as realApiHttpModule from "@/lib/api/http";
+import * as realLibModule from "@/lib";
+import * as realFeedSourceReadModule from "@/lib/api/feed-source-api/read";
+import * as realAuthModuleImport from "@/lib/auth";
+import * as realAuthDevAutoLoginModule from "@/lib/auth/dev-auto-login";
 import * as realAuthSessionModule from "@/lib/auth/session";
-import * as realConfigModule from "@/lib/config";
-import * as realFeedBatchHelpersModule from "@/lib/core/feed-batch-pipeline";
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
-import * as realFetchModule from "@/lib/fetch";
-import * as realUseIsMobileModule from "@/lib/hooks/useIsMobile";
+import * as realNodePostgresProviderModule from "@/lib/db/node-postgres-provider";
+import * as realHooksModule from "@/lib/hooks";
 import * as realUseLocalStorageModule from "@/lib/hooks/useLocalStorage";
-import * as realUseSessionStateModule from "@/lib/hooks/useSessionState";
-import * as realUseWebStorageModule from "@/lib/hooks/useWebStorage";
 import * as realLoggerModule from "@/lib/logger";
-import * as realServerModule from "@/lib/server";
-import * as realServerServicesModule from "@/lib/server/services";
+import * as realProxyCredentialsModule from "@/lib/outbound-proxy/credentials";
+import * as realProxyTransportModule from "@/lib/outbound-proxy/transport";
+import * as realRateLimitModule from "@/lib/rate-limit";
+import * as realServerModuleImport from "@/lib/server";
 import * as realUrlModule from "@/lib/utils/url";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
+const realAuthModule = { ...realAuthModuleImport };
+const realServerModule = { ...realServerModuleImport };
 const window = new Window();
 const document = window.document;
 const originalConsoleError = console.error;
@@ -112,7 +111,11 @@ global.window.SyntaxError = global.window.SyntaxError ?? SyntaxError;
 console.error = ((...args: unknown[]) => {
   const [firstArg] = args;
   if (typeof firstArg === "string") {
-    if (firstArg.includes("`NaN` is an invalid value for the `paddingBottom` css style property.")) {
+    if (
+      firstArg.includes(
+        "`NaN` is an invalid value for the `paddingBottom` css style property.",
+      )
+    ) {
       return;
     }
   }
@@ -155,7 +158,10 @@ if (typeof global.TransitionEvent !== "function") {
 }
 
 const requestAnimationFramePolyfill = ((callback: FrameRequestCallback) =>
-  setTimeout(() => callback(Date.now()), 16)) as unknown as typeof global.requestAnimationFrame;
+  setTimeout(
+    () => callback(Date.now()),
+    16,
+  )) as unknown as typeof global.requestAnimationFrame;
 const cancelAnimationFramePolyfill = ((id: number) =>
   clearTimeout(id)) as unknown as typeof global.cancelAnimationFrame;
 
@@ -167,6 +173,9 @@ window.cancelAnimationFrame = cancelAnimationFramePolyfill as any;
 // Set test environment variables
 if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = `postgres://${"test"}:${"test"}@localhost:5432/librerss_test`;
+}
+if (!process.env.NODE_ENV) {
+  Object.assign(process.env, { NODE_ENV: "test" });
 }
 if (!process.env.SESSION_SECRET) {
   process.env.SESSION_SECRET = "test-session-secret-min-32-chars-long-value";
@@ -181,93 +190,87 @@ if (!process.env.AUTH_SECRET) {
 afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
+  delete document.documentElement.dataset.dashboardShellLoading;
+  try {
+    window.localStorage.clear();
+  } catch {
+    // Ignore tests that intentionally replace storage.clear() with a throwing stub.
+  }
+  try {
+    window.sessionStorage.clear();
+  } catch {
+    // Ignore tests that intentionally replace storage.clear() with a throwing stub.
+  }
 
   const restoreBaseMocks = () => {
     mock.restore();
-    mock.module("@/lib/api/http", () => realApiHttpModule);
-    mock.module("@/app/dashboard/DashboardView", () => realDashboardViewModule);
-    mock.module("@/app/dashboard/components/feed/FeedList", () => realFeedListModule);
     mock.module(
-      "@/app/dashboard/components/settings/SettingsAccountSection",
-      () => realSettingsAccountSectionModule,
+      "@/app/dashboard/components/MotionSpinner",
+      () => realMotionSpinnerModule,
     );
     mock.module(
-      "@/app/dashboard/components/settings/SettingsDisplaySection",
-      () => realSettingsDisplaySectionModule,
+      "@/app/dashboard/dashboard-components/DashboardToolbar",
+      () => realDashboardToolbarModule,
     );
     mock.module(
-      "@/app/dashboard/components/settings/SettingsFeedManagementSection",
-      () => realSettingsFeedManagementSectionModule,
+      "@/app/dashboard/dashboard-components/background-hooks",
+      () => realBackgroundHooksModule,
     );
     mock.module(
-      "@/app/dashboard/components/settings/SettingsPanel",
-      () => realSettingsPanelModule,
-    );
-    mock.module(
-      "@/app/dashboard/components/settings/SettingsProxySection",
-      () => realSettingsProxySectionModule,
-    );
-    mock.module(
-      "@/app/dashboard/hooks/useSettingsModalState",
-      () => realUseSettingsModalStateModule,
-    );
-    mock.module(
-      "@/app/dashboard/hooks/useSettingsProxyState",
-      () => realUseSettingsProxyStateModule,
-    );
-    mock.module(
-      "@/app/dashboard/hooks/useCategoryCrudActions",
+      "@/app/dashboard/dashboard-hooks/useCategoryCrudActions",
       () => realUseCategoryCrudActionsModule,
     );
     mock.module(
-      "@/app/dashboard/hooks/useCategoryOrderState",
+      "@/app/dashboard/dashboard-hooks/useCategoryOrderState",
       () => realUseCategoryOrderStateModule,
     );
     mock.module(
-      "@/app/dashboard/hooks/useDashboardCategoryTree",
+      "@/app/dashboard/dashboard-hooks/useDashboardCategoryTree",
       () => realUseDashboardCategoryTreeModule,
     );
     mock.module(
-      "@/app/dashboard/hooks/useDashboardIntervals",
+      "@/app/dashboard/dashboard-hooks/useDashboardIntervals",
       () => realUseDashboardIntervalsModule,
     );
     mock.module(
-      "@/app/dashboard/hooks/useFeedSourceActions",
+      "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions",
       () => realUseFeedSourceActionsModule,
     );
+    mock.module("@/app/dashboard/settings-state", () => realSettingsStateModule);
+    mock.module("@/app/dashboard/toolbar", () => realToolbarModule);
+    mock.module("@/lib/api/feed-source-api/read", () => realFeedSourceReadModule);
+    mock.module("@/lib/auth", () => realAuthSessionModule);
     mock.module(
-      "@/app/dashboard/services/category-operations",
-      () => realCategoryOperationsModule,
-    );
-    mock.module(
-      "@/app/dashboard/services/category-tree",
-      () => realCategoryTreeModule,
-    );
-    mock.module(
-      "@/app/dashboard/services/feed-source-operations",
-      () => realFeedSourceOperationsModule,
-    );
-    mock.module(
-      "@/app/dashboard/services/opml-import",
-      () => realOpmlImportModule,
+      "@/lib/auth/dev-auto-login",
+      () => realAuthDevAutoLoginModule,
     );
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
-    mock.module("@/lib/auth/session", () => realAuthSessionModule);
-    mock.module("@/lib/config", () => realConfigModule);
     mock.module(
-      "@/lib/core/feed-batch-pipeline",
-      () => realFeedBatchHelpersModule,
+      "@/lib/db/node-postgres-provider",
+      () => realNodePostgresProviderModule,
     );
-    mock.module("@/lib/fetch", () => realFetchModule);
-    mock.module("@/lib/hooks/useIsMobile", () => realUseIsMobileModule);
+    mock.module("@/lib/auth/session", () => realAuthSessionModule);
+    mock.module("@/lib", () => realLibModule);
+    mock.module("@/lib/hooks", () => realHooksModule);
     mock.module("@/lib/hooks/useLocalStorage", () => realUseLocalStorageModule);
-    mock.module("@/lib/hooks/useSessionState", () => realUseSessionStateModule);
-    mock.module("@/lib/hooks/useWebStorage", () => realUseWebStorageModule);
     mock.module("@/lib/logger", () => realLoggerModule);
+    mock.module(
+      "@/lib/outbound-proxy/credentials",
+      () => realProxyCredentialsModule,
+    );
+    mock.module(
+      "@/lib/outbound-proxy/transport",
+      () => realProxyTransportModule,
+    );
+    mock.module("@/lib/rate-limit", () => realRateLimitModule);
     mock.module("@/lib/server", () => realServerModule);
-    mock.module("@/lib/server/services", () => realServerServicesModule);
     mock.module("@/lib/utils/url", () => realUrlModule);
+    mock.module("@neondatabase/serverless", () => realNeonServerlessModule);
+    mock.module(
+      "drizzle-orm/neon-serverless",
+      () => realDrizzleNeonServerlessModule,
+    );
     mock.module("@/components/ui/button", () => realUiButtonModule);
     mock.module("@/components/ui/dialog", () => realUiDialogModule);
     mock.module("@/components/ui/drawer", () => realUiDrawerModule);
@@ -280,12 +283,13 @@ afterEach(() => {
     mock.module("@/components/ui/skeleton", () => realUiSkeletonModule);
     mock.module("@/components/ui/tabs", () => realUiTabsModule);
     mock.module("@/components/ui/tooltip", () => realUiTooltipModule);
+    mock.module("motion/react", () => realMotionReactModule);
     mock.module("next/navigation", () => realNextNavigationModule);
     mock.module("next-themes", () => realNextThemesModule);
+    mock.module("sonner", () => realSonnerModule);
   };
 
   restoreBaseMocks();
-  queueMicrotask(restoreBaseMocks);
 });
 
 afterAll(() => {

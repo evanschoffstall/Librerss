@@ -8,14 +8,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/hooks/useDashboardIntervals";
-import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-batch";
+import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/dashboard-hooks/useDashboardIntervals";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/dashboard-services/feed-data";
 import {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
   resolveFeedBatchStaleTime,
   shouldNotifyFeedFailureToast,
-} from "@/app/dashboard/services/feed-loader-state";
+} from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
 
 const originalToastError = toast.error;
@@ -102,10 +102,12 @@ describe("feed loader state helpers", () => {
       }),
     };
 
-    expect(isFreshFeedBatchQuery(queryClient, ["feed-batch"] as any, 1_000)).toBe(
-      true,
+    expect(
+      isFreshFeedBatchQuery(queryClient, ["feed-batch"] as any, 1_000),
+    ).toBe(true);
+    expect(isFreshFeedBatchQuery(queryClient, ["feed-batch"] as any, 0)).toBe(
+      false,
     );
-    expect(isFreshFeedBatchQuery(queryClient, ["feed-batch"] as any, 0)).toBe(false);
     expect(
       isFreshFeedBatchQuery(
         {
@@ -119,17 +121,23 @@ describe("feed loader state helpers", () => {
 
   test("resolves feed batch stale time by request source", () => {
     expect(resolveFeedBatchStaleTime({ forceRefresh: true } as any)).toBe(0);
-    expect(resolveFeedBatchStaleTime({ skipRefresh: true } as any)).toBe(60_000);
-    expect(resolveFeedBatchStaleTime({ requestSource: "auto-refresh" } as any)).toBe(0);
-    expect(resolveFeedBatchStaleTime({ requestSource: "manual-refresh" } as any)).toBe(0);
+    expect(resolveFeedBatchStaleTime({ skipRefresh: true } as any)).toBe(
+      60_000,
+    );
+    expect(
+      resolveFeedBatchStaleTime({ requestSource: "auto-refresh" } as any),
+    ).toBe(0);
+    expect(
+      resolveFeedBatchStaleTime({ requestSource: "manual-refresh" } as any),
+    ).toBe(0);
     expect(resolveFeedBatchStaleTime()).toBe(45_000);
   });
 
   test("suppresses foreground failure toasts only for background or skip-refresh work", () => {
     expect(shouldNotifyFeedFailureToast(undefined, false)).toBe(true);
-    expect(shouldNotifyFeedFailureToast({ skipRefresh: true } as any, false)).toBe(
-      false,
-    );
+    expect(
+      shouldNotifyFeedFailureToast({ skipRefresh: true } as any, false),
+    ).toBe(false);
     expect(shouldNotifyFeedFailureToast(undefined, true)).toBe(false);
   });
 });

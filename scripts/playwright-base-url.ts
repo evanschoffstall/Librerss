@@ -7,7 +7,12 @@ interface PlaywrightBaseUrlEnv {
   PLAYWRIGHT_PORT?: string;
 }
 
-/** Builds the canonical Playwright base URL from the resolved host and port. */
+/**
+ * Build the playwright base url.
+ * @param host - The host.
+ * @param port - The port.
+ * @returns The playwright base url.
+ */
 export function buildPlaywrightBaseUrl(host: string, port: number) {
   const normalizedHost = host.trim();
 
@@ -16,15 +21,18 @@ export function buildPlaywrightBaseUrl(host: string, port: number) {
   }
 
   if (!Number.isInteger(port) || port < 1 || port > 65_535) {
-    throw new Error(`PLAYWRIGHT_PORT must be a valid TCP port. Received: ${port}`);
+    throw new Error(
+      `PLAYWRIGHT_PORT must be a valid TCP port. Received: ${port}`,
+    );
   }
 
   return `http://${normalizedHost}:${port}`;
 }
 
 /**
- * Resolves the Playwright endpoint from the wrapper-provided base URL first,
- * then falls back to wrapper host and port env vars, then repo defaults.
+ * Resolve the playwright base url.
+ * @param env - The env.
+ * @returns The playwright base url.
  */
 export function resolvePlaywrightBaseUrl(
   env: PlaywrightBaseUrlEnv = process.env as PlaywrightBaseUrlEnv,

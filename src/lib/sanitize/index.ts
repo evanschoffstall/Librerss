@@ -6,13 +6,6 @@ export {
   toParagraphHtml,
   toPlainText,
 } from "./cleaners";
-export { sanitizeRawContent } from "./content-sanitization";
-export {
-  cleanSanitizedHtml,
-  hasReadableArticleBody,
-  isLikelyNavFooterBoilerplate,
-  stripCommentEngagementBoilerplate,
-} from "./content-validation";
 export {
   buildMetadataImageFallbackHtml,
   parsePageTitle,
@@ -20,8 +13,15 @@ export {
 } from "./metadata-extraction";
 export { readAttrValue } from "./patterns";
 export { purifyRawHtml } from "./purify";
+export { sanitizeRawContent } from "./sanitization";
 export {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
   sanitizeArticleTitle,
 } from "./sanitize";
+export {
+  cleanSanitizedHtml,
+  hasReadableArticleBody,
+  isLikelyNavFooterBoilerplate,
+  stripCommentEngagementBoilerplate,
+} from "./validation";

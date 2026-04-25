@@ -2,15 +2,16 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { useDashboardInitialization } from "@/app/dashboard/hooks/useDashboardInitialization";
-import { useSettingsFeedState } from "@/app/dashboard/hooks/useSettingsFeedState";
-import { useSettingsModalState } from "@/app/dashboard/hooks/useSettingsModalState";
-import { useSettingsOpmlImportState } from "@/app/dashboard/hooks/useSettingsOpmlImportState";
+import type { CategoryTreeNode } from "@/lib/core";
+
+import { useDashboardInitialization } from "@/app/dashboard/dashboard-hooks/useDashboardInitialization";
 import {
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
-} from "@/app/dashboard/services/dashboard-controller-state";
-import { type CategoryTreeNode } from "@/lib";
+} from "@/app/dashboard/dashboard-services/dashboard-state";
+import { useSettingsFeedState } from "@/app/dashboard/settings-state/useSettingsFeedState";
+import { useSettingsModalState } from "@/app/dashboard/settings-state/useSettingsModalState";
+import { useSettingsOpmlImportState } from "@/app/dashboard/settings-state/useSettingsOpmlImportState";
 
 const originalToastError = toast.error;
 
@@ -68,6 +69,7 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        isSearchPending: false,
         isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,
@@ -100,7 +102,9 @@ describe("dashboard support hooks", () => {
       },
     });
 
-    expect(controllerState.sidebar.sidebarContentProps).toBe(sidebarContentProps);
+    expect(controllerState.sidebar.sidebarContentProps).toBe(
+      sidebarContentProps,
+    );
     expect(controllerState.feedList.feedViewKey).toBe("feed-1:all");
     expect(controllerState.settings.backgroundMode).toBe("none");
   });
@@ -160,7 +164,9 @@ describe("dashboard support hooks", () => {
 
   test("useSettingsOpmlImportState imports parsed entries and resets the input value", async () => {
     const onImportOpml = mock(async () => {});
-    const { result } = renderHook(() => useSettingsOpmlImportState({ onImportOpml }));
+    const { result } = renderHook(() =>
+      useSettingsOpmlImportState({ onImportOpml }),
+    );
     const input = document.createElement("input");
     input.value = "filled";
     const file = new File(
@@ -191,7 +197,9 @@ describe("dashboard support hooks", () => {
 
   test("useSettingsOpmlImportState reports invalid or unreadable OPML files", async () => {
     const onImportOpml = mock(async () => {});
-    const { result } = renderHook(() => useSettingsOpmlImportState({ onImportOpml }));
+    const { result } = renderHook(() =>
+      useSettingsOpmlImportState({ onImportOpml }),
+    );
     const input = document.createElement("input");
 
     await act(async () => {
@@ -213,7 +221,9 @@ describe("dashboard support hooks", () => {
 
   test("useSettingsOpmlImportState ignores empty file selections", async () => {
     const onImportOpml = mock(async () => {});
-    const { result } = renderHook(() => useSettingsOpmlImportState({ onImportOpml }));
+    const { result } = renderHook(() =>
+      useSettingsOpmlImportState({ onImportOpml }),
+    );
     const input = document.createElement("input");
     input.value = "filled";
 
@@ -231,7 +241,9 @@ describe("dashboard support hooks", () => {
 
   test("useSettingsOpmlImportState reports when parsed OPML has no valid feed entries", async () => {
     const onImportOpml = mock(async () => {});
-    const { result } = renderHook(() => useSettingsOpmlImportState({ onImportOpml }));
+    const { result } = renderHook(() =>
+      useSettingsOpmlImportState({ onImportOpml }),
+    );
     const input = document.createElement("input");
 
     await act(async () => {
@@ -335,7 +347,10 @@ describe("dashboard support hooks", () => {
   });
 });
 
-function createCategory(label: string, children: CategoryTreeNode[] = []): CategoryTreeNode {
+function createCategory(
+  label: string,
+  children: CategoryTreeNode[] = [],
+): CategoryTreeNode {
   return {
     children,
     key: `cat-${label.toLowerCase()}`,

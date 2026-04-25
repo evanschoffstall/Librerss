@@ -1,11 +1,9 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
+import * as realSonnerModule from "sonner";
 
-import {
-  MOBILE_TOAST_TOP_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-} from "@/app/dashboard/constants";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/constants";
 import { getToastPlacement } from "@/components/AppThemeProvider";
 
 interface MockToasterProps {
@@ -35,40 +33,28 @@ interface MockToasterProps {
 const toasterProps: MockToasterProps[] = [];
 const closeToastMocks = [mock(() => {}), mock(() => {})];
 const originalMatchMedia = window.matchMedia;
-let currentIsMobileToastTop = false;
-let currentIsMobileToolbarBottom = true;
 
 function MockThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
 async function renderAppThemeProvider(options?: {
-  isMobileToastTop?: boolean;
-  isMobileToolbarBottom?: boolean;
+  isMobileGroupedLayout?: boolean;
   isMobileViewport?: boolean;
 }) {
-  const {
-    isMobileToastTop = true,
-    isMobileToolbarBottom = true,
-    isMobileViewport = true,
-  } = options ?? {};
-
-  currentIsMobileToastTop = isMobileToastTop;
-  currentIsMobileToolbarBottom = isMobileToolbarBottom;
+  const { isMobileGroupedLayout = true, isMobileViewport = true } =
+    options ?? {};
 
   toasterProps.length = 0;
   window.localStorage.clear();
   window.localStorage.setItem(
-    MOBILE_TOAST_TOP_STORAGE_KEY,
-    JSON.stringify(isMobileToastTop),
-  );
-  window.localStorage.setItem(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-    JSON.stringify(isMobileToolbarBottom),
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+    JSON.stringify(isMobileGroupedLayout),
   );
   setMobileViewport(isMobileViewport);
 
-  const { AppThemeProvider } = await import("../src/components/AppThemeProvider");
+  const { AppThemeProvider } =
+    await import("../src/components/AppThemeProvider");
 
   render(
     <AppThemeProvider>
@@ -116,25 +102,14 @@ describe("AppThemeProvider", () => {
       ThemeProvider: MockThemeProvider,
       useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
     }));
-    mock.module("@/lib/hooks/useLocalStorage", () => ({
-      useLocalStorage: (key: string, initialValue: boolean) => {
-        if (key === MOBILE_TOAST_TOP_STORAGE_KEY) {
-          return [currentIsMobileToastTop, mock(() => {})] as const;
-        }
-
-        if (key === MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY) {
-          return [currentIsMobileToolbarBottom, mock(() => {})] as const;
-        }
-
-        return [initialValue, mock(() => {})] as const;
-      },
-    }));
     mock.module("next/navigation", () => ({
       usePathname: () => "/dashboard",
       useSearchParams: () => new URLSearchParams("view=dashboard"),
     }));
     mock.module("sonner", () => ({
+      ...realSonnerModule,
       toast: Object.assign(() => {}, {
+        ...realSonnerModule.toast,
         error: () => {},
         info: () => {},
         success: () => {},
@@ -145,16 +120,8 @@ describe("AppThemeProvider", () => {
           <div data-testid="mock-toaster">
             <ol>
               {closeToastMocks.map((closeToast, index) => (
-                <li
-                  data-dismissible="true"
-                  data-sonner-toast=""
-                  key={index}
-                >
-                  <button
-                    data-close-button
-                    onClick={closeToast}
-                    type="button"
-                  >
+                <li data-dismissible="true" data-sonner-toast="" key={index}>
+                  <button data-close-button onClick={closeToast} type="button">
                     Close toast {index + 1}
                   </button>
                   <div data-testid={`toast-body-${index + 1}`}>
@@ -167,9 +134,12 @@ describe("AppThemeProvider", () => {
         );
       },
     }));
-    mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
-      DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
-    }));
+    mock.module(
+      "@/app/dashboard/dashboard-components/DashboardToolbar",
+      () => ({
+        DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
+      }),
+    );
   });
 
   afterEach(() => {
@@ -230,6 +200,17 @@ describe("AppThemeProvider", () => {
     expect(closeToastMocks[1]).not.toHaveBeenCalled();
   });
 
+  test("does not inject a pulsing dashboard toolbar shell on the dashboard route", async () => {
+    await renderAppThemeProvider();
+
+    expect(document.body.querySelector(".animate-pulse")).toBeNull();
+    expect(
+      document.body.querySelector(
+        ".pointer-events-none.fixed.inset-x-0.bottom-0.z-50",
+      ),
+    ).toBeNull();
+  });
+
   test.each([
     {
       expected: {
@@ -245,31 +226,10 @@ describe("AppThemeProvider", () => {
         },
         position: "top-right",
       },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: true,
+      isMobileGroupedLayout: true,
       isMobileViewport: true,
       label:
-        "pins top toasts to the true top edge when the mobile toolbar lives at the bottom",
-    },
-    {
-      expected: {
-        mobileOffset: {
-          left: 16,
-          right: 16,
-          top: 63,
-        },
-        offset: {
-          left: 16,
-          right: 16,
-          top: 63,
-        },
-        position: "top-right",
-      },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: false,
-      isMobileViewport: true,
-      label:
-        "keeps a toolbar clearance when the mobile toolbar is pinned to the top",
+        "pins mobile toasts to the true top edge when grouped layout is enabled",
     },
     {
       expected: {
@@ -285,11 +245,10 @@ describe("AppThemeProvider", () => {
         },
         position: "bottom-right",
       },
-      isMobileToastTop: true,
-      isMobileToolbarBottom: true,
+      isMobileGroupedLayout: true,
       isMobileViewport: false,
       label:
-        "keeps desktop toasts anchored at the bottom even when the mobile top-toast preference is enabled",
+        "keeps desktop toasts anchored at the bottom even when grouped mobile layout is enabled",
     },
     {
       expected: {
@@ -305,27 +264,17 @@ describe("AppThemeProvider", () => {
         },
         position: "bottom-right",
       },
-      isMobileToastTop: false,
-      isMobileToolbarBottom: false,
+      isMobileGroupedLayout: false,
       isMobileViewport: true,
       label:
-        "keeps mobile toasts at the bottom when the top-toast preference is disabled",
+        "keeps mobile toasts at the bottom when grouped layout is disabled",
     },
-  ])(
-    "$label",
-    ({
-      expected,
-      isMobileToastTop,
-      isMobileToolbarBottom,
-      isMobileViewport,
-    }) => {
-      expect(
-        getToastPlacement({
-          isMobileToastTop,
-          isMobileToolbarBottom,
-          isMobileViewport,
-        }),
-      ).toMatchObject(expected);
-    },
-  );
+  ])("$label", ({ expected, isMobileGroupedLayout, isMobileViewport }) => {
+    expect(
+      getToastPlacement({
+        isMobileGroupedLayout,
+        isMobileViewport,
+      }),
+    ).toMatchObject(expected);
+  });
 });

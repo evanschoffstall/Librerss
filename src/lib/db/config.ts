@@ -1,4 +1,4 @@
-import { envBooleanOptional } from "@/lib/config";
+import { envBooleanOptional } from "@/lib";
 import { normalizePostgresConnectionString } from "@/lib/db/connection-string";
 
 /** Supported runtime database drivers for the application. */
@@ -10,7 +10,9 @@ const DEFAULT_DB_IDLE_TIMEOUT_MS = 1_000;
 const DATABASE_UNAVAILABLE_MESSAGE =
   "Database access is unavailable while placeholder mode is active. Configure DATABASE_URL to enable database-backed features.";
 
-/** Fails fast before any driver module is loaded in placeholder-mode runtimes. */
+/**
+ * Process the assert database configured.
+ */
 export function assertDatabaseConfigured(): void {
   if (!hasDatabaseConnectionString()) {
     throw new Error(DATABASE_UNAVAILABLE_MESSAGE);
@@ -18,7 +20,8 @@ export function assertDatabaseConfigured(): void {
 }
 
 /**
- * Reads, validates, and normalizes DATABASE_URL for pg-compatible entrypoints.
+ * Return the connection string.
+ * @returns The connection string.
  */
 export function getConnectionString(): string {
   const connectionString = process.env.DATABASE_URL?.trim();
@@ -32,7 +35,10 @@ export function getConnectionString(): string {
   return normalizePostgresConnectionString(connectionString);
 }
 
-/** Selects the database driver, defaulting to the existing node-postgres path. */
+/**
+ * Return the db driver.
+ * @returns The db driver.
+ */
 export function getDbDriver(): DbDriver {
   const rawValue = process.env.DB_DRIVER?.trim().toLowerCase();
   if (!rawValue) {
@@ -48,7 +54,10 @@ export function getDbDriver(): DbDriver {
   );
 }
 
-/** Parses the idle timeout used by long-lived pooled drivers. */
+/**
+ * Return the db idle timeout ms.
+ * @returns The db idle timeout ms.
+ */
 export function getDbIdleTimeoutMs(): number {
   const rawValue = process.env.DB_IDLE_TIMEOUT_MS;
   if (!rawValue) {
@@ -63,7 +72,10 @@ export function getDbIdleTimeoutMs(): number {
   return parsedValue;
 }
 
-/** Parses the maximum database connections used by pooled drivers. */
+/**
+ * Return the db max connections.
+ * @returns The db max connections.
+ */
 export function getDbMaxConnections(): number {
   const rawValue = process.env.DB_MAX_CONNECTIONS;
   if (!rawValue) {
@@ -78,12 +90,18 @@ export function getDbMaxConnections(): number {
   return parsedValue;
 }
 
-/** Controls the non-fatal startup connectivity probe. */
+/**
+ * Return whether should run initial db connectivity check.
+ * @returns Whether should run initial db connectivity check.
+ */
 export function shouldRunInitialDbConnectivityCheck(): boolean {
   return envBooleanOptional("DB_EAGER_CONNECT_CHECK", false);
 }
 
-/** Returns whether the current runtime has a usable database connection string. */
+/**
+ * Return whether has database connection string.
+ * @returns Whether has database connection string.
+ */
 function hasDatabaseConnectionString(): boolean {
   return Boolean(process.env.DATABASE_URL?.trim());
 }

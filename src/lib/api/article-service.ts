@@ -1,6 +1,6 @@
-import type { Article } from "@/lib/core/types";
+import type { Article } from "@/lib/core";
 
-import { getApiClient } from "./http";
+import { getApiClient } from "@/lib/api/http";
 
 interface ArticleByIdResponse {
   content?: unknown;
@@ -47,15 +47,37 @@ interface ProxyStatusResponse {
 
 const articleServiceBaseUrl = "/api";
 let proxySettingsRequest: null | Promise<ProxySettings> = null;
+interface ArticleStatusUpdates {
+  isRead?: boolean;
+  isStarred?: boolean;
+}
+
+interface ExtractArticleContentOptions {
+  distillStrategy?: string;
+  signal?: AbortSignal;
+  useProxy?: boolean;
+}
+
+interface RunProxyCompatibilityCheckOptions {
+  useProxy?: boolean;
+}
+
+interface SaveProxyUrlOptions {
+  allowInsecureTls?: boolean;
+  proxyPassword?: null | string;
+  proxyUsername?: null | string;
+}
 
 export const ArticleService = {
+  /**
+   * Process the extract article content.
+   * @param url - The url.
+   * @param options - The options used to process the extract article content.
+   * @returns The extract article content.
+   */
   async extractArticleContent(
     url: string,
-    options?: {
-      distillStrategy?: string;
-      signal?: AbortSignal;
-      useProxy?: boolean;
-    },
+    options?: ExtractArticleContentOptions,
   ): Promise<string> {
     const response = await getApiClient().post<ArticleExtractResponse>(
       `${articleServiceBaseUrl}/articles/extract`,
@@ -73,6 +95,10 @@ export const ArticleService = {
       : "";
   },
 
+  /**
+   * Return the articles.
+   * @returns The articles.
+   */
   async getArticles(): Promise<Article[]> {
     const response = await getApiClient().get<Article[]>(
       `${articleServiceBaseUrl}/articles`,
@@ -80,6 +106,10 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * Return the proxy settings.
+   * @returns The proxy settings.
+   */
   async getProxySettings(): Promise<ProxySettings> {
     proxySettingsRequest ??= getApiClient()
       .get<ProxySettings>(`${articleServiceBaseUrl}/settings/proxy`)
@@ -91,6 +121,10 @@ export const ArticleService = {
     return proxySettingsRequest;
   },
 
+  /**
+   * Return the proxy status.
+   * @returns The proxy status.
+   */
   async getProxyStatus(): Promise<ProxyStatusResponse> {
     const response = await getApiClient().get<ProxyStatusResponse>(
       `${articleServiceBaseUrl}/articles/proxy-status`,
@@ -98,6 +132,11 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * Return the stored article content.
+   * @param articleId - The article id.
+   * @returns The stored article content.
+   */
   async getStoredArticleContent(articleId: number): Promise<string> {
     const response = await getApiClient().get<ArticleByIdResponse>(
       `${articleServiceBaseUrl}/articles/${articleId}`,
@@ -107,6 +146,10 @@ export const ArticleService = {
       : "";
   },
 
+  /**
+   * Process the mark all read.
+   * @param streamId - The stream id.
+   */
   async markAllRead(streamId: string): Promise<void> {
     await getApiClient().post(
       `${articleServiceBaseUrl}/articles/mark-all-read`,
@@ -116,9 +159,14 @@ export const ArticleService = {
     );
   },
 
-  async runProxyCompatibilityCheck(options?: {
-    useProxy?: boolean;
-  }): Promise<CompatibilityCheckResponse> {
+  /**
+   * Process the run proxy compatibility check.
+   * @param options - The options used to process the run proxy compatibility check.
+   * @returns The run proxy compatibility check.
+   */
+  async runProxyCompatibilityCheck(
+    options?: RunProxyCompatibilityCheckOptions,
+  ): Promise<CompatibilityCheckResponse> {
     const response = await getApiClient().post<CompatibilityCheckResponse>(
       `${articleServiceBaseUrl}/settings/proxy/compatibility-check`,
       options ?? {},
@@ -126,13 +174,15 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * Process the save proxy url.
+   * @param proxyUrl - The proxy url.
+   * @param options - The options used to process the save proxy url.
+   * @returns The save proxy url.
+   */
   async saveProxyUrl(
     proxyUrl: null | string,
-    options?: {
-      allowInsecureTls?: boolean;
-      proxyPassword?: null | string;
-      proxyUsername?: null | string;
-    },
+    options?: SaveProxyUrlOptions,
   ): Promise<ProxySettings> {
     const response = await getApiClient().put<ProxySettings>(
       `${articleServiceBaseUrl}/settings/proxy`,
@@ -141,9 +191,14 @@ export const ArticleService = {
     return response.data;
   },
 
+  /**
+   * Update the article status.
+   * @param articleId - The article id.
+   * @param updates - The s.
+   */
   async updateArticleStatus(
     articleId: number,
-    updates: { isRead?: boolean; isStarred?: boolean },
+    updates: ArticleStatusUpdates,
   ): Promise<void> {
     await getApiClient().post(`${articleServiceBaseUrl}/articles/status`, {
       articleId,

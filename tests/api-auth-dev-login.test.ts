@@ -1,9 +1,26 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest, NextResponse } from "next/server";
 
+import * as realAuthSessionModule from "@/lib/auth/session";
+import * as realLoggerModule from "@/lib/logger";
+import * as realServerModule from "@/lib/server";
+
 const mutableEnv = process.env as Record<string, string | undefined>;
 
 let routeImportVersion = 0;
+
+function createLoggerMock(
+  overrides: Partial<typeof realLoggerModule.logger>,
+): typeof realLoggerModule {
+  return {
+    ...realLoggerModule,
+    logger: Object.assign(
+      Object.create(realLoggerModule.logger),
+      realLoggerModule.logger,
+      overrides,
+    ),
+  };
+}
 
 async function loadDevLoginRoute() {
   routeImportVersion += 1;
@@ -13,7 +30,12 @@ async function loadDevLoginRoute() {
 }
 
 function withDevAutoLoginEnv(
-  env: Partial<Record<"DEV_AUTO_LOGIN_EMAIL" | "DEV_AUTO_LOGIN_PASSWORD" | "NODE_ENV", string | undefined>>,
+  env: Partial<
+    Record<
+      "DEV_AUTO_LOGIN_EMAIL" | "DEV_AUTO_LOGIN_PASSWORD" | "NODE_ENV",
+      string | undefined
+    >
+  >,
   callback: () => Promise<void>,
 ) {
   const previousEnv = {
@@ -83,13 +105,15 @@ describe("Auth API - Dev Login", () => {
     const setSessionCookie = mock(() => undefined);
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -103,22 +127,28 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
+            {
+              headers: {
+                host: "localhost:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(authenticateCredentials).toHaveBeenCalledWith(
           "reader@example.com",
           "Password123!",
         );
-        expect(setSessionCookie).toHaveBeenCalledWith(response, "session-token");
+        expect(setSessionCookie).toHaveBeenCalledWith(
+          response,
+          "session-token",
+        );
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard?tab=feeds",
+          "http://localhost:3000/dashboard?tab=feeds",
         );
       },
     );
@@ -129,13 +159,15 @@ describe("Auth API - Dev Login", () => {
     const setSessionCookie = mock(() => undefined);
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -149,18 +181,21 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
+            {
+              headers: {
+                host: "localhost:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(setSessionCookie).not.toHaveBeenCalled();
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard?tab=feeds&devLogin=failed",
+          "http://localhost:3000/dashboard?tab=feeds&devLogin=failed",
         );
       },
     );
@@ -175,13 +210,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -195,16 +232,19 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=https%3A%2F%2Fevil.example%2Fsteal", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=https%3A%2F%2Fevil.example%2Fsteal",
+            {
+              headers: {
+                host: "localhost:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard",
+          "http://localhost:3000/dashboard",
         );
       },
     );
@@ -219,13 +259,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -239,16 +281,19 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2F%2Fevil.example%2Fsteal", {
-            headers: {
-              host: "192.168.2.117:3000",
-              "x-forwarded-proto": "http",
+          new NextRequest(
+            "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2F%2Fevil.example%2Fsteal",
+            {
+              headers: {
+                host: "localhost:3000",
+                "x-forwarded-proto": "http",
+              },
             },
-          }),
+          ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard",
+          "http://localhost:3000/dashboard",
         );
       },
     );
@@ -263,13 +308,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -323,13 +370,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -348,14 +397,14 @@ describe("Auth API - Dev Login", () => {
             {
               headers: {
                 host: "internal.example",
-                "x-forwarded-host": "192.168.2.117:3000",
+                "x-forwarded-host": "localhost:3000",
               },
             },
           ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "https://192.168.2.117:3000/dashboard?tab=feeds",
+          "https://localhost:3000/dashboard?tab=feeds",
         );
       },
     );
@@ -370,13 +419,15 @@ describe("Auth API - Dev Login", () => {
     }));
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({
-      logger: { info: () => undefined, warn: () => undefined },
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({ info: () => undefined, warn: () => undefined }),
+    );
     mock.module("@/lib/server", () => ({
+      ...realServerModule,
       logAndRespondError: () =>
         NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
     }));
@@ -394,14 +445,14 @@ describe("Auth API - Dev Login", () => {
             "https://internal.example/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
               },
             },
           ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "https://192.168.2.117:3000/dashboard?tab=feeds",
+          "https://localhost:3000/dashboard?tab=feeds",
         );
       },
     );
@@ -416,11 +467,15 @@ describe("Auth API - Dev Login", () => {
     );
 
     mock.module("@/lib/auth/session", () => ({
+      ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => ({ logger: {} }));
-    mock.module("@/lib/server", () => ({ logAndRespondError }));
+    mock.module("@/lib/logger", () => createLoggerMock({}));
+    mock.module("@/lib/server", () => ({
+      ...realServerModule,
+      logAndRespondError,
+    }));
 
     await withDevAutoLoginEnv(
       {

@@ -1,30 +1,27 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import type { AuthSession } from "@/lib";
-
+import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
+import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
+import {
+  DashboardFeedViewport,
+  DashboardFilterBarSkeleton,
+  DashboardScaffold,
+  DashboardSidebarSkeleton,
+} from "@/app/dashboard/dashboard-components/layout";
+import { LoginViewSkeleton } from "@/app/dashboard/dashboard-components/login";
+import { DashboardRouter } from "@/app/dashboard/dashboard-router";
+import { resolveDashboardPageBootstrap } from "@/app/dashboard/page-bootstrap/state";
+import { resolveDashboardPreviewMode } from "@/app/dashboard/preview-mode";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   buildDevAutoLoginRequestPath,
+  getUserFromSessionToken,
   isDevAutoLoginEnabled,
   isDevAutoLoginFailure,
-} from "@/lib/auth/dev-auto-login";
-import {
-  getUserFromSessionToken,
   SESSION_COOKIE_NAME,
-} from "@/lib/auth/session";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-
-import { DashboardFilterBarSkeleton } from "./components/DashboardFilterBar";
-import {
-  DashboardFeedViewport,
-  DashboardScaffold,
-} from "./components/DashboardScaffold";
-import { DashboardSidebarSkeleton } from "./components/DashboardSidebarContent";
-import { FeedListSkeleton } from "./components/feed/FeedListSkeleton";
-import { LoginViewSkeleton } from "./components/login/LoginViewSkeleton";
-import { DashboardRouter } from "./DashboardRouter";
-import { resolveDashboardPreviewMode } from "./preview-mode";
+} from "@/lib/auth";
+import { RUNTIME_FLAGS } from "@/lib/core";
 
 interface DashboardPageProps {
   searchParams: Promise<{
@@ -33,74 +30,56 @@ interface DashboardPageProps {
   }>;
 }
 
-/** Resolves the dashboard route shell and authenticated session state. */
+/**
+ * Render the dashboard component.
+ * @param props - The component props.
+ * @returns The rendered dashboard component.
+ */
 export default async function Dashboard(props: DashboardPageProps) {
-  const [cookieStore, resolvedSearchParams] = await Promise.all([
+  const [cookieStore, searchParams] = await Promise.all([
     cookies(),
     props.searchParams,
   ]);
-  const hasPreviewQuery =
-    getSearchParamValue(resolvedSearchParams.explore) === "1";
-  const hasDevAutoLoginFailure = isDevAutoLoginFailure(
-    resolvedSearchParams.devLogin,
-  );
-  const initialPreviewMode = resolveDashboardPreviewMode({
-    hasExploreQuery: hasPreviewQuery,
+  const bootstrapState = await resolveDashboardPageBootstrap({
+    cookieStore,
+    deps: {
+      buildDevAutoLoginRequestPath,
+      getUserFromSessionToken,
+      isDevAutoLoginEnabled,
+      isDevAutoLoginFailure,
+      resolveDashboardPreviewMode,
+      runtimeFlags: RUNTIME_FLAGS,
+      sessionCookieName: SESSION_COOKIE_NAME,
+    },
+    searchParams,
   });
-  const initialSession = initialPreviewMode
-    ? buildAnonymousSession()
-    : await getInitialSession(cookieStore);
-  const initialAutoLoginPath =
-    !initialPreviewMode &&
-    !initialSession.authenticated &&
-    !hasDevAutoLoginFailure &&
-    isDevAutoLoginEnabled()
-      ? buildDevAutoLoginRequestPath("/dashboard")
-      : undefined;
 
   const showLoginSkeleton =
-    !initialPreviewMode && !initialSession.authenticated;
+    !bootstrapState.initialPreviewMode &&
+    !bootstrapState.initialSession.authenticated;
 
   return (
     <div className="h-dvh overflow-hidden overscroll-contain">
       <Suspense
         fallback={
-          showLoginSkeleton ? (
-            <LoginViewSkeleton />
-          ) : (
-            <DashboardShellFallback />
-          )
+          showLoginSkeleton ? <LoginViewSkeleton /> : <DashboardShellFallback />
         }
       >
         <DashboardRouter
-          hasPreviewQuery={hasPreviewQuery}
-          initialAutoLoginPath={initialAutoLoginPath}
-          initialLoginErrorMessage={
-            hasDevAutoLoginFailure
-              ? "Dev auto-login failed. Check DEV_AUTO_LOGIN_EMAIL and DEV_AUTO_LOGIN_PASSWORD."
-              : undefined
-          }
-          initialPreviewMode={initialPreviewMode}
-          initialSession={initialSession}
+          hasPreviewQuery={bootstrapState.hasPreviewQuery}
+          initialAutoLoginPath={bootstrapState.initialAutoLoginPath}
+          initialLoginErrorMessage={bootstrapState.initialLoginErrorMessage}
+          initialPreviewMode={bootstrapState.initialPreviewMode}
+          initialSession={bootstrapState.initialSession}
         />
       </Suspense>
     </div>
   );
 }
 
-/** Builds an anonymous dashboard session snapshot from runtime flags alone. */
-function buildAnonymousSession(): AuthSession {
-  return {
-    allowSignup: RUNTIME_FLAGS.allowSignup,
-    authenticated: false,
-    usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
-    user: null,
-  };
-}
-
 /**
- * Inline shell skeleton fallback that composes the native component skeletons
- * through the same `DashboardScaffold` used by the hydrated dashboard.
+ * Render the dashboard shell fallback component.
+ * @returns The rendered dashboard shell fallback component.
  */
 function DashboardShellFallback() {
   return (
@@ -116,6 +95,11 @@ function DashboardShellFallback() {
             pointer-events-none absolute top-1/2 size-64 -translate-y-1/2
             rounded-full bg-primary/5 blur-3xl
           "
+        />
+        <DashboardToolbarSkeleton
+          isDevelopmentMode={process.env.NODE_ENV === "development"}
+          mobileToolbarBottom={true}
+          mobileToolbarMirror={true}
         />
         <DashboardScaffold
           feed={
@@ -141,32 +125,3 @@ function DashboardShellFallback() {
  * Falling back to an anonymous snapshot keeps the route shell stable for both
  * unauthenticated users and invalid/expired sessions.
  */
-async function getInitialSession(
-  cookieStore: Awaited<ReturnType<typeof cookies>>,
-): Promise<AuthSession> {
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!sessionToken) {
-    return buildAnonymousSession();
-  }
-
-  try {
-    const user = await getUserFromSessionToken(sessionToken);
-    if (!user) {
-      return buildAnonymousSession();
-    }
-
-    return {
-      allowSignup: RUNTIME_FLAGS.allowSignup,
-      authenticated: true,
-      usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
-      user: { email: user.email, id: user.userId },
-    };
-  } catch {
-    return buildAnonymousSession();
-  }
-}
-
-/** Normalizes a Next.js search-param value to its first scalar entry. */
-function getSearchParamValue(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}

@@ -377,10 +377,11 @@ export default function ImageComponent({
             <BrokenImage />
           ) : (
             <LazyImage
-              className={`max-w-full cursor-default ${isFocused
+              className={`max-w-full cursor-default ${
+                isFocused
                   ? `${$isNodeSelection(selection) ? "draggable cursor-grab active:cursor-grabbing" : ""} focused ring-primary ring-2 ring-offset-2`
                   : null
-                }`}
+              }`}
               src={src}
               altText={altText}
               imageRef={imageRef}

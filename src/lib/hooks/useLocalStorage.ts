@@ -4,15 +4,17 @@ import { type Dispatch, type SetStateAction } from "react";
 
 import { useWebStorage } from "./useWebStorage";
 
+/**
+ * Return the local storage.
+ * @returns The local storage.
+ */
 const getLocalStorage = () => globalThis.localStorage;
 
 /**
- * Syncs state with localStorage while keeping the first client render aligned
- * with server-rendered HTML.
- *
- * @param key - localStorage key
- * @param defaultValue - Default value when key is absent
- * @returns [value, setValue] tuple
+ * Manage the local storage.
+ * @param key - The key.
+ * @param defaultValue - The default value.
+ * @returns The local storage state and callbacks.
  */
 export function useLocalStorage<T>(
   key: string,

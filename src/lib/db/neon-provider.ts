@@ -22,7 +22,11 @@ interface NeonDatabaseOptions {
   maxConnections: number;
 }
 
-/** Builds a Neon-backed Drizzle instance with on-demand transaction sessions. */
+/**
+ * Create the neon database.
+ * @param options - The options used to create the neon database.
+ * @returns The neon database.
+ */
 export function createNeonDatabase(
   options: NeonDatabaseOptions,
 ): DatabaseProviderResult {
@@ -42,18 +46,27 @@ export function createNeonDatabase(
 }
 
 /**
- * Creates a stateless HTTP query executor for Bun scripts.
- *
- * The Neon client is created inside `query()` so an unused executor does not
- * initialize any transport state and every call stays one-shot over HTTP.
+ * Create the neon query executor.
+ * @param connectionString - The connection string.
+ * @returns The neon query executor.
  */
 export function createNeonQueryExecutor(
   connectionString: string,
 ): SqlQueryExecutor {
   return {
+    /**
+     * Closes the query executor.
+     * @returns A resolved promise because Neon does not require explicit teardown.
+     */
     close() {
       return Promise.resolve();
     },
+    /**
+     * Process the query.
+     * @param queryText - The query text.
+     * @param params - The params.
+     * @returns The query.
+     */
     async query<TRow extends QueryResultRow = QueryResultRow>(
       queryText: string,
       params: readonly unknown[] = [],
@@ -67,16 +80,17 @@ export function createNeonQueryExecutor(
 }
 
 /**
- * Enables fetch-backed one-shot queries for normal Drizzle calls.
- *
- * Drizzle's Neon adapter still requires a `Pool` client object; with this flag
- * enabled, ordinary `pool.query()` calls stay HTTP-based and only explicit
- * transaction flows fall back to connection-oriented behavior.
+ * Process the configure neon query transport.
  */
 function configureNeonQueryTransport(): void {
   neonConfig.poolQueryViaFetch = true;
 }
 
+/**
+ * Process the to sql query result.
+ * @param result - The result.
+ * @returns The to sql query result.
+ */
 function toSqlQueryResult<TRow extends QueryResultRow>(
   result: FullQueryResults<false>,
 ): SqlQueryResult<TRow> {

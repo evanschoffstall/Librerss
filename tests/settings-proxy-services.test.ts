@@ -11,7 +11,7 @@ import {
   readCompatibilityResultsCache,
   toProxySettingsSnapshot,
   writeCompatibilityResultsCache,
-} from "@/app/dashboard/services/settings-proxy";
+} from "@/app/dashboard/dashboard-services/settings-proxy";
 
 function createMemoryStorage(initial = new Map<string, string>()) {
   return {
@@ -59,7 +59,9 @@ describe("settings-proxy services", () => {
       }),
     ).toBeTrue();
     expect(isCompatibilityResultsCache(null)).toBeFalse();
-    expect(isCompatibilityResultsCache({ checkedAt: "nope", results: [] })).toBeFalse();
+    expect(
+      isCompatibilityResultsCache({ checkedAt: "nope", results: [] }),
+    ).toBeFalse();
     expect(
       isCompatibilityResultsCache({
         checkedAt: 123,

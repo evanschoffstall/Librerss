@@ -1,6 +1,6 @@
-import type { CategoryTreeNode } from "@/lib/core/types";
+import type { CategoryTreeNode } from "@/lib/types";
 
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
 import { tryNormalizeFeedUrl } from "./url";
@@ -11,6 +11,11 @@ export interface OpmlFeedImportEntry {
   url: string;
 }
 
+/**
+ * Return the outline label.
+ * @param outline - The outline.
+ * @returns The outline label.
+ */
 const getOutlineLabel = (outline: Element): string => {
   const text = outline.getAttribute("text")?.trim();
   if (text) {
@@ -21,6 +26,11 @@ const getOutlineLabel = (outline: Element): string => {
   return title ?? "";
 };
 
+/**
+ * Return the feed name.
+ * @param outline - The outline.
+ * @returns The feed name.
+ */
 const getFeedName = (outline: Element): string => {
   const label = getOutlineLabel(outline);
   if (label) {
@@ -32,9 +42,9 @@ const getFeedName = (outline: Element): string => {
 };
 
 /**
- * Normalizes an OPML feed URL.  Returns null when the URL is invalid or uses a
- * non-HTTP(S) protocol.  Delegates to tryNormalizeFeedUrl for consistent
- * parsing / stripping behaviour across the codebase.
+ * Normalize the import url.
+ * @param rawUrl - The raw url.
+ * @returns The import url.
  */
 const normalizeImportUrl = (rawUrl: string): null | string => {
   try {
@@ -50,6 +60,11 @@ const normalizeImportUrl = (rawUrl: string): null | string => {
   return tryNormalizeFeedUrl(rawUrl);
 };
 
+/**
+ * Parse the opml feed import.
+ * @param opmlXml - The opml xml.
+ * @returns The opml feed import.
+ */
 export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   const parser = new DOMParser();
   const document = parser.parseFromString(opmlXml, "text/xml");
@@ -66,6 +81,11 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
 
   const imported = new Map<string, OpmlFeedImportEntry>();
 
+  /**
+   * Process the walk outline tree.
+   * @param outline - The outline.
+   * @param parentCategory - The parent category.
+   */
   const walkOutlineTree = (outline: Element, parentCategory: null | string) => {
     // Stop collecting once the cap is reached — prevents a crafted OPML with
     // thousands of entries from flooding the database via bulk import.
@@ -113,6 +133,11 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
   return [...imported.values()];
 };
 
+/**
+ * Process the escape xml.
+ * @param s - The s.
+ * @returns The escape xml.
+ */
 const escapeXml = (s: string): string =>
   s
     .replace(/&/g, "&amp;")
@@ -120,6 +145,11 @@ const escapeXml = (s: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 
+/**
+ * Process the generate opml.
+ * @param categories - The categories.
+ * @returns The generate opml.
+ */
 export const generateOpml = (categories: CategoryTreeNode[]): string => {
   const lines: string[] = [
     '<?xml version="1.0" encoding="UTF-8"?>',

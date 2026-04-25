@@ -3,7 +3,15 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+interface SourcePathInfo {
+  distFile?: string;
+}
+
 if (typeof globalThis.gc !== "function") {
+  /**
+   * Provides a no-op GC hook in environments where `--expose-gc` is disabled.
+   * @returns A promise that resolves immediately.
+   */
   globalThis.gc = async () => undefined;
 }
 
@@ -40,12 +48,18 @@ interface MonocartCoverageReport {
   cleanCache: () => Promise<void>;
   generate: () => Promise<unknown>;
 }
-type MonocartCoverageReportFactory = (options: Record<string, unknown>) => MonocartCoverageReport;
+type MonocartCoverageReportFactory = (
+  options: Record<string, unknown>,
+) => MonocartCoverageReport;
 interface V8CoverageEntry {
   url: string;
 }
 
-/** Rejects bundle-only output so the coverage check cannot silently regress back to generated assets. */
+/**
+ * Process the assert source mapped coverage.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ */
 async function assertSourceMappedCoverage(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -69,6 +83,12 @@ async function assertSourceMappedCoverage(
   );
 }
 
+/**
+ * Return the summary metric.
+ * @param summaryEntry - The summary entry.
+ * @param metricKey - The metric key.
+ * @returns The summary metric.
+ */
 function getSummaryMetric(
   summaryEntry: CoverageSummaryEntry,
   metricKey: CoverageMetricKey,
@@ -76,11 +96,21 @@ function getSummaryMetric(
   return summaryEntry[metricKey] ?? null;
 }
 
-/** Narrows unknown JSON objects so the script can reject invalid payloads early. */
+/**
+ * Return whether is record.
+ * @param value - The value.
+ * @returns Whether is record.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Return whether is tracked project source file.
+ * @param sourcePath - The source path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ * @returns Whether is tracked project source file.
+ */
 function isTrackedProjectSourceFile(
   sourcePath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -88,12 +118,20 @@ function isTrackedProjectSourceFile(
   return projectSourceFilePathSet.has(normalizeCoveragePath(sourcePath));
 }
 
-/** Checks the minimal V8 entry shape Monocart expects from Playwright raw coverage dumps. */
+/**
+ * Return whether is v8 coverage entry.
+ * @param value - The value.
+ * @returns Whether is v8 coverage entry.
+ */
 function isV8CoverageEntry(value: unknown): value is V8CoverageEntry {
   return isRecord(value) && typeof value.url === "string";
 }
 
-/** Recursively lists files beneath a directory without relying on shell utilities. */
+/**
+ * Process the list files recursively.
+ * @param directoryPath - The directory path.
+ * @returns The list files recursively.
+ */
 async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   const directoryEntries = await readdir(directoryPath, {
     withFileTypes: true,
@@ -112,11 +150,14 @@ async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   return nestedFiles.flat();
 }
 
-/** Creates the Playwright-to-source coverage reports used by the repo checks. */
+/**
+ * Process the main.
+ */
 async function main(): Promise<void> {
-  const monocartModule = (await import("monocart-coverage-reports")) as unknown as {
-    default: MonocartCoverageReportFactory;
-  };
+  const monocartModule =
+    (await import("monocart-coverage-reports")) as unknown as {
+      default: MonocartCoverageReportFactory;
+    };
   const MCR = monocartModule.default;
   const rawCoverageDirectoryPath = join(
     process.cwd(),
@@ -154,9 +195,20 @@ async function main(): Promise<void> {
       ["json-summary", { file: "summary.json" }],
       ["lcovonly", { file: "lcov.info" }],
     ],
+    /**
+     * Process the source filter.
+     * @param sourcePath - The source path.
+     * @returns Whether source filter.
+     */
     sourceFilter: (sourcePath: string) =>
       isTrackedProjectSourceFile(sourcePath, projectSourceFilePathSet),
-    sourcePath: (sourcePath: string, info: { distFile?: string }) =>
+    /**
+     * Process the source path.
+     * @param sourcePath - The source path.
+     * @param info - The info.
+     * @returns The source path.
+     */
+    sourcePath: (sourcePath: string, info: SourcePathInfo) =>
       normalizeCoveragePath(sourcePath, info.distFile),
   });
 
@@ -187,6 +239,12 @@ async function main(): Promise<void> {
   );
 }
 
+/**
+ * Process the merge coverage metric.
+ * @param summaryEntries - The summary entries.
+ * @param metricKey - The metric key.
+ * @returns The merge coverage metric.
+ */
 function mergeCoverageMetric(
   summaryEntries: CoverageSummaryEntry[],
   metricKey: CoverageMetricKey,
@@ -212,6 +270,12 @@ function mergeCoverageMetric(
   };
 }
 
+/**
+ * Normalize the coverage path.
+ * @param sourcePath - The source path.
+ * @param distFilePath - The dist file path.
+ * @returns The coverage path.
+ */
 function normalizeCoveragePath(
   sourcePath: string,
   distFilePath?: string,
@@ -220,7 +284,9 @@ function normalizeCoveragePath(
   const normalizedDistFilePath = normalizeDistFilePath(distFilePath);
 
   if (normalizedSourcePath.startsWith(PROJECT_SOURCE_DIRECTORY_PATH)) {
-    return normalizedSourcePath.slice(process.cwd().replaceAll("\\", "/").length + 1);
+    return normalizedSourcePath.slice(
+      process.cwd().replaceAll("\\", "/").length + 1,
+    );
   }
 
   if (normalizedSourcePath.startsWith("src/")) {
@@ -239,11 +305,21 @@ function normalizeCoveragePath(
   return normalizedSourcePath;
 }
 
+/**
+ * Normalize the dist file path.
+ * @param distFilePath - The dist file path.
+ * @returns The dist file path.
+ */
 function normalizeDistFilePath(distFilePath?: string): string {
   return distFilePath?.replaceAll("\\", "/") ?? "";
 }
 
-/** Validates the parsed raw coverage payload before it reaches Monocart. */
+/**
+ * Parse the raw coverage data.
+ * @param rawCoverageJson - The raw coverage json.
+ * @param rawCoverageFilePath - The raw coverage file path.
+ * @returns The raw coverage data.
+ */
 function parseRawCoverageData(
   rawCoverageJson: string,
   rawCoverageFilePath: string,
@@ -269,6 +345,11 @@ function parseRawCoverageData(
   );
 }
 
+/**
+ * Process the rewrite coverage artifacts.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ */
 async function rewriteCoverageArtifacts(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -279,6 +360,11 @@ async function rewriteCoverageArtifacts(
   ]);
 }
 
+/**
+ * Process the rewrite lcov file.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ */
 async function rewriteLcovFile(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -300,13 +386,19 @@ async function rewriteLcovFile(
       return [];
     }
 
-    lines[lines.indexOf(sourceFileLine)] = `SF:${normalizeCoveragePath(sourcePath)}`;
+    lines[lines.indexOf(sourceFileLine)] =
+      `SF:${normalizeCoveragePath(sourcePath)}`;
     return [`${lines.join("\n")}\nend_of_record\n`];
   });
 
   await writeFile(lcovFilePath, filteredBlocks.join(""));
 }
 
+/**
+ * Process the rewrite summary file.
+ * @param reportDirectoryPath - The report directory path.
+ * @param projectSourceFilePathSet - The project source file path set.
+ */
 async function rewriteSummaryFile(
   reportDirectoryPath: string,
   projectSourceFilePathSet: ReadonlySet<string>,
@@ -321,10 +413,13 @@ async function rewriteSummaryFile(
         sourcePath !== "total" &&
         isTrackedProjectSourceFile(sourcePath, projectSourceFilePathSet),
     )
-    .map(([sourcePath, summaryEntry]) => [
-      normalizeCoveragePath(sourcePath),
-      summaryEntry as CoverageSummaryEntry,
-    ] as const);
+    .map(
+      ([sourcePath, summaryEntry]) =>
+        [
+          normalizeCoveragePath(sourcePath),
+          summaryEntry as CoverageSummaryEntry,
+        ] as const,
+    );
   const totalEntry = Object.fromEntries(
     SUMMARY_METRIC_KEYS.map((metricKey) => [
       metricKey,

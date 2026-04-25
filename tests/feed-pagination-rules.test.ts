@@ -6,7 +6,7 @@ import {
   resolveNextVisibleCount,
   resolvePaginationBoundaryState,
   shouldAutoFillViewport,
-} from "@/app/dashboard/components/feed/feed-list-surface-state/paginationRules";
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
 
 function defineViewportMetric(
   viewport: HTMLElement,
@@ -105,6 +105,8 @@ describe("shouldAutoFillViewport", () => {
   test("stops auto-fill once the reader has taken scroll ownership", () => {
     expect(
       shouldAutoFillViewport({
+        articleFilter: "all",
+        articlesPerPage: 4,
         clientHeight: 480,
         committedListHeight: 320,
         currentVisibleCount: 4,
@@ -115,9 +117,79 @@ describe("shouldAutoFillViewport", () => {
     ).toBe(false);
   });
 
-  test("reveals one more page while the first paint still underfills the viewport", () => {
+  test("reveals the visible window while the first paint is below the one-page ceiling", () => {
     expect(
       shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: null,
+        articleFilter: "all",
+        articlesPerPage: 4,
+        clientHeight: 480,
+        committedListHeight: 160,
+        currentVisibleCount: 3,
+        filteredFeedLength: 12,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(true);
+  });
+
+  test("stops generic auto-fill at the one-page ceiling when the list height fills the viewport", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: null,
+        articleFilter: "all",
+        articlesPerPage: 4,
+        clientHeight: 480,
+        committedListHeight: 480,
+        currentVisibleCount: 4,
+        filteredFeedLength: 12,
+        hasListShrunk: false,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("bypasses the one-page ceiling and allows auto-fill when the list has shrunk", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: null,
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        clientHeight: 480,
+        committedListHeight: 10,
+        currentVisibleCount: 4,
+        filteredFeedLength: 20,
+        hasListShrunk: true,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(true);
+  });
+
+  test("does not bypass the one-page ceiling for non-unread shrink recovery", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: null,
+        articleFilter: "all",
+        articlesPerPage: 4,
+        clientHeight: 480,
+        committedListHeight: 10,
+        currentVisibleCount: 4,
+        filteredFeedLength: 20,
+        hasListShrunk: true,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("continues auto-fill past the one-page ceiling when an owned refill target is active", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: 8,
+        articleFilter: "all",
+        articlesPerPage: 4,
         clientHeight: 480,
         committedListHeight: 320,
         currentVisibleCount: 4,
@@ -126,6 +198,22 @@ describe("shouldAutoFillViewport", () => {
         isInitialLoading: false,
       }),
     ).toBe(true);
+  });
+
+  test("stops generic auto-fill once an owned refill target has been satisfied", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: 8,
+        articleFilter: "all",
+        articlesPerPage: 4,
+        clientHeight: 780,
+        committedListHeight: 720,
+        currentVisibleCount: 8,
+        filteredFeedLength: 12,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(false);
   });
 });
 

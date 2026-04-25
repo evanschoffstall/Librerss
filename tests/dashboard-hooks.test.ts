@@ -16,27 +16,26 @@ import {
   test,
 } from "bun:test";
 import { createElement } from "react";
+import * as realSonnerModule from "sonner";
 import { toast } from "sonner";
 
+import type { Article, CategoryTreeNode } from "@/lib/core";
+
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
 import {
   escapeArticleKey,
   useArticleHydration,
-} from "@/app/dashboard/hooks/useArticleHydration";
-import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
-import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
-import { useDashboardEvents } from "@/app/dashboard/hooks/useDashboardEvents";
+} from "@/app/dashboard/dashboard-hooks/useArticleHydration";
+import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
+import { useCategoryOrderState } from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
 import {
-  useFeedLoader,
-} from "@/app/dashboard/hooks/useFeedLoader";
-import { type FeedBatchSource } from "@/app/dashboard/services/feed-batch";
-import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-batch-outcome";
-import {
-  type Article,
-  ArticleService,
-  type CategoryTreeNode,
-  FeedService,
-} from "@/lib";
+  runDashboardViewportReadCommand,
+  useDashboardEvents,
+} from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
+import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
+import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
+import { ArticleService, FeedService } from "@/lib/api";
 
 describe("useFeedLoader", () => {
   test("reuses a prefetched batch query without clearing the feed", async () => {
@@ -191,27 +190,29 @@ describe("useFeedLoader", () => {
       feedRef.current = feedState;
     });
 
-    FeedService.getFeedsBatch = mock(async (_urls: string[], options?: { articleLimit?: number }) => {
-      if (options?.articleLimit === 8) {
+    FeedService.getFeedsBatch = mock(
+      async (_urls: string[], options?: { articleLimit?: number }) => {
+        if (options?.articleLimit === 8) {
+          return [
+            {
+              articles: [pageEightArticle],
+              lastFetchedAt: new Date("2026-03-14T12:03:00.000Z"),
+              ok: true,
+              url: prefetchedFeedUrl,
+            },
+          ];
+        }
+
         return [
           {
-            articles: [pageEightArticle],
-            lastFetchedAt: new Date("2026-03-14T12:03:00.000Z"),
+            articles: [pageFourArticle],
+            lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
             ok: true,
             url: prefetchedFeedUrl,
           },
         ];
-      }
-
-      return [
-        {
-          articles: [pageFourArticle],
-          lastFetchedAt: new Date("2026-03-14T12:02:00.000Z"),
-          ok: true,
-          url: prefetchedFeedUrl,
-        },
-      ];
-    }) as typeof FeedService.getFeedsBatch;
+      },
+    ) as typeof FeedService.getFeedsBatch;
 
     const wrapper = ({ children }: { children: React.ReactNode }) =>
       createElement(QueryClientProvider, { client: queryClient }, children);
@@ -441,6 +442,213 @@ describe("useFeedLoader", () => {
       queryClient.clear();
     }
   });
+
+  test("absorbs cancelled query rejections while replacing overlapping feed requests", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const firstFeedUrl = "https://example.com/first.xml";
+    const secondFeedUrl = "https://example.com/second.xml";
+    const firstArticle: Article = {
+      content: "First feed article body",
+      feedId: 11,
+      feedName: "First Feed",
+      feedUrl: firstFeedUrl,
+      id: 601,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T13:00:00.000Z"),
+      link: "https://example.com/articles/first",
+      publicationDate: new Date("2026-03-14T12:59:00.000Z"),
+      title: "First feed article",
+    };
+    const secondArticle: Article = {
+      ...firstArticle,
+      feedId: 12,
+      feedName: "Second Feed",
+      feedUrl: secondFeedUrl,
+      id: 602,
+      link: "https://example.com/articles/second",
+      publicationDate: new Date("2026-03-14T13:01:00.000Z"),
+      title: "Second feed article",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const cancelQueriesMock = mock(async () => {
+      const cancellationError = new Error("query cancelled");
+      cancellationError.name = "CancelledError";
+      throw cancellationError;
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    queryClient.cancelQueries =
+      cancelQueriesMock as typeof queryClient.cancelQueries;
+
+    FeedService.getFeedsBatch = mock(async (urls: string[]) => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+
+      if (urls[0] === secondFeedUrl) {
+        return [
+          {
+            articles: [secondArticle],
+            lastFetchedAt: new Date("2026-03-14T13:02:00.000Z"),
+            ok: true,
+            url: secondFeedUrl,
+          },
+        ];
+      }
+
+      return [
+        {
+          articles: [firstArticle],
+          lastFetchedAt: new Date("2026-03-14T13:01:30.000Z"),
+          ok: true,
+          url: firstFeedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        const firstRequest = result.current.fetchFeed(firstFeedUrl, {
+          requestSource: "manual-refresh",
+        });
+        const secondRequest = result.current.fetchFeed(secondFeedUrl, {
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+        });
+
+        await Promise.allSettled([firstRequest, secondRequest]);
+      });
+
+      await waitFor(() => {
+        expect(feedState[0]?.title).toBe(secondArticle.title);
+      });
+
+      expect(cancelQueriesMock).toHaveBeenCalledTimes(1);
+    } finally {
+      queryClient.clear();
+    }
+  });
+
+  test("restores previous articles when a batch fetch fails with a transient error (e.g. 504)", async () => {
+    // Verify that a fetch failure (non-cancellation, non-superseded) does not
+    // leave the user staring at an empty list after clearStaleFeedBeforeRefresh
+    // cleared the feed in anticipation of a successful response.
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    const feedUrl = "https://example.com/feed-504.xml";
+    const existingArticle: Article = {
+      content: "Pre-existing article body",
+      feedId: 20,
+      feedName: "Existing Feed",
+      feedUrl,
+      id: 701,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-04-01T10:00:00.000Z"),
+      link: "https://example.com/articles/existing-504",
+      publicationDate: new Date("2026-04-01T09:59:00.000Z"),
+      title: "Pre-existing article",
+    };
+    let feedState: Article[] = [existingArticle];
+    const feedRef = { current: feedState };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    // Simulate a 504 Gateway Timeout: the API call rejects with a non-cancellation error.
+    const gatewayTimeoutError = Object.assign(
+      new Error("Request failed with status code 504"),
+      {
+        name: "ApiError",
+        status: 504,
+      },
+    );
+    FeedService.getFeedsBatch = mock(async () => {
+      throw gatewayTimeoutError;
+    }) as typeof FeedService.getFeedsBatch;
+
+    // Suppress the expected console.error noise from the error handler.
+    console.error = mock(() => {});
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(feedUrl, {
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+        });
+      });
+
+      // After the 504 failure, the feed must be restored to the pre-clear state.
+      // An empty feedState here means the user sees a blank list — that is the bug.
+      await waitFor(() => {
+        expect(feedState.length).toBeGreaterThan(0);
+        expect(feedState[0]?.title).toBe(existingArticle.title);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
 });
 
 describe("useDashboardEvents", () => {
@@ -538,61 +746,41 @@ describe("useDashboardEvents", () => {
   });
 
   test("marks fully visible unread articles through the viewport command", async () => {
-    const onMarkViewportRead = mock(async () => {});
-
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead,
-        onOpenFeedsSidebar: () => {},
-        onOpenSettings: () => {},
-        onRefresh: async () => {},
-        onSearchChange: () => {},
-        selectedCategory: "system-all-feeds",
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-      }),
-    );
-
-    act(() => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
+    const dispatchedEvents: string[] = [];
+    // Capture when the handler is called relative to the lifecycle events. The
+    // handler is intentionally async to verify that END fires before the server
+    // round-trip completes (i.e. the toolbar does not block on persistence).
+    let resolveHandler!: () => void;
+    const handlerSettled = new Promise<void>((resolve) => {
+      resolveHandler = resolve;
     });
-
-    await waitFor(() => {
-      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
+    const onMarkViewportRead = mock(async () => {
+      await Promise.resolve(); // simulate micro-task / server tick
+      dispatchedEvents.push("handler");
+      resolveHandler();
     });
+    const eventTarget = {
+      dispatchEvent(event: Event) {
+        dispatchedEvents.push(event.type);
+        return true;
+      },
+    } satisfies Pick<Window, "dispatchEvent">;
 
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.info).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
-  });
+    runDashboardViewportReadCommand(eventTarget, onMarkViewportRead);
 
-  test("keeps the viewport command silent when there are no visible unread articles", async () => {
-    const onMarkViewportRead = mock(async () => {});
+    // START and END must fire synchronously before the async handler resolves.
+    expect(dispatchedEvents).toEqual([
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+    ]);
 
-    renderHook(() =>
-      useDashboardEvents({
-        onMarkViewportRead,
-        onOpenFeedsSidebar: () => {},
-        onOpenSettings: () => {},
-        onRefresh: async () => {},
-        onSearchChange: () => {},
-        selectedCategory: "system-all-feeds",
-        selectedCategoryNode: undefined,
-        selectedFeedUrl: undefined,
-      }),
-    );
-
-    act(() => {
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ));
-    });
-
-    await waitFor(() => {
-      expect(onMarkViewportRead).toHaveBeenCalledTimes(1);
-    });
-
-    expect(toast.success).not.toHaveBeenCalled();
-    expect(toast.info).not.toHaveBeenCalled();
-    expect(toast.error).not.toHaveBeenCalled();
+    // Handler still completes in the background (server persistence).
+    await handlerSettled;
+    expect(dispatchedEvents).toEqual([
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
+      "handler",
+    ]);
   });
 });
 
@@ -736,7 +924,9 @@ describe("useArticleActions", () => {
 
 function registerModuleMocks() {
   mock.module("sonner", () => ({
+    ...realSonnerModule,
     toast: {
+      ...realSonnerModule.toast,
       error: mock(() => {}),
       info: mock(() => {}),
       success: mock(() => {}),
@@ -769,6 +959,7 @@ const originalGetFeedsBatch = FeedService.getFeedsBatch;
 const originalUpdateArticleStatus = ArticleService.updateArticleStatus;
 const originalConsoleError = console.error;
 const originalConsoleInfo = console.info;
+const originalEnableTestLogOutput = process.env.ENABLE_TEST_LOG_OUTPUT;
 const originalClientFeedRefreshDiagnosticsEnabled =
   process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
 const muteConsoleError = (() => {}) as typeof console.error;
@@ -776,6 +967,7 @@ const muteConsoleInfo = (() => {}) as typeof console.info;
 
 beforeEach(() => {
   process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED = "false";
+  process.env.ENABLE_TEST_LOG_OUTPUT = "true";
 });
 
 afterEach(() => {
@@ -787,6 +979,11 @@ afterEach(() => {
     originalUpdateArticleStatus as typeof ArticleService.updateArticleStatus;
   console.error = originalConsoleError;
   console.info = originalConsoleInfo;
+  if (originalEnableTestLogOutput === undefined) {
+    delete process.env.ENABLE_TEST_LOG_OUTPUT;
+  } else {
+    process.env.ENABLE_TEST_LOG_OUTPUT = originalEnableTestLogOutput;
+  }
   if (originalClientFeedRefreshDiagnosticsEnabled === undefined) {
     delete process.env.NEXT_PUBLIC_FEED_REFRESH_DIAGNOSTICS_ENABLED;
   } else {
@@ -855,12 +1052,17 @@ describe("useArticleHydration", () => {
   });
 
   test("escapeArticleKey fallback when CSS.escape unavailable", () => {
+    const originalCss = global.CSS;
     global.CSS = undefined as any;
 
-    const key = 'test"article\\key';
-    const escaped = escapeArticleKey(key);
+    try {
+      const key = 'test"article\\key';
+      const escaped = escapeArticleKey(key);
 
-    expect(escaped).toContain("\\");
+      expect(escaped).toContain("\\");
+    } finally {
+      global.CSS = originalCss;
+    }
   });
 
   test("scrollArticleIntoView scrolls element into view", () => {

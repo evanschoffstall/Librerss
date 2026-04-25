@@ -95,8 +95,14 @@ describe("fetch/compatibility-signal", () => {
       "too many requests",
     );
 
-    expect(generic403).toEqual({ retryable: true, signal: { detected: false } });
-    expect(generic429).toEqual({ retryable: true, signal: { detected: false } });
+    expect(generic403).toEqual({
+      retryable: true,
+      signal: { detected: false },
+    });
+    expect(generic429).toEqual({
+      retryable: true,
+      signal: { detected: false },
+    });
   });
 
   test("pickDiagnosticHeaders keeps challenge diagnostics and counts cookies", () => {

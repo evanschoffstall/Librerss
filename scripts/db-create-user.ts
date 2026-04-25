@@ -4,7 +4,7 @@
  *
  * Usage:
  *   bun scripts/create-user.ts <email> <password>
- *   bun run create-user <email> <password>
+ *   bun run create-user <email> <password>.
  */
 
 import { randomBytes, scrypt as scryptCallback } from "node:crypto";
@@ -26,6 +26,9 @@ if (!password || password.length < 8) {
   process.exit(1);
 }
 
+/**
+ * Process the ensure database url.
+ */
 function ensureDatabaseUrl(): void {
   if (process.env.DATABASE_URL?.trim()) {
     return;
@@ -39,12 +42,20 @@ function ensureDatabaseUrl(): void {
   process.exit(1);
 }
 
+/**
+ * Process the hash password.
+ * @param pw - The pw.
+ * @returns The hash password.
+ */
 async function hashPassword(pw: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const key = (await scrypt(pw, salt, 64)) as Buffer;
   return `${salt}:${key.toString("hex")}`;
 }
 
+/**
+ * Process the main.
+ */
 async function main(): Promise<void> {
   ensureDatabaseUrl();
   const db = createSqlQueryExecutor();

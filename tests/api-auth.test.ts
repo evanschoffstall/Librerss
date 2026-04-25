@@ -427,7 +427,7 @@ describe("Auth API - Logout with session cookie", () => {
 
 describe("Auth API - Session authenticated path", () => {
   test("GET /api/auth/session returns authenticated user when session is valid", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
 
     mock.module("@/lib/auth/session", () => ({
       getUserFromRequest: async () => ({

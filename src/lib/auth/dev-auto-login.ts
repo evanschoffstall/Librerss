@@ -1,6 +1,6 @@
+import { envStringOptional, isDevelopment } from "@/lib";
 import { normalizeEmailInput } from "@/lib/auth/credentials";
-import { envStringOptional, isDevelopment } from "@/lib/config";
-import { isValidEmail } from "@/lib/utils/validation";
+import { isValidEmail } from "@/lib/utils";
 
 const DEV_AUTO_LOGIN_EMAIL_KEY = "DEV_AUTO_LOGIN_EMAIL";
 const DEV_AUTO_LOGIN_PASSWORD_KEY = "DEV_AUTO_LOGIN_PASSWORD";
@@ -15,7 +15,11 @@ interface DevAutoLoginCredentials {
   password: string;
 }
 
-/** Builds the failure redirect used after an env-backed login attempt fails. */
+/**
+ * Build the dev auto login failure path.
+ * @param pathname - The pathname.
+ * @returns The dev auto login failure path.
+ */
 export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
   const url = new URL(pathname, "http://localhost");
   url.searchParams.set(
@@ -26,7 +30,11 @@ export function buildDevAutoLoginFailurePath(pathname = "/dashboard"): string {
   return `${url.pathname}${url.search}`;
 }
 
-/** Builds the same-origin request path for the development auto-login route. */
+/**
+ * Build the dev auto login request path.
+ * @param returnTo - The return to.
+ * @returns The dev auto login request path.
+ */
 export function buildDevAutoLoginRequestPath(returnTo = "/dashboard"): string {
   const searchParams = new URLSearchParams({
     [DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY]: returnTo,
@@ -36,11 +44,8 @@ export function buildDevAutoLoginRequestPath(returnTo = "/dashboard"): string {
 }
 
 /**
- * Resolves the optional development-only auto-login credentials.
- *
- * The mode is off unless both env vars are present in development. Partial or
- * malformed configuration is treated as an explicit setup error so it fails
- * loudly instead of silently weakening auth expectations.
+ * Return the dev auto login credentials.
+ * @returns The dev auto login credentials.
  */
 export function getDevAutoLoginCredentials(): DevAutoLoginCredentials | null {
   if (!isDevelopment() || isPlaywrightRuntime()) {
@@ -80,20 +85,27 @@ export function getDevAutoLoginCredentials(): DevAutoLoginCredentials | null {
   };
 }
 
-/** Returns whether the validated development auto-login mode is active. */
+/**
+ * Return whether is dev auto login enabled.
+ * @returns Whether is dev auto login enabled.
+ */
 export function isDevAutoLoginEnabled(): boolean {
   return getDevAutoLoginCredentials() !== null;
 }
 
-/** Detects the dashboard query flag that suppresses auto-login retry loops. */
+/**
+ * Return whether is dev auto login failure.
+ * @param value - The value.
+ * @returns Whether is dev auto login failure.
+ */
 export function isDevAutoLoginFailure(value: string | string[] | undefined) {
   const normalized = Array.isArray(value) ? value[0] : value;
   return normalized === DEV_AUTO_LOGIN_FAILURE_QUERY_VALUE;
 }
 
 /**
- * Playwright runs against a dedicated ephemeral dev server and relies on the
- * unauthenticated dashboard contract in multiple e2e flows.
+ * Return whether is playwright runtime.
+ * @returns Whether is playwright runtime.
  */
 function isPlaywrightRuntime(): boolean {
   const playwrightDistDir = process.env.PLAYWRIGHT_NEXT_DIST_DIR?.trim();

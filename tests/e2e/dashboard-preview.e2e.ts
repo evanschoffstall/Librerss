@@ -17,13 +17,34 @@ function createPreviewSearchTerm(title: string) {
     .find((token) => token.length >= 5);
 
   if (!candidate) {
-    throw new Error("Expected the preview article title to include a searchable token.");
+    throw new Error(
+      "Expected the preview article title to include a searchable token.",
+    );
   }
 
   return candidate;
 }
 
-async function openPreviewFeeds(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+async function measureVisibleToolbarButton(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+  label: string,
+) {
+  const button = page.locator(`button[aria-label="${label}"]:visible`).first();
+  await expect(button).toBeVisible({ timeout: 15_000 });
+  const box = await button.boundingBox();
+
+  if (!box) {
+    throw new Error(
+      `Expected ${label} to resolve to a visible toolbar button.`,
+    );
+  }
+
+  return { height: box.height, width: box.width };
+}
+
+async function openPreviewFeeds(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+) {
   const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
   if (await openFeedsButton.isVisible()) {
     await openFeedsButton.click();
@@ -34,10 +55,21 @@ function previewFeedButton(
   page: Parameters<typeof gotoPreviewDashboard>[0],
   feedName: string,
 ) {
-  return page.locator("button").filter({ hasText: feedName }).first();
+  const escapedFeedName = feedName.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  return page
+    .locator("button:visible")
+    .filter({
+      has: page.locator("p", {
+        hasText: new RegExp(`^${escapedFeedName}$`),
+      }),
+    })
+    .first();
 }
 
-async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>[0]) {
+async function selectPreviewSource(
+  page: Parameters<typeof gotoPreviewDashboard>[0],
+) {
   const openFeedsButton = page.getByRole("button", { name: "Open feeds" });
   if (await openFeedsButton.isVisible()) {
     await openFeedsButton.click();
@@ -47,6 +79,64 @@ async function selectPreviewSource(page: Parameters<typeof gotoPreviewDashboard>
 }
 
 test.describe("dashboard preview mode", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test("opens the mobile actions popup from the three-dots toolbar button", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 820, width: 390 });
+    await gotoPreviewDashboard(page);
+
+    const actionsTrigger = page.getByRole("button", {
+      name: "Open actions menu",
+    });
+    await expect(actionsTrigger).toBeVisible({ timeout: 15_000 });
+
+    await actionsTrigger.click();
+
+    await expect(page.getByRole("menuitem", { name: "Settings" })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("menuitem", { name: "Sign out" })).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
+  test("keeps mobile toolbar button footprints aligned with the desktop uncondensed buttons", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 900, width: 1280 });
+    await gotoPreviewDashboard(page);
+
+    const desktopActionFootprint = await measureVisibleToolbarButton(
+      page,
+      "Refresh selected feed",
+    );
+    const desktopIconFootprint = await measureVisibleToolbarButton(
+      page,
+      "Open dashboard settings",
+    );
+
+    await page.setViewportSize({ height: 820, width: 390 });
+    await gotoPreviewDashboard(page);
+
+    expect(
+      await measureVisibleToolbarButton(page, "Refresh selected feed"),
+    ).toEqual(desktopActionFootprint);
+    expect(
+      await measureVisibleToolbarButton(
+        page,
+        "Mark fully visible articles as read",
+      ),
+    ).toEqual(desktopActionFootprint);
+    expect(await measureVisibleToolbarButton(page, "Open feeds")).toEqual(
+      desktopIconFootprint,
+    );
+    expect(
+      await measureVisibleToolbarButton(page, "Open actions menu"),
+    ).toEqual(desktopIconFootprint);
+  });
+
   test("enters preview from the login view and signs out back to landing", async ({
     page,
   }) => {
@@ -69,12 +159,16 @@ test.describe("dashboard preview mode", () => {
     const firstArticle = await locateViewportArticle(page, 0);
     const firstArticleKey = await readArticleKey(firstArticle);
 
-    const firstTitle = (await firstArticle.getByRole("heading").first().textContent())?.trim();
+    const firstTitle = (
+      await firstArticle.getByRole("heading").first().textContent()
+    )?.trim();
     if (!firstTitle) {
       throw new Error("Expected the first preview article to have a title.");
     }
 
-    await page.getByPlaceholder("Search...").fill(createPreviewSearchTerm(firstTitle));
+    await page
+      .getByPlaceholder("Search...")
+      .fill(createPreviewSearchTerm(firstTitle));
     await expect(
       page.getByRole("heading", {
         name: firstTitle,
@@ -85,9 +179,7 @@ test.describe("dashboard preview mode", () => {
     const restoredArticle = await locateViewportArticle(page, 0);
     await expect(restoredArticle).toContainText(firstTitle);
     await expect(restoredArticle).toBeVisible({ timeout: 15_000 });
-    await restoredArticle
-      .getByRole("button", { name: "Star article" })
-      .click();
+    await restoredArticle.getByRole("button", { name: "Star article" }).click();
     await page.getByRole("button", { exact: true, name: "starred" }).click();
     const starredArticle = await locateViewportArticle(page, 0);
     await expect(starredArticle).toBeVisible({
@@ -173,15 +265,34 @@ test.describe("dashboard preview mode", () => {
     await expect(previewFeedButton(page, "NIH Research Matters")).toBeVisible();
     await expect(previewFeedButton(page, "NHLBI All News")).toBeVisible();
     await expect(previewFeedButton(page, "NINDS Press Releases")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Images")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Earth Observation")).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Human Exploration")).toBeVisible();
+    await expect(
+      previewFeedButton(page, "ESA Earth Observation"),
+    ).toBeVisible();
+    await expect(
+      previewFeedButton(page, "ESA Human Exploration"),
+    ).toBeVisible();
     await expect(previewFeedButton(page, "ESA Top News")).toBeVisible();
     await expect(previewFeedButton(page, "NASA Breaking News")).toBeVisible();
-    await expect(previewFeedButton(page, "NASA Image of the Day")).toBeVisible();
     await expect(previewFeedButton(page, "NASA STEM Learning")).toBeVisible();
+    await expect(
+      page.locator("button").filter({ hasText: "ESA Images" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
+    ).toHaveCount(0);
 
-    await previewFeedButton(page, "NIH Research Matters").click();
+    const nihResearchMattersButton = previewFeedButton(
+      page,
+      "NIH Research Matters",
+    );
+    await expect(nihResearchMattersButton).toBeVisible();
+    await nihResearchMattersButton.evaluate((button) => {
+      if (!(button instanceof HTMLElement)) {
+        throw new Error("Expected a feed button element.");
+      }
+
+      button.click();
+    });
     await expect(
       page.getByRole("heading", {
         name: /Treating addiction/i,

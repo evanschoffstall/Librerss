@@ -3,7 +3,9 @@ import { describe, expect, test } from "bun:test";
 import { Logger } from "@/lib/logger";
 
 describe("logger env fallback", () => {
-  const readSupportsColor = (envOverrides: Record<string, string | undefined>) => {
+  const readSupportsColor = (
+    envOverrides: Record<string, string | undefined>,
+  ) => {
     const previousValues = new Map<string, string | undefined>();
 
     for (const [key, value] of Object.entries(envOverrides)) {

@@ -1,5 +1,4 @@
-import { logger } from "@/lib/logger";
-import { toErrorMessage } from "@/lib/utils/errors";
+import { logger } from "@/lib";
 
 import type { Database, DatabasePool, DatabaseProviderResult } from "./types";
 
@@ -34,6 +33,11 @@ type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
 
 const defaultDbDependencies: DbDependencies = {
   createDatabaseProvider: createRuntimeDatabaseProvider,
+  /**
+   * Process the warn.
+   * @param message - The message.
+   * @param context - The context used to process the warn.
+   */
   warn: (message, context) => {
     logger.warn(message, context);
   },
@@ -41,7 +45,10 @@ const defaultDbDependencies: DbDependencies = {
 
 let dbDependencies: DbDependencies = defaultDbDependencies;
 
-/** Returns the singleton Drizzle instance for the active database driver. */
+/**
+ * Return the db.
+ * @returns The db.
+ */
 export function getDb() {
   if (globalForDb.db) {
     return globalForDb.db;
@@ -59,21 +66,36 @@ export function getDb() {
   return db;
 }
 
+/**
+ * Return whether is foreign key error.
+ * @param error - The error.
+ * @returns Whether is foreign key error.
+ */
 export function isForeignKeyError(error: unknown): boolean {
   return hasDbErrorCode(error, "23503");
 }
 
+/**
+ * Return whether is unique constraint error.
+ * @param error - The error.
+ * @returns Whether is unique constraint error.
+ */
 export function isUniqueConstraintError(error: unknown): boolean {
   return hasDbErrorCode(error, "23505");
 }
 
-/** Restores the default DB seams and clears cached singleton state. */
+/**
+ * Process the reset db dependencies for testing.
+ */
 export function resetDbDependenciesForTesting(): void {
   dbDependencies = defaultDbDependencies;
   clearDbSingletonState();
 }
 
-/** Overrides DB seams for an isolated test module instance. */
+/**
+ * Process the set db dependencies for testing.
+ * @param dependencies - The dependencies.
+ */
 export function setDbDependenciesForTesting(
   dependencies: Partial<DbDependencies>,
 ): void {
@@ -85,6 +107,9 @@ export function setDbDependenciesForTesting(
 
 // ─── DB error utilities ─────────────────────────────────────────────────────
 
+/**
+ * Process the clear db singleton state.
+ */
 function clearDbSingletonState(): void {
   delete globalForDb.pool;
   delete globalForDb.db;
@@ -92,7 +117,10 @@ function clearDbSingletonState(): void {
   delete globalForDb.hasRunInitialDbConnectivityCheck;
 }
 
-/** Loads only the provider module needed for the active runtime driver. */
+/**
+ * Create the runtime database provider.
+ * @returns The runtime database provider.
+ */
 function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   assertDatabaseConfigured();
 
@@ -109,6 +137,21 @@ function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   return createNodePostgresDatabase(options);
 }
 
+/**
+ * Return the error message.
+ * @param error - The error.
+ * @returns The error message.
+ */
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Return whether has db error code.
+ * @param error - The error.
+ * @param code - The code.
+ * @returns Whether has db error code.
+ */
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
     return false;
@@ -117,6 +160,10 @@ function hasDbErrorCode(error: unknown, code: string): boolean {
   return (error as { code?: unknown }).code === code;
 }
 
+/**
+ * Process the run initial db connectivity check.
+ * @param pool - The pool.
+ */
 function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   if (globalForDb.hasRunInitialDbConnectivityCheck) {
     return;
@@ -131,7 +178,7 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
 
     globalForDb.hasLoggedInitialDbConnectionWarning = true;
 
-    const message = toErrorMessage(error);
+    const message = getErrorMessage(error);
     dbDependencies.warn("[db] Initial database connectivity check failed", {
       error: message,
       note: "The app will continue running, but database-backed features may fail until the connection is restored.",
@@ -139,6 +186,11 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
   });
 }
 
+/**
+ * Process the to connectivity check pool.
+ * @param pool - The pool.
+ * @returns The to connectivity check pool.
+ */
 function toConnectivityCheckPool(pool: DatabasePool): ConnectivityCheckPool {
   return pool as unknown as ConnectivityCheckPool;
 }

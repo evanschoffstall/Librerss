@@ -1,15 +1,22 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import {
   clearSessionCookie,
   deleteSessionByToken,
   SESSION_COOKIE_NAME,
-} from "@/lib/auth/session";
-import { logAndRespondError, requireMutableRequest } from "@/lib/server";
+} from "@/lib/auth";
+import { serverApi } from "@/lib/server";
 
+/**
+ * Render the post component.
+ * @param request - The request.
+ * @returns The rendered post component.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const requestError = requireMutableRequest(request);
+    const requestError = serverApi.requireMutableRequest(request);
     if (requestError) {
       return requestError;
     }
@@ -25,6 +32,6 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (error) {
-    return logAndRespondError("Logout error", error);
+    return serverApi.logAndRespondError("Logout error", error);
   }
 }

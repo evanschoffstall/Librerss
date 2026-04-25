@@ -10,10 +10,8 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 
-import { CONFIG } from "@/lib/config";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { sessions, users } from "@/lib/db/schema";
+import { CONFIG } from "@/lib";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/placeholder";
 
 // Re-type the promisify wrapper to include the optional options parameter that
 // @types/node does not expose through the standard promisify overloads.
@@ -33,6 +31,10 @@ export interface SessionUser {
   userId: number;
 }
 
+/**
+ * Return the base cookie options.
+ * @returns The base cookie options.
+ */
 function getBaseCookieOptions() {
   return {
     httpOnly: true,
@@ -42,11 +44,19 @@ function getBaseCookieOptions() {
   };
 }
 
-/** Lazily resolved so the env read happens at call time, not at module load. */
+/**
+ * Return the session duration ms.
+ * @returns The session duration ms.
+ */
 function getSessionDurationMs() {
   return 1000 * 60 * 60 * 24 * CONFIG.SESSION_DURATION_DAYS;
 }
 
+/**
+ * Process the hash session token.
+ * @param token - The token.
+ * @returns The hash session token.
+ */
 const hashSessionToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
@@ -67,6 +77,10 @@ const hashSessionToken = (token: string) =>
 const SCRYPT_V1 = { N: 16384, p: 1, r: 8 } as const; // legacy (read-only)
 const SCRYPT_V2 = { N: 16384, p: 1, r: 8 } as const; // current — bump N when runtime allows
 
+/**
+ * Process the clear session cookie.
+ * @param response - The response.
+ */
 export function clearSessionCookie(response: NextResponse): void {
   response.cookies.set(SESSION_COOKIE_NAME, "", {
     ...getBaseCookieOptions(),
@@ -74,6 +88,11 @@ export function clearSessionCookie(response: NextResponse): void {
   });
 }
 
+/**
+ * Create the session.
+ * @param userId - The r id.
+ * @returns The session.
+ */
 export async function createSession(userId: number): Promise<string> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     if (userId !== PLACEHOLDER_ADMIN_USER.id) {
@@ -83,6 +102,7 @@ export async function createSession(userId: number): Promise<string> {
     return PLACEHOLDER_ADMIN_USER.sessionToken;
   }
 
+  const { getDb, sessions } = await import("@/lib/db");
   const db = getDb();
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashSessionToken(token);
@@ -129,16 +149,26 @@ export async function createSession(userId: number): Promise<string> {
   return token;
 }
 
+/**
+ * Process the delete session by token.
+ * @param token - The token.
+ */
 export async function deleteSessionByToken(token: string): Promise<void> {
   if (RUNTIME_FLAGS.usePlaceholderData) {
     return;
   }
 
+  const { getDb, sessions } = await import("@/lib/db");
   const db = getDb();
   const tokenHash = hashSessionToken(token);
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }
 
+/**
+ * Return the user from request.
+ * @param request - The request.
+ * @returns The user from request.
+ */
 export async function getUserFromRequest(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
@@ -148,6 +178,11 @@ export async function getUserFromRequest(request: NextRequest) {
   return getUserFromSessionToken(token);
 }
 
+/**
+ * Return the user from session token.
+ * @param token - The token.
+ * @returns The user from session token.
+ */
 export async function getUserFromSessionToken(
   token: string,
 ): Promise<null | SessionUser> {
@@ -168,6 +203,7 @@ export async function getUserFromSessionToken(
     };
   }
 
+  const { getDb, sessions, users } = await import("@/lib/db");
   const db = getDb();
   const tokenHash = hashSessionToken(token);
 
@@ -191,12 +227,22 @@ export async function getUserFromSessionToken(
   return activeSessions[0] ?? null;
 }
 
+/**
+ * Process the hash password.
+ * @param password - The password.
+ * @returns The hash password.
+ */
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16).toString("hex");
   const key = await scrypt(password, salt, 64, SCRYPT_V2);
   return `v2:${salt}:${key.toString("hex")}`;
 }
 
+/**
+ * Process the set session cookie.
+ * @param response - The response.
+ * @param token - The token.
+ */
 export function setSessionCookie(response: NextResponse, token: string): void {
   response.cookies.set(SESSION_COOKIE_NAME, token, {
     ...getBaseCookieOptions(),
@@ -204,6 +250,12 @@ export function setSessionCookie(response: NextResponse, token: string): void {
   });
 }
 
+/**
+ * Process the verify password.
+ * @param password - The password.
+ * @param storedHash - The stored hash.
+ * @returns The verify password.
+ */
 export async function verifyPassword(
   password: string,
   storedHash: string,
@@ -236,6 +288,12 @@ export async function verifyPassword(
 const DUMMY_HASH =
   "v2:00000000000000000000000000000000:0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
+/**
+ * Process the authenticate credentials.
+ * @param email - The email.
+ * @param password - The password.
+ * @returns The authenticate credentials.
+ */
 export async function authenticateCredentials(
   email: string,
   password: string,
@@ -243,27 +301,10 @@ export async function authenticateCredentials(
   { email: string; ok: true; token: string; userId: number } | { ok: false }
 > {
   if (RUNTIME_FLAGS.usePlaceholderData) {
-    if (email !== PLACEHOLDER_ADMIN_USER.email) {
-      return { ok: false };
-    }
-
-    const isValid = await verifyPassword(
-      password,
-      PLACEHOLDER_ADMIN_USER.passwordHash,
-    );
-    if (!isValid) {
-      return { ok: false };
-    }
-
-    const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
-    return {
-      email: PLACEHOLDER_ADMIN_USER.email,
-      ok: true,
-      token,
-      userId: PLACEHOLDER_ADMIN_USER.id,
-    };
+    return authenticatePlaceholderCredentials(email, password);
   }
 
+  const { getDb, users } = await import("@/lib/db");
   const db = getDb();
 
   const usersByEmail = await db
@@ -290,4 +331,37 @@ export async function authenticateCredentials(
 
   const token = await createSession(user.id);
   return { email: user.email, ok: true, token, userId: user.id };
+}
+
+/**
+ * Process the authenticate placeholder credentials.
+ * @param email - The email.
+ * @param password - The password.
+ * @returns The authenticate placeholder credentials.
+ */
+async function authenticatePlaceholderCredentials(
+  email: string,
+  password: string,
+): Promise<
+  { email: string; ok: true; token: string; userId: number } | { ok: false }
+> {
+  if (email !== PLACEHOLDER_ADMIN_USER.email) {
+    return { ok: false };
+  }
+
+  const isValid = await verifyPassword(
+    password,
+    PLACEHOLDER_ADMIN_USER.passwordHash,
+  );
+  if (!isValid) {
+    return { ok: false };
+  }
+
+  const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
+  return {
+    email: PLACEHOLDER_ADMIN_USER.email,
+    ok: true,
+    token,
+    userId: PLACEHOLDER_ADMIN_USER.id,
+  };
 }

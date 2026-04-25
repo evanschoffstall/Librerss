@@ -1,3 +1,7 @@
+import { and, eq } from "drizzle-orm";
+
+import { CONFIG, ServerServiceError } from "@/lib";
+import { isAllowedFeedUrl, withNormalizedArticleContent } from "@/lib/core";
 /**
  * Server-side article operations shared across API surfaces.
  *
@@ -5,27 +9,19 @@
  * {@link ServerServiceError}. Both the REST API and future GReader API call
  * these functions.
  */
-import { and, eq } from "drizzle-orm";
-
-import { CONFIG } from "@/lib/config";
+import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import {
   getUserOwnedArticleById,
+  invalidateUserCache,
   listUserOwnedArticles,
-  withNormalizedArticleContent,
-} from "@/lib/core/article-records";
-import { upsertArticleStatuses } from "@/lib/core/article-status";
-import { invalidateUserCache } from "@/lib/core/feed-cache";
-import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
-import { markStreamAsRead } from "@/lib/core/mark-stream-read";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { getDb } from "@/lib/db/db";
-import { articles, feeds, feedSources } from "@/lib/db/schema";
+  markStreamAsRead,
+  upsertArticleStatuses,
+} from "@/lib/core/server";
+import { articles, feeds, feedSources, getDb } from "@/lib/db";
 import {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleTitle,
 } from "@/lib/sanitize";
-
-import { ServerServiceError } from "./errors";
 
 export interface CreateArticleParams {
   content: string;
@@ -48,6 +44,13 @@ interface ArticleServiceDeps {
   upsertArticleStatusesFn?: typeof upsertArticleStatuses;
 }
 
+/**
+ * Create the article.
+ * @param userId - The r id.
+ * @param params - The params.
+ * @param deps - The deps.
+ * @returns The article.
+ */
 export async function createArticle(
   userId: number,
   params: CreateArticleParams,
@@ -61,43 +64,24 @@ export async function createArticle(
     );
   }
 
-  const title = sanitizeArticleTitle(params.title);
-  const content = sanitizeAndTruncateArticleContent(params.content);
-
   const db = (deps.getDbFn ?? getDb)();
-  const ownedFeeds = await db
-    .select({ id: feeds.id })
-    .from(feeds)
-    .innerJoin(
-      feedSources,
-      and(
-        eq(feedSources.url, feeds.url),
-        eq(feedSources.userId, userId),
-        eq(feedSources.enabled, true),
-      ),
-    )
-    .where(eq(feeds.id, params.feedId))
-    .limit(1);
-
-  if (ownedFeeds.length === 0) {
-    throw new ServerServiceError("Feed not found for authenticated user", 403);
-  }
+  await assertUserOwnsFeed(db, userId, params.feedId);
 
   const rows = await db
     .insert(articles)
-    .values({
-      content,
-      feedId: params.feedId,
-      lastChecked: params.lastChecked,
-      link: params.link,
-      publicationDate: params.publicationDate,
-      title,
-    })
+    .values(buildArticleInsertValues(params))
     .returning();
 
   return rows[0];
 }
 
+/**
+ * Return the article by id.
+ * @param userId - The r id.
+ * @param articleId - The article id.
+ * @param deps - The deps.
+ * @returns The article by id.
+ */
 export async function getArticleById(
   userId: number,
   articleId: number,
@@ -113,6 +97,12 @@ export async function getArticleById(
   return withNormalizedArticleContent(article);
 }
 
+/**
+ * Process the list user articles.
+ * @param userId - The r id.
+ * @param deps - The deps.
+ * @returns The list user articles.
+ */
 export async function listUserArticles(
   userId: number,
   deps: Pick<ArticleServiceDeps, "getDbFn"> = {},
@@ -128,14 +118,23 @@ export async function listUserArticles(
   return rows.map(withNormalizedArticleContent);
 }
 
-export async function markStreamRead(
-  userId: number,
-  streamId: string,
-) {
+/**
+ * Process the mark stream read.
+ * @param userId - The r id.
+ * @param streamId - The stream id.
+ */
+export async function markStreamRead(userId: number, streamId: string) {
   await markStreamAsRead(userId, streamId);
   invalidateUserCache(userId);
 }
 
+/**
+ * Update the article status.
+ * @param userId - The r id.
+ * @param articleId - The article id.
+ * @param updates - The s.
+ * @param deps - The deps.
+ */
 export async function updateArticleStatus(
   userId: number,
   articleId: number,
@@ -145,8 +144,7 @@ export async function updateArticleStatus(
     "getUserOwnedArticleByIdFn" | "upsertArticleStatusesFn"
   > = {},
 ) {
-  const getOwned =
-    deps.getUserOwnedArticleByIdFn ?? getUserOwnedArticleById;
+  const getOwned = deps.getUserOwnedArticleByIdFn ?? getUserOwnedArticleById;
   const upsert = deps.upsertArticleStatusesFn ?? upsertArticleStatuses;
 
   const db = getDb();
@@ -155,4 +153,50 @@ export async function updateArticleStatus(
 
   await upsert(userId, [articleId], updates);
   invalidateUserCache(userId);
+}
+
+/**
+ * Process the assert user owns feed.
+ * @param db - The db.
+ * @param userId - The r id.
+ * @param feedId - The feed id.
+ */
+async function assertUserOwnsFeed(
+  db: ReturnType<typeof getDb>,
+  userId: number,
+  feedId: number,
+): Promise<void> {
+  const ownedFeeds = await db
+    .select({ id: feeds.id })
+    .from(feeds)
+    .innerJoin(
+      feedSources,
+      and(
+        eq(feedSources.url, feeds.url),
+        eq(feedSources.userId, userId),
+        eq(feedSources.enabled, true),
+      ),
+    )
+    .where(eq(feeds.id, feedId))
+    .limit(1);
+
+  if (ownedFeeds.length === 0) {
+    throw new ServerServiceError("Feed not found for authenticated user", 403);
+  }
+}
+
+/**
+ * Build the article insert values.
+ * @param params - The params.
+ * @returns The article insert values.
+ */
+function buildArticleInsertValues(params: CreateArticleParams) {
+  return {
+    content: sanitizeAndTruncateArticleContent(params.content),
+    feedId: params.feedId,
+    lastChecked: params.lastChecked,
+    link: params.link,
+    publicationDate: params.publicationDate,
+    title: sanitizeArticleTitle(params.title),
+  };
 }

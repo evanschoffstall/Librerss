@@ -1,9 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { getUserFromRequest } from "@/lib/auth/session";
-import { RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { logAndRespondError } from "@/lib/server";
+import { NextResponse } from "next/server";
 
+import { getUserFromRequest } from "@/lib/auth";
+import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import { serverApi } from "@/lib/server";
+
+/**
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
+ */
 export async function GET(request: NextRequest) {
   try {
     const user = await getUserFromRequest(request);
@@ -24,6 +31,6 @@ export async function GET(request: NextRequest) {
       user: { email: user.email, id: user.userId },
     });
   } catch (error) {
-    return logAndRespondError("Session fetch error", error);
+    return serverApi.logAndRespondError("Session fetch error", error);
   }
 }

@@ -118,12 +118,8 @@
           "name": "ArticleStatus_user_id_User_id_fk",
           "tableFrom": "ArticleStatus",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -131,12 +127,8 @@
           "name": "ArticleStatus_article_id_Article_id_fk",
           "tableFrom": "ArticleStatus",
           "tableTo": "Article",
-          "columnsFrom": [
-            "article_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["article_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -238,12 +230,8 @@
           "name": "Article_feed_id_Feed_id_fk",
           "tableFrom": "Article",
           "tableTo": "Feed",
-          "columnsFrom": [
-            "feed_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["feed_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -253,9 +241,7 @@
         "Article_link_unique": {
           "name": "Article_link_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "link"
-          ]
+          "columns": ["link"]
         }
       },
       "policies": {},
@@ -319,12 +305,8 @@
           "name": "FeedCategory_user_id_User_id_fk",
           "tableFrom": "FeedCategory",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -332,12 +314,8 @@
           "name": "FeedCategory_feed_id_Feed_id_fk",
           "tableFrom": "FeedCategory",
           "tableTo": "Feed",
-          "columnsFrom": [
-            "feed_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["feed_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -401,12 +379,8 @@
           "name": "CategoryOrder_user_id_User_id_fk",
           "tableFrom": "CategoryOrder",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -495,12 +469,8 @@
           "name": "FeedSource_user_id_User_id_fk",
           "tableFrom": "FeedSource",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -548,9 +518,7 @@
         "Feed_url_unique": {
           "name": "Feed_url_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "url"
-          ]
+          "columns": ["url"]
         }
       },
       "policies": {},
@@ -615,12 +583,8 @@
           "name": "Session_user_id_User_id_fk",
           "tableFrom": "Session",
           "tableTo": "User",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -680,9 +644,7 @@
         "User_email_unique": {
           "name": "User_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},

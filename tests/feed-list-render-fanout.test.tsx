@@ -1,29 +1,29 @@
 import { render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as React from "react";
 
-import { buildFeedListArticle ,
+import {
+  buildFeedListArticle,
   installFeedListDomMocks,
   restoreFeedListDomMocks,
 } from "./feed-list-test-utils";
 
 const articleRenderCounts = new Map<string, number>();
-let FeedArticleRow: typeof import("../src/app/dashboard/components/feed/FeedArticleRow").FeedArticleRow;
+let FeedArticleRow: typeof import("../src/app/dashboard/dashboard-components/feed-view/FeedArticleRow").FeedArticleRow;
+let feedArticleRowImportVersion = 0;
+
+async function loadFeedArticleRow() {
+  feedArticleRowImportVersion += 1;
+  return import(
+    `../src/app/dashboard/dashboard-components/feed-view/FeedArticleRow?test=${feedArticleRowImportVersion}`
+  );
+}
 
 beforeEach(async () => {
   articleRenderCounts.clear();
   mock.restore();
   installFeedListDomMocks();
-  mock.module("../src/app/dashboard/components/ArticleCard", () => ({
-    ArticleCard: ({ articleKey }: { articleKey: string }) => {
-      articleRenderCounts.set(
-        articleKey,
-        (articleRenderCounts.get(articleKey) ?? 0) + 1,
-      );
-
-      return <article data-article-key={articleKey}>{articleKey}</article>;
-    },
-  }));
-  ({ FeedArticleRow } = await import("../src/app/dashboard/components/feed/FeedArticleRow"));
+  ({ FeedArticleRow } = await loadFeedArticleRow());
 });
 
 afterEach(() => {
@@ -44,49 +44,69 @@ describe("FeedList row render fan-out", () => {
     const handleToggle = () => {};
     const handleToggleRead = () => {};
     const handleToggleStarred = () => {};
+    const recordCommit = (_id: string) => {
+      articleRenderCounts.set(
+        _id,
+        (articleRenderCounts.get(_id) ?? 0) + 1,
+      );
+    };
 
     const { rerender } = render(
       <>
-        <FeedArticleRow
-          article={firstArticle}
-          articleKey={firstArticle.link}
-          hasScrapedContent={false}
-          isDark={true}
-          isExpanded={false}
-          isHydrating={false}
-          isLastRow={false}
-          isMobile={false}
-          isUpdatingState={false}
-          onExpandedSwipeRead={handleExpandedSwipeRead}
-          onPrepareExpand={() => {}}
-          onSwipeRead={() => {}}
-          onToggle={handleToggle}
-          onToggleRead={handleToggleRead}
-          onToggleStarred={handleToggleStarred}
-          removalAnimationMode={null}
-          showFavicons={false}
-          useRichFormatting={false}
-        />
-        <FeedArticleRow
-          article={secondArticle}
-          articleKey={secondArticle.link}
-          hasScrapedContent={false}
-          isDark={true}
-          isExpanded={false}
-          isHydrating={false}
-          isLastRow={true}
-          isMobile={false}
-          isUpdatingState={false}
-          onExpandedSwipeRead={handleExpandedSwipeRead}
-          onPrepareExpand={() => {}}
-          onSwipeRead={() => {}}
-          onToggle={handleToggle}
-          onToggleRead={handleToggleRead}
-          onToggleStarred={handleToggleStarred}
-          removalAnimationMode={null}
-          showFavicons={false}
-          useRichFormatting={false}
-        />
+        <React.Profiler
+          id={firstArticle.link}
+          onRender={() => {
+            recordCommit(firstArticle.link);
+          }}
+        >
+          <FeedArticleRow
+            article={firstArticle}
+            articleKey={firstArticle.link}
+            hasScrapedContent={false}
+            isDark={true}
+            isExpanded={false}
+            isHydrating={false}
+            isLastRow={false}
+            isMobile={false}
+            isUpdatingState={false}
+            onExpandedSwipeRead={handleExpandedSwipeRead}
+            onPrepareExpand={() => {}}
+            onSwipeRead={() => {}}
+            onToggle={handleToggle}
+            onToggleRead={handleToggleRead}
+            onToggleStarred={handleToggleStarred}
+            removalAnimationMode={null}
+            showFavicons={false}
+            useRichFormatting={false}
+          />
+        </React.Profiler>
+        <React.Profiler
+          id={secondArticle.link}
+          onRender={() => {
+            recordCommit(secondArticle.link);
+          }}
+        >
+          <FeedArticleRow
+            article={secondArticle}
+            articleKey={secondArticle.link}
+            hasScrapedContent={false}
+            isDark={true}
+            isExpanded={false}
+            isHydrating={false}
+            isLastRow={true}
+            isMobile={false}
+            isUpdatingState={false}
+            onExpandedSwipeRead={handleExpandedSwipeRead}
+            onPrepareExpand={() => {}}
+            onSwipeRead={() => {}}
+            onToggle={handleToggle}
+            onToggleRead={handleToggleRead}
+            onToggleStarred={handleToggleStarred}
+            removalAnimationMode={null}
+            showFavicons={false}
+            useRichFormatting={false}
+          />
+        </React.Profiler>
       </>,
     );
 
@@ -94,8 +114,10 @@ describe("FeedList row render fan-out", () => {
     let initialSecondArticleRenderCount = 0;
 
     await waitFor(() => {
-      initialFirstArticleRenderCount = articleRenderCounts.get(firstArticle.link) ?? 0;
-      initialSecondArticleRenderCount = articleRenderCounts.get(secondArticle.link) ?? 0;
+      initialFirstArticleRenderCount =
+        articleRenderCounts.get(firstArticle.link) ?? 0;
+      initialSecondArticleRenderCount =
+        articleRenderCounts.get(secondArticle.link) ?? 0;
 
       expect(initialFirstArticleRenderCount).toBeGreaterThan(0);
       expect(initialSecondArticleRenderCount).toBeGreaterThan(0);
@@ -103,46 +125,60 @@ describe("FeedList row render fan-out", () => {
 
     rerender(
       <>
-        <FeedArticleRow
-          article={firstArticle}
-          articleKey={firstArticle.link}
-          hasScrapedContent={false}
-          isDark={true}
-          isExpanded={false}
-          isHydrating={false}
-          isLastRow={false}
-          isMobile={false}
-          isUpdatingState={false}
-          onExpandedSwipeRead={handleExpandedSwipeRead}
-          onPrepareExpand={() => {}}
-          onSwipeRead={() => {}}
-          onToggle={handleToggle}
-          onToggleRead={handleToggleRead}
-          onToggleStarred={handleToggleStarred}
-          removalAnimationMode={null}
-          showFavicons={false}
-          useRichFormatting={false}
-        />
-        <FeedArticleRow
-          article={secondArticle}
-          articleKey={secondArticle.link}
-          hasScrapedContent={false}
-          isDark={true}
-          isExpanded={false}
-          isHydrating={true}
-          isLastRow={true}
-          isMobile={false}
-          isUpdatingState={false}
-          onExpandedSwipeRead={handleExpandedSwipeRead}
-          onPrepareExpand={() => {}}
-          onSwipeRead={() => {}}
-          onToggle={handleToggle}
-          onToggleRead={handleToggleRead}
-          onToggleStarred={handleToggleStarred}
-          removalAnimationMode={null}
-          showFavicons={false}
-          useRichFormatting={false}
-        />
+        <React.Profiler
+          id={firstArticle.link}
+          onRender={() => {
+            recordCommit(firstArticle.link);
+          }}
+        >
+          <FeedArticleRow
+            article={firstArticle}
+            articleKey={firstArticle.link}
+            hasScrapedContent={false}
+            isDark={true}
+            isExpanded={false}
+            isHydrating={false}
+            isLastRow={false}
+            isMobile={false}
+            isUpdatingState={false}
+            onExpandedSwipeRead={handleExpandedSwipeRead}
+            onPrepareExpand={() => {}}
+            onSwipeRead={() => {}}
+            onToggle={handleToggle}
+            onToggleRead={handleToggleRead}
+            onToggleStarred={handleToggleStarred}
+            removalAnimationMode={null}
+            showFavicons={false}
+            useRichFormatting={false}
+          />
+        </React.Profiler>
+        <React.Profiler
+          id={secondArticle.link}
+          onRender={() => {
+            recordCommit(secondArticle.link);
+          }}
+        >
+          <FeedArticleRow
+            article={secondArticle}
+            articleKey={secondArticle.link}
+            hasScrapedContent={false}
+            isDark={true}
+            isExpanded={false}
+            isHydrating={true}
+            isLastRow={true}
+            isMobile={false}
+            isUpdatingState={false}
+            onExpandedSwipeRead={handleExpandedSwipeRead}
+            onPrepareExpand={() => {}}
+            onSwipeRead={() => {}}
+            onToggle={handleToggle}
+            onToggleRead={handleToggleRead}
+            onToggleStarred={handleToggleStarred}
+            removalAnimationMode={null}
+            showFavicons={false}
+            useRichFormatting={false}
+          />
+        </React.Profiler>
       </>,
     );
 

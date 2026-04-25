@@ -1,16 +1,15 @@
 import { NextRequest } from "next/server";
-/**
- * Regenerates expected HTML outputs for the reading-pipeline fixtures.
- */
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { format as formatWithPrettier, resolveConfig } from "prettier";
 
-import type { AuthenticatedUser } from "@/lib/server";
-
+/**
+ * Regenerates expected HTML outputs for the reading-pipeline fixtures.
+ */
 import { POST } from "@/app/api/articles/extract/route";
+import { serverApi } from "@/lib/server";
 
-const ANONYMOUS_USER: AuthenticatedUser = {
+const ANONYMOUS_USER: serverApi.AuthenticatedUser = {
   email: "anonymous",
   expiresAt: new Date(Date.now() + 86_400_000),
   sessionId: -1,
@@ -18,7 +17,10 @@ const ANONYMOUS_USER: AuthenticatedUser = {
 };
 
 /**
- * Normalizes regenerated fixture output with the repo's Prettier HTML settings.
+ * Process the format expected reading output.
+ * @param outputPath - The output path.
+ * @param extractedHtml - The extracted html.
+ * @returns The format expected reading output.
  */
 export async function formatExpectedReadingOutput(
   outputPath: string,
@@ -34,7 +36,10 @@ export async function formatExpectedReadingOutput(
 }
 
 /**
- * Derives a stable article URL from captured fixture HTML for extractor parity.
+ * Process the extract canonical url from html.
+ * @param html - The html.
+ * @param fixtureName - The fixture name.
+ * @returns The extract canonical url from html.
  */
 function extractCanonicalUrlFromHtml(
   html: string,
@@ -54,7 +59,10 @@ function extractCanonicalUrlFromHtml(
 }
 
 /**
- * Runs the extract route against captured HTML without performing a live fetch.
+ * Process the extract via api route.
+ * @param articleUrl - The article url.
+ * @param downloadedHtml - The downloaded html.
+ * @returns The extract via api route.
  */
 async function extractViaApiRoute(
   articleUrl: string,
@@ -70,11 +78,34 @@ async function extractViaApiRoute(
   });
 
   const response = await POST(request, {
+    /**
+     * Process the error fn.
+     */
     errorFn: () => {},
+    /**
+     * Process the fetch html fn.
+     * @returns The fetch html fn.
+     */
     fetchHtmlFn: async () => downloadedHtml,
-    parseAndValidateArticleUrlFn: async (rawUrl) => rawUrl.trim(),
+    /**
+     * Parse the and validate article url fn.
+     * @param rawUrl - The raw url.
+     * @returns The and validate article url fn.
+     */
+    parseAndValidateArticleUrlFn: async (rawUrl: string) => rawUrl.trim(),
+    /**
+     * Process the require mutable authenticated user fn.
+     * @returns The require mutable authenticated user fn.
+     */
     requireMutableAuthenticatedUserFn: async () => ANONYMOUS_USER,
+    /**
+     * Return whether should use extract cache fn.
+     * @returns Whether should use extract cache fn.
+     */
     shouldUseExtractCacheFn: () => false,
+    /**
+     * Process the warn fn.
+     */
     warnFn: () => {},
   });
 
@@ -92,8 +123,13 @@ async function extractViaApiRoute(
 }
 
 /**
- * Produces a unified diff between the previous expected output and the new one.
- * Returns the diff file path, or null when no prior output existed or content is unchanged.
+ * Process the generate diff.
+ * @param fixtureDir - The fixture dir.
+ * @param articleName - The article name.
+ * @param outputPath - The output path.
+ * @param newOutput - The new output.
+ * @param timestamp - The timestamp.
+ * @returns The generate diff.
  */
 function generateDiff(
   fixtureDir: string,
@@ -123,7 +159,7 @@ function generateDiff(
 }
 
 /**
- * Regenerates every stored output fixture in the reading pipeline set.
+ * Process the main.
  */
 async function main() {
   const fixtureDir = join(process.cwd(), "tests/templates/reading-pipeline");
@@ -151,7 +187,11 @@ async function main() {
 }
 
 /**
- * Rebuilds one expected output fixture from its captured article HTML.
+ * Process the regenerate reading expectation.
+ * @param fixtureDir - The fixture dir.
+ * @param articleName - The article name.
+ * @param timestamp - The timestamp.
+ * @returns The regenerate reading expectation.
  */
 async function regenerateReadingExpectation(
   fixtureDir: string,
@@ -169,7 +209,10 @@ async function regenerateReadingExpectation(
     throw new Error(`${articleName} produced empty expectation output`);
   }
 
-  const formattedOutput = await formatExpectedReadingOutput(outputPath, cleaned);
+  const formattedOutput = await formatExpectedReadingOutput(
+    outputPath,
+    cleaned,
+  );
   const diffPath = generateDiff(
     fixtureDir,
     articleName,
@@ -188,19 +231,28 @@ async function regenerateReadingExpectation(
 }
 
 /**
- * Maps an input article fixture name to its paired expected output path.
+ * Resolve the expected path.
+ * @param fixtureDir - The fixture dir.
+ * @param articleName - The article name.
+ * @returns The expected path.
  */
 function resolveExpectedPath(fixtureDir: string, articleName: string): string {
   const articleNumber = articleName.split("-")[1];
   return join(fixtureDir, `article-results-${articleNumber}.html`);
 }
 
-/** Limits CLI auto-execution to direct `bun scripts/test-reading-pipeline-regen-results.ts` entrypoints. */
+/**
+ * Return whether should auto run reading fixture regeneration.
+ * @param argv - The argv.
+ * @returns Whether should auto run reading fixture regeneration.
+ */
 function shouldAutoRunReadingFixtureRegeneration(argv: string[]): boolean {
   const invokedScriptPath = argv[1];
   return (
     typeof invokedScriptPath === "string" &&
-    invokedScriptPath.endsWith("/scripts/test-reading-pipeline-regen-results.ts")
+    invokedScriptPath.endsWith(
+      "/scripts/test-reading-pipeline-regen-results.ts",
+    )
   );
 }
 

@@ -1,12 +1,12 @@
 export default function simpleDiffWithCursor(
   a: string,
   b: string,
-  cursor: number
+  cursor: number,
 ): { index: number; insert: string; remove: number } {
-  const aLength = a.length
-  const bLength = b.length
-  let left = 0 // number of same characters counting from left
-  let right = 0 // number of same characters counting from right
+  const aLength = a.length;
+  const bLength = b.length;
+  let left = 0; // number of same characters counting from left
+  let right = 0; // number of same characters counting from right
   // Iterate left to the right until we find a changed character
   // First iteration considers the current cursor position
   while (
@@ -15,7 +15,7 @@ export default function simpleDiffWithCursor(
     a[left] === b[left] &&
     left < cursor
   ) {
-    left++
+    left++;
   }
   // Iterate right to the left until we find a changed character
   while (
@@ -23,7 +23,7 @@ export default function simpleDiffWithCursor(
     right + left < bLength &&
     a[aLength - right - 1] === b[bLength - right - 1]
   ) {
-    right++
+    right++;
   }
   // Try to iterate left further to the right without caring about the current cursor position
   while (
@@ -31,11 +31,11 @@ export default function simpleDiffWithCursor(
     right + left < bLength &&
     a[left] === b[left]
   ) {
-    left++
+    left++;
   }
   return {
     index: left,
     insert: b.slice(left, bLength - right),
     remove: aLength - left - right,
-  }
+  };
 }

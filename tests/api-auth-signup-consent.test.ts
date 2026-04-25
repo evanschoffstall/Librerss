@@ -6,7 +6,8 @@ const baseSignupDeps = {
   getDbFn: () => ({
     insert: () => ({
       values: () => ({
-        returning: () => Promise.resolve([{ email: "reader@example.com", id: 7 }]),
+        returning: () =>
+          Promise.resolve([{ email: "reader@example.com", id: 7 }]),
       }),
     }),
     select: () => ({

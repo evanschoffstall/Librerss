@@ -15,7 +15,7 @@ import {
   isBlockedHost,
   isBlockedResolvedAddress,
   normalizeHostname,
-} from "@/lib/utils/ssrf";
+} from "@/lib/utils/dns";
 import { isStrongPassword } from "@/lib/utils/validation";
 
 beforeEach(() => {
@@ -30,19 +30,19 @@ afterEach(() => {
 
 describe("PLACEHOLDER_ADMIN_USER.sessionToken", () => {
   test("is not the legacy hardcoded string", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     expect(PLACEHOLDER_ADMIN_USER.sessionToken).not.toBe(
       "librerss-placeholder-admin-session",
     );
   });
 
   test("is a 64-char hex string (32 random bytes)", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     expect(PLACEHOLDER_ADMIN_USER.sessionToken).toMatch(/^[0-9a-f]{64}$/);
   });
 
   test("is stable within the same process", async () => {
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     const first = PLACEHOLDER_ADMIN_USER.sessionToken;
     const second = PLACEHOLDER_ADMIN_USER.sessionToken;
     expect(first).toBe(second);
@@ -92,29 +92,29 @@ describe("isStrongPassword – MAX_PASSWORD_LENGTH", () => {
 
 describe("isBlockedHost", () => {
   test("blocks localhost", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("localhost")).toBe(true);
   });
 
   test("blocks 127.0.0.1", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("127.0.0.1")).toBe(true);
   });
 
   test("blocks 10.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("10.0.0.1")).toBe(true);
     expect(isBlockedHost("10.255.255.255")).toBe(true);
   });
 
   test("blocks 192.168.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("192.168.0.1")).toBe(true);
     expect(isBlockedHost("192.168.255.255")).toBe(true);
   });
 
   test("blocks 172.16-31.x RFC-1918", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("172.16.0.1")).toBe(true);
     expect(isBlockedHost("172.31.255.255")).toBe(true);
     // 172.15 and 172.32 are NOT private
@@ -123,67 +123,67 @@ describe("isBlockedHost", () => {
   });
 
   test("blocks 169.254.x link-local", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("169.254.169.254")).toBe(true); // AWS metadata
   });
 
   test("blocks 0.0.0.0", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("0.0.0.0")).toBe(true);
   });
 
   test("blocks ::1 IPv6 loopback", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("::1")).toBe(true);
   });
 
   test("blocks .local mDNS addresses", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("myhost.local")).toBe(true);
   });
 
   test("allows a public IP", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("8.8.8.8")).toBe(false);
     expect(isBlockedHost("1.1.1.1")).toBe(false);
   });
 
   test("allows a public hostname", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(isBlockedHost("example.com")).toBe(false);
   });
 });
 
 describe("isBlockedResolvedAddress", () => {
   test("blocks IPv4-mapped IPv6 loopback (::ffff:127.0.0.1)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:127.0.0.1")).toBe(true);
   });
 
   test("blocks IPv4-mapped IPv6 link-local (::ffff:169.254.169.254)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:169.254.169.254")).toBe(true);
   });
 
   test("blocks IPv4-mapped IPv6 private range (::ffff:10.0.0.1)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:10.0.0.1")).toBe(true);
   });
 
   test("allows IPv4-mapped public IP (::ffff:8.8.8.8)", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:8.8.8.8")).toBe(false);
   });
 
   test("ignores malformed IPv4-mapped IPv6 values instead of treating them as mapped IPv4", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("::ffff:127.0.0.999")).toBe(false);
     expect(isBlockedResolvedAddress("::ffff:1:2:3")).toBe(false);
     expect(isBlockedResolvedAddress("::ffff:1:2:3:4:5:6")).toBe(false);
   });
 
   test("handles invalid IPv6 compression safely", async () => {
-    const { isBlockedResolvedAddress } = await import("@/lib/utils/ssrf");
+    const { isBlockedResolvedAddress } = await import("@/lib/utils/dns");
     expect(isBlockedResolvedAddress("2001::db8::1")).toBe(false);
     expect(isBlockedResolvedAddress("1:2")).toBe(false);
     expect(isBlockedResolvedAddress("2001:db8:1:2:3:4:5:")).toBe(false);
@@ -405,26 +405,26 @@ describe("normalizeFeedUrl", () => {
 
 describe("hashPassword / verifyPassword – versioned scrypt", () => {
   test("hashPassword produces a v2: prefixed hash", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(hash).toMatch(/^v2:[0-9a-f]+:[0-9a-f]+$/);
   });
 
   test("new hashes do NOT use the legacy un-prefixed format", async () => {
-    const { hashPassword } = await import("@/lib/auth/session");
+    const { hashPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     // Must start with 'v2:' — a bare '<salt>:<hex>' format would be legacy.
     expect(hash.startsWith("v2:")).toBe(true);
   });
 
   test("verifyPassword accepts a correct v2 password", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(await verifyPassword("Aa1!correct", hash)).toBe(true);
   });
 
   test("verifyPassword rejects a wrong password against v2 hash", async () => {
-    const { hashPassword, verifyPassword } = await import("@/lib/auth/session");
+    const { hashPassword, verifyPassword } = await import("@/lib/auth");
     const hash = await hashPassword("Aa1!correct");
     expect(await verifyPassword("Aa1!wrong", hash)).toBe(false);
   });
@@ -446,7 +446,7 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
     const key = await scryptAsync(password, salt, 64, { N: 16384, p: 1, r: 8 });
     const legacyHash = `${salt}:${key.toString("hex")}`;
 
-    const { verifyPassword } = await import("@/lib/auth/session");
+    const { verifyPassword } = await import("@/lib/auth");
     expect(await verifyPassword(password, legacyHash)).toBe(true);
     expect(await verifyPassword("WrongPass1!", legacyHash)).toBe(false);
   });
@@ -454,8 +454,8 @@ describe("hashPassword / verifyPassword – versioned scrypt", () => {
   test("placeholder password hash verifies correctly with v1 fallback", async () => {
     // The committed placeholder hash was derived with N=16384 (no v2: prefix).
     // verifyPassword must accept it via the v1 path so demo login works.
-    const { verifyPassword } = await import("@/lib/auth/session");
-    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/runtime");
+    const { verifyPassword } = await import("@/lib/auth");
+    const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
     // The placeholder hash must start without 'v2:' (legacy format).
     expect(PLACEHOLDER_ADMIN_USER.passwordHash).not.toMatch(/^v2:/);
     // Verify that verifyPassword does NOT throw on the legacy format.
@@ -582,19 +582,21 @@ describe("parseFormOrQueryParams", () => {
 describe("logger redaction", () => {
   test("redacts sensitive keys recursively", async () => {
     const previousLogLevel = process.env.LOG_LEVEL;
+    const previousEmitLogs = process.env.ENABLE_TEST_LOG_OUTPUT;
     process.env.LOG_LEVEL = "info";
+    process.env.ENABLE_TEST_LOG_OUTPUT = "true";
 
     // Import Logger class directly to create a fresh instance
     const { Logger } = await import("@/lib/logger");
     const logger = new Logger();
 
     const logs: string[] = [];
-    const originalLog = console.log;
+    const originalInfo = console.info;
     const originalWarn = console.warn;
     const originalError = console.error;
 
     // Override all console methods that the logger might use
-    console.log = (message?: unknown) => {
+    console.info = (message?: unknown) => {
       logs.push(String(message ?? ""));
     };
     console.warn = (message?: unknown) => {
@@ -610,13 +612,18 @@ describe("logger redaction", () => {
         token: "secret-token",
       });
     } finally {
-      console.log = originalLog;
+      console.info = originalInfo;
       console.warn = originalWarn;
       console.error = originalError;
       if (previousLogLevel === undefined) {
         delete process.env.LOG_LEVEL;
       } else {
         process.env.LOG_LEVEL = previousLogLevel;
+      }
+      if (previousEmitLogs === undefined) {
+        delete process.env.ENABLE_TEST_LOG_OUTPUT;
+      } else {
+        process.env.ENABLE_TEST_LOG_OUTPUT = previousEmitLogs;
       }
     }
 
@@ -700,12 +707,15 @@ describe("RateLimiter trusted proxy extraction", () => {
     try {
       const config = { maxAttempts: 1, windowMs: 60_000 };
 
-      const malformedCompression = new Request("https://example.com/api/auth/login", {
-        headers: {
-          "x-forwarded-for": "2001::db8::1, 10.0.0.5",
+      const malformedCompression = new Request(
+        "https://example.com/api/auth/login",
+        {
+          headers: {
+            "x-forwarded-for": "2001::db8::1, 10.0.0.5",
+          },
+          method: "POST",
         },
-        method: "POST",
-      });
+      );
       const tooShort = new Request("https://example.com/api/auth/login", {
         headers: {
           "x-forwarded-for": "1:2, 10.0.0.5",
@@ -868,13 +878,13 @@ describe("Extract route – x-request-id header sanitization (security regressio
 
 describe("utils/ssrf – isBlockedHost with IPv6-mapped private addresses", () => {
   test("processes ::ffff:127.0.0.1 (IPv4-in-IPv6) without throwing", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     // Exercises the IPv4-embedded-in-IPv6 hextet parsing path (line 48 of ssrf.ts)
     expect(typeof isBlockedHost("::ffff:127.0.0.1")).toBe("boolean");
   });
 
   test("processes ::ffff:192.168.1.1 (IPv4-in-IPv6) without throwing", async () => {
-    const { isBlockedHost } = await import("@/lib/utils/ssrf");
+    const { isBlockedHost } = await import("@/lib/utils/dns");
     expect(typeof isBlockedHost("::ffff:192.168.1.1")).toBe("boolean");
   });
 });

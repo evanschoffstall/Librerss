@@ -1,8 +1,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { DEFAULT_CATEGORY_LABEL } from "@/lib";
-import { handleFeedRead } from "@/lib/api/feeds/read";
-import { invalidateUserFeedSourceListCache } from "@/lib/core/feed-cache";
+import { invalidateUserFeedSourceListCache } from "@/lib/core/server";
+import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils";
+
+let feedReadImportVersion = 0;
+
+async function loadFeedReadModule() {
+  feedReadImportVersion += 1;
+  return import(`@/lib/api/feed-source-api/read?test=${feedReadImportVersion}`);
+}
 
 const TEST_USER_ID = 424242;
 
@@ -18,6 +24,7 @@ afterEach(() => {
 
 describe("handleFeedRead", () => {
   test("caches the feed-source list per user after the first database read", async () => {
+    const { handleFeedRead } = await loadFeedReadModule();
     const listFeedSourcesForUserFn = mock(async () => [
       {
         category: null,
@@ -66,6 +73,7 @@ describe("handleFeedRead", () => {
   });
 
   test("invalidating the feed-source list cache forces the next read back to the database", async () => {
+    const { handleFeedRead } = await loadFeedReadModule();
     const listFeedSourcesForUserFn = mock(async () => [
       {
         category: "Tech",
@@ -84,6 +92,7 @@ describe("handleFeedRead", () => {
   });
 
   test("single-feed article reads bypass the feed-source list cache", async () => {
+    const { handleFeedRead } = await loadFeedReadModule();
     const fetchAndCacheFeedArticlesFn = mock(async () => [
       {
         content: "Article",

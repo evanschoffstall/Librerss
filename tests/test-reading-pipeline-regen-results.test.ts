@@ -9,7 +9,8 @@ describe("reading pipeline expectation regeneration", () => {
       '<p><a href="https://example.com" rel="noopener noreferrer nofollow" target="_blank">x</a></p><p>y</p>',
     );
 
-    expect(formattedOutput).toBe(`
+    expect(formattedOutput).toBe(
+      `
 <p>
   <a
     href="https://example.com"
@@ -19,6 +20,7 @@ describe("reading pipeline expectation regeneration", () => {
   >
 </p>
 <p>y</p>
-`.trimStart());
+`.trimStart(),
+    );
   });
 });

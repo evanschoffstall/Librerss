@@ -88,9 +88,9 @@ describe("db config coverage", () => {
       ),
     ).toBe("postgres://user:pass@example.com/db?sslmode=disable");
 
-    expect(normalizePostgresConnectionString("postgres://user:pass@example.com/db")).toBe(
-      "postgres://user:pass@example.com/db",
-    );
+    expect(
+      normalizePostgresConnectionString("postgres://user:pass@example.com/db"),
+    ).toBe("postgres://user:pass@example.com/db");
   });
 
   test("requires a configured database url and normalizes it when present", () => {

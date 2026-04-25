@@ -1,22 +1,39 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
+import { NextResponse } from "next/server";
+
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { getCategoryOrder, logAndRespondError, requireAuthenticatedUser, saveCategoryOrder, ServerServiceError } from "@/lib/server";
+import {
+  getCategoryOrder,
+  requireMutableFeedAccess,
+  saveCategoryOrder,
+  serverApi,
+} from "@/lib/server";
 
+/**
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
+ */
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuthenticatedUser(request);
+    const user = await serverApi.requireAuthenticatedUser(request);
     if (user instanceof Response) return user;
 
     const labels = await getCategoryOrder(user.userId);
     return NextResponse.json({ orderedLabels: labels });
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return logAndRespondError("Error reading category order", error);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
+    return serverApi.logAndRespondError("Error reading category order", error);
   }
 }
 
+/**
+ * Render the put component.
+ * @param request - The request.
+ * @returns The rendered put component.
+ */
 export async function PUT(request: NextRequest) {
   try {
     const user = await requireMutableFeedAccess(request);
@@ -36,7 +53,8 @@ export async function PUT(request: NextRequest) {
     const saved = await saveCategoryOrder(user.userId, labels);
     return NextResponse.json({ orderedLabels: saved });
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return logAndRespondError("Error saving category order", error);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
+    return serverApi.logAndRespondError("Error saving category order", error);
   }
 }

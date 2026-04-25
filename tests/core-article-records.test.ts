@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { withNormalizedArticleContent } from "@/lib/core/article-records";
+import { withNormalizedArticleContent } from "@/lib/core";
 
 describe("core/article-records", () => {
   test("withNormalizedArticleContent returns the original article when content is null", () => {

@@ -1,12 +1,12 @@
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 
-import { StatusPage } from "@/app/components/StatusPage";
+import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
 /**
- * Generic 403 page used by proxy-level request blocking and any future
- * application-level forbidden flows.
+ * Render the forbidden page component.
+ * @returns The rendered forbidden page component.
  */
 export default function ForbiddenPage() {
   return (

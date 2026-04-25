@@ -15,29 +15,16 @@ import {
 
 const STORAGE_KEY = "theme-notice-dismissed";
 
+/**
+ * Render the theme notice dialog component.
+ * @returns The rendered theme notice dialog component.
+ */
 export function ThemeNoticeDialog() {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useThemeNoticeOpenState();
 
-  useEffect(() => {
-    // Check if user has already seen the notice
-    const dismissed = localStorage.getItem(STORAGE_KEY);
-    if (dismissed) {
-      return;
-    }
-
-    // Small delay to allow extensions to inject their modifications
-    const timer = setTimeout(() => {
-      const extensionDetected = detectVisualAdjustmentExtensions();
-      if (extensionDetected) {
-        setOpen(true);
-      }
-    }, 1200);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, []);
-
+  /**
+   * Process the handle dismiss.
+   */
   const handleDismiss = () => {
     localStorage.setItem(STORAGE_KEY, "true");
     setOpen(false);
@@ -97,7 +84,8 @@ export function ThemeNoticeDialog() {
 }
 
 /**
- * Detects if Dark Reader or similar visual adjustment extensions are active
+ * Process the detect visual adjustment extensions.
+ * @returns Whether detect visual adjustment extensions.
  */
 function detectVisualAdjustmentExtensions(): boolean {
   // Check for Dark Reader
@@ -135,4 +123,31 @@ function detectVisualAdjustmentExtensions(): boolean {
   return commonExtensionMarkers.some((attr) =>
     document.documentElement.hasAttribute(attr),
   );
+}
+
+/**
+ * Manage the theme notice visibility state after client-side extension detection.
+ * @returns The open state and setter used by the theme notice dialog.
+ */
+function useThemeNoticeOpenState() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem(STORAGE_KEY);
+    if (dismissed) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      if (detectVisualAdjustmentExtensions()) {
+        setOpen(true);
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+
+  return [open, setOpen] as const;
 }

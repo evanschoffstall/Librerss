@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import type { FeedRecord } from "../src/lib/core/feed-refresh";
+import type { FeedRecord } from "../src/lib/core/refresher";
 
-const loadPipelineModule = () => import("../src/lib/core/feed-batch-pipeline");
+const loadPipelineModule = () => import("../src/lib/core/pipeline");
 
 test("buildRefreshPlan returns per-feed refresh decisions", async () => {
   const { buildRefreshPlan } = await loadPipelineModule();
@@ -71,7 +71,7 @@ test("SQL whitespace-collapse regex escaping does not strip lowercase s", () => 
   // Simulate the actual pattern from queryTopArticlesPerFeed
   const q = sql`regexp_replace(content, '\\s+', ' ', 'g')`;
   // Access query chunks via Drizzle's internal structure
-   
+
   const raw = JSON.stringify((q as any).queryChunks);
 
   // The SQL must contain literal '\s+' (with backslash) not 's+'
@@ -230,11 +230,10 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1, feed2]),
-      [feed1.url, feed2.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1, feed2]), [
+      feed1.url,
+      feed2.url,
+    ]);
 
     expect(result.get(feed1.url)).toHaveLength(1);
     expect(result.get(feed2.url)).toHaveLength(1);
@@ -254,11 +253,7 @@ describe("mapRowsToArticleMap", () => {
 
   test("returns empty arrays for URLs with no matching rows", async () => {
     const { mapRowsToArticleMap } = await loadPipelineModule();
-    const result = mapRowsToArticleMap(
-      [],
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap([], makeFeedByUrl([feed1]), [feed1.url]);
 
     expect(result.get(feed1.url)).toEqual([]);
   });
@@ -279,11 +274,9 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     expect(result.get(feed1.url)).toEqual([]);
   });
@@ -304,11 +297,9 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     const article = result.get(feed1.url)![0]!;
     expect(article.content).not.toContain("<span");
@@ -331,11 +322,9 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      malformed,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(malformed, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     expect(result.get(feed1.url)).toEqual([]);
   });
@@ -356,11 +345,9 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     const article = result.get(feed1.url)![0]!;
     expect(article.content).toBe("");
@@ -386,11 +373,9 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     const article = result.get(feed1.url)![0]!;
     expect(article.id).toBe(42);
@@ -415,13 +400,10 @@ describe("mapRowsToArticleMap", () => {
       },
     ];
 
-    const result = mapRowsToArticleMap(
-      rows,
-      makeFeedByUrl([feed1]),
-      [feed1.url],
-    );
+    const result = mapRowsToArticleMap(rows, makeFeedByUrl([feed1]), [
+      feed1.url,
+    ]);
 
     expect(result.get(feed1.url)).toEqual([]);
   });
 });
-

@@ -6,6 +6,11 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
+/**
+ * Build the metadata image fallback html.
+ * @param rawHtml - The raw html.
+ * @returns The metadata image fallback html.
+ */
 export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   const imageUrl = readMetaTagContent(rawHtml, [
     "og:image",
@@ -52,46 +57,42 @@ export function buildMetadataImageFallbackHtml(rawHtml: string): string {
   );
 }
 
-/** Parse page title from HTML via og:title, first `<h1>`, or `<title>`. */
+/**
+ * Parse the page title.
+ * @param html - The html.
+ * @returns The page title.
+ */
 export function parsePageTitle(html: string): null | string {
   const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
   for (const tag of metaTags) {
-    const propMatch =
-      /property=["']og:title["'][^>]*content=["']([^"']+)["']/i.exec(tag);
-    if (propMatch?.[1]) return propMatch[1];
-    const reverseMatch =
-      /content=["']([^"']+)["'][^>]*property=["']og:title["']/i.exec(tag);
-    if (reverseMatch?.[1]) return reverseMatch[1];
+    const property = readMetaTagAttribute(tag, "property").toLowerCase();
+    if (property === "og:title") {
+      const content = readMetaTagAttribute(tag, "content");
+      if (content) return content;
+    }
   }
 
-  const h1 = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html);
-  if (h1) {
-    const text = h1[1].replace(/<[^>]*>/g, "").trim();
-    if (text) return text;
-  }
+  const h1Text = readTagText(html, "h1");
+  if (h1Text) return h1Text;
 
-  const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  if (titleTag) {
-    const text = titleTag[1].replace(/<[^>]*>/g, "").trim();
-    if (text) return text;
-  }
+  const titleText = readTagText(html, "title");
+  if (titleText) return titleText;
+
   return null;
 }
 
+/**
+ * Process the read meta tag content.
+ * @param rawHtml - The raw html.
+ * @param keys - The keys.
+ * @returns The read meta tag content.
+ */
 export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
   const metaTags = rawHtml.match(/<meta\b[^>]*>/gi) ?? [];
 
   for (const tag of metaTags) {
-    const attributes: Record<string, string> = {};
-
-    for (const match of tag.matchAll(
-      /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
-    )) {
-      const attributeName = match[1].toLowerCase();
-      const attributeValue = (match[2] || match[3] || "").trim();
-      attributes[attributeName] = attributeValue;
-    }
+    const attributes = parseMetaTagAttributes(tag);
 
     const key = (attributes.property || attributes.name || "").toLowerCase();
     const content = attributes.content;
@@ -100,4 +101,49 @@ export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   }
 
   return "";
+}
+
+/**
+ * Parse the meta tag attributes.
+ * @param tag - The tag.
+ * @returns The meta tag attributes.
+ */
+function parseMetaTagAttributes(tag: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+
+  for (const match of tag.matchAll(
+    /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g,
+  )) {
+    const attributeName = match[1].toLowerCase();
+    const attributeValue = (match[2] || match[3] || "").trim();
+    attributes[attributeName] = attributeValue;
+  }
+
+  return attributes;
+}
+
+/**
+ * Process the read meta tag attribute.
+ * @param tag - The tag.
+ * @param attribute - The attribute.
+ * @returns The read meta tag attribute.
+ */
+function readMetaTagAttribute(tag: string, attribute: string): string {
+  return parseMetaTagAttributes(tag)[attribute.toLowerCase()] ?? "";
+}
+
+/**
+ * Process the read tag text.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @returns The read tag text.
+ */
+function readTagText(html: string, tagName: "h1" | "title"): string {
+  const tagMatch = (
+    tagName === "h1"
+      ? /<h1\b[^>]*>([\s\S]*?)<\/h1>/i
+      : /<title\b[^>]*>([\s\S]*?)<\/title>/i
+  ).exec(html);
+
+  return tagMatch?.[1].replace(/<[^>]*>/g, "").trim() ?? "";
 }

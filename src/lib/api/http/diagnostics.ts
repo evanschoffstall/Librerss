@@ -1,4 +1,4 @@
-import { CONFIG } from "@/lib/config";
+import { CONFIG } from "@/lib";
 
 import { isApiError } from "./client";
 
@@ -25,6 +25,12 @@ const SAFE_UPSTREAM_REQUEST_HEADERS = [
   "cache-control",
 ] as const;
 
+/**
+ * Build the api failure diagnostics.
+ * @param error - The error.
+ * @param isApiErrorFn - Whether is api error fn.
+ * @returns The api failure diagnostics.
+ */
 export function buildApiFailureDiagnostics(
   error: unknown,
   isApiErrorFn: typeof isApiError = isApiError,
@@ -56,6 +62,10 @@ export function buildApiFailureDiagnostics(
   };
 }
 
+/**
+ * Return whether is verbose logging enabled.
+ * @returns Whether is verbose logging enabled.
+ */
 export function isVerboseLoggingEnabled(): boolean {
   const envLevel = process.env.LOG_LEVEL?.trim().toLowerCase();
   if (envLevel) {
@@ -69,19 +79,18 @@ export function isVerboseLoggingEnabled(): boolean {
   }
 }
 
+/**
+ * Process the to body snippet.
+ * @param data - The data.
+ * @param maxLength - The max length value.
+ * @returns The to body snippet.
+ */
 export function toBodySnippet(
   data: unknown,
   maxLength = 240,
 ): string | undefined {
   if (typeof data === "string") {
-    const compact = data.replace(/\s+/g, " ").trim();
-    if (!compact) {
-      return undefined;
-    }
-
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
+    return toCompactSnippet(data, maxLength);
   }
 
   if (
@@ -91,19 +100,22 @@ export function toBodySnippet(
     typeof (data as { toString: unknown }).toString === "function"
   ) {
     const text = (data as { toString: () => string }).toString();
-    const compact = text.replace(/\s+/g, " ").trim();
-    if (!compact || compact === "[object Object]") {
+    if (text === "[object Object]") {
       return undefined;
     }
 
-    return compact.length > maxLength
-      ? `${compact.slice(0, maxLength)}…`
-      : compact;
+    return toCompactSnippet(text, maxLength);
   }
 
   return undefined;
 }
 
+/**
+ * Process the pick allowed headers.
+ * @param headers - The headers.
+ * @param allowed - The allowed.
+ * @returns The pick allowed headers.
+ */
 function pickAllowedHeaders(
   headers: unknown,
   allowed: readonly string[],
@@ -118,6 +130,28 @@ function pickAllowedHeaders(
   }, {});
 }
 
+/**
+ * Process the to compact snippet.
+ * @param text - The text.
+ * @param maxLength - The max length value.
+ * @returns The to compact snippet.
+ */
+function toCompactSnippet(text: string, maxLength: number): string | undefined {
+  const compact = text.replace(/\s+/g, " ").trim();
+  if (!compact) {
+    return undefined;
+  }
+
+  return compact.length > maxLength
+    ? `${compact.slice(0, maxLength)}…`
+    : compact;
+}
+
+/**
+ * Process the to header record.
+ * @param headers - The headers.
+ * @returns The to header record.
+ */
 function toHeaderRecord(headers: unknown): Record<string, string> {
   if (!headers || typeof headers !== "object") {
     return {};

@@ -2,8 +2,8 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { SettingsAccountSection } from "@/app/dashboard/components/settings/SettingsAccountSection";
-import { AccountService } from "@/lib";
+import { SettingsAccountSection } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsAccountSection";
+import { AccountService } from "@/lib/api";
 
 const originalConfirm = window.confirm;
 const originalCreateObjectUrl = URL.createObjectURL;
@@ -113,7 +113,9 @@ describe("SettingsAccountSection", () => {
     fireEvent.click(getByRole("button", { name: "Export Data" }));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith("Unable to export account data.");
+      expect(toast.error).toHaveBeenCalledWith(
+        "Unable to export account data.",
+      );
     });
 
     fireEvent.click(getByRole("button", { name: "Delete Account" }));

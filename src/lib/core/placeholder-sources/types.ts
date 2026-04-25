@@ -1,4 +1,4 @@
-import type { FeedSource } from "@/lib/core/types";
+import type { FeedSource } from "@/lib/types";
 
 /** Describes one bundled placeholder article and its local snapshot slug. */
 export interface PlaceholderSeed {
@@ -23,7 +23,11 @@ export interface PlaceholderSourceDefinition {
   source: FeedSource;
 }
 
-/** Converts compact seed tuples into the named records used by the placeholder registry. */
+/**
+ * Create the placeholder seeds.
+ * @param entries - The entries.
+ * @returns The placeholder seeds.
+ */
 export const createPlaceholderSeeds = (
   entries: readonly PlaceholderSeedTuple[],
 ): PlaceholderSeed[] =>

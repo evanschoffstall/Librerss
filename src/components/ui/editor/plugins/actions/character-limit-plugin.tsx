@@ -1,11 +1,11 @@
-import { CharacterLimitPlugin as LexicalCharacterLimitPlugin } from "@lexical/react/LexicalCharacterLimitPlugin"
+import { CharacterLimitPlugin as LexicalCharacterLimitPlugin } from "@lexical/react/LexicalCharacterLimitPlugin";
 
 export function CharacterLimitPlugin({
   maxLength,
   charset,
 }: {
-  maxLength: number
-  charset: "UTF-8" | "UTF-16"
+  maxLength: number;
+  charset: "UTF-8" | "UTF-16";
 }) {
   return (
     <LexicalCharacterLimitPlugin
@@ -19,5 +19,5 @@ export function CharacterLimitPlugin({
         </div>
       )}
     />
-  )
+  );
 }

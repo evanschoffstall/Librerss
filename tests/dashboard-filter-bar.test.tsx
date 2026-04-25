@@ -1,15 +1,15 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { DashboardFilterBar } from "@/app/dashboard/components/DashboardFilterBar";
 import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
-} from "@/app/dashboard/components/DashboardScaffold";
+  DashboardFilterBar,
+} from "@/app/dashboard/dashboard-components/layout";
 import {
   ARTICLE_FILTER_OPTIONS,
   type ArticleFilter,
-} from "@/app/dashboard/services/article-filters";
+} from "@/app/dashboard/dashboard-services/article";
 
 describe("DashboardFilterBar", () => {
   test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {
@@ -27,7 +27,9 @@ describe("DashboardFilterBar", () => {
       container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
     ).toBeTruthy();
     expect(
-      container.querySelectorAll('[data-dashboard-filter-bar-chip-skeleton="true"]'),
+      container.querySelectorAll(
+        '[data-dashboard-filter-bar-chip-skeleton="true"]',
+      ),
     ).toHaveLength(4);
     expect(queryByRole("button", { name: "unread" })).toBeNull();
   });
@@ -151,6 +153,106 @@ describe("DashboardFilterBar", () => {
     });
   });
 
+  test("prefers the larger live viewport height when article expansion outgrows the virtualized total", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div data-feed-total-list-height="720" data-inverted-scroll="true">
+            {Array.from({ length: 40 }, (_value, index) => (
+              <div key={index}>Feed row {index + 1}</div>
+            ))}
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 240;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 1080;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      const thumb = container.querySelector<HTMLElement>(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
+
+      expect(thumb).toBeTruthy();
+      expect(thumb?.getAttribute("style") ?? "").toContain("height: 53px");
+    });
+  });
+
+  test("shows the Motion spinner and skeleton while isSearchPending without loading", () => {
+    // Regression guard: isSearchPending alone (no loading) must activate the
+    // timestamp skeleton so the filter bar reacts to the live-search window
+    // even while the background server fetch runs with keepExistingFeed:true.
+    const { container, getByLabelText, queryByText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
+    expect(loadingIcon?.getAttribute("class")).toContain(
+      "lucide-loader-circle",
+    );
+    expect(getByLabelText("Refreshing")).toBeTruthy();
+    expect(queryByText("2m ago")).toBeNull();
+  });
+
+  test("filter chip buttons remain visible during isSearchPending so the bar stays interactive", () => {
+    // The filter pills (all / unread / read / starred) must never be hidden
+    // while a search is pending — only the timestamp area shows loading state.
+    const { getAllByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    expect(getAllByRole("button")).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
+  });
+
+  test("shows the Motion spinner when both loading and isSearchPending are true", () => {
+    const { container, getByLabelText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isSearchPending
+        lastRefreshLabel="2m ago"
+        loading
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const loadingIcon = container.querySelector("span[aria-live='polite'] svg");
+    expect(loadingIcon?.getAttribute("class")).toContain(
+      "lucide-loader-circle",
+    );
+    expect(getByLabelText("Refreshing")).toBeTruthy();
+  });
+
   test("shows the Motion spinner while the refresh label is skeletoning", () => {
     const { container, getByLabelText, queryByText, rerender } = render(
       <DashboardFilterBar
@@ -205,7 +307,9 @@ describe("DashboardFilterBar", () => {
     expect(queryByLabelText("Refreshing")).toBeNull();
     expect(queryByText("2m ago")).toBeTruthy();
     expect(
-      container.querySelector("span[aria-live='polite'] svg")?.getAttribute("class") ?? "",
+      container
+        .querySelector("span[aria-live='polite'] svg")
+        ?.getAttribute("class") ?? "",
     ).toContain("lucide-refresh-cw");
   });
 
@@ -220,7 +324,9 @@ describe("DashboardFilterBar", () => {
     );
 
     const filterButtons = getAllByRole("button");
-    const filterButtonNames = filterButtons.map((button) => button.textContent?.trim());
+    const filterButtonNames = filterButtons.map((button) =>
+      button.textContent?.trim(),
+    );
 
     expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
     expect(filterButtonNames).toEqual(

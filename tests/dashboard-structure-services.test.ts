@@ -1,10 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { filterArticlesByState } from "@/app/dashboard/services/article-filters";
+import type { Article, CategoryTreeNode } from "@/lib/core";
+
+import { filterArticlesByState } from "@/app/dashboard/dashboard-services/article";
 import {
   buildDisplayCategories,
   computeNextOrderedCategoryLabels,
-} from "@/app/dashboard/services/category-display";
+} from "@/app/dashboard/dashboard-services/category";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
@@ -17,9 +19,8 @@ import {
   relocateFeedInCategories,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toDistinctCategoryLabels,
-} from "@/app/dashboard/services/category-tree";
-import { buildDashboardViewModel } from "@/app/dashboard/services/dashboard-view-model";
-import { type Article, type CategoryTreeNode } from "@/lib";
+} from "@/app/dashboard/dashboard-services/category-tree";
+import { buildDashboardViewModel } from "@/app/dashboard/dashboard-services/dashboard-state";
 
 describe("dashboard structure services", () => {
   test("buildDisplayCategories appends missing custom labels and respects explicit ordering", () => {
@@ -76,9 +77,9 @@ describe("dashboard structure services", () => {
     ]);
     expect(getAllFeedNodes(categories)).toHaveLength(2);
     expect(findFeedNodeByKey(categories, "cat-news-1")?.label).toBe("Feed One");
-    expect(findFeedNodeByUrl(categories, "https://example.com/two.xml")?.key).toBe(
-      "cat-science-2",
-    );
+    expect(
+      findFeedNodeByUrl(categories, "https://example.com/two.xml")?.key,
+    ).toBe("cat-science-2");
     expect(getFeedUrlBySelectedKey(categories, "cat-news-1")).toBe(
       "https://example.com/one.xml",
     );
@@ -98,7 +99,10 @@ describe("dashboard structure services", () => {
 
   test("relocateFeedInCategories moves feeds within and across categories", () => {
     const categories = [
-      createCategory("News", [createFeed("feed-1", "News"), createFeed("feed-2", "News")]),
+      createCategory("News", [
+        createFeed("feed-1", "News"),
+        createFeed("feed-2", "News"),
+      ]),
       createCategory("Science", [createFeed("feed-3", "Science")]),
     ];
 
@@ -111,8 +115,9 @@ describe("dashboard structure services", () => {
     const moved = relocateFeedInCategories(categories, "feed-2", "Design", 0);
     expect(moved.at(-1)?.label).toBe("Design");
     expect(moved.at(-1)?.children?.[0].data?.category).toBe("Design");
-    expect(toDistinctCategoryLabels(["News", "news", "Science", "Science"]))
-      .toEqual(["News", "Science"]);
+    expect(
+      toDistinctCategoryLabels(["News", "news", "Science", "Science"]),
+    ).toEqual(["News", "Science"]);
   });
 
   test("filterArticlesByState applies read, starred, and unread expansion rules", () => {
@@ -131,7 +136,9 @@ describe("dashboard structure services", () => {
       articles[2],
     ]);
     expect(
-      filterArticlesByState(articles, "unread", articles[1].link, [articles[2].link]),
+      filterArticlesByState(articles, "unread", articles[1].link, [
+        articles[2].link,
+      ]),
     ).toEqual([articles[0], articles[1], articles[2]]);
   });
 
@@ -141,10 +148,20 @@ describe("dashboard structure services", () => {
         createFeed("feed-1", "News", "https://example.com/one.xml"),
         createFeed("feed-2", "News", "https://example.com/two.xml", false),
       ]),
-      createCategory("Science", [createFeed("feed-3", "Science", "https://example.com/three.xml")]),
+      createCategory("Science", [
+        createFeed("feed-3", "Science", "https://example.com/three.xml"),
+      ]),
     ];
-    const unreadArticle = createArticle({ id: 1, isRead: false, title: "Alpha launch" });
-    const readArticle = createArticle({ id: 2, isRead: true, title: "Beta mission" });
+    const unreadArticle = createArticle({
+      id: 1,
+      isRead: false,
+      title: "Alpha launch",
+    });
+    const readArticle = createArticle({
+      id: 2,
+      isRead: true,
+      title: "Beta mission",
+    });
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "unread",
@@ -156,24 +173,25 @@ describe("dashboard structure services", () => {
       orderedCategoryLabels: ["Science", "Design", "News"],
       searchTerm: "alpha",
       selectedCategory: "feed-2",
+      useLocalSearch: true,
     });
 
     expect(viewModel.filteredFeed).toEqual([unreadArticle]);
-    expect(viewModel.displayCategories.map((category) => category.label)).toEqual([
-      "Science",
-      "Design",
-      "News",
-    ]);
+    expect(
+      viewModel.displayCategories.map((category) => category.label),
+    ).toEqual(["Science", "Design", "News"]);
     expect(viewModel.sidebarCategories[0]).toEqual(SYSTEM_ALL_FEEDS_CATEGORY);
-    expect(viewModel.sidebarCategories[1].children?.map((feed) => feed.key)).toEqual([
-      "feed-3",
-    ]);
+    expect(
+      viewModel.sidebarCategories[1].children?.map((feed) => feed.key),
+    ).toEqual(["feed-3"]);
     expect(viewModel.selectedFeedUrl).toBeUndefined();
     expect(viewModel.selectedFeed).toBe("Feed feed-2");
   });
 });
 
-function createArticle(overrides: Partial<Article> & Pick<Article, "id">): Article {
+function createArticle(
+  overrides: Partial<Article> & Pick<Article, "id">,
+): Article {
   const id = overrides.id;
 
   return {
@@ -192,7 +210,10 @@ function createArticle(overrides: Partial<Article> & Pick<Article, "id">): Artic
   };
 }
 
-function createCategory(label: string, children: CategoryTreeNode[] = []): CategoryTreeNode {
+function createCategory(
+  label: string,
+  children: CategoryTreeNode[] = [],
+): CategoryTreeNode {
   return {
     children,
     key: `cat-${label.toLowerCase()}`,

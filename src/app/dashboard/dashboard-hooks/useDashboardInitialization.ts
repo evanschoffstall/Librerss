@@ -1,0 +1,54 @@
+"use client";
+
+import { useEffect } from "react";
+
+import { type UseDashboardInitializationOptions } from "@/app/dashboard/dashboard-hooks/dashboard-effects.contracts";
+import { initializeDashboardSelection } from "@/app/dashboard/dashboard-services/selection";
+
+/**
+ * Manage the dashboard initialization.
+ * @param options - The options used to manage the dashboard initialization.
+ */
+export function useDashboardInitialization(
+  options: UseDashboardInitializationOptions,
+) {
+  const {
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    initialArticleLimit,
+    loadFeedSources,
+    selectedCategory,
+    setIsCategoriesLoading,
+    setSelectedCategory,
+  } = options;
+  useEffect(() => {
+    if (hasInitializedDashboardRef.current) {
+      return;
+    }
+
+    hasInitializedDashboardRef.current = true;
+
+    void initializeDashboardSelection({
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      initialArticleLimit,
+      loadFeedSources,
+      selectedCategory,
+      setIsCategoriesLoading,
+      setSelectedCategory,
+    });
+  }, [
+    selectedCategory,
+    loadFeedSources,
+    fetchAllFeeds,
+    fetchFeed,
+    fetchCategoryFeeds,
+    initialArticleLimit,
+    setSelectedCategory,
+    setIsCategoriesLoading,
+    hasInitializedDashboardRef,
+  ]);
+}

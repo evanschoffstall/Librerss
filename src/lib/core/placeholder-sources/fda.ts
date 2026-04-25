@@ -19,7 +19,7 @@ export const FDA_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition = {
       "FDA Takes Further Steps to Streamline Biosimilar Development and Make Medicines More Affordable",
       "fda-takes-further-steps-streamline-biosimilar-development-and-make-medicines-more-affordable",
       "https://www.fda.gov/news-events/press-announcements/fda-takes-further-steps-streamline-biosimilar-development-and-make-medicines-more-affordable",
-      "The U.S. Food and Drug Administration today announced another major step in its initiative to streamline the development of biosimilar medicines, which are like \"generic\" versions of biologic drugs.",
+      'The U.S. Food and Drug Administration today announced another major step in its initiative to streamline the development of biosimilar medicines, which are like "generic" versions of biologic drugs.',
     ],
     [
       "FDA Launches New Adverse Event Look-Up Tool",

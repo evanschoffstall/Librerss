@@ -4,7 +4,7 @@ import {
   ARTICLE_CONTENT_PREVIEW_LENGTH,
   ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH,
   truncateArticlePreviewText,
-} from "@/lib/core/article-preview";
+} from "@/lib/core/preview";
 
 describe("article preview", () => {
   test("exports the shared preview budget constants", () => {

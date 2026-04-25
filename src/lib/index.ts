@@ -1,38 +1,25 @@
-// Main library exports - organized by domain
-
-// API clients
-export { AccountService } from "./api/account-service";
-export { ArticleService } from "./api/article-service";
-export { AuthService } from "./api/auth-service";
-export { FeedService } from "./api/feed-service";
-// Core: types, constants, utilities, hooks
-export type {
-  Article,
-  AuthSession,
-  AuthUser,
-  CategoryTreeNode,
-  FeedSource,
-} from "./core/types";
-export { useDebugState } from "./hooks/useDebugState";
-export { useIsMobile } from "./hooks/useIsMobile";
-export { useLocalStorage } from "./hooks/useLocalStorage";
-
-export { useSessionState } from "./hooks/useSessionState";
-export { useViewportRestore } from "./hooks/useViewportRestore";
-
-// Shared utilities
 export {
-  DEFAULT_CATEGORY_LABEL,
-  findCategoryByLabel,
-  includesCategoryLabel,
-  isSameCategoryLabel,
-  normalizeCategory,
-  normalizeCategoryLabelKey,
-  removeCategoryLabel,
-  replaceCategoryLabel,
-} from "./utils/categories";
-export { formatRelativeDate } from "./utils/dates";
-export type { OpmlFeedImportEntry } from "./utils/opml";
-export { generateOpml, parseOpmlFeedImport } from "./utils/opml";
-export { isValidUrl } from "./utils/url";
-export { isSafePositiveItemId } from "./utils/validation";
+  clientFeedBatchConcurrency,
+  clientFeedBatchMaxUrls,
+  clientFeedCacheTtlMinutes,
+  clientFeedRefreshDiagnosticsEnabled,
+  clientFeedRequestTimeoutMs,
+  CONFIG,
+  envBooleanOptional,
+  envStringOptional,
+  isDevelopment,
+  maxArticleConsecutiveBlankLines,
+} from "@/lib/config";
+export {
+  MOBILE_TOAST_TOP_STORAGE_KEY,
+  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+  SETTINGS_PANEL_TAB_STORAGE_KEY,
+} from "@/lib/dashboard-preferences";
+export {
+  LEGAL_CONSENT_VERSION,
+  LEGAL_LAST_UPDATED,
+} from "@/lib/legal/metadata";
+export { logger } from "@/lib/logger";
+export { ServerServiceError } from "@/lib/service-errors";

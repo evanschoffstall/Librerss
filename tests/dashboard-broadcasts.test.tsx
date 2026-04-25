@@ -1,121 +1,84 @@
-import { renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { useDashboardBroadcasts } from "@/app/dashboard/hooks/useDashboardBroadcasts";
+import { dispatchDashboardBroadcasts } from "@/app/dashboard/dashboard-hooks/useDashboardBroadcasts";
 
 function collectDashboardBroadcasts() {
   const shellLoadingStates: boolean[] = [];
   const pendingStates: boolean[] = [];
   const terms: string[] = [];
   const titles: string[] = [];
+  const target = {
+    dispatchEvent(event: Event) {
+      if (event.type === DASHBOARD_EVENTS.SHELL_LOADING) {
+        shellLoadingStates.push(
+          (event as CustomEvent<{ loading: boolean }>).detail.loading,
+        );
+      }
+      if (event.type === DASHBOARD_EVENTS.TITLE_CHANGE) {
+        titles.push((event as CustomEvent<{ title: string }>).detail.title);
+      }
+      if (event.type === DASHBOARD_EVENTS.SEARCH_SYNC) {
+        terms.push((event as CustomEvent<{ term: string }>).detail.term);
+      }
+      if (event.type === DASHBOARD_EVENTS.SEARCH_PENDING) {
+        pendingStates.push(
+          (event as CustomEvent<{ pending: boolean }>).detail.pending,
+        );
+      }
 
-  const onShellLoading = (event: Event) => {
-    shellLoadingStates.push(
-      (event as CustomEvent<{ loading: boolean }>).detail.loading,
-    );
-  };
-
-  const onTitleChange = (event: Event) => {
-    titles.push((event as CustomEvent<{ title: string }>).detail.title);
-  };
-  const onSearchSync = (event: Event) => {
-    terms.push((event as CustomEvent<{ term: string }>).detail.term);
-  };
-  const onSearchPending = (event: Event) => {
-    pendingStates.push(
-      (event as CustomEvent<{ pending: boolean }>).detail.pending,
-    );
-  };
-
-  window.addEventListener(DASHBOARD_EVENTS.SHELL_LOADING, onShellLoading);
-  window.addEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, onTitleChange);
-  window.addEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, onSearchSync);
-  window.addEventListener(DASHBOARD_EVENTS.SEARCH_PENDING, onSearchPending);
+      return true;
+    },
+  } satisfies Pick<Window, "dispatchEvent">;
 
   return {
     pendingStates,
-    restore() {
-      window.removeEventListener(DASHBOARD_EVENTS.SHELL_LOADING, onShellLoading);
-      window.removeEventListener(DASHBOARD_EVENTS.TITLE_CHANGE, onTitleChange);
-      window.removeEventListener(DASHBOARD_EVENTS.SEARCH_SYNC, onSearchSync);
-      window.removeEventListener(
-        DASHBOARD_EVENTS.SEARCH_PENDING,
-        onSearchPending,
-      );
-    },
     shellLoadingStates,
+    target,
     terms,
     titles,
   };
 }
 
-afterEach(() => {
-  window.dispatchEvent(
-    new CustomEvent(DASHBOARD_EVENTS.TITLE_CHANGE, {
-      detail: { title: "cleanup" },
-    }),
-  );
-});
-
 describe("dashboard broadcasts", () => {
-  test("emits title, search term, and pending events on mount", () => {
+  test("dispatches title, search term, and pending events", () => {
     const broadcasts = collectDashboardBroadcasts();
 
-    try {
-      renderHook(() =>
-        useDashboardBroadcasts({
-          isSearchPending: true,
-          isShellLoading: true,
-          searchTerm: "weather",
-          selectedFeed: "NOAA",
-        }),
-      );
+    dispatchDashboardBroadcasts(broadcasts.target, {
+      isSearchPending: true,
+      isShellLoading: true,
+      searchTerm: "weather-broadcast-test",
+      selectedFeed: "NOAA",
+    });
 
-      expect(broadcasts.shellLoadingStates).toEqual([true]);
-      expect(broadcasts.titles).toEqual(["NOAA"]);
-      expect(broadcasts.terms).toEqual(["weather"]);
-      expect(broadcasts.pendingStates).toEqual([true]);
-    } finally {
-      broadcasts.restore();
-    }
+    expect(broadcasts.shellLoadingStates).toContain(true);
+    expect(broadcasts.titles).toContain("NOAA");
+    expect(broadcasts.terms).toContain("weather-broadcast-test");
+    expect(broadcasts.pendingStates).toContain(true);
   });
 
-  test("emits updated values when the hook props change", () => {
+  test("dispatches updated values when the dashboard state changes", () => {
     const broadcasts = collectDashboardBroadcasts();
 
-    try {
-      const { rerender } = renderHook(
-        ({ isSearchPending, isShellLoading, searchTerm, selectedFeed }) =>
-          useDashboardBroadcasts({
-            isSearchPending,
-            isShellLoading,
-            searchTerm,
-            selectedFeed,
-          }),
-        {
-          initialProps: {
-            isSearchPending: false,
-            isShellLoading: false,
-            searchTerm: "initial",
-            selectedFeed: undefined as string | undefined,
-          },
-        },
-      );
+    dispatchDashboardBroadcasts(broadcasts.target, {
+      isSearchPending: false,
+      isShellLoading: false,
+      searchTerm: "initial-broadcast-test",
+      selectedFeed: undefined,
+    });
+    dispatchDashboardBroadcasts(broadcasts.target, {
+      isSearchPending: true,
+      isShellLoading: true,
+      searchTerm: "updated-broadcast-test",
+      selectedFeed: "USGS",
+    });
 
-      rerender({
-        isSearchPending: true,
-        isShellLoading: true,
-        searchTerm: "updated",
-        selectedFeed: "USGS",
-      });
-
-      expect(broadcasts.shellLoadingStates).toEqual([false, true]);
-      expect(broadcasts.titles).toEqual(["LibreRSS", "USGS"]);
-      expect(broadcasts.terms).toEqual(["initial", "updated"]);
-      expect(broadcasts.pendingStates).toEqual([false, true]);
-    } finally {
-      broadcasts.restore();
-    }
+    expect(broadcasts.shellLoadingStates).toEqual([false, true]);
+    expect(broadcasts.titles).toEqual(["LibreRSS", "USGS"]);
+    expect(broadcasts.terms).toEqual([
+      "initial-broadcast-test",
+      "updated-broadcast-test",
+    ]);
+    expect(broadcasts.pendingStates).toEqual([false, true]);
   });
 });

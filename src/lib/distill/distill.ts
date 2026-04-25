@@ -9,11 +9,12 @@ import { librerssDistill } from "./librerss";
 import { readabilityDistill } from "./readability";
 
 /**
- * Distill an article from pre-cleaned HTML using the given strategy.
- *
- * - `librerss`    — built-in heuristic body selection (default)
- * - `readability` — Mozilla Readability via linkedom
- * - `defuddle`    — Defuddle via linkedom
+ * Process the distill article.
+ * @param html - The html.
+ * @param url - The url.
+ * @param strategy - The strategy.
+ * @param options - The options used to process the distill article.
+ * @returns The distill article.
  */
 export async function distillArticle(
   html: string,

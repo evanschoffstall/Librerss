@@ -1,13 +1,14 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { DashboardFilterBarSkeleton } from "@/app/dashboard/components/DashboardFilterBar";
+import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
+import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
 import {
   DashboardFeedViewport,
+  DashboardFilterBarSkeleton,
   DashboardScaffold,
-} from "@/app/dashboard/components/DashboardScaffold";
-import { DashboardSidebarSkeleton } from "@/app/dashboard/components/DashboardSidebarContent";
-import { FeedListSkeleton } from "@/app/dashboard/components/feed/FeedListSkeleton";
+  DashboardSidebarSkeleton,
+} from "@/app/dashboard/dashboard-components/layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /** Constructs the same shell skeleton composition used by page.tsx and DashboardRouter. */
@@ -29,6 +30,11 @@ function DashboardShellSkeleton({
             pointer-events-none absolute top-1/2 size-64 -translate-y-1/2
             rounded-full bg-primary/5 blur-3xl
           "
+        />
+        <DashboardToolbarSkeleton
+          isDevelopmentMode={true}
+          mobileToolbarBottom={true}
+          mobileToolbarMirror={true}
         />
         <DashboardScaffold
           feed={
@@ -55,6 +61,14 @@ describe("DashboardShellSkeleton", () => {
     expect(getByLabelText("Loading dashboard").getAttribute("aria-busy")).toBe(
       "true",
     );
+    expect(
+      container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+    ).toBeTruthy();
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-toolbar-skeleton-action="true"]',
+      ),
+    ).toHaveLength(12);
     expect(container.querySelector(".max-w-6xl")).toBeTruthy();
     expect(container.querySelectorAll('[class*="bg-card/35"]')).toHaveLength(1);
     expect(
@@ -67,7 +81,7 @@ describe("DashboardShellSkeleton", () => {
     ).toHaveLength(4);
     expect(
       container.querySelectorAll('[data-dashboard-article-skeleton="true"]'),
-    ).toHaveLength(4);
+    ).toHaveLength(5);
     expect(
       container.querySelectorAll(
         '[data-dashboard-sidebar-skeleton-row="true"]',
@@ -78,11 +92,7 @@ describe("DashboardShellSkeleton", () => {
   test("does not stack a second scaffold inset above the first article skeleton", () => {
     const { container } = render(<DashboardShellSkeleton />);
 
-    expect(
-      container.querySelectorAll(
-        '[class*="pt-[calc(env(safe-area-inset-top)+3.8rem)]"]',
-      ),
-    ).toHaveLength(1);
+    expect(container.querySelectorAll('[class*="sm:pt-14"]')).toHaveLength(0);
   });
 
   test("shared dashboard skeleton surfaces do not start with a vertical translate", () => {
@@ -108,9 +118,7 @@ describe("DashboardShellSkeleton", () => {
     expect(filterBarSkeletonSurface?.style.transform ?? "").not.toContain(
       "translateY",
     );
-    expect(sidebarSkeleton?.style.transform ?? "").not.toContain(
-      "translateY",
-    );
+    expect(sidebarSkeleton?.style.transform ?? "").not.toContain("translateY");
     expect(feedListSkeleton?.className ?? "").toContain("max-w-3xl");
     expect(feedListSkeleton?.className ?? "").toContain("lg:max-w-none");
     expect(filterBarSkeletonSurface?.className ?? "").toContain("max-w-3xl");
@@ -144,7 +152,7 @@ describe("DashboardShellSkeleton", () => {
     });
     feedListSkeleton!.style.rowGap = "6px";
     firstArticleSkeleton!.getBoundingClientRect = () =>
-      ({ height: 120 } as DOMRect);
+      ({ height: 120 }) as DOMRect;
 
     act(() => {
       window.dispatchEvent(new Event("resize"));
@@ -152,7 +160,9 @@ describe("DashboardShellSkeleton", () => {
 
     await waitFor(() => {
       expect(
-        container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
+        container.querySelectorAll(
+          '[data-dashboard-feed-list-skeleton-item="true"]',
+        ),
       ).toHaveLength(4);
     });
     expect(
@@ -169,10 +179,12 @@ describe("DashboardShellSkeleton", () => {
 
     expect(
       feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
-    ).toBe("4");
+    ).toBe("5");
     expect(
-      container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
-    ).toHaveLength(4);
+      container.querySelectorAll(
+        '[data-dashboard-feed-list-skeleton-item="true"]',
+      ),
+    ).toHaveLength(5);
   });
 
   test("clamps the feed skeleton count to one when the viewport is shorter than one row", async () => {
@@ -200,7 +212,7 @@ describe("DashboardShellSkeleton", () => {
     });
     feedListSkeleton!.style.rowGap = "6px";
     firstArticleSkeleton!.getBoundingClientRect = () =>
-      ({ height: 120 } as DOMRect);
+      ({ height: 120 }) as DOMRect;
 
     act(() => {
       window.dispatchEvent(new Event("resize"));
@@ -208,7 +220,9 @@ describe("DashboardShellSkeleton", () => {
 
     await waitFor(() => {
       expect(
-        container.querySelectorAll('[data-dashboard-feed-list-skeleton-item="true"]'),
+        container.querySelectorAll(
+          '[data-dashboard-feed-list-skeleton-item="true"]',
+        ),
       ).toHaveLength(1);
     });
     expect(
@@ -240,7 +254,7 @@ describe("DashboardShellSkeleton", () => {
       },
     });
     firstArticleSkeleton!.getBoundingClientRect = () =>
-      ({ height: 0 } as DOMRect);
+      ({ height: 0 }) as DOMRect;
 
     act(() => {
       window.dispatchEvent(new Event("resize"));
@@ -248,8 +262,10 @@ describe("DashboardShellSkeleton", () => {
 
     await waitFor(() => {
       expect(
-        feedListSkeleton?.getAttribute("data-dashboard-feed-list-skeleton-count"),
-      ).toBe("4");
+        feedListSkeleton?.getAttribute(
+          "data-dashboard-feed-list-skeleton-count",
+        ),
+      ).toBe("5");
     });
   });
 
@@ -291,7 +307,7 @@ describe("DashboardShellSkeleton", () => {
       },
     });
     firstArticleSkeleton!.getBoundingClientRect = () =>
-      ({ height: 120 } as DOMRect);
+      ({ height: 120 }) as DOMRect;
 
     act(() => {
       window.dispatchEvent(new Event("resize"));

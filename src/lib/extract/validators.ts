@@ -1,9 +1,6 @@
 import { jsonError } from "@/lib/api/http";
-import {
-  isAllowedFeedUrl,
-  PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feed-url-validator";
-import { stripUrlFragment } from "@/lib/utils/url";
+import { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "@/lib/core";
+import { stripUrlFragment } from "@/lib/utils";
 
 /** Dep-injection seam — allows tests to swap SSRF validator and error factory. */
 interface ParseArticleUrlDeps {
@@ -12,13 +9,10 @@ interface ParseArticleUrlDeps {
 }
 
 /**
- * Validates a raw article URL string for the extract pipeline:
- *  1. Blank → 400
- *  2. SSRF-blocked or non-public host → 400
- *  3. Strips fragment (RFC 3986 §3.5) before any outbound request
- *
- * Takes the URL string directly so callers avoid re-serialising and
- * re-parsing an already-parsed request body.
+ * Parse the and validate article url.
+ * @param rawUrl - The raw url.
+ * @param deps - The deps.
+ * @returns The and validate article url.
  */
 export async function parseAndValidateArticleUrl(
   rawUrl: string,

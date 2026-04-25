@@ -3,15 +3,21 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as React from "react";
 import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
+import * as realSonnerModule from "sonner";
 
-import * as realDashboardToolbar from "@/app/dashboard/components/DashboardToolbar";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import { DashboardToolbar as realDashboardToolbar } from "@/app/dashboard/dashboard-components";
+import {
+  DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+  DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+  DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+} from "@/app/dashboard/dashboard-services";
 import * as realUiSkeleton from "@/components/ui/skeleton";
-import { AuthService } from "@/lib";
+import { AuthService } from "@/lib/api";
 
 async function loadDashboardToolbar() {
   return import(
-    `@/app/dashboard/components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/dashboard-components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -115,7 +121,9 @@ describe("DashboardToolbar", () => {
     const { DashboardToolbar } = await loadDashboardToolbar();
     const { getAllByLabelText } = render(<DashboardToolbar />);
 
-    expect(getAllByLabelText("Mark fully visible articles as read")).toHaveLength(2);
+    expect(
+      getAllByLabelText("Mark fully visible articles as read"),
+    ).toHaveLength(2);
   });
 
   test("shows a skeleton in the viewport read button while processing", async () => {
@@ -126,7 +134,9 @@ describe("DashboardToolbar", () => {
 
     const { DashboardToolbar } = await loadDashboardToolbar();
     const { getAllByLabelText } = render(<DashboardToolbar />);
-    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const viewportButtons = getAllByLabelText(
+      "Mark fully visible articles as read",
+    );
     const refreshButtons = getAllByLabelText("Refresh selected feed");
     const markAllReadButton = getByLabelTextOrThrow("Mark all read");
 
@@ -189,6 +199,51 @@ describe("DashboardToolbar", () => {
     expect(queryByPlaceholderText("Search...")).toBeTruthy();
   });
 
+  test("settles the optimistic toolbar skeleton when the document is already complete", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const originalReadyStateDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "readyState",
+    );
+
+    Object.defineProperty(document, "readyState", {
+      configurable: true,
+      get() {
+        return "complete";
+      },
+    });
+    delete document.documentElement.dataset.dashboardShellLoading;
+
+    try {
+      const { DashboardToolbar } = await loadDashboardToolbar();
+      const { container, queryByPlaceholderText } = render(
+        <DashboardToolbar startInShellLoading />,
+      );
+
+      expect(
+        container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+      ).toBeTruthy();
+      await waitFor(() => {
+        expect(
+          container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+        ).toBeNull();
+        expect(queryByPlaceholderText("Search...")).toBeTruthy();
+      });
+    } finally {
+      if (originalReadyStateDescriptor) {
+        Object.defineProperty(
+          document,
+          "readyState",
+          originalReadyStateDescriptor,
+        );
+      }
+    }
+  });
+
   test("shows skeletons in all toolbar actions while refresh is processing", async () => {
     setNodeEnv("test");
 
@@ -198,7 +253,9 @@ describe("DashboardToolbar", () => {
     const { DashboardToolbar } = await loadDashboardToolbar();
     const { getAllByLabelText, getByLabelText } = render(<DashboardToolbar />);
     const refreshButtons = getAllByLabelText("Refresh selected feed");
-    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const viewportButtons = getAllByLabelText(
+      "Mark fully visible articles as read",
+    );
     const markAllReadButton = getByLabelText("Mark all read");
 
     await act(async () => {
@@ -224,7 +281,9 @@ describe("DashboardToolbar", () => {
     const { DashboardToolbar } = await loadDashboardToolbar();
     const { getAllByLabelText, getByLabelText } = render(<DashboardToolbar />);
     const refreshButtons = getAllByLabelText("Refresh selected feed");
-    const viewportButtons = getAllByLabelText("Mark fully visible articles as read");
+    const viewportButtons = getAllByLabelText(
+      "Mark fully visible articles as read",
+    );
     const markAllReadButton = getByLabelText("Mark all read");
 
     await act(async () => {
@@ -249,6 +308,18 @@ describe("DashboardToolbar", () => {
     const assign = mock(() => {});
 
     AuthService.logout = logout;
+    window.localStorage.setItem(
+      DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
+      JSON.stringify("placeholder-feeds"),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+      JSON.stringify("read"),
+    );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      JSON.stringify(4),
+    );
     window.localStorage.setItem("librerss:test", "value");
     window.sessionStorage.setItem("librerss:test", "value");
     document.cookie = "librerss_dashboard_preview=1; Path=/";
@@ -267,6 +338,15 @@ describe("DashboardToolbar", () => {
     await waitFor(() => {
       expect(logout).not.toHaveBeenCalled();
       expect(assign).toHaveBeenCalledWith(window.location.href);
+      expect(
+        window.localStorage.getItem(DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY),
+      ).toBe(JSON.stringify("placeholder-feeds"));
+      expect(
+        window.localStorage.getItem(DASHBOARD_ARTICLE_FILTER_STORAGE_KEY),
+      ).toBe(JSON.stringify("read"));
+      expect(
+        window.localStorage.getItem(DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY),
+      ).toBe(JSON.stringify(4));
       expect(window.localStorage.getItem("librerss:test")).toBeNull();
       expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
       expect(document.cookie).not.toContain("librerss_dashboard_preview=");
@@ -323,14 +403,20 @@ function getByLabelTextOrThrow(label: string) {
 
 /** Installs module mocks for toolbar dependencies before importing the subject. */
 function mockToolbarDependencies() {
-  mock.module("@/app/dashboard/components/DashboardToolbar", () => realDashboardToolbar);
+  mock.module("@/app/dashboard/dashboard-components/DashboardToolbar", () => ({
+    DashboardToolbar: realDashboardToolbar,
+  }));
   mock.module("@/components/ui/skeleton", () => realUiSkeleton);
   mock.module("next-themes", () => ({
     ThemeProvider: MockThemeProvider,
     useTheme: () => ({ resolvedTheme: "dark", setTheme: mock(() => {}) }),
   }));
   mock.module("sonner", () => ({
-    toast: { error: mock(() => {}) },
+    ...realSonnerModule,
+    toast: {
+      ...realSonnerModule.toast,
+      error: mock(() => {}),
+    },
   }));
   mock.module("@/components/ui/dropdown-menu", () => ({
     DropdownMenu: ({ children }: { children: React.ReactNode }) => (

@@ -1,21 +1,21 @@
 import type { Page } from "@playwright/test";
 
 import {
-    articleCard,
-    articleCardByKey,
-    expectArticleExpanded,
+  articleCard,
+  articleCardByKey,
+  expectArticleExpanded,
   expectPreviewDashboard,
-    gotoPreviewDashboard,
-    hasLoadMoreSentinel,
-    locateViewportArticle,
-    openDashboardSettings,
-    readArticleKey,
-    readRenderedArticleCount,
-    readRenderedItemWindow,
-    scrollFeedViewportToBottom,
-    selectExpandedArticleText,
-    swipeArticle,
-    toggleArticle,
+  gotoPreviewDashboard,
+  hasLoadMoreSentinel,
+  locateViewportArticle,
+  openDashboardSettings,
+  readArticleKey,
+  readRenderedArticleCount,
+  readRenderedItemWindow,
+  scrollFeedViewportToBottom,
+  selectExpandedArticleText,
+  swipeArticle,
+  toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -68,7 +68,9 @@ async function collectArticleTopFrameSamples(
           (candidate) => candidate.dataset.articleKey === articleKey,
         );
         const viewports = Array.from(
-          document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]"),
+          document.querySelectorAll<HTMLElement>(
+            "[data-radix-scroll-area-viewport]",
+          ),
         );
         let viewport: HTMLElement | null = null;
 
@@ -79,10 +81,15 @@ async function collectArticleTopFrameSamples(
         }
 
         if (!article || !viewport) {
-          throw new Error("Expected article and active feed viewport to be present.");
+          throw new Error(
+            "Expected article and active feed viewport to be present.",
+          );
         }
 
-        return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+        return (
+          article.getBoundingClientRect().top -
+          viewport.getBoundingClientRect().top
+        );
       };
 
       const sample = (label: string) => {
@@ -142,7 +149,11 @@ function expectImmediateLayoutRelease(
     `${articleLabel} should move above baseline within the sampled frames after button-read`,
   ).toBe(true);
 
-  for (let sampleIndex = 1; sampleIndex < topTimeline.length; sampleIndex += 1) {
+  for (
+    let sampleIndex = 1;
+    sampleIndex < topTimeline.length;
+    sampleIndex += 1
+  ) {
     expect(
       topTimeline[sampleIndex] - topTimeline[sampleIndex - 1],
       `${articleLabel} moved downward during the first animation frames after button-read`,
@@ -159,7 +170,11 @@ function expectMonotonicUpwardMotion(
     (topTimeline[0] ?? 0) - 40,
   );
 
-  for (let sampleIndex = 1; sampleIndex < topTimeline.length; sampleIndex += 1) {
+  for (
+    let sampleIndex = 1;
+    sampleIndex < topTimeline.length;
+    sampleIndex += 1
+  ) {
     expect(
       topTimeline[sampleIndex] - topTimeline[sampleIndex - 1],
       `${articleLabel} moved downward during unread swipe reflow`,
@@ -176,31 +191,57 @@ async function performArticleActionAndCollectFrameSamples(
   frameCount = 4,
 ) {
   return (await page.evaluate(
-    async ({ actionName, nextFrameCount, targetArticleKey, targetArticleKeys, targetRowKeys }) => {
+    async ({
+      actionName,
+      nextFrameCount,
+      targetArticleKey,
+      targetArticleKeys,
+      targetRowKeys,
+    }) => {
       const readArticleTopWithinActiveViewport = (articleKey: string) => {
-        const article = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
-          (candidate) => candidate.dataset.articleKey === articleKey,
-        );
-        const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-        const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-          if (!selected) {
-            return candidate;
-          }
+        const article = [
+          ...document.querySelectorAll<HTMLElement>(
+            "article[data-article-key]",
+          ),
+        ].find((candidate) => candidate.dataset.articleKey === articleKey);
+        const viewports = [
+          ...document.querySelectorAll<HTMLElement>(
+            "[data-radix-scroll-area-viewport]",
+          ),
+        ];
+        const viewport = viewports.reduce<HTMLElement | null>(
+          (selected, candidate) => {
+            if (!selected) {
+              return candidate;
+            }
 
-          return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-        }, null);
+            return candidate.scrollHeight > selected.scrollHeight
+              ? candidate
+              : selected;
+          },
+          null,
+        );
 
         if (!article || !viewport) {
-          throw new Error("Expected article and active feed viewport to be present.");
+          throw new Error(
+            "Expected article and active feed viewport to be present.",
+          );
         }
 
-        return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+        return (
+          article.getBoundingClientRect().top -
+          viewport.getBoundingClientRect().top
+        );
       };
 
       const sample = (label: string) => {
         const rows = Object.fromEntries(
           targetRowKeys.map((rowKey) => {
-            const row = Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]")).find(
+            const row = Array.from(
+              document.querySelectorAll<HTMLElement>(
+                "[data-scroll-restore-key]",
+              ),
+            ).find(
               (candidate) => candidate.dataset.scrollRestoreKey === rowKey,
             );
 
@@ -234,16 +275,23 @@ async function performArticleActionAndCollectFrameSamples(
       ).find((candidate) => candidate.dataset.articleKey === targetArticleKey);
 
       if (!article) {
-        throw new Error("Expected target article to be present for frame sampling.");
+        throw new Error(
+          "Expected target article to be present for frame sampling.",
+        );
       }
 
       if (actionName === "button-read") {
-        const button = Array.from(article.querySelectorAll<HTMLButtonElement>("button")).find(
-          (candidate) => candidate.getAttribute("aria-label") === "Mark as read",
+        const button = Array.from(
+          article.querySelectorAll<HTMLButtonElement>("button"),
+        ).find(
+          (candidate) =>
+            candidate.getAttribute("aria-label") === "Mark as read",
         );
 
         if (!button) {
-          throw new Error("Expected Mark as read button to exist for frame sampling.");
+          throw new Error(
+            "Expected Mark as read button to exist for frame sampling.",
+          );
         }
 
         button.click();
@@ -252,14 +300,16 @@ async function performArticleActionAndCollectFrameSamples(
         const pointerId = 501;
         const y = rect.top + rect.height * 0.5;
         const dispatchPointer = (type: string, clientX: number) => {
-          article.dispatchEvent(new PointerEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            clientX,
-            clientY: y,
-            pointerId,
-            pointerType: "touch",
-          }));
+          article.dispatchEvent(
+            new PointerEvent(type, {
+              bubbles: true,
+              cancelable: true,
+              clientX,
+              clientY: y,
+              pointerId,
+              pointerType: "touch",
+            }),
+          );
         };
 
         dispatchPointer("pointerdown", rect.left + rect.width * 0.24);
@@ -291,17 +341,17 @@ async function performArticleActionAndCollectFrameSamples(
 
 async function readArticleBodyState(page: Page, articleKey: string) {
   return await page.evaluate((targetArticleKey) => {
-    const article = [...document.querySelectorAll<HTMLElement>('article[data-article-key]')].find(
-      (candidate) => candidate.dataset.articleKey === targetArticleKey,
-    );
+    const article = [
+      ...document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ].find((candidate) => candidate.dataset.articleKey === targetArticleKey);
 
     if (!article) {
-      throw new Error('Expected article to exist while reading body state.');
+      throw new Error("Expected article to exist while reading body state.");
     }
 
-    const body = article.querySelector<HTMLElement>('.article-swipe-body');
+    const body = article.querySelector<HTMLElement>(".article-swipe-body");
     if (!body) {
-      throw new Error('Expected article body surface to exist.');
+      throw new Error("Expected article body surface to exist.");
     }
 
     return {
@@ -309,7 +359,9 @@ async function readArticleBodyState(page: Page, articleKey: string) {
       hasHydrationLoading: Boolean(
         article.querySelector('[data-article-hydration-state="loading"]'),
       ),
-      hasPreview: Boolean(article.querySelector('[data-article-preview="true"]')),
+      hasPreview: Boolean(
+        article.querySelector('[data-article-preview="true"]'),
+      ),
     };
   }, articleKey);
 }
@@ -341,23 +393,36 @@ async function readArticleTopWithinActiveViewport(
   articleKey: string,
 ) {
   return await page.evaluate((targetArticleKey) => {
-    const article = [...document.querySelectorAll<HTMLElement>("article[data-article-key]")].find(
-      (candidate) => candidate.dataset.articleKey === targetArticleKey,
-    );
-    const viewports = [...document.querySelectorAll<HTMLElement>("[data-radix-scroll-area-viewport]")];
-    const viewport = viewports.reduce<HTMLElement | null>((selected, candidate) => {
-      if (!selected) {
-        return candidate;
-      }
+    const article = [
+      ...document.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ].find((candidate) => candidate.dataset.articleKey === targetArticleKey);
+    const viewports = [
+      ...document.querySelectorAll<HTMLElement>(
+        "[data-radix-scroll-area-viewport]",
+      ),
+    ];
+    const viewport = viewports.reduce<HTMLElement | null>(
+      (selected, candidate) => {
+        if (!selected) {
+          return candidate;
+        }
 
-      return candidate.scrollHeight > selected.scrollHeight ? candidate : selected;
-    }, null);
+        return candidate.scrollHeight > selected.scrollHeight
+          ? candidate
+          : selected;
+      },
+      null,
+    );
 
     if (!article || !viewport) {
-      throw new Error("Expected article and active feed viewport to be present.");
+      throw new Error(
+        "Expected article and active feed viewport to be present.",
+      );
     }
 
-    return article.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    return (
+      article.getBoundingClientRect().top - viewport.getBoundingClientRect().top
+    );
   }, articleKey);
 }
 
@@ -379,6 +444,8 @@ async function swipeArticleReadAndCollectFrameSamples(
 }
 
 test.describe("dashboard interaction coverage", () => {
+  test.describe.configure({ mode: "serial" });
+
   test("covers article actions, expanded text selection, and share dialogs", async ({
     page,
   }) => {
@@ -418,13 +485,16 @@ test.describe("dashboard interaction coverage", () => {
         return expandedBodyState.bodyTextLength;
       })
       .toBeGreaterThan(collapsedBodyState.bodyTextLength + 80);
-    await expect(article.getByRole("link", { name: "Open article" })).toHaveAttribute(
-      "href",
-      articleKey,
-    );
+    await expect(
+      article.getByRole("link", { name: "Open article" }),
+    ).toHaveAttribute("href", articleKey);
 
-    await article.getByRole("button", { name: "Share article options" }).click();
-    await expect(page.getByRole("menuitem", { name: "Copy link" })).toBeVisible();
+    await article
+      .getByRole("button", { name: "Share article options" })
+      .click();
+    await expect(
+      page.getByRole("menuitem", { name: "Copy link" }),
+    ).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "Email" })).toBeVisible();
     await expect(
       page.getByRole("menuitem", { name: "Share to Reddit" }),
@@ -453,14 +523,20 @@ test.describe("dashboard interaction coverage", () => {
       .toBeGreaterThan(0);
 
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("heading", { name: "Copy Link" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Copy Link" })).toHaveCount(
+      0,
+    );
 
     await article.hover();
-    await article.getByRole("button", { name: "View raw article HTML" }).click();
+    await article
+      .getByRole("button", { name: "View raw article HTML" })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Raw Article HTML" }),
     ).toBeVisible();
-    const rawHtmlInput = page.locator("textarea[aria-label='Raw article HTML']").last();
+    const rawHtmlInput = page
+      .locator("textarea[aria-label='Raw article HTML']")
+      .last();
 
     await expect
       .poll(async () => {
@@ -506,7 +582,9 @@ test.describe("dashboard interaction coverage", () => {
       return document.documentElement.classList.contains("dark");
     });
 
-    await page.getByRole("button", { name: /Switch to .* mode|Toggle theme/ }).click();
+    await page
+      .getByRole("button", { name: /Switch to .* mode|Toggle theme/ })
+      .click();
     await expect
       .poll(async () => {
         return await page.evaluate(() => {
@@ -521,7 +599,8 @@ test.describe("dashboard interaction coverage", () => {
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
     const firstArticleTitle =
-      (await articleCard(page, 0).getByRole("heading").textContent())?.trim() ?? "";
+      (await articleCard(page, 0).getByRole("heading").textContent())?.trim() ??
+      "";
     if (firstArticleTitle === "") {
       throw new Error("Expected the first preview article to include a title.");
     }
@@ -574,12 +653,13 @@ test.describe("dashboard interaction coverage", () => {
       secondArticleKey,
       thirdArticleKey,
     ]);
-    const firstRemovalFrameSamples = await clickArticleReadButtonAndCollectFrameSamples(
-      page,
-      firstArticleKey,
-      [secondArticleKey, thirdArticleKey],
-      [firstArticleKey],
-    );
+    const firstRemovalFrameSamples =
+      await clickArticleReadButtonAndCollectFrameSamples(
+        page,
+        firstArticleKey,
+        [secondArticleKey, thirdArticleKey],
+        [firstArticleKey],
+      );
     await expect(
       page.locator("article[data-article-key][aria-expanded='true']"),
     ).toHaveCount(0);
@@ -615,26 +695,20 @@ test.describe("dashboard interaction coverage", () => {
       thirdArticleKey,
     );
 
-    await expect.poll(async () => {
-      return await articleCardByKey(page, firstArticleKey).count();
-    }).toBe(
-      0,
-    );
+    await expect
+      .poll(async () => {
+        return await articleCardByKey(page, firstArticleKey).count();
+      })
+      .toBe(0);
     await expect(articleCardByKey(page, firstArticleKey)).toHaveCount(0);
-    expectMonotonicUpwardMotion(
-      secondArticleKey,
-      [
-        firstRemovalBaseline.get(secondArticleKey) ?? 0,
-        ...firstRemovalTimeline,
-      ],
-    );
-    expectMonotonicUpwardMotion(
-      thirdArticleKey,
-      [
-        firstRemovalBaseline.get(thirdArticleKey) ?? 0,
-        ...firstRemovalThirdTimeline,
-      ],
-    );
+    expectMonotonicUpwardMotion(secondArticleKey, [
+      firstRemovalBaseline.get(secondArticleKey) ?? 0,
+      ...firstRemovalTimeline,
+    ]);
+    expectMonotonicUpwardMotion(thirdArticleKey, [
+      firstRemovalBaseline.get(thirdArticleKey) ?? 0,
+      ...firstRemovalThirdTimeline,
+    ]);
 
     expect(await readArticleKey(articleCard(page, 0))).toBe(secondArticleKey);
     expect(await readArticleKey(articleCard(page, 1))).toBe(thirdArticleKey);
@@ -660,26 +734,20 @@ test.describe("dashboard interaction coverage", () => {
       fourthArticleKey,
     );
 
-    await expect.poll(async () => {
-      return await articleCardByKey(page, secondArticleKey).count();
-    }).toBe(
-      0,
-    );
+    await expect
+      .poll(async () => {
+        return await articleCardByKey(page, secondArticleKey).count();
+      })
+      .toBe(0);
     await expect(articleCardByKey(page, secondArticleKey)).toHaveCount(0);
-    expectMonotonicUpwardMotion(
-      thirdArticleKey,
-      [
-        secondSwipeBaseline.get(thirdArticleKey) ?? 0,
-        ...secondSwipeTimeline,
-      ],
-    );
-    expectMonotonicUpwardMotion(
-      fourthArticleKey,
-      [
-        secondSwipeBaseline.get(fourthArticleKey) ?? 0,
-        ...secondSwipeFourthTimeline,
-      ],
-    );
+    expectMonotonicUpwardMotion(thirdArticleKey, [
+      secondSwipeBaseline.get(thirdArticleKey) ?? 0,
+      ...secondSwipeTimeline,
+    ]);
+    expectMonotonicUpwardMotion(fourthArticleKey, [
+      secondSwipeBaseline.get(fourthArticleKey) ?? 0,
+      ...secondSwipeFourthTimeline,
+    ]);
   });
 
   test("keeps consecutive top unread button-read removals from flashing downward", async ({
@@ -765,31 +833,26 @@ test.describe("dashboard interaction coverage", () => {
     ]);
 
     await expect(articleCardByKey(page, firstArticleKey)).toHaveCount(0);
-    expectMonotonicUpwardMotion(
-      secondArticleKey,
-      [
-        swipeBaseline.get(secondArticleKey) ?? 0,
-        ...readArticleTopTimeline(swipeFollowerSamples, secondArticleKey),
-      ],
-    );
-    expectMonotonicUpwardMotion(
-      thirdArticleKey,
-      [
-        swipeBaseline.get(thirdArticleKey) ?? 0,
-        ...readArticleTopTimeline(swipeFollowerSamples, thirdArticleKey),
-      ],
-    );
+    expectMonotonicUpwardMotion(secondArticleKey, [
+      swipeBaseline.get(secondArticleKey) ?? 0,
+      ...readArticleTopTimeline(swipeFollowerSamples, secondArticleKey),
+    ]);
+    expectMonotonicUpwardMotion(thirdArticleKey, [
+      swipeBaseline.get(thirdArticleKey) ?? 0,
+      ...readArticleTopTimeline(swipeFollowerSamples, thirdArticleKey),
+    ]);
 
     const buttonBaseline = await readArticleTopSnapshot(page, [
       thirdArticleKey,
       fourthArticleKey,
     ]);
-    const buttonFrameSamples = await clickArticleReadButtonAndCollectFrameSamples(
-      page,
-      secondArticleKey,
-      [thirdArticleKey, fourthArticleKey],
-      [secondArticleKey],
-    );
+    const buttonFrameSamples =
+      await clickArticleReadButtonAndCollectFrameSamples(
+        page,
+        secondArticleKey,
+        [thirdArticleKey, fourthArticleKey],
+        [secondArticleKey],
+      );
 
     expectFrameSampleLabels(buttonFrameSamples, [
       "sync-after-action",
@@ -924,7 +987,8 @@ test.describe("dashboard interaction coverage", () => {
     expect(nextWindow.count).toBeGreaterThan(0);
     expect(nextWindow.maxIndex).not.toBeNull();
     expect(initialWindow.maxIndex).not.toBeNull();
-    expect(nextWindow.maxIndex!).toBeGreaterThanOrEqual(initialWindow.maxIndex!);
+    expect(nextWindow.maxIndex!).toBeGreaterThanOrEqual(
+      initialWindow.maxIndex!,
+    );
   });
-
 });

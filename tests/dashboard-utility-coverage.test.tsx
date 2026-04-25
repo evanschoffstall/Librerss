@@ -1,29 +1,26 @@
 import { describe, expect, test } from "bun:test";
 
 import {
-  DASHBOARD_PREVIEW_COOKIE_NAME,
-  isDashboardPreviewModeEnabled,
-  resolveDashboardPreviewMode,
-  setDashboardPreviewPersistence,
-} from "@/app/dashboard/preview-mode";
-import { loadFeedSourceTree } from "@/app/dashboard/services/feed-source-tree";
-import {
-  getFeedBatchQueryKey,
-  getFeedSourceTreeQueryKey,
-} from "@/app/dashboard/services/query-keys";
-import {
   AUTO_REFRESH_INTERVAL_STORAGE_KEY,
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   toAutoRefreshIntervalMs,
-} from "@/app/dashboard/services/refresh-policy";
-import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/viewport-read";
+} from "@/app/dashboard/dashboard-services/dashboard-preferences";
+import { loadFeedSourceTree } from "@/app/dashboard/dashboard-services/feed-data";
 import {
-  isRouteHandlerContext,
-  resolveRouteHandlerDeps,
-} from "@/lib/server/route-context";
+  collectFullyVisibleUnreadArticles,
+  getFeedBatchQueryKey,
+  getFeedSourceTreeQueryKey,
+} from "@/app/dashboard/dashboard-services/feed-view-model";
+import {
+  DASHBOARD_PREVIEW_COOKIE_NAME,
+  isDashboardPreviewModeEnabled,
+  resolveDashboardPreviewMode,
+  setDashboardPreviewPersistence,
+} from "@/app/dashboard/preview-mode";
+import { isRouteHandlerContext, serverApi } from "@/lib/server";
 
 describe("dashboard utility coverage", () => {
   test("query-key helpers encode filter, refresh policy, and sorted timestamps", () => {
@@ -44,6 +41,7 @@ describe("dashboard utility coverage", () => {
       "request-signature",
       "starred",
       "all-articles",
+      "",
       "skip-refresh",
       "https://example.com/a.xml@2024-01-01T00:00:00.000Z|https://example.com/b.xml@2024-01-02T00:00:00.000Z",
     ]);
@@ -54,6 +52,7 @@ describe("dashboard utility coverage", () => {
       "request-signature",
       "all",
       "all-articles",
+      "",
       "refresh",
       "",
     ]);
@@ -158,8 +157,12 @@ describe("dashboard utility coverage", () => {
 
     expect(isRouteHandlerContext(context)).toBe(true);
     expect(isRouteHandlerContext({ params: { id: "42" } })).toBe(false);
-    expect(resolveRouteHandlerDeps<{ value?: number }>(context)).toEqual({});
-    expect(resolveRouteHandlerDeps({ value: 1 })).toEqual({ value: 1 });
+    expect(
+      serverApi.resolveRouteHandlerDeps<{ value?: number }>(context),
+    ).toEqual({});
+    expect(serverApi.resolveRouteHandlerDeps({ value: 1 })).toEqual({
+      value: 1,
+    });
     expect(await context.params).toEqual({ id: "42" });
   });
 });

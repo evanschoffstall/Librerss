@@ -2,13 +2,15 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { type PropsWithChildren, StrictMode } from "react";
 
-import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/services/settings-proxy";
-import { ArticleService } from "@/lib";
+import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/dashboard-services/settings-proxy";
+import { ArticleService } from "@/lib/api";
 
 type ProxyCompatibilityResponse = Awaited<
   ReturnType<typeof ArticleService.runProxyCompatibilityCheck>
 >;
-type ProxySettingsResponse = Awaited<ReturnType<typeof ArticleService.getProxySettings>>;
+type ProxySettingsResponse = Awaited<
+  ReturnType<typeof ArticleService.getProxySettings>
+>;
 
 const originalGetProxySettings = ArticleService.getProxySettings;
 const originalRunProxyCompatibilityCheck =
@@ -30,14 +32,14 @@ function createDeferred<Value>() {
 
 async function loadSettingsProxyStateModule() {
   return import(
-    `@/app/dashboard/hooks/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/settings-state/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
   );
 }
 
 async function loadUseSettingsProxyState() {
   return (
     await import(
-      `@/app/dashboard/hooks/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/settings-state/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
     )
   ).useSettingsProxyState;
 }
@@ -89,18 +91,19 @@ describe("useSettingsProxyState", () => {
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings(),
     ) as typeof ArticleService.getProxySettings;
-    ArticleService.saveProxyUrl = mock(async (proxyUrl: null | string, options) =>
-      makeProxySettings({
-        allowInsecureTls: options?.allowInsecureTls ?? false,
-        configured: proxyUrl !== null,
-        hasProxyPassword:
-          options?.proxyPassword === undefined
-            ? proxyUrl !== null
-            : options.proxyPassword !== null,
-        proxyUrl,
-        proxyUsername: options?.proxyUsername ?? null,
-        status: proxyUrl ? "reachable" : "unreachable",
-      }),
+    ArticleService.saveProxyUrl = mock(
+      async (proxyUrl: null | string, options) =>
+        makeProxySettings({
+          allowInsecureTls: options?.allowInsecureTls ?? false,
+          configured: proxyUrl !== null,
+          hasProxyPassword:
+            options?.proxyPassword === undefined
+              ? proxyUrl !== null
+              : options.proxyPassword !== null,
+          proxyUrl,
+          proxyUsername: options?.proxyUsername ?? null,
+          status: proxyUrl ? "reachable" : "unreachable",
+        }),
     ) as typeof ArticleService.saveProxyUrl;
     ArticleService.runProxyCompatibilityCheck = mock(async () =>
       makeCompatibilityResponse(),
@@ -366,7 +369,12 @@ describe("useSettingsProxyState", () => {
     const useSettingsProxyState = await loadUseSettingsProxyState();
     window.localStorage.setItem(
       COMPATIBILITY_RESULTS_CACHE_KEY,
-      JSON.stringify({ checkedAt: 1, results: [{ compatibilitySignalDetected: false, success: true, vendor: "Old" }] }),
+      JSON.stringify({
+        checkedAt: 1,
+        results: [
+          { compatibilitySignalDetected: false, success: true, vendor: "Old" },
+        ],
+      }),
     );
     ArticleService.saveProxyUrl = mock(async (proxyUrl, options) =>
       makeProxySettings({

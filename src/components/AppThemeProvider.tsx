@@ -6,24 +6,27 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import { Toaster } from "sonner";
 
-import { DashboardToolbar } from "@/app/dashboard/components/DashboardToolbar";
-import {
-  MOBILE_TOAST_TOP_STORAGE_KEY,
-  MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-  MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-} from "@/app/dashboard/constants";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useIsMobile, useLocalStorage } from "@/lib";
+import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/lib";
+import { useIsMobile, useLocalStorage } from "@/lib/hooks";
 
-const dashboardToolbarAwareTopToastOffset = { left: 16, right: 16, top: 63 };
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
 const trueTopToastOffset = { left: 16, right: 16, top: 16 };
+interface AppThemeProviderProps {
+  children: ReactNode;
+}
 
+interface ToastPlacementOptions {
+  isMobileGroupedLayout: boolean;
+  isMobileViewport: boolean;
+}
 /**
- * Provides the app-wide theme context along with shared floating UI such as
- * the theme toggle and the global toast mount.
+ * Render the app theme provider component.
+ * @param props - The component props.
+ * @returns The rendered app theme provider component.
  */
-export function AppThemeProvider({ children }: { children: ReactNode }) {
+export function AppThemeProvider(props: AppThemeProviderProps) {
+  const { children } = props;
   return (
     <ThemeProvider
       attribute="class"
@@ -44,27 +47,16 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 }
 
 /**
- * Resolves the global toast anchor and offset from the current mobile toast
- * and toolbar settings so top toasts only reserve space when a toolbar is
- * actually pinned to the top edge.
+ * Return the toast placement.
+ * @param options - The options used to return the toast placement.
+ * @returns The toast placement.
  */
-export function getToastPlacement({
-  isMobileToastTop,
-  isMobileToolbarBottom,
-  isMobileViewport,
-}: {
-  isMobileToastTop: boolean;
-  isMobileToolbarBottom: boolean;
-  isMobileViewport: boolean;
-}) {
-  if (isMobileToastTop && isMobileViewport) {
-    const topOffset = isMobileToolbarBottom
-      ? trueTopToastOffset
-      : dashboardToolbarAwareTopToastOffset;
-
+export function getToastPlacement(options: ToastPlacementOptions) {
+  const { isMobileGroupedLayout, isMobileViewport } = options;
+  if (isMobileGroupedLayout && isMobileViewport) {
     return {
-      mobileOffset: topOffset,
-      offset: topOffset,
+      mobileOffset: trueTopToastOffset,
+      offset: trueTopToastOffset,
       position: "top-right" as const,
     };
   }
@@ -77,15 +69,15 @@ export function getToastPlacement({
 }
 
 /**
- * Mirrors the resolved app theme onto the Next.js dev-tools portal host so the
- * shadow-DOM error overlay follows the active light or dark mode in development.
+ * Render the next dev tools theme bridge component.
+ * @returns The rendered next dev tools theme bridge component.
  */
 function NextDevToolsThemeBridge() {
   const { resolvedTheme } = useTheme();
   const pathname = usePathname();
   const isMobileViewport = useIsMobile();
-  const [isMobileToolbarMirrored] = useLocalStorage(
-    MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
+  const [isMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
@@ -96,8 +88,11 @@ function NextDevToolsThemeBridge() {
 
     const activeTheme = resolvedTheme === "light" ? "light" : "dark";
     const shouldUseTopRightDevToolsBadge =
-      pathname === "/dashboard" && isMobileViewport && isMobileToolbarMirrored;
+      pathname === "/dashboard" && isMobileViewport && isMobileGroupedLayout;
 
+    /**
+     * Process the sync portal theme.
+     */
     const syncPortalTheme = () => {
       for (const portal of document.querySelectorAll<HTMLElement>(
         "nextjs-portal",
@@ -145,32 +140,35 @@ function NextDevToolsThemeBridge() {
     return () => {
       observer.disconnect();
     };
-  }, [isMobileToolbarMirrored, isMobileViewport, pathname, resolvedTheme]);
+  }, [isMobileGroupedLayout, isMobileViewport, pathname, resolvedTheme]);
 
   return null;
 }
 
 /**
- * Mounts the global Sonner toaster with the active light or dark theme.
+ * Render the themed toaster component.
+ * @returns The rendered themed toaster component.
  */
 function ThemedToaster() {
   const { resolvedTheme } = useTheme();
   const isMobileViewport = useIsMobile();
-  const [isMobileToastTop] = useLocalStorage(MOBILE_TOAST_TOP_STORAGE_KEY, true);
-  const [isMobileToolbarBottom] = useLocalStorage(
-    MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
+  const [isMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
 
   const { mobileOffset, offset, position } = useMemo(() => {
     return getToastPlacement({
-      isMobileToastTop,
-      isMobileToolbarBottom,
+      isMobileGroupedLayout,
       isMobileViewport,
     });
-  }, [isMobileToastTop, isMobileToolbarBottom, isMobileViewport]);
+  }, [isMobileGroupedLayout, isMobileViewport]);
 
   useEffect(() => {
+    /**
+     * Process the handle toast click to dismiss.
+     * @param event - The incoming event.
+     */
     const handleToastClickToDismiss = (event: MouseEvent) => {
       const target = event.target;
       if (!(target instanceof HTMLElement)) {
@@ -230,8 +228,8 @@ function ThemedToaster() {
 }
 
 /**
- * Renders either the full dashboard toolbar or a standalone theme toggle,
- * depending on the current route.
+ * Render the theme mode toggle component.
+ * @returns The rendered theme mode toggle component.
  */
 function ThemeModeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -249,7 +247,7 @@ function ThemeModeToggle() {
   const nextTheme = isDark ? "light" : "dark";
 
   if (isDashboardRoute && dashboardView === "dashboard") {
-    return <DashboardToolbar startInShellLoading={true} />;
+    return null;
   }
 
   return (
@@ -268,11 +266,7 @@ function ThemeModeToggle() {
           }}
           type="button"
         >
-          {isDark ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
+          {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
         </button>
       ) : (
         <Skeleton className="size-4 rounded-full" />

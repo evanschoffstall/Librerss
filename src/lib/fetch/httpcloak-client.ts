@@ -1,11 +1,19 @@
-import { CONFIG } from "@/lib/config";
-import { decodeTextBody } from "@/lib/utils/content-encoding";
+import { CONFIG } from "@/lib";
+import { decodeHttpResponseBody } from "@/lib/utils";
 import {
   HttpCloakUpstreamError,
   pickDiagnosticHeaders,
   requestWithHttpCloakValidatedRedirects,
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
+
+interface AssertSuccessfulHttpCloakResponseOptions {
+  allowInsecureTls: boolean;
+  decodedBody: string;
+  proxyAddress: null | string;
+  proxyMode: "direct" | "proxy";
+  response: Awaited<ReturnType<typeof requestWithHttpCloakValidatedRedirects>>;
+}
 
 interface HttpCloakFetchDeps {
   requestFn?: ValidatedHttpCloakRequestFn;
@@ -27,10 +35,13 @@ interface HttpCloakFetchResult {
   requestHeaders: Record<string, string>;
   statusCode?: number;
 }
-
 /**
- * Fetch article HTML through HTTPCloak using the shared transport request
- * profile and SSRF-safe redirect validation.
+ * Process the fetch html with http cloak.
+ * @param url - The url.
+ * @param isAllowedUrl - Whether is allowed url.
+ * @param options - The options used to process the fetch html with http cloak.
+ * @param deps - The deps.
+ * @returns The fetch html with http cloak.
  */
 export async function fetchHtmlWithHttpCloak(
   url: string,
@@ -40,46 +51,25 @@ export async function fetchHtmlWithHttpCloak(
 ): Promise<HttpCloakFetchResult> {
   const proxyMode = options?.proxyUrl ? "proxy" : "direct";
   const allowInsecureTls = options?.allowInsecureTls ?? false;
-  const response = await requestWithHttpCloakValidatedRedirects(
-    {
-      allowInsecureTls,
-      browserPreset: "chrome-latest",
-      maxRedirects: 5,
-      proxyUrl: options?.proxyUrl,
-      timeoutMs: 25_000,
-      url,
-      validateUrl: async (candidateUrl, isRedirectTarget) => {
-        if (!(await isAllowedUrl(candidateUrl))) {
-          throw new Error(
-            isRedirectTarget ? "Blocked redirect target" : "Blocked URL",
-          );
-        }
-      },
-    },
-    { requestFn: deps?.requestFn },
+  const response = await requestHttpCloakResponse(
+    url,
+    isAllowedUrl,
+    options,
+    deps,
+    allowInsecureTls,
   );
 
-  const decodedBody = await decodeResponseBody(response);
+  const decodedBody = await decodeHttpResponseBody(response, {
+    maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
+  });
 
-  if (response.statusCode < 200 || response.statusCode >= 300) {
-    throw new HttpCloakUpstreamError(
-      response.statusCode,
-      decodedBody,
-      proxyMode,
-      options?.proxyUrl ?? null,
-      allowInsecureTls,
-      response.redirectHop,
-      response.headers,
-      response.requestHeaders,
-    );
-  }
-
-  if (
-    Buffer.byteLength(decodedBody, "utf8") >
-    CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
-  ) {
-    throw new Error("Upstream response too large");
-  }
+  assertSuccessfulHttpCloakResponse({
+    allowInsecureTls,
+    decodedBody,
+    proxyAddress: options?.proxyUrl ?? null,
+    proxyMode,
+    response,
+  });
 
   return {
     diagnosticHeaders: pickDiagnosticHeaders(response.headers),
@@ -90,33 +80,72 @@ export async function fetchHtmlWithHttpCloak(
   };
 }
 
-async function decodeResponseBody(
-  response: {
-    body: Buffer | string;
-    headers: Record<string, string | string[] | undefined>;
-    text?: string;
-  },
-): Promise<string> {
-  if (typeof response.text === "string") {
-    return response.text;
+/**
+ * Process the assert successful http cloak response.
+ * @param options - The options used to process the assert successful http cloak response.
+ */
+function assertSuccessfulHttpCloakResponse(
+  options: AssertSuccessfulHttpCloakResponseOptions,
+) {
+  const { allowInsecureTls, decodedBody, proxyAddress, proxyMode, response } =
+    options;
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new HttpCloakUpstreamError({
+      allowInsecureTls,
+      proxyAddress,
+      proxyMode,
+      redirectHop: response.redirectHop,
+      requestHeaders: response.requestHeaders,
+      responseBody: decodedBody,
+      responseHeaders: response.headers,
+      statusCode: response.statusCode,
+    });
   }
 
-  return decodeTextBody(
-    Buffer.isBuffer(response.body)
-      ? response.body
-      : Buffer.from(response.body, "latin1"),
-    getSingleHeaderValue(response.headers, "content-encoding"),
-    { maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES },
-  );
+  if (
+    Buffer.byteLength(decodedBody, "utf8") > CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES
+  ) {
+    throw new Error("Upstream response too large");
+  }
 }
 
-function getSingleHeaderValue(
-  headers: Record<string, string | string[] | undefined>,
-  headerName: string,
-): string | undefined {
-  const match = Object.entries(headers).find(
-    ([name]) => name.toLowerCase() === headerName,
-  )?.[1];
-
-  return Array.isArray(match) ? match[0] : match;
+/**
+ * Process the request http cloak response.
+ * @param url - The url.
+ * @param isAllowedUrl - Whether is allowed url.
+ * @param options - The options used to process the request http cloak response.
+ * @param deps - The deps.
+ * @param allowInsecureTls - The allow insecure tls.
+ * @returns The request http cloak response.
+ */
+async function requestHttpCloakResponse(
+  url: string,
+  isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
+  options: HttpCloakFetchOptions | undefined,
+  deps: HttpCloakFetchDeps | undefined,
+  allowInsecureTls: boolean,
+) {
+  return requestWithHttpCloakValidatedRedirects(
+    {
+      allowInsecureTls,
+      browserPreset: "chrome-latest",
+      maxRedirects: 5,
+      proxyUrl: options?.proxyUrl,
+      timeoutMs: 25_000,
+      url,
+      /**
+       * Process the validate url.
+       * @param candidateUrl - The candidate url.
+       * @param isRedirectTarget - Whether is redirect target.
+       */
+      validateUrl: async (candidateUrl, isRedirectTarget) => {
+        if (!(await isAllowedUrl(candidateUrl))) {
+          throw new Error(
+            isRedirectTarget ? "Blocked redirect target" : "Blocked URL",
+          );
+        }
+      },
+    },
+    { requestFn: deps?.requestFn },
+  );
 }

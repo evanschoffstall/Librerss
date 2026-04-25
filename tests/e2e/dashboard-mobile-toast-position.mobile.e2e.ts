@@ -7,18 +7,14 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
-const MOBILE_TOAST_TOP_STORAGE_KEY = "librerss:mobileToastTop";
-const MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY = "librerss:mobileToolbarBottom";
-const MOBILE_TOOLBAR_MIRROR_STORAGE_KEY = "librerss:mobileToolbarMirror";
+const MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY = "librerss:mobileUiGroupedLayout";
 
 interface MobileToastPreferenceMatrixCase {
   expectedTop: {
     max: number;
     min: number;
   };
-  mobileToastTop: boolean;
-  mobileToolbarBottom: boolean;
-  mobileToolbarMirror: boolean;
+  mobileUiGroupedLayout: boolean;
   name: string;
 }
 
@@ -29,7 +25,7 @@ function latestToast(page: Page): Locator {
 
 /** Returns the settings switch that controls mobile toast placement. */
 function mobileToastTopSwitch(page: Page): Locator {
-  return page.locator("#mobile-toast-top");
+  return page.locator("#mobile-ui-grouped-layout");
 }
 
 /** Reads the latest toast geometry relative to the current mobile viewport. */
@@ -78,47 +74,25 @@ async function readLatestToastMetrics(page: Page) {
 async function setMobileToastPreferences(
   page: Page,
   {
-    mobileToastTop,
-    mobileToolbarBottom,
-    mobileToolbarMirror,
+    mobileUiGroupedLayout,
   }: Omit<MobileToastPreferenceMatrixCase, "expectedTop" | "name">,
 ) {
   await page.addInitScript(
     ({
-      mobileToastTopStorageKey,
-      mobileToolbarBottomStorageKey,
-      mobileToolbarMirrorStorageKey,
-      nextMobileToastTop,
-      nextMobileToolbarBottom,
-      nextMobileToolbarMirror,
+      mobileUiGroupedLayoutStorageKey,
+      nextMobileUiGroupedLayout,
     }: {
-      mobileToastTopStorageKey: string;
-      mobileToolbarBottomStorageKey: string;
-      mobileToolbarMirrorStorageKey: string;
-      nextMobileToastTop: boolean;
-      nextMobileToolbarBottom: boolean;
-      nextMobileToolbarMirror: boolean;
+      mobileUiGroupedLayoutStorageKey: string;
+      nextMobileUiGroupedLayout: boolean;
     }) => {
       window.localStorage.setItem(
-        mobileToastTopStorageKey,
-        JSON.stringify(nextMobileToastTop),
-      );
-      window.localStorage.setItem(
-        mobileToolbarBottomStorageKey,
-        JSON.stringify(nextMobileToolbarBottom),
-      );
-      window.localStorage.setItem(
-        mobileToolbarMirrorStorageKey,
-        JSON.stringify(nextMobileToolbarMirror),
+        mobileUiGroupedLayoutStorageKey,
+        JSON.stringify(nextMobileUiGroupedLayout),
       );
     },
     {
-      mobileToastTopStorageKey: MOBILE_TOAST_TOP_STORAGE_KEY,
-      mobileToolbarBottomStorageKey: MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
-      mobileToolbarMirrorStorageKey: MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
-      nextMobileToastTop: mobileToastTop,
-      nextMobileToolbarBottom: mobileToolbarBottom,
-      nextMobileToolbarMirror: mobileToolbarMirror,
+      mobileUiGroupedLayoutStorageKey: MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      nextMobileUiGroupedLayout: mobileUiGroupedLayout,
     },
   );
 }
@@ -132,13 +106,16 @@ async function triggerInvalidFeedToast(page: Page) {
   await page
     .getByPlaceholder("https://example.com/feed.xml")
     .fill("not-a-valid-url");
-  await page.getByRole("button", { name: /^Add Feed$/ }).last().click();
+  await page
+    .getByRole("button", { name: /^Add Feed$/ })
+    .last()
+    .click();
 
   await expect(latestToast(page)).toBeVisible({ timeout: 10_000 });
 }
 
 test.describe("dashboard mobile toast placement", () => {
-  test("shows the mobile top-toast setting enabled by default and keeps toasts near the top", async ({
+  test("shows the grouped mobile UI setting enabled by default and keeps toasts near the top", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
@@ -160,35 +137,13 @@ test.describe("dashboard mobile toast placement", () => {
   for (const matrixCase of [
     {
       expectedTop: { max: 32, min: 0 },
-      mobileToastTop: true,
-      mobileToolbarBottom: true,
-      mobileToolbarMirror: true,
-      name:
-        "uses a true top inset when top toasts are enabled and the mirrored mobile toolbar stays at the bottom",
+      mobileUiGroupedLayout: true,
+      name: "uses a true top inset when grouped mobile UI layout is enabled",
     },
     {
-      expectedTop: { max: 32, min: 0 },
-      mobileToastTop: true,
-      mobileToolbarBottom: true,
-      mobileToolbarMirror: false,
-      name:
-        "keeps the same true top inset when top toasts are enabled and the bottom toolbar is not mirrored",
-    },
-    {
-      expectedTop: { max: 96, min: 56 },
-      mobileToastTop: true,
-      mobileToolbarBottom: false,
-      mobileToolbarMirror: true,
-      name:
-        "keeps a toolbar clearance when top toasts are enabled and the mirrored mobile toolbar is pinned to the top",
-    },
-    {
-      expectedTop: { max: 96, min: 56 },
-      mobileToastTop: true,
-      mobileToolbarBottom: false,
-      mobileToolbarMirror: false,
-      name:
-        "keeps a toolbar clearance when top toasts are enabled and the top toolbar is not mirrored",
+      expectedTop: { max: 999, min: 120 },
+      mobileUiGroupedLayout: false,
+      name: "moves toasts away from the top when grouped mobile UI layout is disabled",
     },
   ] satisfies MobileToastPreferenceMatrixCase[]) {
     test(matrixCase.name, async ({ page }) => {
@@ -198,15 +153,25 @@ test.describe("dashboard mobile toast placement", () => {
 
       const toastTopSwitch = mobileToastTopSwitch(page);
       await expect(toastTopSwitch).toBeVisible();
-      await expect(toastTopSwitch).toBeChecked();
+      if (matrixCase.mobileUiGroupedLayout) {
+        await expect(toastTopSwitch).toBeChecked();
+      } else {
+        await expect(toastTopSwitch).not.toBeChecked();
+      }
 
       await triggerInvalidFeedToast(page);
 
       const toastMetrics = await readLatestToastMetrics(page);
-      expect(toastMetrics.top).toBeGreaterThanOrEqual(matrixCase.expectedTop.min);
+      expect(toastMetrics.top).toBeGreaterThanOrEqual(
+        matrixCase.expectedTop.min,
+      );
       expect(toastMetrics.top).toBeLessThanOrEqual(matrixCase.expectedTop.max);
       expect(toastMetrics.rightGap).toBeLessThanOrEqual(24);
-      expect(toastMetrics.bottomGap).toBeGreaterThan(120);
+      if (matrixCase.mobileUiGroupedLayout) {
+        expect(toastMetrics.bottomGap).toBeGreaterThan(120);
+      } else {
+        expect(toastMetrics.bottomGap).toBeLessThanOrEqual(48);
+      }
     });
   }
 });

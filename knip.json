@@ -1,6 +1,12 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/app/**/*.{ts,tsx}", "scripts/**/*.{ts,mjs}"],
+  "entry": [
+    "check-suite.config.ts",
+    "src/app/**/*.{ts,tsx}",
+    "src/public.ts",
+    "src/lib/core/server-core/index.ts",
+    "scripts/**/*.{ts,mjs}"
+  ],
   "project": [
     "next-env.test-d.ts",
     "src/**/*.{js,jsx,ts,tsx}",
@@ -9,6 +15,11 @@
   ],
   "ignoreIssues": {
     "next-env.test-d.ts": ["files"],
+    "src/lib/core/server-core/cache.ts": ["exports"],
+    "src/lib/core/server-core/fetcher.ts": ["exports"],
+    "src/lib/core/server-core/mark-stream-read.ts": ["exports"],
+    "src/lib/core/server-core/records.ts": ["exports"],
+    "src/lib/core/server-core/status.ts": ["exports"],
     "src/components/ui/**": ["classMembers", "exports", "files", "types"]
   },
   "includeEntryExports": true,

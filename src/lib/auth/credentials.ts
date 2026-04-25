@@ -16,10 +16,21 @@ type DataSource =
   | { data: Record<string, unknown>; type: "object" }
   | { data: URLSearchParams; type: "params" };
 
+/**
+ * Normalize the email input.
+ * @param value - The value.
+ * @returns The email input.
+ */
 export function normalizeEmailInput(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+/**
+ * Parse the email password from form data.
+ * @param formData - The form data.
+ * @param options - The options used to parse the email password from form data.
+ * @returns The email password from form data.
+ */
 export function parseEmailPasswordFromFormData(
   formData: FormData,
   options?: EmailPasswordFieldOptions,
@@ -31,6 +42,12 @@ export function parseEmailPasswordFromFormData(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * Parse the email password from record.
+ * @param payload - The payload.
+ * @param options - The options used to parse the email password from record.
+ * @returns The email password from record.
+ */
 export function parseEmailPasswordFromRecord(
   payload: Record<string, unknown>,
   options?: EmailPasswordFieldOptions,
@@ -42,6 +59,12 @@ export function parseEmailPasswordFromRecord(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * Parse the email password from search params.
+ * @param searchParams - The search params.
+ * @param options - The options used to parse the email password from search params.
+ * @returns The email password from search params.
+ */
 export function parseEmailPasswordFromSearchParams(
   searchParams: URLSearchParams,
   options?: EmailPasswordFieldOptions,
@@ -53,6 +76,12 @@ export function parseEmailPasswordFromSearchParams(
   return finalizeCredentials(email, password);
 }
 
+/**
+ * Process the finalize credentials.
+ * @param email - The email.
+ * @param password - The password.
+ * @returns The finalize credentials.
+ */
 function finalizeCredentials(
   email: string,
   password: string,
@@ -68,6 +97,12 @@ function finalizeCredentials(
   };
 }
 
+/**
+ * Process the first value.
+ * @param source - The source.
+ * @param keys - The keys.
+ * @returns The first value.
+ */
 function firstValue(source: DataSource, keys: readonly string[]): string {
   for (const key of keys) {
     let value: unknown;
@@ -86,6 +121,12 @@ function firstValue(source: DataSource, keys: readonly string[]): string {
   return "";
 }
 
+/**
+ * Process the first value from form data.
+ * @param formData - The form data.
+ * @param keys - The keys.
+ * @returns The first value from form data.
+ */
 function firstValueFromFormData(
   formData: FormData,
   keys: readonly string[],
@@ -93,6 +134,12 @@ function firstValueFromFormData(
   return firstValue({ data: formData, type: "form" }, keys);
 }
 
+/**
+ * Process the first value from object.
+ * @param payload - The payload.
+ * @param keys - The keys.
+ * @returns The first value from object.
+ */
 function firstValueFromObject(
   payload: Record<string, unknown>,
   keys: readonly string[],
@@ -100,6 +147,12 @@ function firstValueFromObject(
   return firstValue({ data: payload, type: "object" }, keys);
 }
 
+/**
+ * Process the first value from search params.
+ * @param searchParams - The search params.
+ * @param keys - The keys.
+ * @returns The first value from search params.
+ */
 function firstValueFromSearchParams(
   searchParams: URLSearchParams,
   keys: readonly string[],
@@ -107,6 +160,11 @@ function firstValueFromSearchParams(
   return firstValue({ data: searchParams, type: "params" }, keys);
 }
 
+/**
+ * Resolve the keys.
+ * @param options - The options used to resolve the keys.
+ * @returns The keys.
+ */
 function resolveKeys(options?: EmailPasswordFieldOptions): {
   emailKeys: readonly string[];
   passwordKeys: readonly string[];

@@ -1,6 +1,3 @@
-
-import type { Page } from "@playwright/test";
-
 import {
   articleCard,
   articleCardByKey,
@@ -8,12 +5,30 @@ import {
   expectArticleExpanded,
   expectNotClipped,
   gotoPreviewDashboard,
+  installDeterministicArticleExtractRoute,
+  installDeterministicFeedBatchRoute,
   readArticleKey,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
   toggleArticle,
+  waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
+
+/** Collapses an expanded article directly by key without requiring it to stay interactable in view. */
+async function collapseArticleByKey(page: Parameters<typeof articleCard>[0], articleKey: string) {
+  const articleSelector = `article[data-article-key="${articleKey}"]`;
+  const header = page
+    .locator(`${articleSelector} [data-article-swipe-zone='header']`)
+    .first();
+
+  if ((await header.count()) > 0) {
+    await header.click({ force: true });
+    return;
+  }
+
+  await page.locator(articleSelector).first().click({ force: true });
+}
 
 /** Returns the largest scroll-area viewport that contains article cards. */
 function feedScrollViewport(article: ReturnType<typeof articleCard>) {
@@ -22,28 +37,33 @@ function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   );
 }
 
-async function openFirstArticleForFeed(page: Page, feedName: string) {
-  const feedButton = page.locator("button").filter({ hasText: feedName }).first();
-  await feedButton.scrollIntoViewIfNeeded();
-  await feedButton.click();
+/** Toggles the currently visible article surface without recentering it first. */
+async function toggleVisibleArticleSurface(
+  article: ReturnType<typeof articleCard>,
+) {
+  const previousExpandedState = await article.getAttribute("aria-expanded");
 
-  const article = articleCard(page, 0);
-  await toggleArticle(article);
-  await expectArticleExpanded(article, true);
-  return article;
-}
+  await article.evaluate((node) => {
+    if (!(node instanceof HTMLElement)) {
+      throw new Error("Expected the article surface to resolve to an element.");
+    }
 
-async function readExpandedContentImageSources(article: ReturnType<typeof articleCard>) {
-  return await article.locator("img").evaluateAll((nodes) =>
-    nodes
-      .map((node) => node.getAttribute("src") ?? "")
-      .filter(
-        (src) => src.length > 0 && !src.includes("google.com/s2/favicons"),
-      ),
-  );
+    node.click();
+  });
+
+  await expect
+    .poll(async () => await article.getAttribute("aria-expanded"))
+    .not.toBe(previousExpandedState);
 }
 
 test.describe("dashboard explore article interactions", () => {
+  test.describe.configure({ mode: "serial" });
+
+  test.beforeEach(async ({ page }) => {
+    await installDeterministicFeedBatchRoute(page);
+    await installDeterministicArticleExtractRoute(page);
+  });
+
   test("expands an explore article without changing row animation state", async ({
     page,
   }) => {
@@ -56,15 +76,21 @@ test.describe("dashboard explore article interactions", () => {
     await expectArticleExpanded(article, false);
     await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
     await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-    await expect(article.locator("[data-article-preview='true']")).toHaveCount(1);
+    await expect(article.locator("[data-article-preview='true']")).toHaveCount(
+      1,
+    );
 
     await toggleArticle(article);
 
     await expectArticleExpanded(article, true);
     await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
     await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-    await expect(article.locator("[data-article-preview='true']")).toHaveCount(0);
-    await expect(article.getByRole("link", { name: "Open article" })).toBeVisible();
+    await expect(article.locator("[data-article-preview='true']")).toHaveCount(
+      0,
+    );
+    await expect(
+      article.getByRole("link", { name: "Open article" }),
+    ).toBeVisible();
     await expect(
       article.getByRole("button", { name: "Share article options" }),
     ).toBeVisible();
@@ -103,9 +129,7 @@ test.describe("dashboard explore article interactions", () => {
     await expectArticleExpanded(article, false);
     if (initialScrollTop > 0) {
       await expect
-        .poll(
-          async () => (await readFeedViewportMetrics(page)).scrollTop,
-        )
+        .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
         .toBeGreaterThan(0);
     }
     await expectNotClipped(
@@ -114,6 +138,77 @@ test.describe("dashboard explore article interactions", () => {
       "article header after collapse",
     );
     expect(initialScrollTop).toBeGreaterThanOrEqual(0);
+  });
+
+  test("returns to a valid viewport offset after collapsing from the bottom of a hydrated article", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
+    const initialScrollTop = Math.max(
+      0,
+      Math.min(900, scrollHeight - clientHeight - 24),
+    );
+
+    if (initialScrollTop > 0) {
+      await setFeedViewportScrollTop(page, initialScrollTop);
+    }
+
+    const renderedArticleCount = await page
+      .locator("article[data-article-key]:visible")
+      .count();
+    const articleIndex = Math.max(0, renderedArticleCount - 2);
+    const articleKey = await readArticleKey(articleCard(page, articleIndex));
+    const article = articleCardByKey(page, articleKey);
+
+    await toggleVisibleArticleSurface(article);
+    await expectArticleExpanded(article, true);
+    await expect
+      .poll(async () => {
+        return await article
+          .locator('[data-article-hydration-state="loading"]')
+          .count();
+      })
+      .toBe(0);
+
+    const deepScrollTop = await article.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error(
+          "Expected the article surface to resolve to an element.",
+        );
+      }
+
+      const viewport = node.closest("[data-radix-scroll-area-viewport]");
+
+      if (!(viewport instanceof HTMLElement)) {
+        throw new Error(
+          "Expected the expanded article to stay inside a feed viewport.",
+        );
+      }
+
+      const articleRect = node.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const articleBottomOffset = articleRect.bottom - viewportRect.top;
+      const nextScrollTop =
+        viewport.scrollTop +
+        Math.max(0, articleBottomOffset - viewport.clientHeight + 16);
+
+      viewport.scrollTop = nextScrollTop;
+      viewport.dispatchEvent(new Event("scroll"));
+
+      return viewport.scrollTop;
+    });
+
+    expect(deepScrollTop).toBeGreaterThanOrEqual(initialScrollTop);
+
+    await collapseArticleByKey(page, articleKey);
+
+    await expect
+      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+      .toBeLessThanOrEqual(initialScrollTop);
   });
 
   test("keeps a single expanded article when switching between explore cards", async ({
@@ -156,9 +251,10 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    for (const articleIndex of [0, 1, 2]) {
-      await page.getByRole("button", { exact: true, name: "all" }).click();
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await waitForPreviewDashboardHydration(page);
 
+    for (const articleIndex of [0, 1, 2]) {
       const articleKey = await readArticleKey(articleCard(page, articleIndex));
       const article = articleCardByKey(page, articleKey);
       const row = articleRow(article);
@@ -168,13 +264,17 @@ test.describe("dashboard explore article interactions", () => {
       await expectArticleExpanded(article, true);
       await expect(row).toHaveAttribute("data-feed-row-animation", "idle");
       await expect(row).toHaveAttribute("data-feed-row-state", "idle");
-      await expect(article.locator("[data-article-preview='true']")).toHaveCount(0);
-      await expect(article.getByRole("link", { name: "Open article" })).toBeVisible();
+      await expect(
+        article.locator("[data-article-preview='true']"),
+      ).toHaveCount(0);
+      await expect(
+        article.getByRole("link", { name: "Open article" }),
+      ).toBeVisible();
       await expect(
         article.getByRole("button", { name: "View raw article HTML" }),
       ).toBeVisible();
 
-      await toggleArticle(article);
+      await collapseArticleByKey(page, articleKey);
       await expectArticleExpanded(article, false);
     }
   });
@@ -200,7 +300,9 @@ test.describe("dashboard explore article interactions", () => {
           !(node instanceof HTMLElement) ||
           !(viewport instanceof HTMLElement)
         ) {
-          throw new Error("Expected expanded article header and viewport to be present.");
+          throw new Error(
+            "Expected expanded article header and viewport to be present.",
+          );
         }
 
         const articleRect = node.getBoundingClientRect();
@@ -234,27 +336,16 @@ test.describe("dashboard explore article interactions", () => {
     ).toBeVisible();
   });
 
-  test("shows a content image for NASA Image of the Day articles in explore mode", async ({
+  test("does not surface removed image placeholder feeds in explore mode", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
 
-    const article = await openFirstArticleForFeed(page, "NASA Image of the Day");
-
-    await expect
-      .poll(async () => (await readExpandedContentImageSources(article)).length)
-      .toBeGreaterThan(0);
-  });
-
-  test("shows a content image for ESA Images articles in explore mode", async ({
-    page,
-  }) => {
-    await gotoPreviewDashboard(page);
-
-    const article = await openFirstArticleForFeed(page, "ESA Images");
-
-    await expect
-      .poll(async () => (await readExpandedContentImageSources(article)).length)
-      .toBeGreaterThan(0);
+    await expect(
+      page.locator("button").filter({ hasText: "ESA Images" }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
+    ).toHaveCount(0);
   });
 });

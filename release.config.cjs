@@ -1,0 +1,58 @@
+require.resolve("conventional-changelog-conventionalcommits");
+require.resolve("@semantic-release/git");
+require.resolve("@semantic-release/github");
+require.resolve("@semantic-release/npm");
+
+const conventionalCommitSections = Object.freeze([
+  { section: "Features", type: "feat" },
+  { section: "Features", type: "feature" },
+  { section: "Bug Fixes", type: "fix" },
+  { section: "Performance Improvements", type: "perf" },
+  { section: "Reverts", type: "revert" },
+  { hidden: false, section: "Documentation", type: "docs" },
+  { hidden: false, section: "Refactors", type: "refactor" },
+  { hidden: false, section: "Chores", type: "chore" },
+  { hidden: false, section: "Tests", type: "test" },
+  { hidden: false, section: "Continuous Integration", type: "ci" },
+  { hidden: false, section: "Build System", type: "build" },
+  { hidden: true, section: "Styles", type: "style" },
+]);
+
+const conventionalCommitsPresetConfig = {
+  types: conventionalCommitSections,
+};
+
+module.exports = {
+  branches: ["main"],
+  plugins: [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        preset: "conventionalcommits",
+        presetConfig: conventionalCommitsPresetConfig,
+      },
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        preset: "conventionalcommits",
+        presetConfig: conventionalCommitsPresetConfig,
+      },
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        npmPublish: false,
+      },
+    ],
+    [
+      "@semantic-release/git",
+      {
+        assets: ["package.json"],
+        message:
+          "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+      },
+    ],
+    "@semantic-release/github",
+  ],
+};

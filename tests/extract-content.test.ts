@@ -47,12 +47,12 @@ describe("extract/snapshot – readPlaceholderSnapshotHtml", () => {
     const { readPlaceholderSnapshotHtml } =
       await import("@/lib/extract/snapshot");
     const result = await readPlaceholderSnapshotHtml(
-      "https://www.esa.int/ESA_Multimedia/Images/2026/03/Liftoff_for_Celeste_on_Rocket_Lab_s_Electron_rocket",
+      "https://www.esa.int/ESA_Multimedia/Images/2026/04/Earth_from_Space_Eyes_on_our_Moon",
     );
 
     expect(result).not.toBeNull();
     expect(result?.snapshotPath).toBe(
-      "/placeholder-articles/esa-images/Liftoff_for_Celeste_on_Rocket_Lab_s_Electron_rocket.html",
+      "/placeholder-articles/esa-earth/Earth_from_Space_Eyes_on_our_Moon.html",
     );
     expect(result?.html).toContain("https://www.esa.int");
   });
@@ -98,6 +98,8 @@ describe("extract/snapshot – readPlaceholderSnapshotHtml", () => {
     expect(result?.html).not.toContain(
       'src="/sites/default/files/styles/960_x_960_limit/public/images/2026/03/09/fingerprint_960x300.png?itok=8HmG8WDz"',
     );
-    expect(result?.html).toContain('href="https://www.nist.gov/news-events/news"');
+    expect(result?.html).toContain(
+      'href="https://www.nist.gov/news-events/news"',
+    );
   });
 });

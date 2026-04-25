@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   encryptStoredProxyPassword,
   resolveStoredProxyPassword,
-} from "@/lib/server/proxy-credentials";
+} from "@/lib/outbound-proxy/credentials";
 
 const LONG_SECRET = "a]9kF!#vQ2pL7mXrTz1NdS0bG4hY8cWu";
 const ALT_SECRET = "x!rZ3kQ8pL0mN7vTdS1bG4hY9cWuFJ2a";

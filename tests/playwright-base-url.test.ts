@@ -9,20 +9,20 @@ describe("playwright base URL resolution", () => {
   test("prefers the wrapper-provided PLAYWRIGHT_BASE_URL", () => {
     expect(
       resolvePlaywrightBaseUrl({
-        PLAYWRIGHT_BASE_URL: "http://192.168.2.117:4567/",
+        PLAYWRIGHT_BASE_URL: "http://localhost:4567/",
         PLAYWRIGHT_HOST: "127.0.0.1",
         PLAYWRIGHT_PORT: "3100",
       }),
-    ).toBe("http://192.168.2.117:4567");
+    ).toBe("http://localhost:4567");
   });
 
   test("falls back to the wrapper host and port when no base URL is injected", () => {
     expect(
       resolvePlaywrightBaseUrl({
-        PLAYWRIGHT_HOST: "192.168.2.117",
+        PLAYWRIGHT_HOST: "localhost",
         PLAYWRIGHT_PORT: "3456",
       }),
-    ).toBe("http://192.168.2.117:3456");
+    ).toBe("http://localhost:3456");
   });
 
   test("uses the repo defaults when no wrapper env vars are present", () => {

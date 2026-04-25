@@ -4,9 +4,7 @@
  */
 
 import {
-  afterAll,
   afterEach,
-  beforeAll,
   beforeEach,
   describe,
   expect,
@@ -16,7 +14,25 @@ import {
 
 import { createMockArticle, createMockRequest } from "./support/test-utils";
 
-beforeEach(() => mock.restore());
+let articleByIdRouteImportVersion = 0;
+let articleRouteImportVersion = 0;
+
+async function loadArticleByIdRoute() {
+  articleByIdRouteImportVersion += 1;
+  return import(
+    `@/app/api/articles/[id]/route?test=${articleByIdRouteImportVersion}`
+  );
+}
+
+async function loadArticlesRoute() {
+  articleRouteImportVersion += 1;
+  return import(`@/app/api/articles/route?test=${articleRouteImportVersion}`);
+}
+
+beforeEach(() => {
+  mock.restore();
+  registerModuleMocks();
+});
 afterEach(() => mock.restore());
 
 const mockState = {
@@ -67,17 +83,9 @@ const articleByIdRouteDeps = {
   requireAuthenticatedUserFn: async () => authenticatedUser,
 };
 
-beforeAll(() => {
-  registerModuleMocks();
-});
-
-afterAll(() => {
-  mock.restore();
-});
-
 describe("Articles API - List", () => {
   test("GET /api/articles returns articles", async () => {
-    const { GET } = await import("@/app/api/articles/route");
+    const { GET } = await loadArticlesRoute();
     const request = createMockRequest("https://example.com/api/articles", {
       cookies: { session: "test-session" },
     });
@@ -89,7 +97,7 @@ describe("Articles API - List", () => {
   });
 
   test("GET /api/articles supports pagination", async () => {
-    const { GET } = await import("@/app/api/articles/route");
+    const { GET } = await loadArticlesRoute();
     const request = createMockRequest(
       "https://example.com/api/articles?page=2&limit=20",
       {
@@ -102,7 +110,7 @@ describe("Articles API - List", () => {
   });
 
   test("GET /api/articles filters by feed", async () => {
-    const { GET } = await import("@/app/api/articles/route");
+    const { GET } = await loadArticlesRoute();
     const request = createMockRequest(
       "https://example.com/api/articles?feedId=1",
       {
@@ -115,7 +123,7 @@ describe("Articles API - List", () => {
   });
 
   test("GET /api/articles filters by unread", async () => {
-    const { GET } = await import("@/app/api/articles/route");
+    const { GET } = await loadArticlesRoute();
     const request = createMockRequest(
       "https://example.com/api/articles?unread=true",
       {
@@ -128,7 +136,7 @@ describe("Articles API - List", () => {
   });
 
   test("GET /api/articles filters by starred", async () => {
-    const { GET } = await import("@/app/api/articles/route");
+    const { GET } = await loadArticlesRoute();
     const request = createMockRequest(
       "https://example.com/api/articles?starred=true",
       {
@@ -145,7 +153,7 @@ describe("Articles API - List", () => {
     process.env.DATABASE_URL = "";
 
     try {
-      const { GET } = await import("@/app/api/articles/route");
+      const { GET } = await loadArticlesRoute();
       const request = createMockRequest("https://example.com/api/articles", {
         cookies: { session: "test-session" },
       });
@@ -162,7 +170,7 @@ describe("Articles API - List", () => {
 
 describe("Articles API - Create", () => {
   test("POST /api/articles validates title", async () => {
-    const { POST } = await import("@/app/api/articles/route");
+    const { POST } = await loadArticlesRoute();
     const request = createMockRequest("https://example.com/api/articles", {
       body: {
         feed_id: 1,
@@ -179,7 +187,7 @@ describe("Articles API - Create", () => {
   });
 
   test("POST /api/articles validates link and feed_id", async () => {
-    const { POST } = await import("@/app/api/articles/route");
+    const { POST } = await loadArticlesRoute();
 
     const badLinkRequest = createMockRequest(
       "https://example.com/api/articles",
@@ -215,7 +223,7 @@ describe("Articles API - Create", () => {
   });
 
   test("POST /api/articles validates date inputs", async () => {
-    const { POST } = await import("@/app/api/articles/route");
+    const { POST } = await loadArticlesRoute();
     const request = createMockRequest("https://example.com/api/articles", {
       body: {
         feed_id: 1,
@@ -233,7 +241,7 @@ describe("Articles API - Create", () => {
   });
 
   test("POST /api/articles rejects non-public article links", async () => {
-    const { POST } = await import("@/app/api/articles/route");
+    const { POST } = await loadArticlesRoute();
     const request = createMockRequest("https://example.com/api/articles", {
       body: {
         feed_id: 1,
@@ -254,7 +262,7 @@ describe("Articles API - Create", () => {
     mockState.selectResult = [];
 
     try {
-      const { POST } = await import("@/app/api/articles/route");
+      const { POST } = await loadArticlesRoute();
       const request = createMockRequest("https://example.com/api/articles", {
         body: {
           feed_id: 999,
@@ -288,7 +296,7 @@ describe("Articles API - Create", () => {
     ];
 
     try {
-      const { POST } = await import("@/app/api/articles/route");
+      const { POST } = await loadArticlesRoute();
       const request = createMockRequest("https://example.com/api/articles", {
         body: {
           content: "<script>alert(1)</script><p>safe</p>",
@@ -316,7 +324,7 @@ describe("Articles API - Create", () => {
 
 describe("Articles API - Get Single", () => {
   test("GET /api/articles/:id returns article", async () => {
-    const { GET } = await import("@/app/api/articles/[id]/route");
+    const { GET } = await loadArticleByIdRoute();
     const request = createMockRequest("https://example.com/api/articles/1", {
       cookies: { session: "test-session" },
     });
@@ -332,7 +340,7 @@ describe("Articles API - Get Single", () => {
   });
 
   test("GET /api/articles/:id validates article id", async () => {
-    const { GET } = await import("@/app/api/articles/[id]/route");
+    const { GET } = await loadArticleByIdRoute();
     const request = createMockRequest(
       "https://example.com/api/articles/invalid",
       {

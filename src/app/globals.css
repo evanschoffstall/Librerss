@@ -208,6 +208,7 @@
     -webkit-touch-callout: none;
     user-select: none;
   }
+
   .article-swipe-surface * {
     touch-action: pan-y;
     -webkit-touch-callout: none;
@@ -222,15 +223,18 @@
     -webkit-touch-callout: none;
     user-select: none;
   }
+
   .article-swipe-body * {
     touch-action: pan-y;
     -webkit-touch-callout: none;
     -webkit-user-drag: none;
     user-select: none;
   }
+
   .article-swipe-body pre {
     touch-action: pan-x pan-y;
   }
+
   .article-swipe-body.select-text,
   .article-swipe-body.select-text * {
     touch-action: pan-y;
@@ -238,6 +242,7 @@
     -webkit-user-drag: auto;
     user-select: text;
   }
+
   .article-swipe-body.select-text pre {
     touch-action: pan-x pan-y;
   }

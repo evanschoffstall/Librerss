@@ -5,7 +5,7 @@ import {
   blockedRequestPolicies,
   createBlockedRequestResponse,
   matchBlockedRequestPolicy,
-} from "@/lib/server/request-blocks";
+} from "@/edge-proxy/blocked-requests";
 
 describe("server request blocks", () => {
   test("exports frozen blocked request policies", () => {
@@ -37,9 +37,7 @@ describe("server request blocks", () => {
     );
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(response.headers.get("X-Librerss-Firewall-Action")).toBe("block");
-    expect(response.headers.get("X-Librerss-Firewall-Code")).toBe(
-      policy.code,
-    );
+    expect(response.headers.get("X-Librerss-Firewall-Code")).toBe(policy.code);
     expect(response.headers.get("X-Robots-Tag")).toBe(
       "noindex, nofollow, noarchive",
     );

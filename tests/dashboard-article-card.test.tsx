@@ -1,10 +1,12 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { applyReadSwipeAction ,
+import type { Article } from "@/lib/core";
+
+import {
+  applyReadSwipeAction,
   ArticleCard,
-} from "@/app/dashboard/components/ArticleCard";
-import { type Article } from "@/lib";
+} from "@/app/dashboard/dashboard-components/article-view/ArticleCard";
 
 beforeEach(() => {
   mock.restore();
@@ -104,9 +106,9 @@ describe("ArticleCard", () => {
     expect(hydrationEl?.querySelectorAll("div").length).toBeGreaterThan(0);
     expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
     expect(articleSurface?.style.userSelect).toBe("text");
-    expect((hydrationEl as HTMLElement | null)?.style.transform ?? "").not.toContain(
-      "translateY",
-    );
+    expect(
+      (hydrationEl as HTMLElement | null)?.style.transform ?? "",
+    ).not.toContain("translateY");
   });
 
   test("swaps loading skeleton for hydrated expanded content", async () => {
@@ -160,7 +162,9 @@ describe("ArticleCard", () => {
       expect(
         container.querySelector('[data-article-hydration-state="loading"]'),
       ).toBeNull();
-      expect(container.querySelector('[data-article-preview="true"]')).toBeNull();
+      expect(
+        container.querySelector('[data-article-preview="true"]'),
+      ).toBeNull();
       expect(container.textContent?.includes(hydratedContent)).toBe(true);
     });
   });
@@ -858,6 +862,202 @@ describe("ArticleCard", () => {
       expect(releasePointerCapture).toHaveBeenCalledWith(14);
       expect(onToggleRead).toHaveBeenCalledTimes(1);
       expect(onExpandedSwipeRead).not.toHaveBeenCalled();
+    });
+  });
+
+  test("read swipe indicator reaches at-threshold state while finger is still dragging past 30%", async () => {
+    // Regression: data-swipe-read-at-threshold must flip to "true" as soon as
+    // the drag crosses 30% of the container width, not only after pointer-up.
+    // Previously the visual state was gated on SwipeState.committed which only
+    // became true post-release, so the colour and icon never changed during the
+    // drag.
+    const article = buildArticle({ content: "" });
+    const noop = () => {};
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-swipe-read-threshold"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={noop}
+        onToggle={noop}
+        onToggleRead={noop}
+        onToggleStarred={noop}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-swipe-read-threshold"]',
+    );
+    expect(articleSurface).not.toBeNull();
+    installPointerCaptureSpies(articleSurface as HTMLElement);
+
+    // Container width falls back to 300px in jsdom. Drag past 30% (90px) while
+    // keeping the pointer down so committed is still false.
+    fireEvent.pointerDown(articleSurface as HTMLElement, {
+      clientX: 0,
+      clientY: 10,
+      pointerId: 30,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(articleSurface as HTMLElement, {
+      clientX: 100, // 100 / 300 ≈ 33% – past the 30% threshold
+      clientY: 10,
+      pointerId: 30,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      // Active swipe must be detected.
+      expect(articleSurface?.getAttribute("data-swipe-active")).toBe("true");
+      expect(articleSurface?.getAttribute("data-swipe-direction")).toBe("read");
+      // At-threshold flag must be set before pointer-up.
+      expect(
+        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
+      ).toBe("true");
+    });
+
+    // Release the pointer so the gesture resets properly between tests.
+    fireEvent.pointerUp(articleSurface as HTMLElement, {
+      clientX: 100,
+      clientY: 10,
+      pointerId: 30,
+      pointerType: "touch",
+    });
+  });
+
+  test("read swipe indicator stays below at-threshold state when drag is under 30%", async () => {
+    // The at-threshold flag must remain false while the user is still below the
+    // commit threshold — showing the wrong state early would be a false signal.
+    const article = buildArticle({ content: "" });
+    const noop = () => {};
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-swipe-read-below"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={noop}
+        onToggle={noop}
+        onToggleRead={noop}
+        onToggleStarred={noop}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-swipe-read-below"]',
+    );
+    expect(articleSurface).not.toBeNull();
+    installPointerCaptureSpies(articleSurface as HTMLElement);
+
+    // Drag only 20% of the 300px fallback container width (60px).
+    fireEvent.pointerDown(articleSurface as HTMLElement, {
+      clientX: 0,
+      clientY: 10,
+      pointerId: 31,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(articleSurface as HTMLElement, {
+      clientX: 60, // 60 / 300 = 20% – below threshold
+      clientY: 10,
+      pointerId: 31,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(articleSurface?.getAttribute("data-swipe-active")).toBe("true");
+      // Below threshold: at-threshold attribute must be "false".
+      expect(
+        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
+      ).toBe("false");
+    });
+
+    fireEvent.pointerUp(articleSurface as HTMLElement, {
+      clientX: 60,
+      clientY: 10,
+      pointerId: 31,
+      pointerType: "touch",
+    });
+  });
+
+  test("star swipe indicator reaches at-threshold state while finger is still dragging past 30%", async () => {
+    // Same regression as the read swipe test but for the left-swipe star action.
+    const article = buildArticle({ content: "" });
+    const noop = () => {};
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-swipe-star-threshold"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={noop}
+        onToggle={noop}
+        onToggleRead={noop}
+        onToggleStarred={noop}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-swipe-star-threshold"]',
+    );
+    expect(articleSurface).not.toBeNull();
+    installPointerCaptureSpies(articleSurface as HTMLElement);
+
+    // Drag left past 30% of the 300px fallback container.
+    fireEvent.pointerDown(articleSurface as HTMLElement, {
+      clientX: 300,
+      clientY: 10,
+      pointerId: 32,
+      pointerType: "touch",
+    });
+    fireEvent.pointerMove(articleSurface as HTMLElement, {
+      clientX: 195, // 105px leftward = 35% of 300 – past threshold
+      clientY: 10,
+      pointerId: 32,
+      pointerType: "touch",
+    });
+
+    await waitFor(() => {
+      expect(articleSurface?.getAttribute("data-swipe-active")).toBe("true");
+      // Note: data-swipe-direction shows "read" here even during a left drag
+      // because the read gesture also enters swiping phase with offsetX=0 (its
+      // direction check zeroes out the negative delta). The star-at-threshold
+      // flag is the canonical signal for star-swipe visual state.
+      expect(
+        articleSurface?.getAttribute("data-swipe-star-at-threshold"),
+      ).toBe("true");
+      // The read indicator must NOT be in at-threshold state during a left swipe.
+      expect(
+        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
+      ).toBe("false");
+    });
+
+    fireEvent.pointerUp(articleSurface as HTMLElement, {
+      clientX: 195,
+      clientY: 10,
+      pointerId: 32,
+      pointerType: "touch",
     });
   });
 });

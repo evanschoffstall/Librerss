@@ -6,9 +6,18 @@ export type SourceCompatibilitySignal =
     }
   | { detected: false };
 
+type CompatibilityProvider =
+  | "Cloudflare"
+  | "DataDome"
+  | "PerimeterX"
+  | "reCAPTCHA";
+
 /**
- * Detect whether an upstream response looks like a bot-management challenge
- * and whether retrying the same profile has a reasonable chance of success.
+ * Process the detect response compatibility signal.
+ * @param responseStatus - The response status.
+ * @param headers - The headers.
+ * @param responseBody - The response body.
+ * @returns The detect response compatibility signal.
  */
 export function detectResponseCompatibilitySignal(
   responseStatus: number | undefined,
@@ -21,66 +30,52 @@ export function detectResponseCompatibilitySignal(
 
   const challengeCookies = getChallengeCookies(headers);
   const responseBodyLower = responseBody.toLowerCase();
-  const responseHeaderKeys = Object.keys(headers ?? {}).map((header) =>
-    header.toLowerCase(),
-  );
+  const responseHeaderKeys = getLowercaseHeaderKeys(headers);
 
-  const ddHeader = headerText(headers, "x-datadome");
-  if (ddHeader === "protected") {
-    return {
-      retryable: false,
-      signal: { challengeCookies, detected: true, provider: "DataDome" },
-    };
+  if (isDataDomeChallenge(headers)) {
+    return createDetectedResponse("DataDome", challengeCookies);
   }
 
-  const isPx =
-    /px[-_]captcha|perimeterx|\/_px\//i.test(responseBody) ||
-    responseHeaderKeys.some((header) => header.startsWith("x-px-"));
-  if (isPx) {
-    return {
-      retryable: false,
-      signal: {
-        challengeCookies: [],
-        detected: true,
-        provider: "PerimeterX",
-      },
-    };
+  if (isPerimeterXChallenge(responseBody, responseHeaderKeys)) {
+    return createDetectedResponse("PerimeterX", []);
   }
 
-  const isCloudflare =
-    headerText(headers, "cf-mitigated") === "challenge" ||
-    /attention required!?\s*\|\s*cloudflare|cf-browser-verification|__cf_chl_|\/cdn-cgi\/challenge-platform|cf challenge/i.test(
-      responseBody,
-    );
-  if (isCloudflare) {
-    return {
-      retryable: false,
-      signal: {
-        challengeCookies,
-        detected: true,
-        provider: "Cloudflare",
-      },
-    };
+  if (isCloudflareChallenge(headers, responseBody)) {
+    return createDetectedResponse("Cloudflare", challengeCookies);
   }
 
-  const isRecaptcha =
-    /(?:^|\W)g-recaptcha(?:\W|$)|grecaptcha(?:\W|$)|recaptcha\/api(?:2)?(?:\.js|\/anchor|\/reload)|google\.com\/recaptcha|gstatic\.com\/recaptcha/i.test(
-      responseBody,
-    ) || responseBodyLower.includes("i'm not a robot");
-  if (isRecaptcha) {
-    return {
-      retryable: false,
-      signal: {
-        challengeCookies: [],
-        detected: true,
-        provider: "reCAPTCHA",
-      },
-    };
+  if (isRecaptchaChallenge(responseBody, responseBodyLower)) {
+    return createDetectedResponse("reCAPTCHA", []);
   }
 
   return { retryable: true, signal: { detected: false } };
 }
 
+/**
+ * Create the detected response.
+ * @param provider - The provider.
+ * @param challengeCookies - The challenge cookies.
+ * @returns The detected response.
+ */
+function createDetectedResponse(
+  provider: CompatibilityProvider,
+  challengeCookies: string[],
+) {
+  return {
+    retryable: false,
+    signal: {
+      challengeCookies,
+      detected: true,
+      provider,
+    } as const,
+  };
+}
+
+/**
+ * Return the challenge cookies.
+ * @param headers - The headers.
+ * @returns The challenge cookies.
+ */
 function getChallengeCookies(headers: Record<string, unknown> | undefined) {
   const setCookie = headers?.["set-cookie"];
   return Array.isArray(setCookie)
@@ -90,6 +85,21 @@ function getChallengeCookies(headers: Record<string, unknown> | undefined) {
       : [];
 }
 
+/**
+ * Return the lowercase header keys.
+ * @param headers - The headers.
+ * @returns The lowercase header keys.
+ */
+function getLowercaseHeaderKeys(headers: Record<string, unknown> | undefined) {
+  return Object.keys(headers ?? {}).map((header) => header.toLowerCase());
+}
+
+/**
+ * Process the header text.
+ * @param headers - The headers.
+ * @param key - The key.
+ * @returns The header text.
+ */
 function headerText(headers: Record<string, unknown> | undefined, key: string) {
   const value = headers?.[key];
   return Array.isArray(value)
@@ -97,4 +107,61 @@ function headerText(headers: Record<string, unknown> | undefined, key: string) {
     : typeof value === "string"
       ? value.toLowerCase()
       : "";
+}
+
+/**
+ * Return whether is cloudflare challenge.
+ * @param headers - The headers.
+ * @param responseBody - The response body.
+ * @returns Whether is cloudflare challenge.
+ */
+function isCloudflareChallenge(
+  headers: Record<string, unknown> | undefined,
+  responseBody: string,
+) {
+  return (
+    headerText(headers, "cf-mitigated") === "challenge" ||
+    /attention required!?\s*\|\s*cloudflare|cf-browser-verification|__cf_chl_|\/cdn-cgi\/challenge-platform|cf challenge/i.test(
+      responseBody,
+    )
+  );
+}
+
+/**
+ * Return whether is data dome challenge.
+ * @param headers - The headers.
+ * @returns Whether is data dome challenge.
+ */
+function isDataDomeChallenge(headers: Record<string, unknown> | undefined) {
+  return headerText(headers, "x-datadome") === "protected";
+}
+
+/**
+ * Return whether is perimeter x challenge.
+ * @param responseBody - The response body.
+ * @param responseHeaderKeys - The response header keys.
+ * @returns Whether is perimeter x challenge.
+ */
+function isPerimeterXChallenge(
+  responseBody: string,
+  responseHeaderKeys: string[],
+) {
+  return (
+    /px[-_]captcha|perimeterx|\/_px\//i.test(responseBody) ||
+    responseHeaderKeys.some((header) => header.startsWith("x-px-"))
+  );
+}
+
+/**
+ * Return whether is recaptcha challenge.
+ * @param responseBody - The response body.
+ * @param responseBodyLower - The response body lower.
+ * @returns Whether is recaptcha challenge.
+ */
+function isRecaptchaChallenge(responseBody: string, responseBodyLower: string) {
+  return (
+    /(?:^|\W)g-recaptcha(?:\W|$)|grecaptcha(?:\W|$)|recaptcha\/api(?:2)?(?:\.js|\/anchor|\/reload)|google\.com\/recaptcha|gstatic\.com\/recaptcha/i.test(
+      responseBody,
+    ) || responseBodyLower.includes("i'm not a robot")
+  );
 }

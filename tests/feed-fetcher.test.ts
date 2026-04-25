@@ -5,7 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import type { FeedRecord } from "@/lib/core/feed-refresh";
+import type { FeedRecord } from "@/lib/core/refresher";
 import type { getDb } from "@/lib/db/db";
 
 import {
@@ -15,12 +15,11 @@ import {
   isUpstreamFeedError,
   resetFeedFetcherDependenciesForTesting,
   setFeedFetcherDependenciesForTesting,
-} from "@/lib/core/feed-fetcher";
+} from "@/lib/core/server";
 import {
   isAllowedFeedUrl,
   PUBLIC_FEED_URL_ERROR,
-} from "@/lib/core/feed-url-validator";
-
+} from "@/lib/core/url-validator";
 // Mock dependencies
 const mockDb = {
   insert: mock(() => ({
@@ -320,16 +319,22 @@ describe("Feed Fetcher - Batch Operations", () => {
       getCachedBatch,
     });
 
-    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed"], {
-      articleLimit: 24,
-      skipRefresh: true,
-    });
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed"],
+      {
+        articleLimit: 24,
+        skipRefresh: true,
+      },
+    );
 
     expect(getCachedBatch).toHaveBeenCalledWith(
       1,
       ["https://example.com/feed"],
       "all",
       24,
+      undefined,
     );
   });
 
@@ -419,6 +424,7 @@ describe("Feed Fetcher - Batch Operations", () => {
       [1],
       "all",
       24,
+      undefined,
     );
   });
 
@@ -478,6 +484,7 @@ describe("Feed Fetcher - Batch Operations", () => {
       [2],
       "all",
       500,
+      undefined,
     );
   });
 
@@ -509,9 +516,14 @@ describe("Feed Fetcher - Batch Operations", () => {
       })),
     });
 
-    await fetchAndCacheFeedArticlesBatch(mockDb, 1, ["https://example.com/feed-a"], {
-      articleLimit: 12,
-    });
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a"],
+      {
+        articleLimit: 12,
+      },
+    );
 
     expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
       mockDb,
@@ -519,6 +531,58 @@ describe("Feed Fetcher - Batch Operations", () => {
       [1],
       "all",
       12,
+      undefined,
+    );
+  });
+
+  test("fetchAndCacheFeedArticlesBatch keys cache and ranked queries by searchTerm", async () => {
+    const getCachedBatch = mock(() => null);
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      getCachedBatch,
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed-a", []]]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed-a"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a"],
+      {
+        searchTerm: "mars",
+        skipRefresh: true,
+      },
+    );
+
+    expect(getCachedBatch).toHaveBeenCalledWith(
+      1,
+      ["https://example.com/feed-a"],
+      "all",
+      500,
+      "mars",
+    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
+      mockDb,
+      1,
+      [1],
+      "all",
+      500,
+      "mars",
     );
   });
 
@@ -559,7 +623,9 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes,
-      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed", []]]),
+      ),
       queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
@@ -584,16 +650,18 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
     expect(executeParallelRefreshes).toHaveBeenCalledWith(
-      mockDb,
-      expect.any(Map),
-      ["https://example.com/feed"],
-      false,
-      false,
-      false,
-      {
-        allowInsecureTls: true,
-        proxyUrl: "socks5://proxy.example:1080",
-      },
+      expect.objectContaining({
+        allowedUrls: ["https://example.com/feed"],
+        db: mockDb,
+        feedByUrl: expect.any(Map),
+        forceRefresh: false,
+        forceResolveUpstream: false,
+        proxyTransport: {
+          allowInsecureTls: true,
+          proxyUrl: "socks5://proxy.example:1080",
+        },
+        skipRefresh: false,
+      }),
     );
   });
 
@@ -614,7 +682,9 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes,
       getCachedBatch,
-      mapRowsToArticleMap: mock(() => new Map([["https://example.com/feed", []]])),
+      mapRowsToArticleMap: mock(
+        () => new Map([["https://example.com/feed", []]]),
+      ),
       queryTopArticlesPerFeed: mock(async () => []),
       resolveAuthorizedFeedRecords: mock(async () => ({
         allowedUrls: ["https://example.com/feed"],
@@ -636,13 +706,15 @@ describe("Feed Fetcher - Batch Operations", () => {
 
     expect(getCachedBatch).toHaveBeenCalledTimes(1);
     expect(executeParallelRefreshes).toHaveBeenCalledWith(
-      mockDb,
-      expect.any(Map),
-      ["https://example.com/feed"],
-      false,
-      true,
-      true,
-      undefined,
+      expect.objectContaining({
+        allowedUrls: ["https://example.com/feed"],
+        db: mockDb,
+        feedByUrl: expect.any(Map),
+        forceRefresh: true,
+        forceResolveUpstream: true,
+        proxyTransport: undefined,
+        skipRefresh: false,
+      }),
     );
   });
 });

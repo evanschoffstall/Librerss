@@ -2,10 +2,11 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { useDashboardArticleCallbacks } from "@/app/dashboard/hooks/useDashboardArticleCallbacks";
-import { useFeedLoadingTimeout } from "@/app/dashboard/hooks/useFeedLoadingTimeout";
-import { useRefreshStatus } from "@/app/dashboard/hooks/useRefreshStatus";
-import { type Article } from "@/lib";
+import type { Article } from "@/lib/core";
+
+import { useDashboardArticleCallbacks } from "@/app/dashboard/dashboard-hooks/useDashboardArticleCallbacks";
+import { useFeedLoadingTimeout } from "@/app/dashboard/dashboard-hooks/useFeedLoadingTimeout";
+import { useRefreshStatus } from "@/app/dashboard/dashboard-hooks/useRefreshStatus";
 
 const originalSetTimeout = window.setTimeout;
 const originalClearTimeout = window.clearTimeout;

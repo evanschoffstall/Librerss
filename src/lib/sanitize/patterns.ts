@@ -24,11 +24,21 @@ const RELATED_HEADING_RELATED_PREFIXES = [
   "you may also like",
 ] as const;
 
+/**
+ * Return whether has ap junk class.
+ * @param attrs - The attrs.
+ * @returns Whether has ap junk class.
+ */
 export function hasApJunkClass(attrs: string): boolean {
   const normalized = normalizePhrase(attrs);
   return AP_JUNK_CLASS_MARKERS.some((marker) => normalized.includes(marker));
 }
 
+/**
+ * Return whether is related heading.
+ * @param headingText - The heading text.
+ * @returns Whether is related heading.
+ */
 export function isRelatedHeading(headingText: string): boolean {
   const normalized = normalizePhrase(headingText);
   if (!normalized) {
@@ -56,7 +66,12 @@ export function isRelatedHeading(headingText: string): boolean {
   );
 }
 
-/** Read the value of a named attribute from an HTML open-tag attribute string. */
+/**
+ * Process the read attr value.
+ * @param attrsStr - The attrs str.
+ * @param attrName - The attr name.
+ * @returns The read attr value.
+ */
 export function readAttrValue(
   attrsStr: string,
   attrName: string,
@@ -69,6 +84,11 @@ export function readAttrValue(
   return null;
 }
 
+/**
+ * Normalize the phrase.
+ * @param value - The value.
+ * @returns The phrase.
+ */
 function normalizePhrase(value: string): string {
   return value
     .toLowerCase()

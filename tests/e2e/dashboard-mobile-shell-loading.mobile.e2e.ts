@@ -12,7 +12,9 @@ test.describe("dashboard mobile shell loading", () => {
 
     await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
 
-    const feedSkeleton = page.locator('[data-dashboard-feed-list-skeleton="true"]');
+    const feedSkeleton = page.locator(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
 
     await expect(feedSkeleton).toBeVisible();
 
@@ -42,7 +44,8 @@ test.describe("dashboard mobile shell loading", () => {
       }
 
       return {
-        firstRowTopOffset: Math.round((firstRowRect.top - viewportRect.top) * 100) / 100,
+        firstRowTopOffset:
+          Math.round((firstRowRect.top - viewportRect.top) * 100) / 100,
         lastRowBottomOffset:
           Math.round((viewportRect.bottom - lastRowRect.bottom) * 100) / 100,
         rowCount: skeletonRows.length,
@@ -51,7 +54,9 @@ test.describe("dashboard mobile shell loading", () => {
 
     expect(skeletonGeometry).not.toBeNull();
     expect(skeletonGeometry?.rowCount ?? 0).toBeGreaterThan(0);
-    expect(skeletonGeometry?.lastRowBottomOffset ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(10);
+    expect(
+      skeletonGeometry?.lastRowBottomOffset ?? Number.POSITIVE_INFINITY,
+    ).toBeLessThanOrEqual(10);
     expect(skeletonGeometry?.firstRowTopOffset ?? 0).toBeGreaterThan(10);
   });
 });

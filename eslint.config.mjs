@@ -4,6 +4,7 @@ import pluginTypeScriptEslintRaw from "@typescript-eslint/eslint-plugin/use-at-y
 import pluginBetterTailwindcss from "eslint-plugin-better-tailwindcss";
 import pluginEslintComments from "eslint-plugin-eslint-comments";
 import pluginImport from "eslint-plugin-import";
+import pluginJsdoc from "eslint-plugin-jsdoc";
 import pluginNoOnlyTests from "eslint-plugin-no-only-tests";
 import perfectionist from "eslint-plugin-perfectionist";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
@@ -12,6 +13,7 @@ import pluginReactHooks from "eslint-plugin-react-hooks";
 import pluginRegexp from "eslint-plugin-regexp";
 import pluginSecurity from "eslint-plugin-security";
 import pluginSonarjs from "eslint-plugin-sonarjs";
+import pluginTsdoc from "eslint-plugin-tsdoc";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import pluginUnusedImports from "eslint-plugin-unused-imports";
 import { globalIgnores } from "eslint/config";
@@ -22,8 +24,18 @@ const sourceFiles = ["src/**"];
 const testFiles = ["tests/**"];
 const scriptFiles = ["scripts/**"];
 const rootConfigFiles = [
+  "check-suite.config.ts",
   "drizzle.config.ts",
   "eslint.config.mjs",
+  "next.config.ts",
+  "playwright.config.ts",
+  "tailwind.config.ts",
+];
+const documentationFiles = [
+  "src/**/*.{ts,tsx}",
+  "scripts/**/*.ts",
+  "check-suite.config.ts",
+  "drizzle.config.ts",
   "next.config.ts",
   "playwright.config.ts",
   "tailwind.config.ts",
@@ -38,7 +50,6 @@ const barrelImportFiles = [
   "src/app/**/*.tsx",
   "src/components/**/*.ts",
   "src/components/**/*.tsx",
-  "src/proxy.ts",
 ];
 const projectFiles = [...sourceFiles, ...nonSourceProjectFiles];
 const apiAndLibraryFiles = ["src/lib/**", "src/app/api/**"];
@@ -85,16 +96,25 @@ const sourceTailwindRules = {
   "better-tailwindcss/enforce-canonical-classes": "error",
   "better-tailwindcss/enforce-consistent-class-order": "error",
   "better-tailwindcss/enforce-consistent-important-position": "error",
-  "better-tailwindcss/enforce-consistent-line-wrapping": "error",
+  "better-tailwindcss/enforce-consistent-line-wrapping": "off",
   "better-tailwindcss/enforce-consistent-variable-syntax": "error",
   "better-tailwindcss/enforce-shorthand-classes": "error",
   "better-tailwindcss/no-conflicting-classes": "error",
   "better-tailwindcss/no-deprecated-classes": "error",
   "better-tailwindcss/no-duplicate-classes": "error",
   "better-tailwindcss/no-restricted-classes": "error",
-  "better-tailwindcss/no-unnecessary-whitespace": "error",
+  "better-tailwindcss/no-unnecessary-whitespace": "off",
 };
 const sourceTypeScriptRules = {
+  "@typescript-eslint/consistent-type-exports": "error",
+  "@typescript-eslint/consistent-type-imports": [
+    "error",
+    {
+      disallowTypeAnnotations: false,
+      fixStyle: "separate-type-imports",
+      prefer: "type-imports",
+    },
+  ],
   "@typescript-eslint/no-base-to-string": "error",
   "@typescript-eslint/no-confusing-void-expression": "error",
   "@typescript-eslint/no-deprecated": "error",
@@ -123,6 +143,7 @@ const sourceTypeScriptRules = {
       allowRegExp: false,
     },
   ],
+  "@typescript-eslint/switch-exhaustiveness-check": "error",
   "@typescript-eslint/unbound-method": "error",
 };
 const restrictedTypeScriptRules = {
@@ -148,6 +169,58 @@ const testTypeScriptRelaxedRules = {
   "@typescript-eslint/no-non-null-assertion": "off",
   "@typescript-eslint/no-unused-vars": "off",
   "no-console": "off",
+};
+const strictDocumentationRules = {
+  "jsdoc/check-tag-names": [
+    "error",
+    {
+      typed: true,
+    },
+  ],
+  "jsdoc/no-bad-blocks": "error",
+  "jsdoc/no-blank-block-descriptions": "error",
+  "jsdoc/no-blank-blocks": "error",
+  "jsdoc/no-defaults": "error",
+  "jsdoc/no-types": "error",
+  "jsdoc/require-description": "error",
+  "jsdoc/require-description-complete-sentence": "error",
+  "jsdoc/require-hyphen-before-param-description": ["error", "always"],
+  "jsdoc/require-jsdoc": [
+    "error",
+    {
+      checkAllFunctionExpressions: true,
+      checkConstructors: true,
+      checkGetters: true,
+      checkSetters: true,
+      contexts: [
+        "ArrowFunctionExpression",
+        "FunctionDeclaration",
+        "FunctionExpression",
+        "MethodDefinition",
+      ],
+      exemptEmptyConstructors: false,
+      exemptEmptyFunctions: false,
+      require: {
+        ArrowFunctionExpression: true,
+        FunctionDeclaration: true,
+        FunctionExpression: true,
+        MethodDefinition: true,
+      },
+    },
+  ],
+  "jsdoc/require-param": "error",
+  "jsdoc/require-param-description": "error",
+  "jsdoc/require-param-name": "error",
+  "jsdoc/require-returns": "error",
+  "jsdoc/require-returns-check": "error",
+  "jsdoc/require-returns-description": "error",
+  "tsdoc/syntax": "error",
+};
+
+const sourceReadabilityRules = {
+  "max-statements": ["error", 30],
+  "no-else-return": ["error", { allowElseIf: false }],
+  "sonarjs/cognitive-complexity": ["error", 15],
 };
 
 function normalizeIgnorePattern(pattern) {
@@ -226,12 +299,14 @@ export default [
       "better-tailwindcss": pluginBetterTailwindcss,
       "eslint-comments": pluginEslintComments,
       import: pluginImport,
+      jsdoc: pluginJsdoc,
       "no-only-tests": pluginNoOnlyTests,
       promise: pluginPromise,
       "react-hooks": pluginReactHooks,
       regexp: pluginRegexp,
       security: pluginSecurity,
       sonarjs: pluginSonarjs,
+      tsdoc: pluginTsdoc,
       unicorn: pluginUnicorn,
       "unused-imports": pluginUnusedImports,
     },
@@ -266,6 +341,19 @@ export default [
     rules: sourceTypeScriptRules,
   },
   {
+    files: apiAndLibraryFiles,
+    rules: sourceReadabilityRules,
+  },
+  {
+    files: documentationFiles,
+    rules: strictDocumentationRules,
+    settings: {
+      jsdoc: {
+        mode: "typescript",
+      },
+    },
+  },
+  {
     files: barrelImportFiles,
     rules: {
       "no-restricted-imports": [
@@ -277,8 +365,28 @@ export default [
     },
   },
   {
+    files: sourceFiles,
+    rules: sourceTypeScriptRules,
+  },
+  {
     ...perfectionist.configs["recommended-natural"],
     files: projectFiles,
+  },
+  {
+    files: projectFiles,
+    rules: {
+      "unicorn/filename-case": [
+        "error",
+        {
+          cases: {
+            camelCase: true,
+            kebabCase: true,
+            pascalCase: true,
+          },
+          ignore: ["^\\[.*\\]$"],
+        },
+      ],
+    },
   },
   {
     files: nonSourceProjectFiles,

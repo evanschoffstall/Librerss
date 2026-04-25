@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Article } from "@/lib";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
+import type { Article } from "@/lib/core";
 
 import {
   classifyFeedBatchError,
@@ -9,10 +9,11 @@ import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
   isCanceledBatchRequest,
+  isHandledFeedBatchError,
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
-} from "@/app/dashboard/services/feed-loader-helpers";
+} from "@/app/dashboard/dashboard-services/feed-loader-state";
 
 function makeArticle(overrides: Partial<Article> = {}): Article {
   return {
@@ -74,8 +75,18 @@ describe("getNewestLastFetchedAt", () => {
     const older = new Date("2024-01-01");
     const newer = new Date("2024-06-01");
     const items: BatchFeedResponseItem[] = [
-      { articles: [], lastFetchedAt: older, ok: true, url: "https://a.example" },
-      { articles: [], lastFetchedAt: newer, ok: true, url: "https://b.example" },
+      {
+        articles: [],
+        lastFetchedAt: older,
+        ok: true,
+        url: "https://a.example",
+      },
+      {
+        articles: [],
+        lastFetchedAt: newer,
+        ok: true,
+        url: "https://b.example",
+      },
     ];
     expect(getNewestLastFetchedAt(items)).toEqual(newer);
   });
@@ -108,6 +119,12 @@ describe("isCanceledBatchRequest", () => {
     expect(isCanceledBatchRequest(err)).toBe(true);
   });
 
+  test("returns true for CancelledError", () => {
+    const err = new Error("cancelled");
+    err.name = "CancelledError";
+    expect(isCanceledBatchRequest(err)).toBe(true);
+  });
+
   test("returns false for other errors", () => {
     expect(isCanceledBatchRequest(new Error("network"))).toBe(false);
   });
@@ -137,37 +154,35 @@ describe("mergeHydratedContent", () => {
     expect(merged[0]!.content).toBe("rich HTML content");
   });
 
-    test("preserveLocalFeedState retains previously loaded older articles missing from fresh payload", () => {
-      const prev = [
-        makeArticle({
-          link: "https://example.com/newer",
-          title: "Newer",
-        }),
-        makeArticle({
-          link: "https://example.com/older",
-          title: "Older",
-        }),
-      ];
-      const fresh = [
-        makeArticle({
-          link: "https://example.com/newer",
-          title: "Newer (refetched)",
-        }),
-      ];
+  test("preserveLocalFeedState retains previously loaded older articles missing from fresh payload", () => {
+    const prev = [
+      makeArticle({
+        link: "https://example.com/newer",
+        title: "Newer",
+      }),
+      makeArticle({
+        link: "https://example.com/older",
+        title: "Older",
+      }),
+    ];
+    const fresh = [
+      makeArticle({
+        link: "https://example.com/newer",
+        title: "Newer (refetched)",
+      }),
+    ];
 
-      const merged = mergeHydratedContent(prev, fresh, {
-        preserveLocalFeedState: true,
-      });
-
-      expect(merged).toHaveLength(2);
-      expect(merged[0]?.link).toBe("https://example.com/newer");
-      expect(merged[1]?.link).toBe("https://example.com/older");
+    const merged = mergeHydratedContent(prev, fresh, {
+      preserveLocalFeedState: true,
     });
 
+    expect(merged).toHaveLength(2);
+    expect(merged[0]?.link).toBe("https://example.com/newer");
+    expect(merged[1]?.link).toBe("https://example.com/older");
+  });
+
   test("keeps fresh content when no previous match", () => {
-    const prev = [
-      makeArticle({ content: "old", link: "https://old.example" }),
-    ];
+    const prev = [makeArticle({ content: "old", link: "https://old.example" })];
     const fresh = [
       makeArticle({ content: "fresh", link: "https://new.example" }),
     ];
@@ -176,12 +191,8 @@ describe("mergeHydratedContent", () => {
   });
 
   test("does not merge when content is identical, returns prev for reference stability", () => {
-    const prev = [
-      makeArticle({ content: "same", link: "https://a.example" }),
-    ];
-    const fresh = [
-      makeArticle({ content: "same", link: "https://a.example" }),
-    ];
+    const prev = [makeArticle({ content: "same", link: "https://a.example" })];
+    const fresh = [makeArticle({ content: "same", link: "https://a.example" })];
     const merged = mergeHydratedContent(prev, fresh);
     // Prev reference is reused when all display fields match so the virtualizer and
     // React.memo can skip re-rendering unchanged rows during auto-refresh.
@@ -190,7 +201,11 @@ describe("mergeHydratedContent", () => {
 
   test("returns fresh reference when a display field changed (isRead)", () => {
     const prev = [
-      makeArticle({ content: "same", isRead: false, link: "https://a.example" }),
+      makeArticle({
+        content: "same",
+        isRead: false,
+        link: "https://a.example",
+      }),
     ];
     const fresh = [
       makeArticle({ content: "same", isRead: true, link: "https://a.example" }),
@@ -229,7 +244,11 @@ describe("mergeHydratedContent", () => {
 
   test("returns fresh reference when a display field changed (isStarred)", () => {
     const prev = [
-      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+      makeArticle({
+        content: "x",
+        isStarred: false,
+        link: "https://a.example",
+      }),
     ];
     const fresh = [
       makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
@@ -244,7 +263,11 @@ describe("mergeHydratedContent", () => {
       makeArticle({ content: "x", isStarred: true, link: "https://a.example" }),
     ];
     const fresh = [
-      makeArticle({ content: "x", isStarred: false, link: "https://a.example" }),
+      makeArticle({
+        content: "x",
+        isStarred: false,
+        link: "https://a.example",
+      }),
     ];
 
     const merged = mergeHydratedContent(prev, fresh, {
@@ -264,9 +287,9 @@ describe("resolveExpandedArticleKey", () => {
 
   test("returns key when article exists with that key", () => {
     const articles = [makeArticle({ link: "https://match.example" })];
-    expect(
-      resolveExpandedArticleKey("https://match.example", articles),
-    ).toBe("https://match.example");
+    expect(resolveExpandedArticleKey("https://match.example", articles)).toBe(
+      "https://match.example",
+    );
   });
 
   test("returns null when no article matches key", () => {
@@ -393,5 +416,87 @@ describe("classifyFeedBatchError", () => {
     });
     const result = classifyFeedBatchError(error);
     expect(result.title).toBe("Too many requests.");
+  });
+
+  test("classifies proxy-password-unreadable reason as proxy credentials unavailable", () => {
+    // Server responds 500 with { error: "...", reason: "proxy-password-unreadable" }
+    const error = Object.assign(
+      new Error("Request failed with status code 500"),
+      {
+        response: {
+          data: {
+            error: "Proxy password could not be read",
+            reason: "proxy-password-unreadable",
+          },
+          status: 500,
+        },
+      },
+    );
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Proxy credentials unavailable.");
+    expect(result.description).toContain("proxy password");
+    expect(result.description).toContain("Settings");
+  });
+
+  test("handles proxy-password-unreadable even when status code is absent", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: {
+        data: { reason: "proxy-password-unreadable" },
+      },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Proxy credentials unavailable.");
+  });
+
+  test("does not classify unknown reason as proxy error", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: {
+        data: { reason: "some-other-reason" },
+        status: 500,
+      },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Unable to load this feed right now.");
+  });
+
+  test("does not classify 500 without reason as proxy error", () => {
+    const error = Object.assign(new Error("Internal Server Error"), {
+      response: { data: {}, status: 500 },
+    });
+    const result = classifyFeedBatchError(error);
+    expect(result.title).toBe("Unable to load this feed right now.");
+  });
+});
+
+describe("isHandledFeedBatchError", () => {
+  test("returns true for rate limits, gateway timeouts, and proxy credential errors", () => {
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Too Many Requests"), {
+          response: { status: 429 },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Gateway Timeout"), {
+          response: { status: 504 },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isHandledFeedBatchError(
+        Object.assign(new Error("Proxy password unavailable"), {
+          response: {
+            data: { reason: "proxy-password-unreadable" },
+            status: 500,
+          },
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  test("returns false for unknown failures", () => {
+    expect(isHandledFeedBatchError(new Error("boom"))).toBe(false);
   });
 });

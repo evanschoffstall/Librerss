@@ -81,11 +81,36 @@ describe("server account service", () => {
           url: "https://example.com/feed.xml",
         },
       ],
-      [{ createdAt: new Date("2024-01-01T00:00:00.000Z"), expiresAt: new Date("2025-01-01T00:00:00.000Z"), id: 21 }],
-      [{ orderedLabels: ["News"], updatedAt: new Date("2024-01-02T00:00:00.000Z") }],
-      [{ articleId: 31, isRead: true, isStarred: false, updatedAt: new Date("2024-01-03T00:00:00.000Z") }],
+      [
+        {
+          createdAt: new Date("2024-01-01T00:00:00.000Z"),
+          expiresAt: new Date("2025-01-01T00:00:00.000Z"),
+          id: 21,
+        },
+      ],
+      [
+        {
+          orderedLabels: ["News"],
+          updatedAt: new Date("2024-01-02T00:00:00.000Z"),
+        },
+      ],
+      [
+        {
+          articleId: 31,
+          isRead: true,
+          isStarred: false,
+          updatedAt: new Date("2024-01-03T00:00:00.000Z"),
+        },
+      ],
       [{ category: "News", feedId: 11 }],
-      [{ articleId: 31, articleLink: "https://example.com/story", articleTitle: "Story", feedUrl: "https://example.com/feed.xml" }],
+      [
+        {
+          articleId: 31,
+          articleLink: "https://example.com/story",
+          articleTitle: "Story",
+          feedUrl: "https://example.com/feed.xml",
+        },
+      ],
     ];
     const limitCallIndexes = new Set([0, 3]);
     let selectCall = 0;
@@ -233,5 +258,4 @@ describe("server account service", () => {
     expect(payload.user.proxyUrl).toBe("http://example-proxy.test:8080");
     expect(payload.user.proxyUsername).toBe("legacy-user");
   });
-
 });

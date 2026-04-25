@@ -1,45 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { requireMutableFeedAccess } from "@/lib/api/feeds/access";
-import {
-  assertAllowedFeedUrl,
-  getRequestedFeedUrl,
-  parseCreateFeedPayload,
-  parseDeleteSourceId,
-  parseRenameFeedPayloadFromBody,
-  parseToggleFeedEnabledPayloadFromBody,
-  parseUpdateFeedSettingsPayloadFromBody,
-} from "@/lib/api/feeds/parsers";
-import { handleFeedRead } from "@/lib/api/feeds/read";
-import {
+import { NextResponse } from "next/server";
+
+import type {
   createOrUpdateFeedSource,
   deleteFeedSourceForUser,
   renameFeedSourceForUser,
   setFeedSourceEnabledForUser,
   updateFeedSettingsForUser,
-} from "@/lib/api/feeds/repository";
+} from "@/lib/api/feed-source-api";
+import type { getDb } from "@/lib/db";
+
+import { CONFIG, logger } from "@/lib";
+import {
+  assertAllowedFeedUrl,
+  getRequestedFeedUrl,
+  handleFeedRead,
+  parseCreateFeedPayload,
+  parseDeleteSourceId,
+  parseRenameFeedPayloadFromBody,
+  parseToggleFeedEnabledPayloadFromBody,
+  parseUpdateFeedSettingsPayloadFromBody,
+} from "@/lib/api/feed-source-api";
 import {
   isVerboseLoggingEnabled,
   jsonError,
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
-import { CONFIG } from "@/lib/config";
 import {
   isFeedSourceNotFoundError,
   isUpstreamFeedError,
-} from "@/lib/core/feed-fetcher";
-import { getDb } from "@/lib/db/db";
-import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
-import { logger } from "@/lib/logger";
-import { createFeed, deleteFeed, logAndRespondError, renameFeed, requireAuthenticatedUser, resolveRouteHandlerDeps, type RouteHandlerContext, ServerServiceError, setFeedEnabled, updateFeedSettings } from "@/lib/server";
-import { toErrorMessage } from "@/lib/utils/errors";
-import { redactUrlForLogs } from "@/lib/utils/url";
+} from "@/lib/core/server";
+import {
+  createFeed,
+  deleteFeed,
+  renameFeed,
+  requireMutableFeedAccess,
+  serverApi,
+  setFeedEnabled,
+  updateFeedSettings,
+} from "@/lib/server";
+import { toErrorMessage } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
 const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
-
-// ─── Dependency injection types (for testability) ─────────────────────────────
 
 interface FeedRouteDeps {
   assertAllowedFeedUrlFn?: typeof assertAllowedFeedUrl;
@@ -51,7 +56,7 @@ interface FeedRouteDeps {
   isFeedSourceNotFoundErrorFn?: typeof isFeedSourceNotFoundError;
   isUpstreamFeedErrorFn?: typeof isUpstreamFeedError;
   jsonErrorFn?: typeof jsonError;
-  logAndRespondErrorFn?: typeof logAndRespondError;
+  logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
   parseCreateFeedPayloadFn?: typeof parseCreateFeedPayload;
   parseDeleteSourceIdFn?: typeof parseDeleteSourceId;
   parseRenameFeedPayloadFn?: (
@@ -61,7 +66,7 @@ interface FeedRouteDeps {
   parseToggleFeedEnabledPayloadFromBodyFn?: typeof parseToggleFeedEnabledPayloadFromBody;
   parseUpdateFeedSettingsPayloadFromBodyFn?: typeof parseUpdateFeedSettingsPayloadFromBody;
   renameFeedSourceForUserFn?: typeof renameFeedSourceForUser;
-  requireAuthenticatedUserFn?: typeof requireAuthenticatedUser;
+  requireAuthenticatedUserFn?: typeof serverApi.requireAuthenticatedUser;
   requireMutableFeedAccessFn?: typeof requireMutableFeedAccess;
   setFeedSourceEnabledForUserFn?: typeof setFeedSourceEnabledForUser;
   toErrorMessageFn?: typeof toErrorMessage;
@@ -69,23 +74,51 @@ interface FeedRouteDeps {
   warnFn?: typeof logger.warn;
 }
 
-// ─── Route handlers ───────────────────────────────────────────────────────────
+type FeedRouteWarn = (
+  message: string,
+  context?: Record<string, unknown>,
+) => void;
 
+interface RenameFeedSourceFromPayloadParsedPayload {
+  name: string;
+  sourceId: number;
+  url: string;
+}
+
+interface ResolvedFeedRouteDeps {
+  assertAllowedUrl: typeof assertAllowedFeedUrl;
+  parseCreatePayload: typeof parseCreateFeedPayload;
+  parseDeleteId: typeof parseDeleteSourceId;
+  parseRenamePayload?: FeedRouteDeps["parseRenameFeedPayloadFn"];
+  parseRenamePayloadFromBody: typeof parseRenameFeedPayloadFromBody;
+  parseToggleEnabledPayloadFromBody: typeof parseToggleFeedEnabledPayloadFromBody;
+  parseUpdateSettingsFromBody: typeof parseUpdateFeedSettingsPayloadFromBody;
+  readFeed: typeof handleFeedRead;
+  requestedFeedUrl: typeof getRequestedFeedUrl;
+  requireAuth: typeof serverApi.requireAuthenticatedUser;
+  requireMutable: typeof requireMutableFeedAccess;
+  respondError: typeof serverApi.logAndRespondError;
+}
+
+/**
+ * Render the delete component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered delete component.
+ */
 export async function DELETE(
   request: NextRequest,
-  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
-  const requireMutable =
-    deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseDeleteId = deps.parseDeleteSourceIdFn ?? parseDeleteSourceId;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+  const { deps, resolvedDeps, user } = await requireMutableFeedRouteContext(
+    request,
+    depsOrContext,
+  );
 
   try {
-    const user = await requireMutable(request);
     if (user instanceof Response) return user;
 
-    const sourceId = parseDeleteId(request);
+    const sourceId = resolvedDeps.parseDeleteId(request);
     if (sourceId instanceof Response) return sourceId;
 
     const deletedSource = await deleteFeed(user.userId, sourceId, {
@@ -93,169 +126,145 @@ export async function DELETE(
     });
     return NextResponse.json(deletedSource);
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return respondError("Error deleting feed source", error);
+    if (error instanceof serverApi.ServerServiceError) {
+      return toServerServiceErrorResponse(error, deps);
+    }
+
+    return resolvedDeps.respondError("Error deleting feed source", error);
   }
 }
 
+/**
+ * Render the get component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered get component.
+ */
 export async function GET(
   request: NextRequest,
-  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
-  const requireAuth =
-    deps.requireAuthenticatedUserFn ?? requireAuthenticatedUser;
-  const requestedFeedUrl = deps.getRequestedFeedUrlFn ?? getRequestedFeedUrl;
-  const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const readFeed = deps.handleFeedReadFn ?? handleFeedRead;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
-  const verboseLoggingEnabled = isVerboseLoggingEnabled();
-  const feedAttemptId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const requestId =
-    request.headers.get("x-request-id") ??
-    request.headers.get("x-correlation-id") ??
-    null;
+  const deps = serverApi.resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
+  const resolvedDeps = resolveFeedRouteDeps(depsOrContext);
+  const feedAttemptContext = buildFeedAttemptContext(request);
 
   try {
-    const user = await requireAuth(request);
+    const user = await resolvedDeps.requireAuth(request);
     if (user instanceof Response) return user;
 
-    const feedUrl = requestedFeedUrl(request);
-
-    if (feedUrl) {
-      const invalidFeedUrlResponse = await assertAllowedUrl(feedUrl);
-      if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
-    }
-
-    return await readFeed(user.userId, feedUrl);
+    const feedUrl = await resolveValidatedFeedUrl(request, resolvedDeps);
+    if (feedUrl instanceof Response) return feedUrl;
+    return await resolvedDeps.readFeed(user.userId, feedUrl);
   } catch (error) {
-    const requestedUrl = requestedFeedUrl(request);
-    const safeUrl = requestedUrl ? redactUrlForLogs(requestedUrl) : null;
-
-    const upstreamResponse = handleUpstreamFeedError(error, safeUrl, deps, {
-      feedAttemptId,
-      requestId,
-      verboseLoggingEnabled,
+    const upstreamResponse = serverApi.respondToFeedReadError({
+      error,
+      feedAttemptContext,
+      isSourceNotFound: resolveRouteDependency(
+        deps.isFeedSourceNotFoundErrorFn,
+        isFeedSourceNotFoundError,
+      ),
+      isUpstreamError: resolveRouteDependency(
+        deps.isUpstreamFeedErrorFn,
+        isUpstreamFeedError,
+      ),
+      jsonError: resolveRouteDependency(deps.jsonErrorFn, jsonError),
+      request,
+      requestedFeedUrl: resolvedDeps.requestedFeedUrl,
+      toErrorMessage: resolveRouteDependency(
+        deps.toErrorMessageFn,
+        toErrorMessage,
+      ),
+      upstreamFeedErrorMessage: UPSTREAM_FEED_ERROR_MESSAGE,
+      warn: resolveFeedRouteWarn(deps.warnFn),
     });
     if (upstreamResponse) return upstreamResponse;
 
-    return respondError("Error fetching feed", error);
+    return resolvedDeps.respondError("Error fetching feed", error);
   }
 }
 
+/**
+ * Render the patch component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered patch component.
+ */
 export async function PATCH(
   request: NextRequest,
-  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
-  const requireMutable =
-    deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseRenamePayloadFromBody =
-    deps.parseRenameFeedPayloadFromBodyFn ?? parseRenameFeedPayloadFromBody;
-  const parseRenamePayload = deps.parseRenameFeedPayloadFn;
-  const parseToggleEnabledPayloadFromBody =
-    deps.parseToggleFeedEnabledPayloadFromBodyFn ??
-    parseToggleFeedEnabledPayloadFromBody;
-  const parseUpdateSettingsFromBody =
-    deps.parseUpdateFeedSettingsPayloadFromBodyFn ??
-    parseUpdateFeedSettingsPayloadFromBody;
-  const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
+  const deps = serverApi.resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
+  const resolvedDeps = resolveFeedRouteDeps(depsOrContext);
 
   try {
-    const user = await requireMutable(request);
-    if (user instanceof Response) return user;
+    const mutablePatchUser = await requireMutableFeedUser(
+      request,
+      resolvedDeps,
+    );
+    if (mutablePatchUser instanceof Response) return mutablePatchUser;
 
-    if (parseRenamePayload) {
-      const parsedPayload = await parseRenamePayload(request);
+    const user = mutablePatchUser;
+    if (resolvedDeps.parseRenamePayload) {
+      const parsedPayload = await resolvedDeps.parseRenamePayload(request);
       if (parsedPayload instanceof Response) return parsedPayload;
 
-      const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
-      if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
-
-      const updatedSource = await renameFeed(
-        user.userId, parsedPayload.sourceId, parsedPayload.name, parsedPayload.url,
-        { renameFeedSourceForUserFn: deps.renameFeedSourceForUserFn },
+      return await renameFeedSourceFromPayload(
+        user.userId,
+        parsedPayload,
+        deps,
+        resolvedDeps.assertAllowedUrl,
       );
-      return NextResponse.json(updatedSource);
     }
 
     const payloadOrResponse = await parseJsonObjectBodyOrResponse(request);
     if (payloadOrResponse instanceof Response) return payloadOrResponse;
 
-    const payload = payloadOrResponse;
-
-    if (typeof payload.enabled === "boolean") {
-      const parsedTogglePayload = parseToggleEnabledPayloadFromBody(payload);
-      if (parsedTogglePayload instanceof Response) return parsedTogglePayload;
-
-      const updatedSource = await setFeedEnabled(
-        user.userId, parsedTogglePayload.sourceId, parsedTogglePayload.enabled,
-        { setFeedSourceEnabledForUserFn: deps.setFeedSourceEnabledForUserFn },
-      );
-      return NextResponse.json(updatedSource);
-    }
-
-    if (
-      typeof payload.extractionDisabled === "boolean" ||
-      typeof payload.proxyEnabled === "boolean"
-    ) {
-      const parsedSettings = parseUpdateSettingsFromBody(payload);
-      if (parsedSettings instanceof Response) return parsedSettings;
-
-      const updatedSource = await updateFeedSettings(
-        user.userId, parsedSettings.sourceId, {
-          extractionDisabled: parsedSettings.extractionDisabled,
-          proxyEnabled: parsedSettings.proxyEnabled,
-        },
-        { updateFeedSettingsForUserFn: deps.updateFeedSettingsForUserFn },
-      );
-      return NextResponse.json(updatedSource);
-    }
-
-    const parsedPayload = parseRenamePayloadFromBody(payload);
-    if (parsedPayload instanceof Response) return parsedPayload;
-
-    const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
-    if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
-
-    const updatedSource = await renameFeed(
-      user.userId, parsedPayload.sourceId, parsedPayload.name, parsedPayload.url,
-      { renameFeedSourceForUserFn: deps.renameFeedSourceForUserFn },
+    return await handlePatchFromParsedJsonPayload(
+      user.userId,
+      payloadOrResponse,
+      deps,
+      resolvedDeps,
     );
-    return NextResponse.json(updatedSource);
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return respondError("Error renaming feed source", error);
+    if (error instanceof serverApi.ServerServiceError) {
+      return toServerServiceErrorResponse(error, deps);
+    }
+
+    return resolvedDeps.respondError("Error renaming feed source", error);
   }
 }
 
+/**
+ * Render the post component.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @returns The rendered post component.
+ */
 export async function POST(
   request: NextRequest,
-  depsOrContext: FeedRouteDeps | RouteHandlerContext = {},
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
-  const deps = resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
-  const requireMutable =
-    deps.requireMutableFeedAccessFn ?? requireMutableFeedAccess;
-  const parseCreatePayload =
-    deps.parseCreateFeedPayloadFn ?? parseCreateFeedPayload;
-  const assertAllowedUrl = deps.assertAllowedFeedUrlFn ?? assertAllowedFeedUrl;
-  const respondError = deps.logAndRespondErrorFn ?? logAndRespondError;
-
-  try {
-    const user = await requireMutable(request, {
+  const { deps, resolvedDeps, user } = await requireMutableFeedRouteContext(
+    request,
+    depsOrContext,
+    {
       rateLimit: {
         key: "feed-create",
         maxAttempts: CONFIG.RATE_LIMIT_FEED_MAX_REQUESTS,
         windowMs: CONFIG.RATE_LIMIT_FEED_WINDOW_MS,
       },
-    });
+    },
+  );
+
+  try {
     if (user instanceof Response) return user;
 
-    const parsedPayload = await parseCreatePayload(request);
+    const parsedPayload = await resolvedDeps.parseCreatePayload(request);
     if (parsedPayload instanceof Response) return parsedPayload;
 
-    const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
+    const invalidFeedUrlResponse = await resolvedDeps.assertAllowedUrl(
+      parsedPayload.url,
+    );
     if (invalidFeedUrlResponse) return invalidFeedUrlResponse;
 
     const result = await createFeed(user.userId, parsedPayload, {
@@ -268,71 +277,268 @@ export async function POST(
       { status: result.isNew ? 201 : 200 },
     );
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return respondError("Error creating feed source", error);
+    if (error instanceof serverApi.ServerServiceError) {
+      return toServerServiceErrorResponse(error, deps);
+    }
+
+    return resolvedDeps.respondError("Error creating feed source", error);
   }
 }
 
-function handleUpstreamFeedError(
-  error: unknown,
-  safeUrl: null | string,
+/**
+ * Build the feed attempt context.
+ * @param request - The request.
+ * @returns The feed attempt context.
+ */
+function buildFeedAttemptContext(request: NextRequest) {
+  return {
+    feedAttemptId: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    requestId:
+      request.headers.get("x-request-id") ??
+      request.headers.get("x-correlation-id") ??
+      null,
+    verboseLoggingEnabled: isVerboseLoggingEnabled(),
+  };
+} /**
+ * Process the handle patch from parsed json payload.
+ * @param userId - The r id.
+ * @param payload - The payload.
+ * @param deps - The deps.
+ * @param resolvedDeps - The d deps.
+ * @returns The handle patch from parsed json payload.
+ */
+async function handlePatchFromParsedJsonPayload(
+  userId: number,
+  payload: Record<string, unknown>,
   deps: FeedRouteDeps,
-  context?: {
-    feedAttemptId?: string;
-    requestId?: null | string;
-    verboseLoggingEnabled?: boolean;
-  },
-): null | Response {
-  const isSourceNotFound =
-    deps.isFeedSourceNotFoundErrorFn ?? isFeedSourceNotFoundError;
-  const isUpstreamError = deps.isUpstreamFeedErrorFn ?? isUpstreamFeedError;
-  const toMessage = deps.toErrorMessageFn ?? toErrorMessage;
-  const toJsonError = deps.jsonErrorFn ?? jsonError;
-  const warn =
-    deps.warnFn ??
-    (typeof logger.warn === "function"
-      ? logger.warn.bind(logger)
-      : () => undefined);
-  const urlSuffix = safeUrl ? ` for ${safeUrl}` : "";
-  const verboseLoggingEnabled = context?.verboseLoggingEnabled ?? false;
-  const feedAttemptId = context?.feedAttemptId;
-  const requestId = context?.requestId ?? null;
+  resolvedDeps: ResolvedFeedRouteDeps,
+) {
+  if (typeof payload.enabled === "boolean") {
+    const parsedTogglePayload =
+      resolvedDeps.parseToggleEnabledPayloadFromBody(payload);
+    if (parsedTogglePayload instanceof Response) {
+      return parsedTogglePayload;
+    }
 
-  if (isSourceNotFound(error)) {
-    return toJsonError("Feed source not found", 404);
-  }
-
-  if (isUpstreamError(error)) {
-    warn(
-      `Returning 502 Bad Gateway — upstream feed fetch failed${urlSuffix}: ${toMessage(error)}`,
-      {
-        feedAttemptId,
-        requestId,
-        url: safeUrl,
-      },
+    const updatedSource = await setFeedEnabled(
+      userId,
+      parsedTogglePayload.sourceId,
+      parsedTogglePayload.enabled,
+      { setFeedSourceEnabledForUserFn: deps.setFeedSourceEnabledForUserFn },
     );
-    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
+    return NextResponse.json(updatedSource);
   }
 
-  if (error instanceof HttpCloakUpstreamError) {
-    warn(
-      `Returning 502 Bad Gateway — upstream feed HTTPCloak request failed${urlSuffix}: ${toMessage(error)}`,
+  if (
+    typeof payload.extractionDisabled === "boolean" ||
+    typeof payload.proxyEnabled === "boolean"
+  ) {
+    const parsedSettings = resolvedDeps.parseUpdateSettingsFromBody(payload);
+    if (parsedSettings instanceof Response) {
+      return parsedSettings;
+    }
+
+    const updatedSource = await updateFeedSettings(
+      userId,
+      parsedSettings.sourceId,
       {
-        feedAttemptId,
-        requestId,
-        responseHeaders: pickDiagnosticHeaders(error.responseHeaders),
-        statusCode: error.statusCode,
-        url: safeUrl,
-        ...(verboseLoggingEnabled
-          ? {
-              redirectHop: error.redirectHop,
-              requestHeaders: error.requestHeaders,
-            }
-          : {}),
+        extractionDisabled: parsedSettings.extractionDisabled,
+        proxyEnabled: parsedSettings.proxyEnabled,
       },
+      { updateFeedSettingsForUserFn: deps.updateFeedSettingsForUserFn },
     );
-    return toJsonError(UPSTREAM_FEED_ERROR_MESSAGE, 502);
+    return NextResponse.json(updatedSource);
   }
 
-  return null;
+  const parsedPayload = resolvedDeps.parseRenamePayloadFromBody(payload);
+  if (parsedPayload instanceof Response) {
+    return parsedPayload;
+  }
+
+  return renameFeedSourceFromPayload(
+    userId,
+    parsedPayload,
+    deps,
+    resolvedDeps.assertAllowedUrl,
+  );
+}
+
+/**
+ * Process the rename feed source from payload.
+ * @param userId - The r id.
+ * @param parsedPayload - The d payload.
+ * @param deps - The deps.
+ * @param assertAllowedUrl - The assert allowed url.
+ * @returns The rename feed source from payload.
+ */
+async function renameFeedSourceFromPayload(
+  userId: number,
+  parsedPayload: RenameFeedSourceFromPayloadParsedPayload,
+  deps: FeedRouteDeps,
+  assertAllowedUrl: typeof assertAllowedFeedUrl,
+) {
+  const invalidFeedUrlResponse = await assertAllowedUrl(parsedPayload.url);
+  if (invalidFeedUrlResponse) {
+    return invalidFeedUrlResponse;
+  }
+
+  const updatedSource = await renameFeed(
+    userId,
+    parsedPayload.sourceId,
+    parsedPayload.name,
+    parsedPayload.url,
+    { renameFeedSourceForUserFn: deps.renameFeedSourceForUserFn },
+  );
+  return NextResponse.json(updatedSource);
+}
+
+/**
+ * Process the require mutable feed route context.
+ * @param request - The request.
+ * @param depsOrContext - The deps or context.
+ * @param options - The options used to process the require mutable feed route context.
+ * @returns The require mutable feed route context.
+ */
+async function requireMutableFeedRouteContext(
+  request: NextRequest,
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext,
+  options?: Parameters<ResolvedFeedRouteDeps["requireMutable"]>[1],
+) {
+  const deps = serverApi.resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
+  const resolvedDeps = resolveFeedRouteDeps(depsOrContext);
+  const user = await requireMutableFeedUser(request, resolvedDeps, options);
+
+  return {
+    deps,
+    resolvedDeps,
+    user,
+  };
+}
+
+/**
+ * Process the require mutable feed user.
+ * @param request - The request.
+ * @param resolvedDeps - The d deps.
+ * @param options - The options used to process the require mutable feed user.
+ * @returns The require mutable feed user.
+ */
+async function requireMutableFeedUser(
+  request: NextRequest,
+  resolvedDeps: ResolvedFeedRouteDeps,
+  options?: Parameters<ResolvedFeedRouteDeps["requireMutable"]>[1],
+) {
+  return resolvedDeps.requireMutable(request, options);
+}
+
+/**
+ * Resolve the feed route deps.
+ * @param depsOrContext - The deps or context.
+ * @returns The feed route deps.
+ */
+function resolveFeedRouteDeps(
+  depsOrContext: FeedRouteDeps | serverApi.RouteHandlerContext,
+): ResolvedFeedRouteDeps {
+  const deps = serverApi.resolveRouteHandlerDeps<FeedRouteDeps>(depsOrContext);
+
+  return {
+    assertAllowedUrl: resolveRouteDependency(
+      deps.assertAllowedFeedUrlFn,
+      assertAllowedFeedUrl,
+    ),
+    parseCreatePayload: resolveRouteDependency(
+      deps.parseCreateFeedPayloadFn,
+      parseCreateFeedPayload,
+    ),
+    parseDeleteId: resolveRouteDependency(
+      deps.parseDeleteSourceIdFn,
+      parseDeleteSourceId,
+    ),
+    parseRenamePayload: deps.parseRenameFeedPayloadFn,
+    parseRenamePayloadFromBody: resolveRouteDependency(
+      deps.parseRenameFeedPayloadFromBodyFn,
+      parseRenameFeedPayloadFromBody,
+    ),
+    parseToggleEnabledPayloadFromBody: resolveRouteDependency(
+      deps.parseToggleFeedEnabledPayloadFromBodyFn,
+      parseToggleFeedEnabledPayloadFromBody,
+    ),
+    parseUpdateSettingsFromBody: resolveRouteDependency(
+      deps.parseUpdateFeedSettingsPayloadFromBodyFn,
+      parseUpdateFeedSettingsPayloadFromBody,
+    ),
+    readFeed: resolveRouteDependency(deps.handleFeedReadFn, handleFeedRead),
+    requestedFeedUrl: resolveRouteDependency(
+      deps.getRequestedFeedUrlFn,
+      getRequestedFeedUrl,
+    ),
+    requireAuth: resolveRouteDependency(
+      deps.requireAuthenticatedUserFn,
+      serverApi.requireAuthenticatedUser,
+    ),
+    requireMutable: resolveRouteDependency(
+      deps.requireMutableFeedAccessFn,
+      requireMutableFeedAccess,
+    ),
+    respondError: resolveRouteDependency(
+      deps.logAndRespondErrorFn,
+      serverApi.logAndRespondError,
+    ),
+  };
+}
+
+/**
+ * Resolve the feed route warn.
+ * @param warnFn - The callback that warn fn.
+ * @returns The feed route warn.
+ */
+function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
+  if (warnFn) {
+    return warnFn as FeedRouteWarn;
+  }
+
+  return typeof logger.warn === "function"
+    ? (logger.warn.bind(logger) as FeedRouteWarn)
+    : () => undefined;
+}
+
+/**
+ * Resolve the route dependency.
+ * @param dependency - The dependency.
+ * @param fallback - The fallback.
+ * @returns The route dependency.
+ */
+function resolveRouteDependency<T>(dependency: T | undefined, fallback: T): T {
+  return dependency ?? fallback;
+}
+
+/**
+ * Resolve the validated feed url.
+ * @param request - The request.
+ * @param resolvedDeps - The d deps.
+ * @returns The validated feed url.
+ */
+async function resolveValidatedFeedUrl(
+  request: NextRequest,
+  resolvedDeps: ResolvedFeedRouteDeps,
+): Promise<null | Response | string> {
+  const feedUrl = resolvedDeps.requestedFeedUrl(request);
+  if (!feedUrl) {
+    return null;
+  }
+
+  const invalidFeedUrlResponse = await resolvedDeps.assertAllowedUrl(feedUrl);
+  return invalidFeedUrlResponse ?? feedUrl;
+}
+
+/**
+ * Process the to server service error response.
+ * @param error - The error.
+ * @param deps - The deps.
+ * @returns The to server service error response.
+ */
+function toServerServiceErrorResponse(
+  error: serverApi.ServerServiceError,
+  deps: FeedRouteDeps,
+) {
+  return (deps.jsonErrorFn ?? jsonError)(error.message, error.status);
 }

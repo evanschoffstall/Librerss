@@ -19,26 +19,54 @@ type UserScopedIndexSpec = readonly [
   unique?: true,
 ];
 
+/**
+ * Process the define index.
+ * @param name - The name.
+ * @param columns - The columns.
+ * @returns The define index.
+ */
 const defineIndex = (name: string, ...columns: CompositeIndexColumns) =>
   index(name).on(...columns);
 
+/**
+ * Process the define unique index.
+ * @param name - The name.
+ * @param columns - The columns.
+ * @returns The define unique index.
+ */
 const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
   uniqueIndex(name).on(...columns);
 
+/**
+ * Process the define user scoped indexes.
+ * @param userId - The r id.
+ * @param indexes - The indexes.
+ * @returns The define user scoped indexes.
+ */
 const defineUserScopedIndexes = (
   userId: CompositeIndexColumns[number],
   indexes: readonly UserScopedIndexSpec[],
 ) =>
-  indexes.map(([, name, column, unique]) =>
-    unique
-      ? defineUniqueIndex(name, ...([userId, column] as CompositeIndexColumns))
-      : defineIndex(name, ...([userId, column] as CompositeIndexColumns)),
-  );
+  indexes.map(([, name, column, unique]) => {
+    const scopedColumns = [userId, column] as CompositeIndexColumns;
+    return unique
+      ? defineUniqueIndex(name, ...scopedColumns)
+      : defineIndex(name, ...scopedColumns);
+  });
 
+/**
+ * Process the define single unique index.
+ * @param indexConfig - The index config.
+ * @returns The define single unique index.
+ */
 const defineSingleUniqueIndex = (
   indexConfig: ReturnType<typeof defineUniqueIndex>,
-) => [indexConfig];
+): [ReturnType<typeof defineUniqueIndex>] => [indexConfig];
 
+/**
+ * Process the define user owned audit columns.
+ * @returns The define user owned audit columns.
+ */
 const defineUserOwnedAuditColumns = () => ({
   updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
     .notNull()

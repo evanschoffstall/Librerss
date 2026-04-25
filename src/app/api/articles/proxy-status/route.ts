@@ -1,13 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-import { jsonError } from "@/lib/api/http";
-import { logger } from "@/lib/logger";
-import { getProxyStatus, requireAuthenticatedUser, ServerServiceError } from "@/lib/server";
+import { NextResponse } from "next/server";
+
+import { logger } from "@/lib";
+import { getProxyStatus } from "@/lib/outbound-proxy";
+import { serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
+ */
 export async function GET(request: NextRequest) {
-  const authResult = await requireAuthenticatedUser(request);
+  const authResult = await serverApi.requireAuthenticatedUser(request);
   if (authResult instanceof Response) return authResult;
 
   logger.info("Proxy status check started", { userId: authResult.userId });
@@ -21,9 +28,16 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return NextResponse.json(
-      { configured: false, proxyUrl: null, status: "unreachable" },
-    );
+    if (error instanceof serverApi.ServerServiceError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status },
+      );
+    }
+    return NextResponse.json({
+      configured: false,
+      proxyUrl: null,
+      status: "unreachable",
+    });
   }
 }

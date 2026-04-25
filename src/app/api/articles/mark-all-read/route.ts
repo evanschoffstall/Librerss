@@ -1,15 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import { asTrimmedString, jsonError } from "@/lib/api/http";
-import {
-  logAndRespondError,
-  markStreamRead, requireMutableUserAndJsonBody, ServerServiceError } from "@/lib/server";
+import { markStreamRead, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Render the post component.
+ * @param request - The request.
+ * @returns The rendered post component.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const parsedRequest = await requireMutableUserAndJsonBody(request);
+    const parsedRequest =
+      await serverApi.requireMutableUserAndJsonBody(request);
     if (parsedRequest instanceof Response) return parsedRequest;
 
     const streamId = asTrimmedString(parsedRequest.body.streamId);
@@ -19,7 +25,8 @@ export async function POST(request: NextRequest) {
     await markStreamRead(parsedRequest.user.userId, streamId);
     return NextResponse.json({ ok: true });
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return logAndRespondError("Mark all read error", error);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
+    return serverApi.logAndRespondError("Mark all read error", error);
   }
 }

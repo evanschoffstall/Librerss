@@ -1,12 +1,12 @@
-import type { JSX } from "react"
-import { useMemo } from "react"
-import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link"
-import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext"
+import type { JSX } from "react";
+import { useMemo } from "react";
+import { $isLinkNode, TOGGLE_LINK_COMMAND } from "@lexical/link";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import {
   NodeContextMenuOption,
   NodeContextMenuPlugin,
   NodeContextMenuSeparator,
-} from "@lexical/react/LexicalNodeContextMenuPlugin"
+} from "@lexical/react/LexicalNodeContextMenuPlugin";
 import {
   $getSelection,
   $isDecoratorNode,
@@ -16,7 +16,7 @@ import {
   CUT_COMMAND,
   PASTE_COMMAND,
   type LexicalNode,
-} from "lexical"
+} from "lexical";
 import {
   Clipboard,
   ClipboardType,
@@ -24,16 +24,16 @@ import {
   Link2Off,
   Scissors,
   Trash2,
-} from "lucide-react"
+} from "lucide-react";
 
 export function ContextMenuPlugin(): JSX.Element {
-  const [editor] = useLexicalComposerContext()
+  const [editor] = useLexicalComposerContext();
 
   const items = useMemo(() => {
     return [
       new NodeContextMenuOption(`Remove Link`, {
         $onSelect: () => {
-          editor.dispatchCommand(TOGGLE_LINK_COMMAND, null)
+          editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
         },
         $showOn: (node: LexicalNode) => $isLinkNode(node.getParent()),
         disabled: false,
@@ -44,14 +44,14 @@ export function ContextMenuPlugin(): JSX.Element {
       }),
       new NodeContextMenuOption(`Cut`, {
         $onSelect: () => {
-          editor.dispatchCommand(CUT_COMMAND, null)
+          editor.dispatchCommand(CUT_COMMAND, null);
         },
         disabled: false,
         icon: <Scissors className="h-4 w-4" />,
       }),
       new NodeContextMenuOption(`Copy`, {
         $onSelect: () => {
-          editor.dispatchCommand(COPY_COMMAND, null)
+          editor.dispatchCommand(COPY_COMMAND, null);
         },
         disabled: false,
         icon: <Copy className="h-4 w-4" />,
@@ -59,31 +59,31 @@ export function ContextMenuPlugin(): JSX.Element {
       new NodeContextMenuOption(`Paste`, {
         $onSelect: () => {
           navigator.clipboard.read().then(async function (...args) {
-            const data = new DataTransfer()
+            const data = new DataTransfer();
 
-            const readClipboardItems = await navigator.clipboard.read()
-            const item = readClipboardItems[0]
+            const readClipboardItems = await navigator.clipboard.read();
+            const item = readClipboardItems[0];
 
             const permission = await navigator.permissions.query({
               // @ts-expect-error These types are incorrect.
               name: "clipboard-read",
-            })
+            });
             if (permission.state === "denied") {
-              alert("Not allowed to paste from clipboard.")
-              return
+              alert("Not allowed to paste from clipboard.");
+              return;
             }
 
             for (const type of item.types) {
-              const dataString = await (await item.getType(type)).text()
-              data.setData(type, dataString)
+              const dataString = await (await item.getType(type)).text();
+              data.setData(type, dataString);
             }
 
             const event = new ClipboardEvent("paste", {
               clipboardData: data,
-            })
+            });
 
-            editor.dispatchCommand(PASTE_COMMAND, event)
-          })
+            editor.dispatchCommand(PASTE_COMMAND, event);
+          });
         },
         disabled: false,
         icon: <Clipboard className="h-4 w-4" />,
@@ -94,22 +94,22 @@ export function ContextMenuPlugin(): JSX.Element {
             const permission = await navigator.permissions.query({
               // @ts-expect-error These types are incorrect.
               name: "clipboard-read",
-            })
+            });
 
             if (permission.state === "denied") {
-              alert("Not allowed to paste from clipboard.")
-              return
+              alert("Not allowed to paste from clipboard.");
+              return;
             }
 
-            const data = new DataTransfer()
-            const clipboardText = await navigator.clipboard.readText()
-            data.setData("text/plain", clipboardText)
+            const data = new DataTransfer();
+            const clipboardText = await navigator.clipboard.readText();
+            data.setData("text/plain", clipboardText);
 
             const event = new ClipboardEvent("paste", {
               clipboardData: data,
-            })
-            editor.dispatchCommand(PASTE_COMMAND, event)
-          })
+            });
+            editor.dispatchCommand(PASTE_COMMAND, event);
+          });
         },
         disabled: false,
         icon: <ClipboardType className="h-4 w-4" />,
@@ -117,26 +117,28 @@ export function ContextMenuPlugin(): JSX.Element {
       new NodeContextMenuSeparator(),
       new NodeContextMenuOption(`Delete Node`, {
         $onSelect: () => {
-          const selection = $getSelection()
+          const selection = $getSelection();
           if ($isRangeSelection(selection)) {
-            const currentNode = selection.anchor.getNode()
-            const ancestorNodeWithRootAsParent = currentNode.getParents().at(-2)
+            const currentNode = selection.anchor.getNode();
+            const ancestorNodeWithRootAsParent = currentNode
+              .getParents()
+              .at(-2);
 
-            ancestorNodeWithRootAsParent?.remove()
+            ancestorNodeWithRootAsParent?.remove();
           } else if ($isNodeSelection(selection)) {
-            const selectedNodes = selection.getNodes()
+            const selectedNodes = selection.getNodes();
             selectedNodes.forEach((node) => {
               if ($isDecoratorNode(node)) {
-                node.remove()
+                node.remove();
               }
-            })
+            });
           }
         },
         disabled: false,
         icon: <Trash2 className="h-4 w-4" />,
       }),
-    ]
-  }, [editor])
+    ];
+  }, [editor]);
 
   return (
     <NodeContextMenuPlugin
@@ -145,5 +147,5 @@ export function ContextMenuPlugin(): JSX.Element {
       separatorClassName="bg-border -mx-1 h-px"
       items={items}
     />
-  )
+  );
 }

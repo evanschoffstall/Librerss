@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest, NextResponse } from "next/server";
 
-import { ServerServiceError } from "@/lib/server/services/errors";
+import { ServerServiceError } from "@/lib";
 
 let routeImportVersion = 0;
 
@@ -58,10 +58,13 @@ describe("account export route", () => {
     }));
 
     const { GET } = await loadAccountExportRoute();
-    const response = await GET(new NextRequest("http://localhost/api/account/export"), {
-      exportAccountDataFn,
-      requireAuthFn: async () => ({ userId: 42 }),
-    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/account/export"),
+      {
+        exportAccountDataFn,
+        requireAuthFn: async () => ({ userId: 42 }),
+      },
+    );
 
     expect(exportAccountDataFn).toHaveBeenCalledWith(42, {
       getDbFn: undefined,
@@ -91,10 +94,13 @@ describe("account export route", () => {
     });
 
     const { GET } = await loadAccountExportRoute();
-    const response = await GET(new NextRequest("http://localhost/api/account/export"), {
-      exportAccountDataFn,
-      requireAuthFn: async () => unauthorizedResponse,
-    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/account/export"),
+      {
+        exportAccountDataFn,
+        requireAuthFn: async () => unauthorizedResponse,
+      },
+    );
 
     expect(exportAccountDataFn).not.toHaveBeenCalled();
     expect(response).toBe(unauthorizedResponse);
@@ -107,11 +113,14 @@ describe("account export route", () => {
     });
 
     const { GET } = await loadAccountExportRoute();
-    const response = await GET(new NextRequest("http://localhost/api/account/export"), {
-      exportAccountDataFn,
-      requireAuthFn: async () => ({ userId: 42 }),
-      serverServiceErrorClass: ServerServiceError,
-    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/account/export"),
+      {
+        exportAccountDataFn,
+        requireAuthFn: async () => ({ userId: 42 }),
+        serverServiceErrorClass: ServerServiceError,
+      },
+    );
 
     expect(response.status).toBe(503);
     await expect(response.json()).resolves.toEqual({
@@ -125,11 +134,14 @@ describe("account export route", () => {
     });
 
     const { GET } = await loadAccountExportRoute();
-    const response = await GET(new NextRequest("http://localhost/api/account/export"), {
-      exportAccountDataFn,
-      requireAuthFn: async () => ({ userId: 42 }),
-      serverServiceErrorClass: ServerServiceError,
-    });
+    const response = await GET(
+      new NextRequest("http://localhost/api/account/export"),
+      {
+        exportAccountDataFn,
+        requireAuthFn: async () => ({ userId: 42 }),
+        serverServiceErrorClass: ServerServiceError,
+      },
+    );
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({

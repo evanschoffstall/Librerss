@@ -1,8 +1,7 @@
-import type { AuthSession, AuthUser } from "@/lib/core/types";
+import type { AuthSession, AuthUser } from "@/lib/core";
 
-import { LEGAL_CONSENT_VERSION } from "@/app/components/legal/metadata";
-
-import { getApiClient } from "./http";
+import { LEGAL_CONSENT_VERSION } from "@/lib";
+import { getApiClient } from "@/lib/api/http";
 
 interface AuthSessionResponse {
   user: AuthUser;
@@ -11,6 +10,10 @@ interface AuthSessionResponse {
 const authServiceBaseUrl = "/api/auth";
 
 export const AuthService = {
+  /**
+   * Return the session.
+   * @returns The session.
+   */
   async getSession(): Promise<AuthSession> {
     const response = await getApiClient().get<AuthSession>(
       `${authServiceBaseUrl}/session`,
@@ -18,6 +21,12 @@ export const AuthService = {
     return response.data;
   },
 
+  /**
+   * Process the login.
+   * @param email - The email.
+   * @param password - The password.
+   * @returns The login.
+   */
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/login`,
@@ -29,10 +38,19 @@ export const AuthService = {
     return response.data.user;
   },
 
+  /**
+   * Process the logout.
+   */
   async logout(): Promise<void> {
     await getApiClient().post(`${authServiceBaseUrl}/logout`);
   },
 
+  /**
+   * Process the signup.
+   * @param email - The email.
+   * @param password - The password.
+   * @returns The signup.
+   */
   async signup(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/signup`,

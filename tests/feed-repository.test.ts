@@ -14,7 +14,7 @@ import {
   test,
 } from "bun:test";
 
-import type { FeedTransaction } from "@/lib/api/feeds/types";
+import type { FeedTransaction } from "@/lib/api/feed-source-api/types";
 
 import * as realDbModule from "@/lib/db/db";
 import * as realFeedRecordsModule from "@/lib/db/feed-records";
@@ -25,7 +25,8 @@ import * as realUrlModule from "@/lib/utils/url";
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
 
-const getFeedRepository = async () => import("@/lib/api/feeds/repository");
+const getFeedRepository = async () =>
+  import("@/lib/api/feed-source-api/repository");
 
 const toFeedSourceResponse = async (row: {
   category: null | string;

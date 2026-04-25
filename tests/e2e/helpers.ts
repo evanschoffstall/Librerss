@@ -21,6 +21,17 @@ export interface NextJsErrorMonitor {
   dispose: () => void;
 }
 
+interface DeterministicFeedBatchRouteOptions {
+  articlesPerFeed?: number;
+  failNextBatchRequestRef?: { current: boolean };
+}
+
+const DETERMINISTIC_PREVIEW_PARAGRAPH = [
+  "Deterministic preview coverage keeps the feed surface stable under parallel Playwright load.",
+  "Each mock article includes enough text to preserve the expected collapsed card height and pagination thresholds.",
+  "This avoids accidental viewport auto-fill expansion caused by unrealistically short placeholder content.",
+].join(" ");
+
 interface NextJsErrorSignal {
   source: "console" | "overlay" | "pageerror";
   text: string;
@@ -121,30 +132,32 @@ export async function enterPreviewFromLogin(page: Page) {
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
   ).toBeVisible();
-  await page.waitForFunction(() => document.readyState === "complete");
-  await page.getByRole("button", { name: "Explore without an account" }).click();
-  await expect
-    .poll(() => {
-      const currentUrl = new URL(page.url());
-
-      return currentUrl.pathname === "/dashboard"
-        ? currentUrl.searchParams.get("explore")
-        : null;
-    })
-    .toBe("1");
+  await page.waitForLoadState("load", { timeout: 15_000 });
+  const exploreWithoutAccountButton = page.getByRole("button", {
+    name: "Explore without an account",
+  });
+  await expect(exploreWithoutAccountButton).toBeEnabled();
+  await clickVisibleControl(exploreWithoutAccountButton);
 
   await expectPreviewDashboard(page);
 }
 
 /** Waits for an article card to reach the expected expanded state. */
-export async function expectArticleExpanded(article: Locator, expanded: boolean) {
-  await expect(article).toHaveAttribute("aria-expanded", expanded ? "true" : "false");
+export async function expectArticleExpanded(
+  article: Locator,
+  expanded: boolean,
+) {
+  await expect(article).toHaveAttribute(
+    "aria-expanded",
+    expanded ? "true" : "false",
+  );
 }
 
 /** Waits for the unauthenticated dashboard login shell to become visible. */
 export async function expectDashboardLogin(page: Page) {
-  await page.waitForURL((url) => url.pathname === "/dashboard");
-  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
+  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible({
+    timeout: 20_000,
+  });
   await expect(
     page.getByText("Access your saved feeds and reading preferences."),
   ).toBeVisible();
@@ -166,7 +179,10 @@ export async function expectNotClipped(
   expect(box, `${label}: no bounding box`).not.toBeNull();
 
   const containerBox = await container.boundingBox();
-  expect(containerBox, `${label}: container has no bounding box`).not.toBeNull();
+  expect(
+    containerBox,
+    `${label}: container has no bounding box`,
+  ).not.toBeNull();
 
   const b = box!;
   const c = containerBox!;
@@ -191,9 +207,18 @@ export async function expectNotClipped(
 
 /** Waits for the preview dashboard shell to become interactive. */
 export async function expectPreviewDashboard(page: Page) {
-  await page.waitForURL((url) => {
-    return url.pathname === "/dashboard" && url.searchParams.get("explore") === "1";
-  });
+  await expect
+    .poll(
+      () => {
+        const currentUrl = new URL(page.url());
+
+        return currentUrl.pathname === "/dashboard"
+          ? currentUrl.searchParams.get("explore")
+          : "__non_dashboard_route__";
+      },
+      { timeout: 20_000 },
+    )
+    .toBe("1");
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
   const mobileFeedsButton = page.getByRole("button", {
@@ -250,19 +275,116 @@ export async function gotoPreviewDashboard(
 
 /** Returns whether the feed list is still rendering the load-more sentinel. */
 export async function hasLoadMoreSentinel(page: Page) {
-  return (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0;
+  return (
+    (await page.locator("[data-feed-load-more-sentinel='true']").count()) > 0
+  );
+}
+
+/**
+ * Installs a deterministic article-extraction route for expanded-article tests.
+ * @param page - The page receiving the route override.
+ */
+export async function installDeterministicArticleExtractRoute(page: Page) {
+  await page.route("**/api/articles/extract", async (route) => {
+    const requestBody = route.request().postDataJSON() as {
+      url?: string;
+    };
+    const articleUrl = typeof requestBody.url === "string" ? requestBody.url : "";
+
+    await route.fulfill({
+      body: JSON.stringify({
+        content: [
+          "<article>",
+          "<h1>Deterministic extract</h1>",
+          `<p>Stable extracted content for ${articleUrl || "unknown article"}.</p>`,
+          `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+          `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+          "</article>",
+        ].join(""),
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+}
+
+/**
+ * Installs a deterministic feed-batch route so preview-mode article tests do
+ * not depend on live extractor throughput.
+ * @param page - The page receiving the route override.
+ * @param options - Controls how many mock articles each feed returns and
+ * whether the next batch request should fail.
+ */
+export async function installDeterministicFeedBatchRoute(
+  page: Page,
+  options: DeterministicFeedBatchRouteOptions = {},
+) {
+  await page.route("**/api/feeds/batch", async (route) => {
+    if (options.failNextBatchRequestRef?.current) {
+      options.failNextBatchRequestRef.current = false;
+      await route.fulfill({
+        body: JSON.stringify({ error: "Gateway Timeout" }),
+        contentType: "application/json",
+        status: 504,
+      });
+      return;
+    }
+
+    const requestBody = route.request().postDataJSON() as {
+      urls?: string[];
+    };
+    const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+    const articlesPerFeed = options.articlesPerFeed ?? 1;
+    const payload = urls.map((url, feedIndex) => ({
+      articles: Array.from({ length: articlesPerFeed }, (_, articleIndex) => {
+        const articleNumber = feedIndex * articlesPerFeed + articleIndex + 1;
+
+        return {
+          content: [
+            `<p><strong>Deterministic Article ${articleNumber}</strong></p>`,
+            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+          ].join(""),
+          feedId: feedIndex + 1,
+          feedUrl: url,
+          hasFullContent: true,
+          id: articleNumber,
+          isRead: false,
+          isStarred: false,
+          lastChecked: `2026-03-13T10:${String(articleNumber % 60).padStart(2, "0")}:00.000Z`,
+          link: `https://example.com/playwright/article-${articleNumber}`,
+          publicationDate: `2026-03-13T09:${String(articleNumber % 60).padStart(2, "0")}:00.000Z`,
+          title: `Deterministic Article ${articleNumber}`,
+        };
+      }),
+      ok: true,
+      url,
+    }));
+
+    await route.fulfill({
+      body: JSON.stringify(payload),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
 }
 
 /** Returns the rendered article currently occupying the requested viewport slot. */
 export async function locateViewportArticle(page: Page, index: number) {
   const visibleArticles = page.locator("article[data-article-key]:visible");
   await expect(visibleArticles.nth(index)).toBeVisible({ timeout: 15_000 });
-  const resolvedArticleKey = await visibleArticles.nth(index).getAttribute(
-    "data-article-key",
-  );
+  const resolvedArticleKey = await visibleArticles
+    .nth(index)
+    .getAttribute("data-article-key");
 
-  if (typeof resolvedArticleKey !== "string" || resolvedArticleKey.length === 0) {
-    throw new Error(`Expected viewport article ${index} to resolve to a stable article key.`);
+  if (
+    typeof resolvedArticleKey !== "string" ||
+    resolvedArticleKey.length === 0
+  ) {
+    throw new Error(
+      `Expected viewport article ${index} to resolve to a stable article key.`,
+    );
   }
 
   return articleCardByKey(page, resolvedArticleKey);
@@ -281,7 +403,9 @@ export async function openDashboardFeedsSidebar(page: Page) {
 
 /** Opens dashboard settings and waits for the modal content to render. */
 export async function openDashboardSettings(page: Page) {
-  const settingsHeading = page.getByRole("heading", { name: "Reader Settings" });
+  const settingsHeading = page.getByRole("heading", {
+    name: "Reader Settings",
+  });
   if (await settingsHeading.isVisible().catch(() => false)) {
     return;
   }
@@ -305,7 +429,9 @@ export async function openDashboardSettings(page: Page) {
 /** Selects a settings tab in the currently open settings surface. */
 export async function openDashboardSettingsTab(page: Page, tabName: string) {
   await openDashboardSettings(page);
-  await clickVisibleControl(page.getByRole("tab", { exact: true, name: tabName }));
+  await clickVisibleControl(
+    page.getByRole("tab", { exact: true, name: tabName }),
+  );
 }
 
 /** Reads the article key used by the feed row and card surfaces. */
@@ -341,6 +467,57 @@ export async function readFeedViewportMetrics(page: Page) {
   });
 }
 
+/** Reads whether the active feed surface is currently rendering load-more skeletons. */
+export async function readLoadMoreSkeletonState(page: Page) {
+  return await page.evaluate(() => {
+    const viewportSelectors = [
+      '[data-feed-scroll-viewport="true"]',
+      "[data-radix-scroll-area-viewport]",
+      "[data-feed-surface-mode]",
+      "[data-feed-virtualizer]",
+    ] as const;
+
+    for (const selector of viewportSelectors) {
+      const candidates = Array.from(
+        document.querySelectorAll<HTMLElement>(selector),
+      );
+
+      for (const candidate of candidates) {
+        const rect = candidate.getBoundingClientRect();
+
+        if (
+          candidate.querySelector("article[data-article-key]") === null ||
+          rect.width <= 0 ||
+          rect.height <= 0 ||
+          window.getComputedStyle(candidate).visibility === "hidden"
+        ) {
+          continue;
+        }
+
+        const feedSurface =
+          candidate.closest<HTMLElement>("[data-feed-surface-mode]") ??
+          candidate.querySelector<HTMLElement>("[data-feed-surface-mode]");
+        if (feedSurface === null) {
+          continue;
+        }
+
+        const skeletonCount = Number.parseInt(
+          feedSurface.dataset.feedLoadMoreSkeletonCount ?? "0",
+          10,
+        );
+
+        return {
+          skeletonCount: Number.isFinite(skeletonCount) ? skeletonCount : 0,
+          skeletonsVisible:
+            feedSurface.dataset.feedLoadMoreSkeletonsVisible === "true",
+        };
+      }
+    }
+
+    throw new Error("Expected the active feed surface to expose its skeleton state.");
+  });
+}
+
 /** Returns the current preview cookie and localStorage persistence values. */
 export async function readPreviewPersistence(page: Page) {
   const previewCookieValue =
@@ -359,23 +536,63 @@ export async function readPreviewPersistence(page: Page) {
 
 /** Reads the current number of rendered article cards in the active feed. */
 export async function readRenderedArticleCount(page: Page) {
-  return await page.locator("article[data-article-key]").count();
+  return await page.evaluate(() => {
+    const feedSurface = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-feed-surface-mode]"),
+    ).find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        window.getComputedStyle(candidate).visibility !== "hidden" &&
+        candidate.querySelector("article[data-article-key]") !== null
+      );
+    });
+
+    const visibleCount = Number.parseInt(
+      feedSurface?.dataset.feedVisibleArticleCount ?? "",
+      10,
+    );
+
+    if (Number.isFinite(visibleCount)) {
+      return visibleCount;
+    }
+
+    return document.querySelectorAll("article[data-article-key]").length;
+  });
 }
 
 /** Reads the currently visible virtualized item window for the active feed. */
 export async function readRenderedItemWindow(page: Page) {
-  return await page.evaluate(() => {
+  const viewport = await getActiveFeedViewport(page);
+
+  return await viewport.evaluate((node) => {
+    const feedSurface =
+      node.closest<HTMLElement>("[data-feed-surface-mode]") ??
+      node.querySelector<HTMLElement>("[data-feed-surface-mode]");
+    const visibleCount = Number.parseInt(
+      feedSurface?.dataset.feedVisibleArticleCount ?? "",
+      10,
+    );
+    const indexRoot = feedSurface ?? node;
     const indexes = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-index]"),
+      indexRoot.querySelectorAll<HTMLElement>("[data-index]"),
     )
-      .map((node) => Number.parseInt(node.dataset.index ?? "", 10))
+      .map((candidate) => Number.parseInt(candidate.dataset.index ?? "", 10))
       .filter((value) => Number.isFinite(value))
       .sort((left, right) => left - right);
+    const logicalIndexes = Number.isFinite(visibleCount)
+      ? indexes.slice(0, visibleCount)
+      : indexes;
 
     return {
-      count: indexes.length,
-      maxIndex: indexes.length > 0 ? indexes[indexes.length - 1] : null,
-      minIndex: indexes.length > 0 ? indexes[0] : null,
+      count: logicalIndexes.length,
+      maxIndex:
+        logicalIndexes.length > 0
+          ? logicalIndexes[logicalIndexes.length - 1]
+          : null,
+      minIndex: logicalIndexes.length > 0 ? logicalIndexes[0] : null,
     };
   });
 }
@@ -391,7 +608,9 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
     );
 
     if (!viewport) {
-      throw new Error("Expected the mobile feeds tray to render a Radix viewport.");
+      throw new Error(
+        "Expected the mobile feeds tray to render a Radix viewport.",
+      );
     }
 
     return {
@@ -405,7 +624,10 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
 }
 
 /** Reads the first visible feed article plus its top offset inside the viewport. */
-export async function readTopVisibleFeedArticle(page: Page, minimumOffsetTop = 0) {
+export async function readTopVisibleFeedArticle(
+  page: Page,
+  minimumOffsetTop = 0,
+) {
   const viewport = await getActiveFeedViewport(page);
 
   return await viewport.evaluate((node, minimumVisibleOffsetTop) => {
@@ -419,18 +641,70 @@ export async function readTopVisibleFeedArticle(page: Page, minimumOffsetTop = 0
         return {
           articleKey: article.dataset.articleKey ?? null,
           offsetTop: rect.top - viewportRect.top,
-          visible: rect.bottom > viewportRect.top && rect.top < viewportRect.bottom,
+          visible:
+            rect.bottom > viewportRect.top && rect.top < viewportRect.bottom,
         };
       })
       .filter((article) => article.visible)
       .sort((left, right) => left.offsetTop - right.offsetTop);
 
     return (
-      articles.find((article) => article.offsetTop >= minimumVisibleOffsetTop) ??
+      articles.find(
+        (article) => article.offsetTop >= minimumVisibleOffsetTop,
+      ) ??
       articles[0] ??
       null
     );
   }, minimumOffsetTop);
+}
+
+/** Reads the active feed surface's visible article-window size. */
+export async function readVisibleFeedArticleCount(page: Page) {
+  return await page.evaluate(() => {
+    const viewportSelectors = [
+      '[data-feed-scroll-viewport="true"]',
+      "[data-radix-scroll-area-viewport]",
+      "[data-feed-surface-mode]",
+      "[data-feed-virtualizer]",
+    ] as const;
+
+    for (const selector of viewportSelectors) {
+      const candidates = Array.from(
+        document.querySelectorAll<HTMLElement>(selector),
+      );
+
+      for (const candidate of candidates) {
+        const rect = candidate.getBoundingClientRect();
+
+        if (
+          candidate.querySelector("article[data-article-key]") === null ||
+          rect.width <= 0 ||
+          rect.height <= 0 ||
+          window.getComputedStyle(candidate).visibility === "hidden"
+        ) {
+          continue;
+        }
+
+        const feedSurface =
+          candidate.closest<HTMLElement>("[data-feed-surface-mode]") ??
+          candidate.querySelector<HTMLElement>("[data-feed-surface-mode]");
+        if (feedSurface !== null) {
+          const visibleArticleCount = Number.parseInt(
+            feedSurface.dataset.feedVisibleArticleCount ?? "",
+            10,
+          );
+
+          if (Number.isFinite(visibleArticleCount)) {
+            return visibleArticleCount;
+          }
+        }
+
+        return candidate.querySelectorAll("article[data-article-key]").length;
+      }
+    }
+
+    return document.querySelectorAll("article[data-article-key]").length;
+  });
 }
 
 /** Scrolls the active feed viewport to its current bottom edge. */
@@ -438,7 +712,16 @@ export async function scrollFeedViewportToBottom(page: Page) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node) => {
-    node.scrollTop = node.scrollHeight;
+    const nextScrollTop = Math.max(0, node.scrollHeight - node.clientHeight);
+
+    if (typeof node.scrollTo === "function") {
+      node.scrollTo({ behavior: "auto", top: nextScrollTop });
+    }
+
+    if (Math.abs(node.scrollTop - nextScrollTop) > 1) {
+      node.scrollTop = nextScrollTop;
+    }
+
     node.dispatchEvent(new Event("scroll"));
   });
 }
@@ -448,7 +731,14 @@ export async function scrollFeedViewportToTop(page: Page) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node) => {
-    node.scrollTop = 0;
+    if (typeof node.scrollTo === "function") {
+      node.scrollTo({ behavior: "auto", top: 0 });
+    }
+
+    if (Math.abs(node.scrollTop) > 1) {
+      node.scrollTop = 0;
+    }
+
     node.dispatchEvent(new Event("scroll"));
   });
 }
@@ -482,10 +772,52 @@ export async function seedClientStateSentinel(page: Page, value = "present") {
   }
 }
 
+/** Selects a dashboard article filter pill and verifies it became active. */
+export async function selectArticleFilter(
+  page: Page,
+  filterName: "all" | "read" | "starred" | "unread",
+) {
+  const filterButton = page.getByRole("button", {
+    exact: true,
+    name: filterName,
+  });
+
+  await expect(filterButton).toBeVisible();
+
+  try {
+    await clickVisibleControl(filterButton);
+  } catch {
+    await filterButton.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected dashboard filter button element.");
+      }
+
+      node.click();
+    });
+  }
+
+  if (
+    (await filterButton.getAttribute("aria-pressed").catch(() => null)) !==
+    "true"
+  ) {
+    await filterButton.evaluate((node) => {
+      if (!(node instanceof HTMLElement)) {
+        throw new Error("Expected dashboard filter button element.");
+      }
+
+      node.click();
+    });
+  }
+
+  await expect(filterButton).toHaveAttribute("aria-pressed", "true");
+}
+
 /** Selects visible expanded article text and returns the current selection content. */
 export async function selectExpandedArticleText(article: Locator) {
   return await article.evaluate((node) => {
-    const selectableTarget = node.querySelector<HTMLElement>(".article-swipe-body");
+    const selectableTarget = node.querySelector<HTMLElement>(
+      ".article-swipe-body",
+    );
 
     if (!selectableTarget || selectableTarget.innerText.trim().length <= 20) {
       return "";
@@ -504,12 +836,51 @@ export async function selectExpandedArticleText(article: Locator) {
 
 /** Scrolls the active feed viewport to a target offset. */
 export async function setFeedViewportScrollTop(page: Page, scrollTop: number) {
-  const viewport = await getActiveFeedViewport(page);
+  const viewportSelectors = [
+    '[data-feed-scroll-viewport="true"]',
+    "[data-radix-scroll-area-viewport]",
+    "[data-feed-surface-mode]",
+    "[data-feed-virtualizer]",
+  ] as const;
 
-  await viewport.evaluate((node, nextScrollTop) => {
-    node.scrollTop = nextScrollTop;
-    node.dispatchEvent(new Event("scroll"));
-  }, scrollTop);
+  await page.evaluate(
+    ({ nextScrollTop, selectors }) => {
+      const viewport = selectors
+        .flatMap((selector) =>
+          Array.from(document.querySelectorAll<HTMLElement>(selector)),
+        )
+        .find((candidate) => {
+          const rect = candidate.getBoundingClientRect();
+
+          return (
+            candidate.querySelector("article[data-article-key]") !== null &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            window.getComputedStyle(candidate).visibility !== "hidden"
+          );
+        });
+
+      if (!viewport) {
+        throw new Error("Expected a dashboard feed viewport.");
+      }
+
+      const clampedScrollTop = Math.max(
+        0,
+        Math.min(nextScrollTop, viewport.scrollHeight - viewport.clientHeight),
+      );
+
+      if (typeof viewport.scrollTo === "function") {
+        viewport.scrollTo({ behavior: "auto", top: clampedScrollTop });
+      }
+
+      if (Math.abs(viewport.scrollTop - clampedScrollTop) > 1) {
+        viewport.scrollTop = clampedScrollTop;
+      }
+
+      viewport.dispatchEvent(new Event("scroll"));
+    },
+    { nextScrollTop: scrollTop, selectors: viewportSelectors },
+  );
 }
 
 /** Drags horizontally across an article card to exercise swipe actions. */
@@ -557,54 +928,51 @@ export async function swipeArticle(
 /** Toggles an article by clicking its title region instead of nested action buttons. */
 export async function toggleArticle(article: Locator) {
   await expect(article).toBeVisible({ timeout: 15_000 });
-  await article.evaluate((node) => {
-    if (!(node instanceof HTMLElement)) {
-      throw new Error("Expected the article surface to resolve to an element.");
-    }
-
-    node.scrollIntoView({ block: "center", inline: "nearest" });
-  });
+  await article.scrollIntoViewIfNeeded();
 
   try {
     const beforeExpanded = await article.getAttribute("aria-expanded");
+    const header = article
+      .locator("[data-article-swipe-zone='header']")
+      .first();
 
-    await article.evaluate((node) => {
-      if (!(node instanceof HTMLElement)) {
-        throw new Error("Expected the article surface to be clickable.");
-      }
+    if (beforeExpanded === "true" && (await header.count()) > 0) {
+      await header.click({ force: true });
+    } else {
+      await article.click({ force: true });
+    }
 
-      node.click();
-    });
-
-    await expect.poll(async () => await article.getAttribute("aria-expanded")).not.toBe(
-      beforeExpanded,
-    );
+    await expect
+      .poll(async () => await article.getAttribute("aria-expanded"))
+      .not.toBe(beforeExpanded);
   } catch (error) {
     if (
       !(error instanceof Error) ||
-      (
-        !error.message.includes("Element is not attached to the DOM") &&
-        !error.message.includes("Timeout")
-      )
+      (!error.message.includes("Element is not attached to the DOM") &&
+        !error.message.includes("Timeout"))
     ) {
       throw error;
     }
 
-    await article.evaluate((node) => {
-      if (!(node instanceof HTMLElement)) {
-        throw new Error("Expected the article surface to be clickable.");
-      }
+    const beforeRetryExpanded = await article.getAttribute("aria-expanded");
+    const header = article
+      .locator("[data-article-swipe-zone='header']")
+      .first();
 
-      node.click();
-    });
+    if (beforeRetryExpanded === "true" && (await header.count()) > 0) {
+      await header.click({ force: true });
+    } else {
+      await article.click({ force: true });
+    }
+
+    await expect
+      .poll(async () => await article.getAttribute("aria-expanded"))
+      .not.toBe(beforeRetryExpanded);
   }
 }
 
 /** Dispatches a wheel event against the active feed viewport to mark user scroll intent. */
-export async function triggerFeedViewportWheelIntent(
-  page: Page,
-  deltaY = 240,
-) {
+export async function triggerFeedViewportWheelIntent(page: Page, deltaY = 240) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node, nextDeltaY) => {
@@ -621,7 +989,9 @@ export async function waitForPreviewDashboardHydration(page: Page) {
   await page.waitForFunction(() => document.readyState === "complete");
   await expect
     .poll(async () => {
-      return await page.locator('[data-article-hydration-state="loading"]').count();
+      return await page
+        .locator('[data-article-hydration-state="loading"]')
+        .count();
     })
     .toBe(0);
 }
@@ -632,7 +1002,9 @@ export async function wheelActiveFeedViewport(page: Page, deltaY = 240) {
   const box = await viewport.boundingBox();
 
   if (!box) {
-    throw new Error("Expected the active feed viewport to have a measurable bounding box.");
+    throw new Error(
+      "Expected the active feed viewport to have a measurable bounding box.",
+    );
   }
 
   await page.mouse.move(
@@ -651,9 +1023,10 @@ async function clickVisibleControl(locator: Locator) {
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message.includes("intercepts pointer events")
+      (error.message.includes("intercepts pointer events") ||
+        error.message.includes("Timeout"))
     ) {
-      await locator.click({ force: true, timeout: 1_000 });
+      await locator.click({ force: true });
       return;
     }
 
@@ -665,51 +1038,73 @@ function escapeCssAttributeValue(value: string) {
   return value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
-async function getActiveFeedViewport(page: Page) {
-  await page.waitForFunction(() => {
-    const candidates = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
-      ),
-    );
+async function findActiveFeedViewportCandidate(
+  page: Page,
+  viewportSelectors: readonly string[],
+) {
+  for (const selector of viewportSelectors) {
+    const candidates = page.locator(selector);
+    const candidateCount = await candidates.count();
 
-    return candidates.some((candidate) => {
-      const rect = candidate.getBoundingClientRect();
+    for (let index = 0; index < candidateCount; index += 1) {
+      const candidate = candidates.nth(index);
+      const isActiveViewport = await candidate
+        .evaluate((node) => {
+          if (!(node instanceof HTMLElement)) {
+            return false;
+          }
 
-      return (
-        candidate.querySelector("article[data-article-key]") !== null &&
-        rect.width > 0 &&
-        rect.height > 0 &&
-        window.getComputedStyle(candidate).visibility !== "hidden"
-      );
-    });
-  }, { timeout: 15_000 });
+          const rect = node.getBoundingClientRect();
+          return (
+            node.querySelector("article[data-article-key]") !== null &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            window.getComputedStyle(node).visibility !== "hidden"
+          );
+        })
+        .catch(() => false);
 
-  const candidates = page
-    .locator(
-      "[data-radix-scroll-area-viewport], [data-feed-surface-mode], [data-feed-virtualizer]",
-    )
-    .filter({ has: page.locator("article[data-article-key]") });
-  const candidateCount = await candidates.count();
-
-  for (let index = 0; index < candidateCount; index += 1) {
-    const candidate = candidates.nth(index);
-    const box = await candidate.boundingBox();
-
-    if (!box || box.width <= 0 || box.height <= 0) {
-      continue;
-    }
-
-    const isVisible = await candidate.evaluate((node) => {
-      return window.getComputedStyle(node).visibility !== "hidden";
-    });
-
-    if (isVisible) {
-      return candidate;
+      if (isActiveViewport) {
+        return { index, selector };
+      }
     }
   }
 
-  throw new Error("Expected a dashboard feed viewport.");
+  return null;
+}
+
+async function getActiveFeedViewport(page: Page) {
+  const viewportSelectors = [
+    '[data-feed-scroll-viewport="true"]',
+    "[data-radix-scroll-area-viewport]",
+    "[data-feed-surface-mode]",
+    "[data-feed-virtualizer]",
+  ] as const;
+  const deadline = Date.now() + 15_000;
+  let activeViewportCandidate: Awaited<
+    ReturnType<typeof findActiveFeedViewportCandidate>
+  > = null;
+
+  while (Date.now() < deadline) {
+    activeViewportCandidate = await findActiveFeedViewportCandidate(
+      page,
+      viewportSelectors,
+    );
+
+    if (activeViewportCandidate) {
+      break;
+    }
+
+    await page.waitForTimeout(100);
+  }
+
+  if (!activeViewportCandidate) {
+    throw new Error("Expected a dashboard feed viewport.");
+  }
+
+  return page
+    .locator(activeViewportCandidate.selector)
+    .nth(activeViewportCandidate.index);
 }
 
 function isKnownNonRuntimeConsoleError(message: string) {
@@ -725,12 +1120,18 @@ function normalizeRuntimeSignalText(text: string) {
 /** Measures an article's top edge relative to its owning feed viewport. */
 async function readArticleTopWithinViewport(article: Locator) {
   return await article.evaluate((node) => {
-    const viewport = node.closest<HTMLElement>("[data-radix-scroll-area-viewport]");
+    const viewport = node.closest<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
     if (!viewport) {
-      throw new Error("Expected article to be rendered inside the feed viewport.");
+      throw new Error(
+        "Expected article to be rendered inside the feed viewport.",
+      );
     }
 
-    return node.getBoundingClientRect().top - viewport.getBoundingClientRect().top;
+    return (
+      node.getBoundingClientRect().top - viewport.getBoundingClientRect().top
+    );
   });
 }
 

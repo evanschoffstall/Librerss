@@ -1,16 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+import { NextResponse } from "next/server";
 
 import { jsonError } from "@/lib/api/http";
-import { clearSessionCookie } from "@/lib/auth/session";
-import {
-  deleteAccount,
-  logAndRespondError, requireMutableAuthenticatedUser, ServerServiceError } from "@/lib/server";
+import { clearSessionCookie } from "@/lib/auth";
+import { deleteAccount, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Render the delete component.
+ * @param request - The request.
+ * @returns The rendered delete component.
+ */
 export async function DELETE(request: NextRequest) {
   try {
-    const authResult = await requireMutableAuthenticatedUser(request);
+    const authResult = await serverApi.requireMutableAuthenticatedUser(request);
     if (authResult instanceof Response) return authResult;
 
     await deleteAccount(authResult.userId);
@@ -19,7 +24,8 @@ export async function DELETE(request: NextRequest) {
     clearSessionCookie(response);
     return response;
   } catch (error) {
-    if (error instanceof ServerServiceError) return jsonError(error.message, error.status);
-    return logAndRespondError("Account deletion error", error);
+    if (error instanceof serverApi.ServerServiceError)
+      return jsonError(error.message, error.status);
+    return serverApi.logAndRespondError("Account deletion error", error);
   }
 }

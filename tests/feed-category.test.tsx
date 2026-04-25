@@ -1,8 +1,46 @@
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import * as realMotionReactModule from "motion/react";
+import * as React from "react";
 
-import { FeedCategory } from "@/app/dashboard/components/feed/FeedCategory";
-import { type CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
+
+let feedCategoryImportVersion = 0;
+
+type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
+  transition?: unknown;
+  whileHover?: unknown;
+  whileTap?: unknown;
+};
+
+const motion = new Proxy(
+  {},
+  {
+    get: (_target, tag) =>
+      React.forwardRef<HTMLElement, MockMotionProps>(
+        function MockMotionComponent(
+          { transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...props },
+          ref,
+        ) {
+          return React.createElement(tag as string, {
+            ...props,
+            ref,
+          });
+        },
+      ),
+  },
+);
+
+async function loadFeedCategory() {
+  feedCategoryImportVersion += 1;
+  mock.module("motion/react", () => ({
+    ...realMotionReactModule,
+    motion,
+  }));
+  return import(
+    `@/app/dashboard/dashboard-components/layout/SidebarFeedCategory?test=${feedCategoryImportVersion}`
+  );
+}
 
 beforeEach(() => {
   mock.restore();
@@ -13,7 +51,8 @@ afterEach(() => {
 });
 
 describe("FeedCategory", () => {
-  test("fires intent callbacks on hover and focus before selection", () => {
+  test("fires intent callbacks on hover and focus before selection", async () => {
+    const { SidebarFeedCategory } = await loadFeedCategory();
     const category: CategoryTreeNode = {
       children: [],
       data: {
@@ -27,7 +66,7 @@ describe("FeedCategory", () => {
     const onIntent = mock(() => {});
 
     const { getByRole } = render(
-      <FeedCategory
+      <SidebarFeedCategory
         category={category}
         isActive={false}
         onClick={onClick}

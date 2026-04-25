@@ -1,12 +1,12 @@
 import { ArrowLeft, FileQuestion } from "lucide-react";
 import Link from "next/link";
 
-import { StatusPage } from "@/app/components/StatusPage";
+import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
 /**
- * Custom 404 page rendered when a route is not found.
- * Inherits the root layout, so no `<html>` or `<body>` wrapper is needed.
+ * Render the not found component.
+ * @returns The rendered not found component.
  */
 export default function NotFound() {
   return (

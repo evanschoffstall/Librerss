@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 
-import { type CategoryTreeNode } from "@/lib";
+import type { CategoryTreeNode } from "@/lib/core";
 
 const originalMatchMedia = window.matchMedia;
 let isMobileViewport = false;
@@ -50,9 +50,10 @@ mock.module("@/components/ui/button", () => ({
 }));
 
 mock.module("@/components/ui/input", () => ({
-  Input: forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-    (props, ref) => <input ref={ref} {...props} />,
-  ),
+  Input: forwardRef<
+    HTMLInputElement,
+    React.InputHTMLAttributes<HTMLInputElement>
+  >((props, ref) => <input ref={ref} {...props} />),
 }));
 
 mock.module("@/components/ui/tooltip", () => ({
@@ -170,9 +171,8 @@ mock.module("@/app/dashboard/components/MotionSpinner", () => ({
   MotionSpinner: () => <span>Loading</span>,
 }));
 
-const { SettingsFeedRow } = await import(
-  "@/app/dashboard/components/settings/SettingsFeedRow"
-);
+const { SettingsFeedRow } =
+  await import("@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedRow");
 
 const TEST_FEED: CategoryTreeNode = {
   children: [],

@@ -7,13 +7,13 @@ import {
   parseEmailPasswordFromRecord,
   parseEmailPasswordFromSearchParams,
 } from "@/lib/auth/credentials";
-import {
-  clearSessionCookie,
-  hashPassword,
-  SESSION_COOKIE_NAME,
-  setSessionCookie,
-  verifyPassword,
-} from "@/lib/auth/session";
+
+let authSessionImportVersion = 0;
+
+async function loadAuthSessionModule() {
+  authSessionImportVersion += 1;
+  return import(`@/lib/auth/session?test=${authSessionImportVersion}`);
+}
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -173,6 +173,7 @@ describe("parseEmailPasswordFromFormData", () => {
 
 describe("session password hashing", () => {
   test("hashPassword creates v2 prefixed hash", async () => {
+    const { hashPassword } = await loadAuthSessionModule();
     const hash = await hashPassword("TestPass123!");
     expect(hash.startsWith("v2:")).toBe(true);
     // v2:salt:keyhex
@@ -183,22 +184,26 @@ describe("session password hashing", () => {
   });
 
   test("hashPassword generates unique hashes for same password", async () => {
+    const { hashPassword } = await loadAuthSessionModule();
     const h1 = await hashPassword("same");
     const h2 = await hashPassword("same");
     expect(h1).not.toBe(h2);
   });
 
   test("verifyPassword validates correct password", async () => {
+    const { hashPassword, verifyPassword } = await loadAuthSessionModule();
     const hash = await hashPassword("correct");
     expect(await verifyPassword("correct", hash)).toBe(true);
   });
 
   test("verifyPassword rejects wrong password", async () => {
+    const { hashPassword, verifyPassword } = await loadAuthSessionModule();
     const hash = await hashPassword("correct");
     expect(await verifyPassword("wrong", hash)).toBe(false);
   });
 
   test("verifyPassword handles v1 (non-prefixed) hashes", async () => {
+    const { verifyPassword } = await loadAuthSessionModule();
     // A legacy v1 hash format: salt:keyhex (no v2: prefix)
     // We just test it doesn't crash and handles format correctly
     const fakeHash = "abcdef1234567890:0123456789abcdef";
@@ -208,6 +213,7 @@ describe("session password hashing", () => {
   });
 
   test("verifyPassword returns false for malformed hash", async () => {
+    const { verifyPassword } = await loadAuthSessionModule();
     expect(await verifyPassword("test", "")).toBe(false);
     expect(await verifyPassword("test", "no-colon")).toBe(false);
     expect(await verifyPassword("test", "v2:")).toBe(false);
@@ -217,18 +223,23 @@ describe("session password hashing", () => {
 // ─── session: cookie helpers ──────────────────────────────────────────────────
 
 describe("session cookie helpers", () => {
-  test("SESSION_COOKIE_NAME is defined", () => {
+  test("SESSION_COOKIE_NAME is defined", async () => {
+    const { SESSION_COOKIE_NAME } = await loadAuthSessionModule();
     expect(SESSION_COOKIE_NAME).toBe("librerss_session");
   });
 
-  test("setSessionCookie sets cookie on response", () => {
+  test("setSessionCookie sets cookie on response", async () => {
+    const { SESSION_COOKIE_NAME, setSessionCookie } =
+      await loadAuthSessionModule();
     const response = NextResponse.json({ ok: true });
     setSessionCookie(response, "test-token-123");
     const cookie = response.cookies.get(SESSION_COOKIE_NAME);
     expect(cookie?.value).toBe("test-token-123");
   });
 
-  test("clearSessionCookie clears cookie on response", () => {
+  test("clearSessionCookie clears cookie on response", async () => {
+    const { clearSessionCookie, SESSION_COOKIE_NAME } =
+      await loadAuthSessionModule();
     const response = NextResponse.json({ ok: true });
     clearSessionCookie(response);
     const cookie = response.cookies.get(SESSION_COOKIE_NAME);

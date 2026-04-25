@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { shouldAutoAnchorInvertedScrollViewport } from "@/app/dashboard/components/feed/useFeedListSurfaceState";
+import { shouldAutoAnchorInvertedScrollViewport } from "@/app/dashboard/dashboard-components/feed-view/list-state/useFeedListSurfaceState";
 
 describe("shouldAutoAnchorInvertedScrollViewport", () => {
   test("keeps a short inverted feed bottom-anchored after interaction claims ownership", () => {

@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  mock,
+  test,
+} from "bun:test";
 import { NextRequest } from "next/server";
 
 const routeModulePath =
@@ -98,14 +106,17 @@ describe("proxy compatibility check route", () => {
   test("returns compatibility results for all vendor samples", async () => {
     const { POST } = await importRouteModule();
     const response = await POST(
-      new NextRequest("http://localhost/api/settings/proxy/compatibility-check", {
-        body: JSON.stringify({ useProxy: true }),
-        headers: {
-          "content-type": "application/json",
-          "sec-fetch-site": "same-origin",
+      new NextRequest(
+        "http://localhost/api/settings/proxy/compatibility-check",
+        {
+          body: JSON.stringify({ useProxy: true }),
+          headers: {
+            "content-type": "application/json",
+            "sec-fetch-site": "same-origin",
+          },
+          method: "POST",
         },
-        method: "POST",
-      }),
+      ),
       routeDeps,
     );
 
@@ -158,13 +169,16 @@ describe("proxy compatibility check route", () => {
     });
 
     const response = await POST(
-      new NextRequest("http://localhost/api/settings/proxy/compatibility-check", {
-        body: JSON.stringify({ useProxy: true }),
-        headers: {
-          "content-type": "application/json",
+      new NextRequest(
+        "http://localhost/api/settings/proxy/compatibility-check",
+        {
+          body: JSON.stringify({ useProxy: true }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
         },
-        method: "POST",
-      }),
+      ),
       routeDeps,
     );
 
@@ -205,13 +219,16 @@ describe("proxy compatibility check route", () => {
     });
 
     const response = await POST(
-      new NextRequest("http://localhost/api/settings/proxy/compatibility-check", {
-        body: JSON.stringify({ useProxy: true }),
-        headers: {
-          "content-type": "application/json",
+      new NextRequest(
+        "http://localhost/api/settings/proxy/compatibility-check",
+        {
+          body: JSON.stringify({ useProxy: true }),
+          headers: {
+            "content-type": "application/json",
+          },
+          method: "POST",
         },
-        method: "POST",
-      }),
+      ),
       routeDeps,
     );
 

@@ -7,13 +7,22 @@ import nextConfig, {
 describe("next.config", () => {
   test("maps HTTPCloak native package names from the build platform", () => {
     expect(
-      getHttpCloakPlatformPackageSpecifier(() => "linux", () => "x64"),
+      getHttpCloakPlatformPackageSpecifier(
+        () => "linux",
+        () => "x64",
+      ),
     ).toBe("@httpcloak/linux-x64");
     expect(
-      getHttpCloakPlatformPackageSpecifier(() => "darwin", () => "arm64"),
+      getHttpCloakPlatformPackageSpecifier(
+        () => "darwin",
+        () => "arm64",
+      ),
     ).toBe("@httpcloak/darwin-arm64");
     expect(
-      getHttpCloakPlatformPackageSpecifier(() => "freebsd", () => "x64"),
+      getHttpCloakPlatformPackageSpecifier(
+        () => "freebsd",
+        () => "x64",
+      ),
     ).toBe("@httpcloak/linux-x64");
   });
 
@@ -25,7 +34,8 @@ describe("next.config", () => {
   });
 
   test("traces HTTPCloak runtime assets for API routes", () => {
-    const apiTracingIncludes = nextConfig.outputFileTracingIncludes?.["/api/**"];
+    const apiTracingIncludes =
+      nextConfig.outputFileTracingIncludes?.["/api/**"];
 
     expect(apiTracingIncludes).toBeDefined();
     expect(apiTracingIncludes).toContain("./node_modules/httpcloak/**");

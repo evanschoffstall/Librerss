@@ -11,10 +11,9 @@
 
 import { act, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import * as React from "react";
 
-import { FEED_ROW_COLLAPSE_FLOOR_PX } from "@/app/dashboard/components/feed/constants";
-import * as realFeedListRowModule from "@/app/dashboard/components/feed/FeedListRow";
+import { FEED_ROW_COLLAPSE_FLOOR_PX } from "@/app/dashboard/dashboard-components/feed-config";
+import * as realFeedListRowModule from "@/app/dashboard/dashboard-components/feed-view/FeedListRow";
 
 import {
   FeedListResizeObserverMock,

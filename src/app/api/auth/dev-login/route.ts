@@ -1,21 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
+import { NextResponse } from "next/server";
+
+import { logger } from "@/lib";
 import {
+  authenticateCredentials,
   buildDevAutoLoginFailurePath,
   DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY,
   getDevAutoLoginCredentials,
-} from "@/lib/auth/dev-auto-login";
-import { authenticateCredentials, setSessionCookie } from "@/lib/auth/session";
-import { logger } from "@/lib/logger";
+  setSessionCookie,
+} from "@/lib/auth";
 import { logAndRespondError } from "@/lib/server";
 
 const DEFAULT_RETURN_PATH = "/dashboard";
 
 /**
- * Issues a normal session cookie using the development-only env credentials.
- *
- * The route intentionally accepts only same-origin relative return paths so it
- * cannot be turned into an open redirect.
+ * Render the get component.
+ * @param request - The request.
+ * @returns The rendered get component.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -34,7 +36,9 @@ export async function GET(request: NextRequest) {
 
     if (!result.ok) {
       const warn =
-        typeof logger.warn === "function" ? logger.warn.bind(logger) : undefined;
+        typeof logger.warn === "function"
+          ? logger.warn.bind(logger)
+          : undefined;
       warn?.("Development auto-login failed", { email: credentials.email });
 
       return NextResponse.redirect(
@@ -59,8 +63,9 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * Builds the active request origin from forwarding headers so redirects stay on
- * the browser-facing host even when Next.js resolves `request.url` to `0.0.0.0`.
+ * Return the request origin.
+ * @param request - The request.
+ * @returns The request origin.
  */
 function getRequestOrigin(request: NextRequest): URL {
   const forwardedHost = request.headers.get("x-forwarded-host");
@@ -71,12 +76,17 @@ function getRequestOrigin(request: NextRequest): URL {
   }
 
   const forwardedProtocol = request.headers.get("x-forwarded-proto");
-  const protocol = forwardedProtocol ?? request.nextUrl.protocol.replace(/:$/u, "");
+  const protocol =
+    forwardedProtocol ?? request.nextUrl.protocol.replace(/:$/u, "");
 
   return new URL(`${protocol}://${host}`);
 }
 
-/** Resolves a safe, same-origin relative return path for the redirect. */
+/**
+ * Resolve the return path.
+ * @param request - The request.
+ * @returns The return path.
+ */
 function resolveReturnPath(request: NextRequest): string {
   const requestedReturnPath = request.nextUrl.searchParams.get(
     DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY,

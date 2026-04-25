@@ -1,28 +1,28 @@
 "use client";
 
 import {
-    $isCodeNode,
-    CODE_LANGUAGE_FRIENDLY_NAME_MAP,
-    CODE_LANGUAGE_MAP,
-    getLanguageFriendlyName,
+  $isCodeNode,
+  CODE_LANGUAGE_FRIENDLY_NAME_MAP,
+  CODE_LANGUAGE_MAP,
+  getLanguageFriendlyName,
 } from "@lexical/code";
 import { $isListNode } from "@lexical/list";
 import { $findMatchingParent } from "@lexical/utils";
 import {
-    $getNodeByKey,
-    $isRangeSelection,
-    $isRootOrShadowRoot,
-    BaseSelection,
+  $getNodeByKey,
+  $isRangeSelection,
+  $isRootOrShadowRoot,
+  BaseSelection,
 } from "lexical";
 import { useCallback, useState } from "react";
 
 import { useToolbarContext } from "@/components/ui/editor/context/toolbar-context";
 import { useUpdateToolbarHandler } from "@/components/ui/editor/editor-hooks/use-update-toolbar";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
 } from "@/components/ui/select";
 
 function getCodeLanguageOptions(): [string, string][] {

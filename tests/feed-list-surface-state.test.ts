@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   findTopVisibleInvertedPaginationAnchorArticleKey,
   findVisibleInvertedRemovalAnchorArticleKey,
-} from "@/app/dashboard/components/feed/useFeedListSurfaceState";
+} from "@/app/dashboard/dashboard-components/feed-view/list-state/useFeedListSurfaceState";
 
 function appendViewportArticle(
   viewport: HTMLElement,
@@ -18,7 +18,8 @@ function appendViewportArticle(
 
   const headerElement = document.createElement("div");
   headerElement.dataset.articleSwipeZone = "header";
-  headerElement.getBoundingClientRect = () => createRect(headerTop, headerHeight);
+  headerElement.getBoundingClientRect = () =>
+    createRect(headerTop, headerHeight);
 
   articleElement.append(headerElement);
   viewport.append(articleElement);
@@ -85,7 +86,7 @@ describe("findVisibleInvertedRemovalAnchorArticleKey", () => {
 });
 
 describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
-  test("keeps the partially visible top header as the pagination anchor", () => {
+  test("prefers the first article that reaches the stable anchor offset", () => {
     const viewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 400);
@@ -99,10 +100,12 @@ describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
     appendViewportArticle(viewport, "article-3", 280);
     document.body.append(viewport);
 
-    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe("article-1");
+    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
+      "article-3",
+    );
   });
 
-  test("falls back to the next visible header when the top row is fully above the viewport", () => {
+  test("skips nearer rows until one reaches the stable anchor offset", () => {
     const viewport = document.createElement("div");
     viewport.dataset.radixScrollAreaViewport = "";
     viewport.getBoundingClientRect = () => createRect(100, 400);
@@ -116,6 +119,8 @@ describe("findTopVisibleInvertedPaginationAnchorArticleKey", () => {
     appendViewportArticle(viewport, "article-3", 260);
     document.body.append(viewport);
 
-    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe("article-2");
+    expect(findTopVisibleInvertedPaginationAnchorArticleKey()).toBe(
+      "article-3",
+    );
   });
 });

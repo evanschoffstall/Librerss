@@ -116,28 +116,32 @@ describe("api/http-client – withRequestDeadline", () => {
 
 describe("api/http-client – createApiClient", () => {
   test("parses JSON and text responses through the fetch adapter", async () => {
-    const fetchMock = mock(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).endsWith("/json")) {
-        expect(init?.method).toBe("GET");
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { "content-type": "application/json" },
-          status: 200,
-          statusText: "OK",
+    const fetchMock = mock(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (String(input).endsWith("/json")) {
+          expect(init?.method).toBe("GET");
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { "content-type": "application/json" },
+            status: 200,
+            statusText: "OK",
+          });
+        }
+
+        expect(init?.method).toBe("POST");
+        expect(init?.body).toBe(JSON.stringify({ name: "LibreRSS" }));
+
+        return new Response("created", {
+          headers: { "content-type": "text/plain; charset=utf-8" },
+          status: 201,
+          statusText: "Created",
         });
-      }
-
-      expect(init?.method).toBe("POST");
-      expect(init?.body).toBe(JSON.stringify({ name: "LibreRSS" }));
-
-      return new Response("created", {
-        headers: { "content-type": "text/plain; charset=utf-8" },
-        status: 201,
-        statusText: "Created",
-      });
-    });
+      },
+    );
     const client = createApiClient(fetchMock as unknown as typeof fetch);
 
-    await expect(client.get<{ ok: boolean }>("https://example.com/json")).resolves.toEqual({
+    await expect(
+      client.get<{ ok: boolean }>("https://example.com/json"),
+    ).resolves.toEqual({
       data: { ok: true },
       headers: { "content-type": "application/json" },
       status: 200,
@@ -188,7 +192,9 @@ describe("api/http-client – createApiClient", () => {
       }) as unknown as typeof fetch,
     );
 
-    await expect(failingTransportClient.get("https://example.com/abort")).rejects.toMatchObject({
+    await expect(
+      failingTransportClient.get("https://example.com/abort"),
+    ).rejects.toMatchObject({
       code: "ABORT_ERR",
       isApiError: true,
       method: "GET",
@@ -197,18 +203,19 @@ describe("api/http-client – createApiClient", () => {
     });
 
     const failingResponseClient = createApiClient(
-      mock(async () =>
-        new Response(JSON.stringify({ error: "blocked" }), {
-          headers: { "content-type": "application/json" },
-          status: 429,
-          statusText: "Too Many Requests",
-        }),
+      mock(
+        async () =>
+          new Response(JSON.stringify({ error: "blocked" }), {
+            headers: { "content-type": "application/json" },
+            status: 429,
+            statusText: "Too Many Requests",
+          }),
       ) as unknown as typeof fetch,
     );
 
-    await expect(failingResponseClient.get("https://example.com/rate-limit")).rejects.toBeInstanceOf(
-      ApiError,
-    );
+    await expect(
+      failingResponseClient.get("https://example.com/rate-limit"),
+    ).rejects.toBeInstanceOf(ApiError);
   });
 });
 
@@ -447,7 +454,11 @@ describe("request – parseFormOrQueryParams", () => {
   test("parses multipart form data and ignores non-string values", async () => {
     const formData = new FormData();
     formData.set("username", "test-user");
-    formData.set("avatar", new Blob(["binary"], { type: "text/plain" }), "avatar.txt");
+    formData.set(
+      "avatar",
+      new Blob(["binary"], { type: "text/plain" }),
+      "avatar.txt",
+    );
 
     const request = new Request("https://example.com/api", {
       body: formData,
@@ -554,7 +565,6 @@ describe("http diagnostics", () => {
   test("buildApiFailureDiagnostics returns an empty object for non-api errors", () => {
     expect(buildApiFailureDiagnostics(new Error("boom"))).toEqual({});
   });
-
 
   test("isVerboseLoggingEnabled checks LOG_LEVEL environment", () => {
     const previous = process.env.LOG_LEVEL;

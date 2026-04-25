@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
-import { ServerServiceError } from "@/lib/server/services/errors";
+import { ServerServiceError } from "@/lib";
 
 afterEach(() => {
   mock.restore();
@@ -9,7 +9,9 @@ afterEach(() => {
 function mockProxyServiceDeps(options: {
   materializeImpl?: (
     storedPassword: null | string,
-    persistNormalizedPassword: (normalizedStoredPassword: string) => Promise<void>,
+    persistNormalizedPassword: (
+      normalizedStoredPassword: string,
+    ) => Promise<void>,
   ) => Promise<null | string>;
   probeResult?: boolean;
   rows: {
@@ -23,13 +25,9 @@ function mockProxyServiceDeps(options: {
   const probeProxy = mock(async () => options.probeResult ?? true);
   const limit = mock(async () => options.rows);
   const updateWhere = mock(async () => undefined);
-  const updateSet = mock(
-    (_values: {
-      proxyPassword?: null | string;
-    }) => ({
-      where: updateWhere,
-    }),
-  );
+  const updateSet = mock((_values: { proxyPassword?: null | string }) => ({
+    where: updateWhere,
+  }));
   const materializeStoredProxyPassword =
     options.materializeImpl ??
     mock(async (storedPassword: null | string) => storedPassword);
@@ -56,10 +54,10 @@ function mockProxyServiceDeps(options: {
       warn: mock(() => {}),
     },
   }));
-  mock.module("@/lib/server/proxy", () => ({
+  mock.module("@/lib/outbound-proxy/transport", () => ({
     probeProxy,
   }));
-  mock.module("@/lib/server/proxy-credentials", () => ({
+  mock.module("@/lib/outbound-proxy/credentials", () => ({
     materializeStoredProxyPassword,
   }));
 
@@ -77,7 +75,7 @@ describe("server proxy service", () => {
   test("getProxyStatus reports an unconfigured proxy when no row exists", async () => {
     const deps = mockProxyServiceDeps({ rows: [] });
     const { getProxyStatus } = await import(
-      `@/lib/server/services/proxy-service?status-empty=${Date.now()}`
+      `@/lib/outbound-proxy/service?status-empty=${Date.now()}`
     );
 
     await expect(getProxyStatus(42)).resolves.toEqual({
@@ -98,7 +96,7 @@ describe("server proxy service", () => {
       ],
     });
     const { getProxyStatus } = await import(
-      `@/lib/server/services/proxy-service?status-unreachable=${Date.now()}`
+      `@/lib/outbound-proxy/service?status-unreachable=${Date.now()}`
     );
 
     await expect(getProxyStatus(7)).resolves.toEqual({
@@ -120,7 +118,7 @@ describe("server proxy service", () => {
   test("resolveUserProxy returns no proxy when the user has no saved row", async () => {
     const deps = mockProxyServiceDeps({ rows: [] });
     const { resolveUserProxy } = await import(
-      `@/lib/server/services/proxy-service?resolve-empty=${Date.now()}`
+      `@/lib/outbound-proxy/service?resolve-empty=${Date.now()}`
     );
 
     await expect(resolveUserProxy(7)).resolves.toEqual({
@@ -146,7 +144,7 @@ describe("server proxy service", () => {
       ],
     });
     const { resolveUserProxy } = await import(
-      `@/lib/server/services/proxy-service?resolve-credentials=${Date.now()}`
+      `@/lib/outbound-proxy/service?resolve-credentials=${Date.now()}`
     );
 
     await expect(resolveUserProxy(9)).resolves.toEqual({
@@ -172,7 +170,7 @@ describe("server proxy service", () => {
       ],
     });
     const { resolveUserProxy } = await import(
-      `@/lib/server/services/proxy-service?resolve-embedded=${Date.now()}`
+      `@/lib/outbound-proxy/service?resolve-embedded=${Date.now()}`
     );
 
     await expect(resolveUserProxy(10)).resolves.toEqual({
@@ -194,7 +192,7 @@ describe("server proxy service", () => {
       ],
     });
     const { resolveUserProxy } = await import(
-      `@/lib/server/services/proxy-service?resolve-socks-default-port=${Date.now()}`
+      `@/lib/outbound-proxy/service?resolve-socks-default-port=${Date.now()}`
     );
 
     await expect(resolveUserProxy(12)).resolves.toEqual({
@@ -218,7 +216,7 @@ describe("server proxy service", () => {
       ],
     });
     const { resolveUserProxy } = await import(
-      `@/lib/server/services/proxy-service?resolve-error=${Date.now()}`
+      `@/lib/outbound-proxy/service?resolve-error=${Date.now()}`
     );
 
     let thrownError: unknown;

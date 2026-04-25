@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import * as realDevAutoLoginModule from "@/lib/auth/dev-auto-login";
+
 let pageImportVersion = 0;
 
 async function loadHomePage() {
@@ -21,6 +23,7 @@ describe("app root page", () => {
 
     mock.module("next/navigation", () => ({ redirect }));
     mock.module("@/lib/auth/dev-auto-login", () => ({
+      ...realDevAutoLoginModule,
       isDevAutoLoginEnabled: () => true,
     }));
 
@@ -35,6 +38,7 @@ describe("app root page", () => {
 
     mock.module("next/navigation", () => ({ redirect }));
     mock.module("@/lib/auth/dev-auto-login", () => ({
+      ...realDevAutoLoginModule,
       isDevAutoLoginEnabled: () => false,
     }));
 

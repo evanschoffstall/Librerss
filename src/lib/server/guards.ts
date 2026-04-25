@@ -1,11 +1,10 @@
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 
+import { logger } from "@/lib";
 import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
-import { requireSameOrigin } from "@/lib/auth/csrf";
-import { getUserFromRequest } from "@/lib/auth/session";
-import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/runtime";
-import { logger } from "@/lib/logger";
-import { toError } from "@/lib/utils/errors";
+import { getUserFromRequest, requireSameOrigin } from "@/lib/auth";
+import { PLACEHOLDER_ADMIN_USER, RUNTIME_FLAGS } from "@/lib/core/placeholder";
+import { toError } from "@/lib/utils";
 
 import { rateLimiter } from "./rate-limit";
 
@@ -13,6 +12,10 @@ export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
 
+interface LogAndRespondErrorOptions {
+  publicMessage?: string;
+  status?: number;
+}
 interface MutationRequestOptions {
   rateLimit?: {
     key: string;
@@ -24,13 +27,17 @@ interface MutationRequestOptions {
   };
 }
 
+/**
+ * Process the log and respond error.
+ * @param message - The message.
+ * @param error - The error.
+ * @param options - The options used to process the log and respond error.
+ * @returns The log and respond error.
+ */
 export function logAndRespondError(
   message: string,
   error: unknown,
-  options?: {
-    publicMessage?: string;
-    status?: number;
-  },
+  options?: LogAndRespondErrorOptions,
 ): Response {
   const logError =
     typeof logger.error === "function" ? logger.error.bind(logger) : undefined;
@@ -41,6 +48,11 @@ export function logAndRespondError(
   );
 }
 
+/**
+ * Process the require authenticated user.
+ * @param request - The request.
+ * @returns The require authenticated user.
+ */
 export async function requireAuthenticatedUser(
   request: NextRequest,
 ): Promise<AuthenticatedUser | Response> {
@@ -59,6 +71,12 @@ export async function requireAuthenticatedUser(
   return user;
 }
 
+/**
+ * Process the require mutable authenticated user.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable authenticated user.
+ * @returns The require mutable authenticated user.
+ */
 export async function requireMutableAuthenticatedUser(
   request: NextRequest,
   options?: MutationRequestOptions,
@@ -71,10 +89,15 @@ export async function requireMutableAuthenticatedUser(
 
   const rl = options?.rateLimit;
   if (rl && (rl.scope ?? "request") === "user") {
+    // The key already contains the userId, so there is no need to append a
+    // client-IP suffix.  Skipping the suffix ensures:
+    //   1. One contiguous quota window per user regardless of IP changes.
+    //   2. No accidental per-IP bucket splits when the IP is unresolvable.
     const rateLimitError = rateLimiter.check(
       request,
       `${rl.key}:user:${user.userId}`,
       { maxAttempts: rl.maxAttempts, windowMs: rl.windowMs },
+      true, // skipClientId — userId is the identity
     );
     if (rateLimitError) return rateLimitError;
   }
@@ -85,6 +108,12 @@ export async function requireMutableAuthenticatedUser(
 // Validates CSRF and applies request-scoped (IP-based) rate limiting.
 // User-scoped rate limiting is handled separately in requireMutableAuthenticatedUser
 // because it requires a resolved userId.
+/**
+ * Process the require mutable request.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable request.
+ * @returns The require mutable request.
+ */
 export function requireMutableRequest(
   request: Request,
   options?: MutationRequestOptions,
@@ -104,6 +133,12 @@ export function requireMutableRequest(
   return null;
 }
 
+/**
+ * Process the require mutable user and json body.
+ * @param request - The request.
+ * @param options - The options used to process the require mutable user and json body.
+ * @returns The require mutable user and json body.
+ */
 export async function requireMutableUserAndJsonBody<
   TBody extends object = Record<string, unknown>,
 >(

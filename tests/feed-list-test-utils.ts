@@ -1,6 +1,9 @@
-import { type Article } from "@/lib";
+import type { Article } from "@/lib/core";
 
-export const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+import { createIsolatedStorage } from "./test-storage";
+
+export const MOBILE_INVERTED_SCROLL_STORAGE_KEY =
+  "librerss:mobileInvertedScroll";
 
 const originalMatchMedia = window.matchMedia;
 const originalResizeObserver = globalThis.ResizeObserver;
@@ -31,7 +34,10 @@ export class FeedListResizeObserverMock {
     const height = resolveResizeObserverHeight(target);
     const width =
       target instanceof HTMLElement
-        ? target.clientWidth || target.scrollWidth || target.getBoundingClientRect().width || 320
+        ? target.clientWidth ||
+          target.scrollWidth ||
+          target.getBoundingClientRect().width ||
+          320
         : 320;
 
     queueMicrotask(() => {
@@ -85,9 +91,15 @@ export function buildFeedListArticle(overrides?: Partial<Article>): Article {
 /** Installs the DOM shims FeedList relies on in Bun's happy-dom environment. */
 export function installFeedListDomMocks() {
   isFeedListMobileViewport = false;
+  const isolatedLocalStorage = createIsolatedStorage();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
   Object.defineProperty(globalThis, "localStorage", {
     configurable: true,
-    value: window.localStorage,
+    value: isolatedLocalStorage,
     writable: true,
   });
   window.localStorage.setItem(
@@ -96,7 +108,10 @@ export function installFeedListDomMocks() {
   );
 
   const requestAnimationFrameMock = ((callback: FrameRequestCallback) =>
-    setTimeout(() => callback(performance.now()), 0) as unknown as number) as typeof window.requestAnimationFrame;
+    setTimeout(
+      () => callback(performance.now()),
+      0,
+    ) as unknown as number) as typeof window.requestAnimationFrame;
   const cancelAnimationFrameMock = ((frameId: number) => {
     clearTimeout(frameId);
   }) as typeof window.cancelAnimationFrame;
@@ -156,7 +171,11 @@ export function restoreFeedListDomMocks() {
   }
 
   if (originalWindowLocalStorageDescriptor) {
-    Object.defineProperty(window, "localStorage", originalWindowLocalStorageDescriptor);
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalWindowLocalStorageDescriptor,
+    );
   }
 
   Object.defineProperty(window, "matchMedia", {
@@ -201,11 +220,18 @@ function resolveResizeObserverHeight(target: Element) {
     return 96;
   }
 
-  const renderedRows = target.querySelectorAll("[data-scroll-restore-key]").length;
+  const renderedRows = target.querySelectorAll(
+    "[data-scroll-restore-key]",
+  ).length;
 
   if (renderedRows > 0) {
     return renderedRows * 60;
   }
 
-  return target.clientHeight || target.scrollHeight || target.getBoundingClientRect().height || 96;
+  return (
+    target.clientHeight ||
+    target.scrollHeight ||
+    target.getBoundingClientRect().height ||
+    96
+  );
 }

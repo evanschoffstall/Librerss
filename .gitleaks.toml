@@ -1,3 +1,6 @@
+[extend]
+useDefault = true
+
 [allowlist]
   description = "Test fixtures and test setup — not real secrets"
   paths = [

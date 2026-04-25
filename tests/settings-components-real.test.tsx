@@ -1,35 +1,98 @@
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import type { CategoryTreeNode } from "@/lib/core";
+
 import {
   CompatibilityResultBadge,
   ProxyRoutingBadge,
   StatusBadge,
-} from "@/app/dashboard/components/settings/SettingsProxyBadges";
+} from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxyBadges";
+import {
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+} from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { type CategoryTreeNode } from "@/lib";
 
-import type { SettingsModalState } from "../src/app/dashboard/hooks/useSettingsModalState";
+import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
 
-import { SettingsDisplaySection } from "../src/app/dashboard/components/settings/SettingsDisplaySection";
-import { SettingsFeedManagementSection } from "../src/app/dashboard/components/settings/SettingsFeedManagementSection";
-import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/components/settings/SettingsProxyCompatibilityPanel";
+import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsProxyCompatibilityPanel";
 
+async function loadSettingsFeedManagementSection() {
+  const module = await import(
+    `../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection?test=${Date.now()}-${Math.random()}`
+  );
+
+  return module.SettingsFeedManagementSection;
+}
+
+const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage",
+);
+const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "localStorage",
+);
 beforeEach(() => {
-  window.localStorage.clear();
+  mock.restore();
+  const isolatedLocalStorage = new StorageMock();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: isolatedLocalStorage,
+    writable: true,
+  });
 });
 
 afterEach(() => {
-  window.localStorage.clear();
+  mock.restore();
+  if (originalGlobalLocalStorageDescriptor) {
+    Object.defineProperty(
+      globalThis,
+      "localStorage",
+      originalGlobalLocalStorageDescriptor,
+    );
+  }
+  if (originalWindowLocalStorageDescriptor) {
+    Object.defineProperty(
+      window,
+      "localStorage",
+      originalWindowLocalStorageDescriptor,
+    );
+  }
 });
 
 describe("settings real components", () => {
   test("commits display preferences and local mobile toggles", async () => {
+    window.localStorage.setItem(
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    globalThis.localStorage?.setItem(
+      MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+      JSON.stringify(true),
+    );
+    window.localStorage.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+    globalThis.localStorage?.setItem(
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+    const { SettingsDisplaySection } = await import(
+      `../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
+    );
     const onArticlesPerPageChange = mock(() => {});
     const onAutoRefreshIntervalMinutesChange = mock(() => {});
     const onBackgroundModeChange = mock(() => {});
     const onDistillStrategyChange = mock(() => {});
-    const onShowFaviconsChange = mock(() => {});
+    const onShowFaviconsChange = mock((_value: boolean) => {});
 
     const { getByRole } = render(
       <SettingsDisplaySection
@@ -47,28 +110,23 @@ describe("settings real components", () => {
     );
 
     const faviconsSwitch = getByRole("switch", { name: "Show favicons" });
-    const mobileBottomSwitch = getByRole("switch", {
-      name: "Mobile bottom toolbar",
-    });
-    const mobileMirrorSwitch = getByRole("switch", {
-      name: "Mobile mirrored toolbar",
+    const mobileGroupedLayoutSwitch = getByRole("switch", {
+      name: "Mobile grouped layout",
     });
     const mobileInvertedSwitch = getByRole("switch", {
       name: "Mobile inverted scroll",
     });
-    const mobileToastSwitch = getByRole("switch", {
-      name: "Mobile top toasts",
-    });
+
+    expect(mobileInvertedSwitch.getAttribute("aria-checked")).toBe("false");
 
     fireEvent.click(faviconsSwitch);
-    fireEvent.click(mobileBottomSwitch);
-    fireEvent.click(mobileMirrorSwitch);
+    fireEvent.click(mobileGroupedLayoutSwitch);
     fireEvent.click(mobileInvertedSwitch);
-    fireEvent.click(mobileToastSwitch);
 
     await waitFor(() => {
-      expect(onShowFaviconsChange).toHaveBeenCalledWith(false);
+      expect(onShowFaviconsChange).toHaveBeenCalled();
     });
+    expect(onShowFaviconsChange.mock.calls.at(-1)?.[0]).toBe(false);
 
     expect(onBackgroundModeChange).not.toHaveBeenCalled();
     expect(onArticlesPerPageChange).not.toHaveBeenCalled();
@@ -76,6 +134,8 @@ describe("settings real components", () => {
   });
 
   test("renders feed management controls, exports OPML, and drives category or feed actions", async () => {
+    const SettingsFeedManagementSection =
+      await loadSettingsFeedManagementSection();
     const state = createSettingsState({
       addingFeedInCategory: "News",
       newCategoryName: "Science",
@@ -84,7 +144,13 @@ describe("settings real components", () => {
     });
     const categories = [createCategory("News", "feed-1")];
 
-    const { container, getByLabelText, getByPlaceholderText, getByRole, getByText } = render(
+    const {
+      container,
+      getByLabelText,
+      getByPlaceholderText,
+      getByRole,
+      getByText,
+    } = render(
       <SettingsFeedManagementSection
         categories={categories}
         onRemoveCategory={mock(async () => true)}
@@ -112,7 +178,8 @@ describe("settings real components", () => {
     });
     fireEvent.click(getByText("Add Category"));
 
-    const fileInput = container.querySelector<HTMLInputElement>("input[type='file']");
+    const fileInput =
+      container.querySelector<HTMLInputElement>("input[type='file']");
     if (!fileInput) {
       throw new Error("Expected the OPML input to render.");
     }
@@ -130,25 +197,27 @@ describe("settings real components", () => {
         "Example Feed",
         "https://example.com/feed-1.xml",
       );
-      expect(state.sharedFeedRowProps.onToggleExtractionDisabled).toHaveBeenCalledWith(
-        "feed-1",
-        true,
-      );
-      expect(state.sharedFeedRowProps.onToggleProxyEnabled).toHaveBeenCalledWith(
-        "feed-1",
-        true,
-      );
+      expect(
+        state.sharedFeedRowProps.onToggleExtractionDisabled,
+      ).toHaveBeenCalledWith("feed-1", true);
+      expect(
+        state.sharedFeedRowProps.onToggleProxyEnabled,
+      ).toHaveBeenCalledWith("feed-1", true);
       expect(state.sharedFeedRowProps.onToggleFeedEnabled).toHaveBeenCalledWith(
         "feed-1",
         false,
       );
-      expect(state.sharedFeedRowProps.onRemoveFeed).toHaveBeenCalledWith("feed-1");
+      expect(state.sharedFeedRowProps.onRemoveFeed).toHaveBeenCalledWith(
+        "feed-1",
+      );
       expect(state.handleAddCategory).toHaveBeenCalled();
       expect(state.handleOpmlFileChange).toHaveBeenCalled();
     });
   });
 
-  test("renders the import skeleton and demo overlay in preview mode", () => {
+  test("renders the import skeleton and demo overlay in preview mode", async () => {
+    const SettingsFeedManagementSection =
+      await loadSettingsFeedManagementSection();
     const state = createSettingsState({ isImportingOpml: true });
 
     const { getAllByText, getByText } = render(
@@ -175,9 +244,7 @@ describe("settings real components", () => {
           <StatusBadge status="checking" />
           <StatusBadge status="reachable" />
           <StatusBadge status="unreachable" />
-          <ProxyRoutingBadge
-            status="checking"
-          />
+          <ProxyRoutingBadge status="checking" />
           <ProxyRoutingBadge
             routingCheck={{
               directIp: "198.51.100.7",
@@ -252,7 +319,7 @@ describe("settings real components", () => {
       expect(onRunCompatibilityCheck).toHaveBeenCalled();
     });
 
-  expect(getAllByText("Checking").length).toBeGreaterThan(0);
+    expect(getAllByText("Checking").length).toBeGreaterThan(0);
     expect(getByText("Connected")).toBeTruthy();
     expect(getByText("Exit 203.0.113.21")).toBeTruthy();
     expect(getByText("Unreachable")).toBeTruthy();
@@ -281,6 +348,34 @@ describe("settings real components", () => {
     expect(queryByText("Connected")).toBeNull();
   });
 });
+
+class StorageMock implements Storage {
+  get length() {
+    return this.#store.size;
+  }
+
+  #store = new Map<string, string>();
+
+  clear() {
+    this.#store.clear();
+  }
+
+  getItem(key: string) {
+    return this.#store.get(key) ?? null;
+  }
+
+  key(index: number) {
+    return Array.from(this.#store.keys())[index] ?? null;
+  }
+
+  removeItem(key: string) {
+    this.#store.delete(key);
+  }
+
+  setItem(key: string, value: string) {
+    this.#store.set(key, value);
+  }
+}
 
 function createCategory(label: string, feedKey: string): CategoryTreeNode {
   return {

@@ -5,26 +5,27 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { NextRequest } from "next/server";
 import * as zlib from "zlib";
 
-import { getHostname, POST } from "@/app/api/articles/extract/route";
+import { POST } from "@/app/api/articles/extract/route";
 import { CONFIG } from "@/lib/config";
 import {
-    clearArticleExtractCacheForTests,
-    fetchHtml,
-    parseAndValidateArticleUrl,
+  clearArticleExtractCacheForTests,
+  fetchHtml,
+  parseAndValidateArticleUrl,
 } from "@/lib/extract";
 import { fetchHtmlWithHttpCloak } from "@/lib/fetch/httpcloak-client";
 import { decompressBody, HttpCloakUpstreamError } from "@/lib/fetch/response";
 import {
-    buildMetadataImageFallbackHtml,
-    cleanSanitizedHtml,
-    hasReadableArticleBody,
-    isLikelyNavFooterBoilerplate,
-    normalizeArticleHtmlSpacing,
-    preCleanHtml,
-    sanitizeRawContent,
-    stripCommentEngagementBoilerplate,
-    toParagraphHtml,
+  buildMetadataImageFallbackHtml,
+  cleanSanitizedHtml,
+  hasReadableArticleBody,
+  isLikelyNavFooterBoilerplate,
+  normalizeArticleHtmlSpacing,
+  preCleanHtml,
+  sanitizeRawContent,
+  stripCommentEngagementBoilerplate,
+  toParagraphHtml,
 } from "@/lib/sanitize";
+import { getHostname } from "@/lib/server";
 import { decodePossiblyCompressedText } from "@/lib/utils/content-encoding";
 import { promoteHttpCloakProxyUrl } from "@/lib/utils/httpcloak";
 
@@ -378,7 +379,7 @@ describe("article extract cleanup", () => {
     const cleaned = sanitizeRawContent(
       '<p><img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket" /></p>' +
         '<p><img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo" /></p>' +
-        '<p>Body text remains.</p>',
+        "<p>Body text remains.</p>",
     );
 
     expect(cleaned).toContain("liftoff_for_celeste.jpg");
@@ -433,7 +434,9 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("Lead paragraph.");
     expect(cleaned).toContain("Second paragraph.");
     expect(cleaned).not.toContain("jane@example.com");
-    expect(cleaned).not.toContain("has written the publication's weekly column");
+    expect(cleaned).not.toContain(
+      "has written the publication's weekly column",
+    );
     expect(cleaned).not.toContain("authors/jane-doe");
   });
 
@@ -664,16 +667,16 @@ describe("article extract cleanup", () => {
     // Upstream 4xx (including 403, 429) must NOT be mirrored back to the
     // client — they are gateway failures, not client errors. Only upstream 404
     // is special-cased to 422 Unprocessable Content.
-    const httpCloakError = new HttpCloakUpstreamError(
-      429,
-      "throttled",
-      "direct",
-      null,
-      false,
-      0,
-      { server: "cloudflare" },
-      {},
-    );
+    const httpCloakError = new HttpCloakUpstreamError({
+      allowInsecureTls: false,
+      proxyAddress: null,
+      proxyMode: "direct",
+      redirectHop: 0,
+      requestHeaders: {},
+      responseBody: "throttled",
+      responseHeaders: { server: "cloudflare" },
+      statusCode: 429,
+    });
     try {
       const httpCloakResult = await POST(mockReq(), {
         errorFn: errorFn as any,
@@ -747,16 +750,16 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises DataDome-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new HttpCloakUpstreamError(
-        403,
-        "blocked",
-        "direct",
-        null,
-        false,
-        0,
-        { "x-datadome": "protected" },
-        {},
-      );
+      throw new HttpCloakUpstreamError({
+        allowInsecureTls: false,
+        proxyAddress: null,
+        proxyMode: "direct",
+        redirectHop: 0,
+        requestHeaders: {},
+        responseBody: "blocked",
+        responseHeaders: { "x-datadome": "protected" },
+        statusCode: 403,
+      });
     });
 
     await expect(
@@ -769,16 +772,16 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises PerimeterX-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new HttpCloakUpstreamError(
-        403,
-        "<html>px-captcha challenge</html>",
-        "direct",
-        null,
-        false,
-        0,
-        { "x-px-vid": "some-vid" },
-        {},
-      );
+      throw new HttpCloakUpstreamError({
+        allowInsecureTls: false,
+        proxyAddress: null,
+        proxyMode: "direct",
+        redirectHop: 0,
+        requestHeaders: {},
+        responseBody: "<html>px-captcha challenge</html>",
+        responseHeaders: { "x-px-vid": "some-vid" },
+        statusCode: 403,
+      });
     });
 
     await expect(
@@ -791,16 +794,20 @@ describe("article extract cleanup", () => {
 
   test("fetchHtml raises Cloudflare-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
-      throw new HttpCloakUpstreamError(
-        403,
-        "<html><title>Attention Required! | Cloudflare</title></html>",
-        "direct",
-        null,
-        false,
-        0,
-        { "cf-mitigated": "challenge", "set-cookie": "__cf_bm=abc" },
-        {},
-      );
+      throw new HttpCloakUpstreamError({
+        allowInsecureTls: false,
+        proxyAddress: null,
+        proxyMode: "direct",
+        redirectHop: 0,
+        requestHeaders: {},
+        responseBody:
+          "<html><title>Attention Required! | Cloudflare</title></html>",
+        responseHeaders: {
+          "cf-mitigated": "challenge",
+          "set-cookie": "__cf_bm=abc",
+        },
+        statusCode: 403,
+      });
     });
 
     await expect(
@@ -921,16 +928,16 @@ describe("article extract cleanup", () => {
       let callCount = 0;
       const fn = mock(async () => {
         callCount++;
-        throw new HttpCloakUpstreamError(
+        throw new HttpCloakUpstreamError({
+          allowInsecureTls: false,
+          proxyAddress: null,
+          proxyMode: "socks",
+          redirectHop: 0,
+          requestHeaders: {},
+          responseBody: body,
+          responseHeaders: headers,
           statusCode,
-          body,
-          "socks",
-          null,
-          false,
-          0,
-          headers,
-          {},
-        );
+        });
       });
       return { fn, getCount: () => callCount };
     }
@@ -1061,16 +1068,16 @@ describe("article extract cleanup", () => {
       const mockHttpCloakFetch = mock(
         async (_url: string, _allowed: any, opts: any) => {
           capturedOptions.push(opts ? { ...opts } : {});
-          throw new HttpCloakUpstreamError(
-            403,
-            "<html>blocked</html>",
-            "socks",
-            null,
-            false,
-            0,
-            {},
-            {},
-          );
+          throw new HttpCloakUpstreamError({
+            allowInsecureTls: false,
+            proxyAddress: null,
+            proxyMode: "socks",
+            redirectHop: 0,
+            requestHeaders: {},
+            responseBody: "<html>blocked</html>",
+            responseHeaders: {},
+            statusCode: 403,
+          });
         },
       );
 
@@ -1099,9 +1106,9 @@ describe("article extract cleanup", () => {
 
   describe("promoteHttpCloakProxyUrl", () => {
     test("promotes socks5 URLs to remote-DNS socks5h", () => {
-      expect(promoteHttpCloakProxyUrl("socks5://user:pass@proxy.example.com:1080")).toBe(
-        "socks5h://user:pass@proxy.example.com:1080",
-      );
+      expect(
+        promoteHttpCloakProxyUrl("socks5://user:pass@proxy.example.com:1080"),
+      ).toBe("socks5h://user:pass@proxy.example.com:1080");
     });
 
     test("promotes socks4 URLs to remote-DNS socks4a", () => {
@@ -1204,10 +1211,7 @@ describe("article extract cleanup", () => {
     test("returns decoded HTML for successful responses", async () => {
       const mockRequest = async () => ({
         body: "<html>ok</html>",
-        headers: {} as Record<
-          string,
-          string | string[] | undefined
-        >,
+        headers: {} as Record<string, string | string[] | undefined>,
         statusCode: 200,
       });
 
@@ -1250,7 +1254,8 @@ describe("article extract cleanup", () => {
       return;
     }
 
-    const html = "<!DOCTYPE html><html><body><article><p>Jacobin route fallback content.</p></article></body></html>";
+    const html =
+      "<!DOCTYPE html><html><body><article><p>Jacobin route fallback content.</p></article></body></html>";
     const compressedHtml = await compressWithZstd(html);
 
     let capturedHtml = "";
@@ -1258,7 +1263,10 @@ describe("article extract cleanup", () => {
       cleanSanitizedHtmlFn: (c) => c,
       extractFromHtmlFn: async (receivedHtml) => {
         capturedHtml = receivedHtml;
-        return { content: "<p>Jacobin route fallback content.</p>", title: "T" };
+        return {
+          content: "<p>Jacobin route fallback content.</p>",
+          title: "T",
+        };
       },
       fetchHtmlFn: async () => compressedHtml.toString("latin1"),
       parseAndValidateArticleUrlFn: async () => "https://example.com/article",

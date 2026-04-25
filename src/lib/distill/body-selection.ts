@@ -40,51 +40,62 @@ const CONTENT_CLASS_PATTERNS = [
 ] as const;
 
 /**
- * Find the article body container in pre-cleaned HTML.
- * Tries semantic selectors and common CMS class patterns in priority order:
- *
- * 1. `itemprop="articleBody"` (schema.org)
- * 2. Content-indicative CSS class/id patterns
- * 3. `<article>` elements (largest by content length)
- * 4. `role="main"` / `role="article"` attributes
- * 5. `<main>` elements (largest by content length)
+ * Process the find article body.
+ * @param html - The html.
+ * @param minLength - The min length value.
+ * @returns The find article body.
  */
 export function findArticleBody(
   html: string,
   minLength: number,
 ): null | string {
-  let body = findFirstByAttr(html, "itemprop", "articleBody");
-  if (body && body.trim().length >= minLength) return body;
+  const schemaBody = findFirstByAttr(html, "itemprop", "articleBody");
+  if (meetsMinLength(schemaBody, minLength)) {
+    return schemaBody;
+  }
 
-  body = findFirstByClassContains(html, CONTENT_CLASS_PATTERNS, minLength);
+  const body = findFirstByClassContains(
+    html,
+    CONTENT_CLASS_PATTERNS,
+    minLength,
+  );
   if (body) return body;
 
-  const articles = findAllByTag(html, "article");
-  if (articles.length > 0) {
-    body = articles.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
+  const articleBody = findLargestTagBody(html, "article", minLength);
+  if (articleBody) {
+    return articleBody;
   }
 
   for (const role of ["main", "article"] as const) {
-    body = findFirstByAttr(html, "role", role);
-    if (body && body.trim().length >= minLength) return body;
+    const roleBody = findFirstByAttr(html, "role", role);
+    if (meetsMinLength(roleBody, minLength)) {
+      return roleBody;
+    }
   }
 
-  const mains = findAllByTag(html, "main");
-  if (mains.length > 0) {
-    body = mains.reduce((a, b) => (a.length >= b.length ? a : b));
-    if (body.trim().length >= minLength) return body;
-  }
-
-  return null;
+  return findLargestTagBody(html, "main", minLength);
 }
 
+/**
+ * Process the class or id contains.
+ * @param attrsStr - The attrs str.
+ * @param segment - The segment.
+ * @returns Whether class or id contains.
+ */
 function classOrIdContains(attrsStr: string, segment: string): boolean {
   const classVal = readAttrValue(attrsStr, "class") ?? "";
   const idVal = readAttrValue(attrsStr, "id") ?? "";
   return segmentMatch(classVal, segment) || segmentMatch(idVal, segment);
 }
 
+/**
+ * Process the extract inner html.
+ * @param html - The html.
+ * @param startIdx - The start idx.
+ * @param openTagLength - The open tag length value.
+ * @param tagName - The tag name.
+ * @returns The extract inner html.
+ */
 function extractInnerHtml(
   html: string,
   startIdx: number,
@@ -106,6 +117,12 @@ function extractInnerHtml(
   return null;
 }
 
+/**
+ * Process the find all by tag.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @returns The find all by tag.
+ */
 function findAllByTag(html: string, tagName: string): string[] {
   const results: string[] = [];
   const lowerTag = tagName.toLowerCase();
@@ -119,6 +136,13 @@ function findAllByTag(html: string, tagName: string): string[] {
   return results;
 }
 
+/**
+ * Process the find first by attr.
+ * @param html - The html.
+ * @param attr - The attr.
+ * @param value - The value.
+ * @returns The find first by attr.
+ */
 function findFirstByAttr(
   html: string,
   attr: string,
@@ -133,6 +157,13 @@ function findFirstByAttr(
   return null;
 }
 
+/**
+ * Process the find first by class contains.
+ * @param html - The html.
+ * @param patterns - The patterns.
+ * @param minLength - The min length value.
+ * @returns The find first by class contains.
+ */
 function findFirstByClassContains(
   html: string,
   patterns: readonly string[],
@@ -150,6 +181,49 @@ function findFirstByClassContains(
   return null;
 }
 
+/**
+ * Process the find largest tag body.
+ * @param html - The html.
+ * @param tagName - The tag name.
+ * @param minLength - The min length value.
+ * @returns The find largest tag body.
+ */
+function findLargestTagBody(
+  html: string,
+  tagName: string,
+  minLength: number,
+): null | string {
+  const matches = findAllByTag(html, tagName);
+  const largestMatch = matches.reduce<null | string>(
+    (largest, candidate) =>
+      largest === null || candidate.length > largest.length
+        ? candidate
+        : largest,
+    null,
+  );
+
+  return meetsMinLength(largestMatch, minLength) ? largestMatch : null;
+}
+
+/**
+ * Process the meets min length.
+ * @param value - The value.
+ * @param minLength - The min length value.
+ * @returns Whether meets min length.
+ */
+function meetsMinLength(
+  value: null | string,
+  minLength: number,
+): value is string {
+  return value !== null && value.trim().length >= minLength;
+}
+
+/**
+ * Process the segment match.
+ * @param attrValue - The attr value.
+ * @param segment - The segment.
+ * @returns Whether segment match.
+ */
 function segmentMatch(attrValue: string, segment: string): boolean {
   let start = 0;
   while (start <= attrValue.length - segment.length) {

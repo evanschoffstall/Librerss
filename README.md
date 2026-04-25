@@ -6,7 +6,7 @@
 
 # LibreRSS
 
-*A modern RSS reader for people who want precious signal, not sludge.*
+_A modern RSS reader for people who want precious signal, not sludge._
 
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
 [![React 19](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev)
@@ -33,16 +33,16 @@ It is for people who still want the web to feel readable. If you want one place 
 
 ## Highlights
 
-| Capability | What it gives you |
-| --- | --- |
-| Universal feed support | Subscribe to RSS, Atom, and JSON feeds from across the open web. |
-| Category organization | Group sources into a browsing model that stays usable as your feed list grows. |
+| Capability               | What it gives you                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Universal feed support   | Subscribe to RSS, Atom, and JSON feeds from across the open web.                          |
+| Category organization    | Group sources into a browsing model that stays usable as your feed list grows.            |
 | Distraction-free reading | Keep focus on the article instead of interface chrome, prompts, and engagement mechanics. |
-| Fast dashboard workflows | Add, sort, refresh, and manage feeds from one responsive control surface. |
-| Light and dark themes | Choose the reading environment that fits the room, the hour, and your eyes. |
-| Self-hosted ownership | Keep feed data, sessions, and deployment choices under your control. |
-| Invite-only mode | Disable public signup for personal, private, or small-team use. |
-| Streaming refresh | Watch updates arrive in a flow that feels live without feeling frantic. |
+| Fast dashboard workflows | Add, sort, refresh, and manage feeds from one responsive control surface.                 |
+| Light and dark themes    | Choose the reading environment that fits the room, the hour, and your eyes.               |
+| Self-hosted ownership    | Keep feed data, sessions, and deployment choices under your control.                      |
+| Invite-only mode         | Disable public signup for personal, private, or small-team use.                           |
+| Streaming refresh        | Watch updates arrive in a flow that feels live without feeling frantic.                   |
 
 ## Quick start
 
@@ -78,7 +78,6 @@ Common settings:
 - `DB_DRIVER`: `pg` for pooled TCP connections, or `neon` for fetch-backed Neon mode.
 - `ALLOW_SIGNUP`: set to `true` if you want public registration.
 - `LOG_LEVEL`: one of `none`, `error`, `warn`, `info`, or `verbose`.
-- `DEV_AUTO_LOGIN_EMAIL` and `DEV_AUTO_LOGIN_PASSWORD`: in development only, automatically sign into `/dashboard` with an existing account using the normal login flow.
 
 > [!TIP]
 > Leave `ALLOW_SIGNUP=false` if you want a private or invite-only reader and create accounts with `bun run db:create-user` instead.
@@ -134,23 +133,24 @@ You should be able to:
 
 ### Core commands
 
-| Command | Purpose |
-| --- | --- |
-| `bun dev` | Start the standard local Next.js development server. |
+| Command             | Purpose                                               |
+| ------------------- | ----------------------------------------------------- |
+| `bun dev`           | Start the standard local Next.js development server.  |
 | `bun run dev:local` | Bind the dev server to `0.0.0.0:3000` for LAN access. |
-| `bun run build` | Create a production build. |
-| `bun run start` | Run the production server after building. |
-| `bun check summary` | Run the repository quality summary. |
-| `bun check --junit` | Run the Bun unit and integration test suite. |
+| `bun run build`     | Create a production build.                            |
+| `bun run start`     | Run the production server after building.             |
+| `bun check summary` | Run the repository quality summary.                   |
+| `bun check --junit` | Run the Bun unit and integration test suite.          |
 
-For a faster local auth loop in development, you can also add this to `.env.local`:
+### Quality tooling
 
-```env
-DEV_AUTO_LOGIN_EMAIL="you@example.com"
-DEV_AUTO_LOGIN_PASSWORD="your-existing-password"
+The full quality suite includes a pinned Python-based complexity check powered by `lizard`.
+
+Install the Python tooling once before running `bun check` commands that include the `lizard` step:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
 ```
-
-When both values are present and `NODE_ENV=development`, visiting `/` will route through `/dashboard` and auto-create a normal session cookie with those credentials.
 
 ### End-to-end testing
 
@@ -159,36 +159,39 @@ The Playwright workflow is isolated by design. It starts a dedicated Next.js dev
 > [!IMPORTANT]
 > This separation is intentional. It prevents Playwright runs from clobbering your normal development server or `.next` output.
 
+> [!NOTE]
+> Playwright is optional. LibreRSS does not install browsers or OS-level dependencies during `bun install`, so deployments and local setups stay environment-agnostic. If you want to try the Playwright suite, install the browser binaries explicitly on a machine that supports them.
+
 ```bash
-bunx playwright install chromium
+bun run setup:playwright
 bun run test:e2e
 ```
 
 Other useful variants:
 
-| Command | Purpose |
-| --- | --- |
-| `bun run test:e2e:headed` | Run the suite with a visible browser window. |
-| `bun run test:e2e:ui` | Open the Playwright UI runner. |
+| Command                     | Purpose                                             |
+| --------------------------- | --------------------------------------------------- |
+| `bun run test:e2e:headed`   | Run the suite with a visible browser window.        |
+| `bun run test:e2e:ui`       | Open the Playwright UI runner.                      |
 | `bun run test:e2e:coverage` | Generate Playwright coverage artifacts and reports. |
 
 ## Database workflow
 
-| Command | Purpose |
-| --- | --- |
-| `bun run db:provision` | Verify the connection and apply the full schema. |
-| `bun run db:push` | Push schema changes directly without generating migration files. |
-| `bun run db:generate` | Generate SQL migrations with Drizzle Kit. |
-| `bun run db:studio` | Open Drizzle Studio in the browser. |
+| Command                | Purpose                                                          |
+| ---------------------- | ---------------------------------------------------------------- |
+| `bun run db:provision` | Verify the connection and apply the full schema.                 |
+| `bun run db:push`      | Push schema changes directly without generating migration files. |
+| `bun run db:generate`  | Generate SQL migrations with Drizzle Kit.                        |
+| `bun run db:studio`    | Open Drizzle Studio in the browser.                              |
 
 ## Stack
 
-| Layer | Technology |
-| --- | --- |
-| Framework | Next.js 16, React 19, TypeScript 5 |
-| Runtime | Bun |
-| Styling | Tailwind CSS v4, shadcn/ui, Radix UI |
-| Data | PostgreSQL, Drizzle ORM |
+| Layer            | Technology                                                                  |
+| ---------------- | --------------------------------------------------------------------------- |
+| Framework        | Next.js 16, React 19, TypeScript 5                                          |
+| Runtime          | Bun                                                                         |
+| Styling          | Tailwind CSS v4, shadcn/ui, Radix UI                                        |
+| Data             | PostgreSQL, Drizzle ORM                                                     |
 | Content pipeline | Feed parsing, article distillation, sanitization, and extract orchestration |
 
 ## Project structure

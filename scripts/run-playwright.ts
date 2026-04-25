@@ -35,6 +35,14 @@ const PLAYWRIGHT_SHUTDOWN_TIMEOUT_MS = Number.parseInt(
 const PLAYWRIGHT_DIST_DIR_PREFIX = ".next-playwright";
 const PLAYWRIGHT_LOG_LINE_LIMIT = 120;
 const PLAYWRIGHT_READINESS_PATH = "/dashboard?explore=1";
+const PLAYWRIGHT_PREWARM_PATHS = [
+  "/dashboard?explore=1",
+  "/dashboard",
+  "/landing",
+  "/api/auth/session",
+  "/api/feeds",
+  "/api/feeds/category-order",
+] as const;
 const PLAYWRIGHT_TSCONFIG_PREFIX = "tsconfig.playwright";
 const PYTHON_PARENT_DEATHSIG_LAUNCHER = [
   "import ctypes",
@@ -57,12 +65,21 @@ interface DevServerHandle {
   startForwarding: () => void;
 }
 
-/** Tracks recent child-process output while forwarding it to the parent streams. */
+/**
+ * Create the output mirror.
+ * @param child - The child.
+ * @returns The output mirror.
+ */
 function createOutputMirror(child: ChildProcess) {
   const bufferedChunks: { stream: NodeJS.WriteStream; text: string }[] = [];
   const recentLines: string[] = [];
   let isForwarding = false;
 
+  /**
+   * Append the chunk.
+   * @param stream - The stream.
+   * @param chunk - The chunk.
+   */
   const appendChunk = (stream: NodeJS.WriteStream, chunk: Buffer | string) => {
     const text = chunk.toString();
 
@@ -92,9 +109,16 @@ function createOutputMirror(child: ChildProcess) {
   });
 
   return {
+    /**
+     * Return the recent output.
+     * @returns The recent output.
+     */
     getRecentOutput() {
       return recentLines.join("\n");
     },
+    /**
+     * Process the start forwarding.
+     */
     startForwarding() {
       if (isForwarding) {
         return;
@@ -111,12 +135,19 @@ function createOutputMirror(child: ChildProcess) {
   };
 }
 
-/** Creates a filesystem-safe run identifier for per-run Playwright artifacts. */
+/**
+ * Create the playwright run id.
+ * @returns The playwright run id.
+ */
 function createPlaywrightRunId() {
   return `${Date.now()}-${process.pid}`;
 }
 
-/** Creates a disposable root tsconfig so Next never mutates the repo file. */
+/**
+ * Create the playwright tsconfig.
+ * @param runId - The run id.
+ * @returns The playwright tsconfig.
+ */
 async function createPlaywrightTsconfig(runId: string) {
   const tsconfigPath = `${PLAYWRIGHT_TSCONFIG_PREFIX}.${runId}.json`;
 
@@ -129,7 +160,12 @@ async function createPlaywrightTsconfig(runId: string) {
   return tsconfigPath;
 }
 
-/** Formats a startup failure with recent server output for fast diagnosis. */
+/**
+ * Create the startup error.
+ * @param message - The message.
+ * @param recentOutput - The recent output.
+ * @returns The startup error.
+ */
 function createStartupError(message: string, recentOutput: string) {
   return new Error(
     recentOutput
@@ -138,10 +174,12 @@ function createStartupError(message: string, recentOutput: string) {
   );
 }
 
-/** Generates the aggregated Playwright coverage reports after a coverage run. */
-async function generatePlaywrightCoverageReport(
-  rawCoverageOutputDir: string,
-) {
+/**
+ * Process the generate playwright coverage report.
+ * @param rawCoverageOutputDir - The raw coverage output dir.
+ * @returns The generate playwright coverage report.
+ */
+async function generatePlaywrightCoverageReport(rawCoverageOutputDir: string) {
   try {
     await access(join(process.cwd(), rawCoverageOutputDir));
   } catch {
@@ -164,7 +202,9 @@ async function generatePlaywrightCoverageReport(
   const { code, signal } = await waitForChildExit(generatorProcess);
 
   if (signal) {
-    console.error(`Playwright coverage generation exited from signal ${signal}.`);
+    console.error(
+      `Playwright coverage generation exited from signal ${signal}.`,
+    );
     return 1;
   }
 
@@ -172,9 +212,9 @@ async function generatePlaywrightCoverageReport(
 }
 
 /**
- * Quickly probes whether a TCP port can be bound without spawning a full
- * Next.js process.  Returns in ~1 ms per port, letting the scan skip
- * obviously-taken ports before paying the cost of a child process.
+ * Return whether is port available.
+ * @param port - The port.
+ * @returns Whether is port available.
  */
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -186,13 +226,20 @@ function isPortAvailable(port: number): Promise<boolean> {
   });
 }
 
-/** Detects startup failures that should retry the next port immediately. */
+/**
+ * Return whether is port unavailable output.
+ * @param output - The output.
+ * @returns Whether is port unavailable output.
+ */
 function isPortUnavailableOutput(output: string) {
   return /(EADDRINUSE|address already in use|port\s+\d+\s+is in use)/iu.test(
     output,
   );
 }
 
+/**
+ * Process the main.
+ */
 async function main() {
   const forwardedArguments = process.argv.slice(2);
   const runId = createPlaywrightRunId();
@@ -213,6 +260,9 @@ async function main() {
     ...(PLAYWRIGHT_COVERAGE_ENABLED ? [rawCoverageOutputDir] : []),
   ];
 
+  /**
+   * Process the cleanup.
+   */
   const cleanup = async () => {
     if (cleaningUp) {
       return;
@@ -226,13 +276,13 @@ async function main() {
     ]);
 
     await Promise.allSettled(
-      temporaryPaths.map((target) =>
-        removePlaywrightRuntimeDirectory(target),
-      ),
+      temporaryPaths.map((target) => removePlaywrightRuntimeDirectory(target)),
     );
   };
 
-  /** Best-effort synchronous fallback that kills processes and removes temp files. */
+  /**
+   * Process the cleanup sync.
+   */
   const cleanupSync = () => {
     stopProcessNow(testProcess);
     stopProcessNow(serverProcess);
@@ -246,6 +296,11 @@ async function main() {
     }
   };
 
+  /**
+   * Process the exit with cleanup.
+   * @param exitCode - The exit code.
+   * @returns The exit with cleanup.
+   */
   const exitWithCleanup = async (exitCode: number) => {
     const forceExitTimer = setTimeout(() => {
       console.error("Async cleanup timed out — forcing exit.");
@@ -325,6 +380,7 @@ async function main() {
     console.log(`Playwright dev server port: ${server.port}`);
     console.log(`Playwright dist dir: ${distDir}`);
     console.log(`Playwright tsconfig: ${tsconfigPath}`);
+    await prewarmServerRoutes(server);
 
     testProcess = startPlaywrightTestRun(
       server.baseURL,
@@ -344,10 +400,7 @@ async function main() {
     const coverageExitCode = PLAYWRIGHT_COVERAGE_ENABLED
       ? await generatePlaywrightCoverageReport(rawCoverageOutputDir)
       : 0;
-    const exitCode =
-      code === 0
-        ? coverageExitCode
-        : (code ?? 1);
+    const exitCode = code === 0 ? coverageExitCode : (code ?? 1);
 
     await exitWithCleanup(exitCode);
   } catch (error) {
@@ -356,7 +409,30 @@ async function main() {
   }
 }
 
-/** Removes a Playwright runtime directory when the run exits. */
+/**
+ * Prewarms the routes and endpoints that the Playwright suite commonly hits
+ * first so the run does not pay cold-compilation costs mid-test.
+ * @param server - The started Playwright dev server.
+ */
+async function prewarmServerRoutes(server: DevServerHandle) {
+  for (const path of PLAYWRIGHT_PREWARM_PATHS) {
+    const response = await fetch(`${server.baseURL}${path}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (response.status >= 500) {
+      throw createStartupError(
+        `Playwright dev server returned ${response.status} while prewarming ${path}.`,
+        server.getRecentOutput(),
+      );
+    }
+  }
+}
+
+/**
+ * Process the remove playwright runtime directory.
+ * @param directoryName - The directory name.
+ */
 async function removePlaywrightRuntimeDirectory(directoryName: string) {
   await rm(join(process.cwd(), directoryName), {
     force: true,
@@ -365,10 +441,10 @@ async function removePlaywrightRuntimeDirectory(directoryName: string) {
 }
 
 /**
- * Starts Next on the first available port.  Randomises the starting port so
- * hundreds of concurrent runs spread across the range instead of all piling
- * up on port 3100.  A fast TCP probe skips obviously-taken ports before
- * spawning a child process.
+ * Process the start first available dev server.
+ * @param distDir - The dist dir.
+ * @param tsconfigPath - The tsconfig path.
+ * @returns The start first available dev server.
  */
 async function startFirstAvailableDevServer(
   distDir: string,
@@ -416,7 +492,13 @@ async function startFirstAvailableDevServer(
   );
 }
 
-/** Starts the dedicated Next.js Playwright dev server on the chosen port. */
+/**
+ * Process the start playwright dev server.
+ * @param port - The port.
+ * @param distDir - The dist dir.
+ * @param tsconfigPath - The tsconfig path.
+ * @returns The start playwright dev server.
+ */
 function startPlaywrightDevServer(
   port: number,
   distDir: string,
@@ -458,7 +540,15 @@ function startPlaywrightDevServer(
   };
 }
 
-/** Runs the Playwright CLI with the dynamically selected base URL. */
+/**
+ * Process the start playwright test run.
+ * @param baseURL - The base url.
+ * @param port - The port.
+ * @param forwardedArguments - The forwarded arguments.
+ * @param rawCoverageOutputDir - The raw coverage output dir.
+ * @param runId - The run id.
+ * @returns The start playwright test run.
+ */
 function startPlaywrightTestRun(
   baseURL: string,
   port: number,
@@ -483,7 +573,10 @@ function startPlaywrightTestRun(
   });
 }
 
-/** Stops the foreground Playwright CLI process if the wrapper is interrupted. */
+/**
+ * Process the stop process.
+ * @param child - The child.
+ */
 async function stopProcess(child: ChildProcess | null) {
   if (!child || child.exitCode !== null || child.signalCode !== null) {
     return;
@@ -502,7 +595,10 @@ async function stopProcess(child: ChildProcess | null) {
   }
 }
 
-/** Performs a best-effort synchronous kill of the Playwright CLI process. */
+/**
+ * Process the stop process now.
+ * @param child - The child.
+ */
 function stopProcessNow(child: ChildProcess | null) {
   if (!child || child.exitCode !== null || child.signalCode !== null) {
     return;
@@ -511,7 +607,11 @@ function stopProcessNow(child: ChildProcess | null) {
   child.kill("SIGKILL");
 }
 
-/** Waits for a child process to exit and resolves with its exit status. */
+/**
+ * Process the wait for child exit.
+ * @param child - The child.
+ * @returns The wait for child exit.
+ */
 async function waitForChildExit(child: ChildProcess) {
   return await new Promise<{
     code: null | number;
@@ -524,7 +624,11 @@ async function waitForChildExit(child: ChildProcess) {
   });
 }
 
-/** Waits for the chosen dashboard route to be reachable before tests start. */
+/**
+ * Process the wait for server readiness.
+ * @param server - The server.
+ * @param timeoutMs - The timeout ms value.
+ */
 async function waitForServerReadiness(
   server: DevServerHandle,
   timeoutMs: number,
@@ -576,10 +680,9 @@ async function waitForServerReadiness(
 }
 
 /**
- * Detects whether the dev server has claimed its port by watching child-process
- * output for the "- Local:" line that Next.js emits once its HTTP server is
- * listening.  Falls back to EADDRINUSE detection and process-exit checks so
- * the port-scan loop can advance without the old two-second blind timer.
+ * Process the wait for server startup.
+ * @param child - The child.
+ * @param getRecentOutput - The callback that recent output.
  */
 async function waitForServerStartup(
   child: ChildProcess,
