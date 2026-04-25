@@ -87,6 +87,27 @@ describe("dashboard article window availability", () => {
     });
   });
 
+  test("preserves availability for preview-mode unread settlements that stay below the requested limit", () => {
+    expect(
+      resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: false,
+        currentFeedLength: 6,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        preservePartialFilteredWindowAvailability: true,
+        previousFeedLength: 6,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 8,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+  });
+
   test("preserves the previous availability signal until the next awaited fetch settles", () => {
     expect(
       resolveArticleWindowAvailability({
@@ -160,6 +181,7 @@ describe("dashboard article window availability", () => {
   });
 
   test("only refills an unread window when local read updates emptied the filtered view", () => {
+    // Filtered count below threshold and no in-flight operations: refill fires.
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "unread",
@@ -168,11 +190,13 @@ describe("dashboard article window availability", () => {
         currentFilteredFeedLength: 4,
         hasMoreServerArticles: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
         shouldUseArticleWindow: true,
       }),
     ).toBe(true);
 
+    // Wrong filter: refill must only fire for the "unread" filter.
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "all",
@@ -181,11 +205,13 @@ describe("dashboard article window availability", () => {
         currentFilteredFeedLength: 0,
         hasMoreServerArticles: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);
 
+    // Count at or above threshold: no refill needed.
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "unread",
@@ -194,7 +220,62 @@ describe("dashboard article window availability", () => {
         currentFilteredFeedLength: 5,
         hasMoreServerArticles: true,
         isLoading: false,
+        isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("blocks unread refill while a concurrent scroll load-more fetch is in-flight", () => {
+    // A scroll-triggered load-more is already running (isLoadingMoreArticles = true).
+    // A new server refill must not start to prevent duplicate concurrent fetches and
+    // the keepExistingFeed race that could produce a stale-article overwrite.
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 4,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isLoadingMoreArticles: true,
+        isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("resumes unread refill once the concurrent load-more fetch clears", () => {
+    // Both the load-more and refill flags are clear: refill is now eligible.
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 4,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        isRefillingDepletedUnreadWindow: false,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(true);
+  });
+
+  test("blocks a second refill while a prior refill fetch is still in-flight", () => {
+    // isRefillingDepletedUnreadWindow is set to true by refillDashboardArticleWindow
+    // before the fetch starts, preventing re-entry until the .finally() callback clears it.
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 4,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        isRefillingDepletedUnreadWindow: true,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);

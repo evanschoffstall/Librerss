@@ -40,6 +40,7 @@ interface UseArticleWindowAvailabilityOptions {
   isLoading: boolean;
   isLoadingMoreArticles: boolean;
   isLoadingMoreArticlesRef: RefObject<boolean>;
+  preservePartialFilteredWindowAvailability?: boolean;
   previousAwaitedFeedLengthRef: RefObject<number>;
   requestedArticleLimit: number;
   setHasMoreServerArticles: Dispatch<SetStateAction<boolean>>;
@@ -67,12 +68,21 @@ interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
   hasStartedArticleWindowSettlementRef: RefObject<boolean>;
   isAwaitingArticleWindowSettlementRef: RefObject<boolean>;
   isLoading: boolean;
+  /**
+   * Reactive state mirror of `isLoadingMoreArticlesRef`. Passed to
+   * `shouldRefillDepletedUnreadWindow` to block a new server refill from
+   * firing while a concurrent scroll load-more fetch is already in-flight.
+   */
+  isLoadingMoreArticles: boolean;
+  isLoadingMoreArticlesRef: RefObject<boolean>;
   isRefillingDepletedUnreadWindowRef: RefObject<boolean>;
   previousAwaitedFeedLengthRef: RefObject<number>;
   requestedArticleLimit: number;
   selectedCategory: string;
   selectedCategoryNode?: CategoryTreeNode;
   selectedFeedUrl?: string;
+  setIsLoadingMoreArticles: Dispatch<SetStateAction<boolean>>;
+  setRequestedArticleLimit: Dispatch<SetStateAction<number>>;
   shouldUseArticleWindow: boolean;
 }
 
@@ -114,6 +124,8 @@ export function useArticleWindowAvailability(
       isAwaitingWindowSettlement: isAwaitingArticleWindowSettlementRef.current,
       isLoading,
       isLoadingMoreArticles,
+      preservePartialFilteredWindowAvailability:
+        options.preservePartialFilteredWindowAvailability,
       previousFeedLength: previousAwaitedFeedLengthRef.current,
       previousHasMoreServerArticles: hasMoreServerArticles,
       requestedArticleLimit,
@@ -153,6 +165,7 @@ export function useArticleWindowAvailability(
     isLoadingMoreArticles,
     isLoadingMoreArticlesRef,
     previousAwaitedFeedLengthRef,
+    options.preservePartialFilteredWindowAvailability,
     requestedArticleLimit,
     setHasMoreServerArticles,
     setIsLoadingMoreArticles,
@@ -227,83 +240,110 @@ export function useResetArticleWindowOnSelectionChange(
 
 /**
  * Manage the unread window refill.
+ *
+ * The hook is intentionally a thin lifecycle wrapper around
+ * `runUnreadWindowRefillEffect`. The dependency array enumerates each consumed option
+ * field directly off `options.*` so React still tracks every reactive input without
+ * recreating a destructuring block that mirrors the dependency list (which previously
+ * tripped both length and clone-detection thresholds).
+ *
  * @param options - The options used to manage the unread window refill.
  */
 export function useUnreadWindowRefill(
   options: UseUnreadWindowRefillOptions,
 ): void {
-  const {
-    allowPartialArticleWindowGrowthRef,
-    articleFilter,
-    articlesPerPage,
-    currentFeedLength,
-    currentFilteredFeedLength,
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
-    hasMoreServerArticles,
-    hasStartedArticleWindowSettlementRef,
-    isAwaitingArticleWindowSettlementRef,
-    isLoading,
-    isRefillingDepletedUnreadWindowRef,
-    previousAwaitedFeedLengthRef,
-    requestedArticleLimit,
-    selectedCategory,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    shouldUseArticleWindow,
-  } = options;
-  useEffect(() => {
-    if (
-      !shouldRefillDepletedUnreadWindow({
-        articleFilter,
-        articlesPerPage,
-        currentFeedLength,
-        currentFilteredFeedLength,
-        hasMoreServerArticles,
-        isLoading,
-        isRefillingDepletedUnreadWindow:
-          isRefillingDepletedUnreadWindowRef.current,
-        shouldUseArticleWindow,
-      })
-    ) {
-      return;
-    }
+  useEffect(
+    () => {
+      runUnreadWindowRefillEffect(options);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencies are listed explicitly off `options.*` to keep the hook free of a destructuring block that would duplicate this list and trip jscpd.
+    [
+      options.allowPartialArticleWindowGrowthRef,
+      options.articleFilter,
+      options.articlesPerPage,
+      options.currentFeedLength,
+      options.currentFilteredFeedLength,
+      options.fetchAllFeeds,
+      options.fetchCategoryFeeds,
+      options.fetchFeed,
+      options.hasMoreServerArticles,
+      options.hasStartedArticleWindowSettlementRef,
+      options.isAwaitingArticleWindowSettlementRef,
+      options.isLoading,
+      options.isLoadingMoreArticles,
+      options.isLoadingMoreArticlesRef,
+      options.isRefillingDepletedUnreadWindowRef,
+      options.previousAwaitedFeedLengthRef,
+      options.requestedArticleLimit,
+      options.selectedCategory,
+      options.selectedCategoryNode,
+      options.selectedFeedUrl,
+      options.setIsLoadingMoreArticles,
+      options.setRequestedArticleLimit,
+      options.shouldUseArticleWindow,
+    ],
+  );
+}
 
-    refillDashboardArticleWindow({
-      allowPartialArticleWindowGrowthRef,
-      articleLimit: requestedArticleLimit,
-      currentFeedLength,
-      fetchAllFeeds,
-      fetchCategoryFeeds,
-      fetchFeed,
-      hasStartedArticleWindowSettlementRef,
-      isAwaitingArticleWindowSettlementRef,
-      isRefillingDepletedUnreadWindowRef,
-      previousAwaitedFeedLengthRef,
-      selectedCategory,
-      selectedCategoryNode,
-      selectedFeedUrl,
-    });
-  }, [
-    allowPartialArticleWindowGrowthRef,
-    articleFilter,
-    articlesPerPage,
-    currentFeedLength,
-    currentFilteredFeedLength,
-    fetchAllFeeds,
-    fetchCategoryFeeds,
-    fetchFeed,
-    hasMoreServerArticles,
-    hasStartedArticleWindowSettlementRef,
-    isAwaitingArticleWindowSettlementRef,
-    isLoading,
-    isRefillingDepletedUnreadWindowRef,
-    previousAwaitedFeedLengthRef,
-    requestedArticleLimit,
-    selectedCategory,
-    selectedCategoryNode,
-    selectedFeedUrl,
-    shouldUseArticleWindow,
-  ]);
+/**
+ * Run a single depleted-unread-window refill pass for the dashboard article window.
+ *
+ * Extracted from `useUnreadWindowRefill` so the effect body lives outside the hook's
+ * dependency-array surface. Keeping the imperative refill logic in a free function
+ * eliminates the structural duplication that previously existed between the hook's
+ * destructured option block and its `useEffect` dependency list, and keeps the hook
+ * itself short enough to remain readable as a thin lifecycle wrapper.
+ *
+ * The function reads `isLoadingMoreArticlesRef.current` synchronously instead of
+ * trusting the reactive `isLoadingMoreArticles` state alone, because the state update
+ * lags the ref mutation by one render and a second refill could otherwise start before
+ * the first one's loading flag is reflected in state.
+ *
+ * @param options - The full hook options forwarded from `useUnreadWindowRefill`.
+ */
+function runUnreadWindowRefillEffect(
+  options: UseUnreadWindowRefillOptions,
+): void {
+  if (
+    !shouldRefillDepletedUnreadWindow({
+      articleFilter: options.articleFilter,
+      articlesPerPage: options.articlesPerPage,
+      currentFeedLength: options.currentFeedLength,
+      currentFilteredFeedLength: options.currentFilteredFeedLength,
+      hasMoreServerArticles: options.hasMoreServerArticles,
+      isLoading: options.isLoading,
+      isLoadingMoreArticles:
+        options.isLoadingMoreArticlesRef.current ||
+        options.isLoadingMoreArticles,
+      isRefillingDepletedUnreadWindow:
+        options.isRefillingDepletedUnreadWindowRef.current,
+      shouldUseArticleWindow: options.shouldUseArticleWindow,
+    })
+  ) {
+    return;
+  }
+
+  refillDashboardArticleWindow({
+    allowPartialArticleWindowGrowthRef:
+      options.allowPartialArticleWindowGrowthRef,
+    articleLimit: options.requestedArticleLimit,
+    articlesPerPage: options.articlesPerPage,
+    currentFeedLength: options.currentFeedLength,
+    fetchAllFeeds: options.fetchAllFeeds,
+    fetchCategoryFeeds: options.fetchCategoryFeeds,
+    fetchFeed: options.fetchFeed,
+    hasStartedArticleWindowSettlementRef:
+      options.hasStartedArticleWindowSettlementRef,
+    isAwaitingArticleWindowSettlementRef:
+      options.isAwaitingArticleWindowSettlementRef,
+    isLoadingMoreArticlesRef: options.isLoadingMoreArticlesRef,
+    isRefillingDepletedUnreadWindowRef:
+      options.isRefillingDepletedUnreadWindowRef,
+    previousAwaitedFeedLengthRef: options.previousAwaitedFeedLengthRef,
+    selectedCategory: options.selectedCategory,
+    selectedCategoryNode: options.selectedCategoryNode,
+    selectedFeedUrl: options.selectedFeedUrl,
+    setIsLoadingMoreArticles: options.setIsLoadingMoreArticles,
+    setRequestedArticleLimit: options.setRequestedArticleLimit,
+  });
 }

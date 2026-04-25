@@ -27,7 +27,17 @@ type DashboardArticleWindowAvailabilityOptions = Pick<
   | "isLoading"
   | "selectedCategory"
   | "shouldUseArticleWindow"
+  | "usePlaceholderData"
 >;
+
+interface DashboardArticleWindowAvailabilityResolutionLifecycleOptions {
+  articleFilter: string;
+  currentFeedLength: number;
+  isLoading: boolean;
+  lifecycleState: ReturnType<typeof getDashboardArticleWindowAvailabilityState>;
+  shouldUseArticleWindow: boolean;
+  usePlaceholderData: boolean;
+}
 
 interface DashboardArticleWindowControlsOptions {
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
@@ -86,6 +96,7 @@ export function useDashboardArticleWindow(
     selectedCategoryNode: options.selectedCategoryNode,
     selectedFeedUrl: options.selectedFeedUrl,
     shouldUseArticleWindow: options.shouldUseArticleWindow,
+    usePlaceholderData: options.usePlaceholderData,
   });
   const controls = useDashboardArticleWindowControls({
     articleWindowState,
@@ -165,54 +176,56 @@ function useDashboardArticleWindowAvailabilityLifecycle(
     isLoading,
     selectedCategory,
     shouldUseArticleWindow,
+    usePlaceholderData,
   } = options;
   const lifecycleState =
     getDashboardArticleWindowAvailabilityState(articleWindowState);
 
-  useResetArticleWindowOnSelectionChange({
-    allowPartialArticleWindowGrowthRef: lifecycleState.allowPartialGrowthRef,
+  useDashboardArticleWindowSelectionResetLifecycle({
     articleFilter,
     articlesPerPage,
-    hasStartedArticleWindowSettlementRef:
-      lifecycleState.hasStartedSettlementRef,
-    inFlightPrefetchedLimitRef: lifecycleState.inFlightPrefetchedLimitRef,
-    isAwaitingArticleWindowSettlementRef:
-      lifecycleState.isAwaitingSettlementRef,
-    isLoadingMoreArticlesRef: lifecycleState.isLoadingMoreArticlesRef,
-    isRefillingDepletedUnreadWindowRef:
-      lifecycleState.isRefillingDepletedUnreadWindowRef,
-    lastPrefetchedLimitRef: lifecycleState.lastPrefetchedLimitRef,
-    previousAwaitedFeedLengthRef: lifecycleState.previousAwaitedFeedLengthRef,
+    isLoading,
+    lifecycleState,
     selectedCategory,
-    setHasMoreServerArticles: lifecycleState.setHasMoreServerArticles,
-    setIsLoadingMoreArticles: lifecycleState.setIsLoadingMoreArticles,
-    setRequestedArticleLimit: lifecycleState.setRequestedArticleLimit,
     shouldUseArticleWindow,
   });
-  useDashboardArticleWindowLoadingState({
-    hasStartedArticleWindowSettlementRef:
-      lifecycleState.hasStartedSettlementRef,
-    isAwaitingArticleWindowSettlementRef:
-      lifecycleState.isAwaitingSettlementRef,
-    isLoading,
-    shouldUseArticleWindow,
-  });
-  useArticleWindowAvailability({
-    allowPartialArticleWindowGrowthRef: lifecycleState.allowPartialGrowthRef,
+  useDashboardArticleWindowAvailabilityResolutionLifecycle({
+    articleFilter,
     currentFeedLength,
-    hasMoreServerArticles: lifecycleState.hasMoreServerArticles,
-    hasStartedArticleWindowSettlementRef:
-      lifecycleState.hasStartedSettlementRef,
-    isAwaitingArticleWindowSettlementRef:
-      lifecycleState.isAwaitingSettlementRef,
     isLoading,
-    isLoadingMoreArticles: lifecycleState.isLoadingMoreArticles,
-    isLoadingMoreArticlesRef: lifecycleState.isLoadingMoreArticlesRef,
-    previousAwaitedFeedLengthRef: lifecycleState.previousAwaitedFeedLengthRef,
-    requestedArticleLimit: lifecycleState.requestedArticleLimit,
-    setHasMoreServerArticles: lifecycleState.setHasMoreServerArticles,
-    setIsLoadingMoreArticles: lifecycleState.setIsLoadingMoreArticles,
+    lifecycleState,
     shouldUseArticleWindow,
+    usePlaceholderData,
+  });
+}
+
+/**
+ * Manage the availability resolver hook for the dashboard article window.
+ * @param options - The shared availability inputs for article-window resolution.
+ */
+function useDashboardArticleWindowAvailabilityResolutionLifecycle(
+  options: DashboardArticleWindowAvailabilityResolutionLifecycleOptions,
+) {
+  useArticleWindowAvailability({
+    allowPartialArticleWindowGrowthRef:
+      options.lifecycleState.allowPartialGrowthRef,
+    currentFeedLength: options.currentFeedLength,
+    hasMoreServerArticles: options.lifecycleState.hasMoreServerArticles,
+    hasStartedArticleWindowSettlementRef:
+      options.lifecycleState.hasStartedSettlementRef,
+    isAwaitingArticleWindowSettlementRef:
+      options.lifecycleState.isAwaitingSettlementRef,
+    isLoading: options.isLoading,
+    isLoadingMoreArticles: options.lifecycleState.isLoadingMoreArticles,
+    isLoadingMoreArticlesRef: options.lifecycleState.isLoadingMoreArticlesRef,
+    preservePartialFilteredWindowAvailability:
+      options.usePlaceholderData && options.articleFilter === "unread",
+    previousAwaitedFeedLengthRef:
+      options.lifecycleState.previousAwaitedFeedLengthRef,
+    requestedArticleLimit: options.lifecycleState.requestedArticleLimit,
+    setHasMoreServerArticles: options.lifecycleState.setHasMoreServerArticles,
+    setIsLoadingMoreArticles: options.lifecycleState.setIsLoadingMoreArticles,
+    shouldUseArticleWindow: options.shouldUseArticleWindow,
   });
 }
 
@@ -268,6 +281,7 @@ function useDashboardArticleWindowLifecycle(
     selectedCategoryNode,
     selectedFeedUrl,
     shouldUseArticleWindow,
+    usePlaceholderData,
   } = options;
   useDashboardArticleWindowAvailabilityLifecycle({
     articleFilter,
@@ -277,6 +291,7 @@ function useDashboardArticleWindowLifecycle(
     isLoading,
     selectedCategory,
     shouldUseArticleWindow,
+    usePlaceholderData,
   });
   useDashboardArticleWindowUnreadRefillLifecycle({
     articleFilter,
@@ -292,6 +307,7 @@ function useDashboardArticleWindowLifecycle(
     selectedCategoryNode,
     selectedFeedUrl,
     shouldUseArticleWindow,
+    usePlaceholderData,
   });
 }
 
@@ -488,6 +504,8 @@ function useDashboardArticleWindowUnreadRefillLifecycle(
     isAwaitingArticleWindowSettlementRef:
       articleWindowState.isAwaitingArticleWindowSettlementRef,
     isLoading,
+    isLoadingMoreArticles: articleWindowState.isLoadingMoreArticles,
+    isLoadingMoreArticlesRef: articleWindowState.isLoadingMoreArticlesRef,
     isRefillingDepletedUnreadWindowRef:
       articleWindowState.isRefillingDepletedUnreadWindowRef,
     previousAwaitedFeedLengthRef:
@@ -496,6 +514,8 @@ function useDashboardArticleWindowUnreadRefillLifecycle(
     selectedCategory,
     selectedCategoryNode,
     selectedFeedUrl,
+    setIsLoadingMoreArticles: articleWindowState.setIsLoadingMoreArticles,
+    setRequestedArticleLimit: articleWindowState.setRequestedArticleLimit,
     shouldUseArticleWindow,
   });
 }

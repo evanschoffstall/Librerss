@@ -12,7 +12,9 @@ export type {
   ShouldRefillDepletedUnreadWindowOptions,
 } from "./window-availability";
 export {
+  MIN_UNREAD_REFILL_OVERFLOW_ARTICLES,
   resolveArticleWindowAvailability,
+  resolveUnreadRefillThreshold,
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
 } from "./window-availability";

@@ -29,6 +29,7 @@ export interface ResolveArticleWindowAvailabilityOptions {
   isAwaitingWindowSettlement: boolean;
   isLoading: boolean;
   isLoadingMoreArticles: boolean;
+  preservePartialFilteredWindowAvailability?: boolean;
   previousFeedLength: number;
   previousHasMoreServerArticles: boolean;
   requestedArticleLimit: number;
@@ -56,6 +57,8 @@ export interface ShouldBlockArticleWindowLoadMoreOptions {
  *
  * When local read-state updates empty the unread filter, the feed surface swaps to the
  * empty state and the list-level pagination hook no longer has a mounted viewport.
+ * Both `isRefillingDepletedUnreadWindow` (server-layer refill) and `isLoadingMoreArticles`
+ * (scroll load-more) must be false before a new refill is allowed to prevent races.
  */
 export interface ShouldRefillDepletedUnreadWindowOptions {
   articleFilter: string;
@@ -64,11 +67,20 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
   currentFilteredFeedLength: number;
   hasMoreServerArticles: boolean;
   isLoading: boolean;
+  isLoadingMoreArticles: boolean;
   isRefillingDepletedUnreadWindow: boolean;
   shouldUseArticleWindow: boolean;
 }
 
-const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
+/**
+ * Minimum extra article rows required beyond one page to ensure the scroll
+ * sentinel stays within IntersectionObserver range on any device.
+ *
+ * This constant governs both the unread-window refill trigger threshold and the
+ * pagination-layer backfill guard. It must not be increased without explicit
+ * justification per the Article List Infinite Pagination Contract.
+ */
+export const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 
 /**
  * Resolve whether the server has more articles available for the current article window.
@@ -87,77 +99,32 @@ const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 export function resolveArticleWindowAvailability(
   options: ResolveArticleWindowAvailabilityOptions,
 ): ArticleWindowAvailabilityResult {
-  const {
-    allowPartialFeedGrowth,
-    currentFeedLength,
-    hasStartedAwaitedWindowSettlement,
-    isAwaitingWindowSettlement,
-    isLoading,
-    isLoadingMoreArticles,
-    previousFeedLength,
-    previousHasMoreServerArticles,
-    requestedArticleLimit,
-    shouldUseArticleWindow,
-  } = options;
-  if (!shouldUseArticleWindow) {
+  if (!options.shouldUseArticleWindow) {
     return {
       hasMoreServerArticles: false,
       shouldClearAwaitingWindowSettlement: true,
     };
   }
 
-  if (isAwaitingWindowSettlement) {
-    if (!hasStartedAwaitedWindowSettlement || isLoading) {
-      return {
-        hasMoreServerArticles: previousHasMoreServerArticles,
-        shouldClearAwaitingWindowSettlement: false,
-      };
-    }
-
-    /*
-     * Guard against premature settlement during background load-more fetches.
-     *
-     * Load-more requests use `keepExistingFeed: true`, which makes them background
-     * fetches that never set `isLoading`. Without this guard, the settlement check
-     * runs immediately with stale `currentFeedLength` (before the fetch completes)
-     * and incorrectly resolves `hasMoreServerArticles = false`.
-     *
-     * We defer settlement while `isLoadingMoreArticles` is true AND the feed length
-     * has not grown beyond the snapshot taken when the load-more request started.
-     * Once the fetch completes (`.finally()` clears `isLoadingMoreArticles`), this
-     * guard passes through and settlement resolves with the correct feed length.
-     */
-    if (isLoadingMoreArticles && currentFeedLength <= previousFeedLength) {
-      return {
-        hasMoreServerArticles: previousHasMoreServerArticles,
-        shouldClearAwaitingWindowSettlement: false,
-      };
-    }
-
-    if (allowPartialFeedGrowth && currentFeedLength > previousFeedLength) {
-      return {
-        hasMoreServerArticles: true,
-        shouldClearAwaitingWindowSettlement: true,
-      };
-    }
-
-    return {
-      hasMoreServerArticles: currentFeedLength >= requestedArticleLimit,
-      shouldClearAwaitingWindowSettlement: true,
-    };
+  if (options.isAwaitingWindowSettlement) {
+    return resolveAwaitingArticleWindowAvailability(options);
   }
 
-  if (currentFeedLength >= requestedArticleLimit) {
-    return {
-      hasMoreServerArticles: true,
-      shouldClearAwaitingWindowSettlement: false,
-    };
-  }
+  return resolveSteadyStateArticleWindowAvailability(options);
+}
 
-  return {
-    hasMoreServerArticles: previousHasMoreServerArticles,
-    shouldClearAwaitingWindowSettlement: false,
-  };
+/**
+ * Resolve the minimum unread article count required to keep the scroll sentinel
+ * within IntersectionObserver range for one-page hydration on any device.
+ *
+ * The threshold is exactly one page plus the sentinel overflow constant so the
+ * refill and backfill systems maintain the same floor across all screen sizes.
+ *
+ * @param articlesPerPage - The configured articles-per-page for the current session.
+ * @returns The inclusive lower bound below which a server refill must be triggered.
+ */
+export function resolveUnreadRefillThreshold(articlesPerPage: number): number {
+  return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);
 }
 
 /**
@@ -199,6 +166,7 @@ export function shouldRefillDepletedUnreadWindow(
     currentFilteredFeedLength,
     hasMoreServerArticles,
     isLoading,
+    isLoadingMoreArticles,
     isRefillingDepletedUnreadWindow,
     shouldUseArticleWindow,
   } = options;
@@ -209,6 +177,7 @@ export function shouldRefillDepletedUnreadWindow(
     shouldUseArticleWindow &&
     hasMoreServerArticles &&
     !isLoading &&
+    !isLoadingMoreArticles &&
     !isRefillingDepletedUnreadWindow &&
     currentFilteredFeedLength < unreadRefillThreshold &&
     currentFeedLength > 0
@@ -216,10 +185,106 @@ export function shouldRefillDepletedUnreadWindow(
 }
 
 /**
- * Resolve the unread refill threshold.
- * @param articlesPerPage - The articles per page.
- * @returns The unread refill threshold.
+ * Return whether the awaited fetch has already proven partial article-window
+ * growth and therefore more server data still exists.
+ * @param options - Current article-window state used to derive availability.
+ * @returns Whether partial growth already proves more server data exists.
  */
-function resolveUnreadRefillThreshold(articlesPerPage: number) {
-  return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);
+function hasSatisfiedPartialArticleWindowGrowth(
+  options: ResolveArticleWindowAvailabilityOptions,
+) {
+  return (
+    options.allowPartialFeedGrowth &&
+    options.currentFeedLength > options.previousFeedLength
+  );
+}
+
+/**
+ * Resolve article-window availability while an awaited server-backed fetch is
+ * still settling.
+ * @param options - Current article-window state used to derive availability.
+ * @returns Availability result for the awaiting-settlement phase.
+ */
+function resolveAwaitingArticleWindowAvailability(
+  options: ResolveArticleWindowAvailabilityOptions,
+): ArticleWindowAvailabilityResult {
+  if (shouldDeferAwaitedWindowSettlement(options)) {
+    return {
+      hasMoreServerArticles: options.previousHasMoreServerArticles,
+      shouldClearAwaitingWindowSettlement: false,
+    };
+  }
+
+  if (hasSatisfiedPartialArticleWindowGrowth(options)) {
+    return {
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    };
+  }
+
+  if (shouldPreservePartialFilteredWindowAvailability(options)) {
+    return {
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    };
+  }
+
+  return {
+    hasMoreServerArticles:
+      options.currentFeedLength >= options.requestedArticleLimit,
+    shouldClearAwaitingWindowSettlement: true,
+  };
+}
+
+/**
+ * Resolve article-window availability outside of an awaited settlement phase.
+ * @param options - Current article-window state used to derive availability.
+ * @returns Availability result for the steady-state phase.
+ */
+function resolveSteadyStateArticleWindowAvailability(
+  options: ResolveArticleWindowAvailabilityOptions,
+): ArticleWindowAvailabilityResult {
+  return {
+    hasMoreServerArticles:
+      options.currentFeedLength >= options.requestedArticleLimit
+        ? true
+        : options.previousHasMoreServerArticles,
+    shouldClearAwaitingWindowSettlement: false,
+  };
+}
+
+/**
+ * Return whether an awaited article-window settlement must stay pending.
+ * @param options - Current article-window state used to derive availability.
+ * @returns Whether the awaiting-settlement phase should remain pending.
+ */
+function shouldDeferAwaitedWindowSettlement(
+  options: ResolveArticleWindowAvailabilityOptions,
+) {
+  if (!options.hasStartedAwaitedWindowSettlement || options.isLoading) {
+    return true;
+  }
+
+  return (
+    options.isLoadingMoreArticles &&
+    options.currentFeedLength <= options.previousFeedLength
+  );
+}
+
+/**
+ * Return whether preview-mode unread filtering should preserve the previous
+ * availability signal even though the filtered window is still below the
+ * requested limit.
+ * @param options - Current article-window state used to derive availability.
+ * @returns Whether preview-mode filtered availability should remain true.
+ */
+function shouldPreservePartialFilteredWindowAvailability(
+  options: ResolveArticleWindowAvailabilityOptions,
+) {
+  return (
+    options.preservePartialFilteredWindowAvailability === true &&
+    options.previousHasMoreServerArticles &&
+    options.currentFeedLength > 0 &&
+    options.currentFeedLength < options.requestedArticleLimit
+  );
 }
