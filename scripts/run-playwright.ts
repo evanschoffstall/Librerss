@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
+import { rmSync } from "node:fs";
 import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
@@ -44,17 +44,6 @@ const PLAYWRIGHT_PREWARM_PATHS = [
   "/api/feeds/category-order",
 ] as const;
 const PLAYWRIGHT_TSCONFIG_PREFIX = "tsconfig.playwright";
-const PLAYWRIGHT_LOCAL_LINUX_LIBRARY_DIRECTORIES = [
-  join(
-    process.cwd(),
-    ".cache",
-    "local-debs",
-    "libasound2t64",
-    "usr",
-    "lib",
-    "x86_64-linux-gnu",
-  ),
-] as const;
 const PYTHON_PARENT_DEATHSIG_LAUNCHER = [
   "import ctypes",
   "import os",
@@ -74,28 +63,6 @@ interface DevServerHandle {
   port: number;
   process: ChildProcess;
   startForwarding: () => void;
-}
-
-/**
- * Prepend any locally extracted Linux runtime libraries to LD_LIBRARY_PATH.
- * This keeps Playwright runnable in minimal environments without requiring a
- * system-wide package install when the shared library is already available in
- * the workspace cache.
- * @returns Process environment with an augmented LD_LIBRARY_PATH when needed.
- */
-function buildPlaywrightProcessEnv() {
-  const existingLibraryPath = process.env.LD_LIBRARY_PATH?.trim();
-  const localLibraryDirectories = PLAYWRIGHT_LOCAL_LINUX_LIBRARY_DIRECTORIES
-    .filter((directoryPath) => existsSync(directoryPath))
-    .join(":");
-  const combinedLibraryPath = [localLibraryDirectories, existingLibraryPath]
-    .filter((value) => Boolean(value))
-    .join(":");
-
-  return {
-    ...process.env,
-    ...(combinedLibraryPath ? { LD_LIBRARY_PATH: combinedLibraryPath } : {}),
-  };
 }
 
 /**
@@ -553,7 +520,7 @@ function startPlaywrightDevServer(
     {
       cwd: process.cwd(),
       env: {
-        ...buildPlaywrightProcessEnv(),
+        ...process.env,
         NEXT_TYPESCRIPT_CONFIG_PATH: tsconfigPath,
         PLAYWRIGHT_NEXT_DIST_DIR: distDir,
         PLAYWRIGHT_PORT: String(port),
@@ -592,7 +559,7 @@ function startPlaywrightTestRun(
   return spawn("bunx", ["playwright", "test", ...forwardedArguments], {
     cwd: process.cwd(),
     env: {
-      ...buildPlaywrightProcessEnv(),
+      ...process.env,
       PLAYWRIGHT_BASE_URL: baseURL,
       PLAYWRIGHT_COVERAGE_OUTPUT_DIR: rawCoverageOutputDir,
       PLAYWRIGHT_HOST,

@@ -131,7 +131,7 @@ describe("Auth API - Dev Login", () => {
             "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
                 "x-forwarded-proto": "http",
               },
             },
@@ -148,7 +148,7 @@ describe("Auth API - Dev Login", () => {
         );
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard?tab=feeds",
+          "http://localhost:3000/dashboard?tab=feeds",
         );
       },
     );
@@ -185,7 +185,7 @@ describe("Auth API - Dev Login", () => {
             "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
                 "x-forwarded-proto": "http",
               },
             },
@@ -195,7 +195,7 @@ describe("Auth API - Dev Login", () => {
         expect(setSessionCookie).not.toHaveBeenCalled();
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard?tab=feeds&devLogin=failed",
+          "http://localhost:3000/dashboard?tab=feeds&devLogin=failed",
         );
       },
     );
@@ -236,7 +236,7 @@ describe("Auth API - Dev Login", () => {
             "http://0.0.0.0:3000/api/auth/dev-login?returnTo=https%3A%2F%2Fevil.example%2Fsteal",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
                 "x-forwarded-proto": "http",
               },
             },
@@ -244,7 +244,7 @@ describe("Auth API - Dev Login", () => {
         );
 
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard",
+          "http://localhost:3000/dashboard",
         );
       },
     );
@@ -285,7 +285,7 @@ describe("Auth API - Dev Login", () => {
             "http://0.0.0.0:3000/api/auth/dev-login?returnTo=%2F%2Fevil.example%2Fsteal",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
                 "x-forwarded-proto": "http",
               },
             },
@@ -293,7 +293,7 @@ describe("Auth API - Dev Login", () => {
         );
 
         expect(response.headers.get("location")).toBe(
-          "http://192.168.2.117:3000/dashboard",
+          "http://localhost:3000/dashboard",
         );
       },
     );
@@ -397,14 +397,14 @@ describe("Auth API - Dev Login", () => {
             {
               headers: {
                 host: "internal.example",
-                "x-forwarded-host": "192.168.2.117:3000",
+                "x-forwarded-host": "localhost:3000",
               },
             },
           ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "https://192.168.2.117:3000/dashboard?tab=feeds",
+          "https://localhost:3000/dashboard?tab=feeds",
         );
       },
     );
@@ -445,14 +445,14 @@ describe("Auth API - Dev Login", () => {
             "https://internal.example/api/auth/dev-login?returnTo=%2Fdashboard%3Ftab%3Dfeeds",
             {
               headers: {
-                host: "192.168.2.117:3000",
+                host: "localhost:3000",
               },
             },
           ),
         );
 
         expect(response.headers.get("location")).toBe(
-          "https://192.168.2.117:3000/dashboard?tab=feeds",
+          "https://localhost:3000/dashboard?tab=feeds",
         );
       },
     );

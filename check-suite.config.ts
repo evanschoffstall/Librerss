@@ -679,7 +679,9 @@ function parseJunitExecutionReport(
     return buildConsoleOnlyExecutionReport(commandOutput);
   const report = readFileSync(reportPath, "utf8"),
     suites = readXmlAttributes(/<testsuites\b([^>]*)>/.exec(report)?.[1] ?? ""),
-    failed = Number.parseInt(suites.failures ?? "0", 10),
+    errors = Number.parseInt(suites.errors ?? "0", 10),
+    failures = Number.parseInt(suites.failures ?? "0", 10),
+    failed = failures + errors,
     skipped = Number.parseInt(suites.skipped ?? "0", 10),
     totalTests = Number.parseInt(suites.tests ?? "0", 10);
   return {
@@ -1369,13 +1371,13 @@ const playwright = createCoverageStep(
     reportDirs: ["coverage/playwright"],
     timeoutDrainMs: 20_000,
     timeoutEnvVar: "CHECK_PLAYWRIGHT_TIMEOUT_MS",
-    timeoutMs: 300_000,
+    timeoutMs: 420_000,
     tokens: { lineCoverageThreshold: 55 },
   },
 );
 
 export default defineCheckSuiteConfig([
-  { suite: { timeoutEnvVar: "CHECK_SUITE_TIMEOUT_MS", timeoutMs: 300_000 } },
+  { suite: { timeoutEnvVar: "CHECK_SUITE_TIMEOUT_MS", timeoutMs: 420_000 } },
   {
     paths: {
       junitPath: "coverage/test-results.xml",

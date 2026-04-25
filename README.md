@@ -160,7 +160,7 @@ The Playwright workflow is isolated by design. It starts a dedicated Next.js dev
 > This separation is intentional. It prevents Playwright runs from clobbering your normal development server or `.next` output.
 
 ```bash
-bunx playwright install chromium
+bunx playwright install --with-deps chromium
 bun run test:e2e
 ```
 

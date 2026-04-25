@@ -4,6 +4,8 @@
   "license": "MIT",
   "private": true,
   "scripts": {
+    "postinstall": "bunx playwright install --with-deps chromium",
+    "setup:playwright": "bunx playwright install --with-deps chromium",
     "dev": "next dev --turbopack",
     "dev:local": "bun dev --turbopack -H 0.0.0.0 -p 3000",
     "dev:playwright": "sh -c 'PLAYWRIGHT_NEXT_DIST_DIR=\"${PLAYWRIGHT_NEXT_DIST_DIR:-.next-playwright}\" next dev --turbopack -H 127.0.0.1 -p \"${PLAYWRIGHT_PORT:-3100}\"'",
@@ -143,7 +145,7 @@
     "typescript": "^5.9.3"
   },
   "overrides": {
-    "@xmldom/xmldom": "0.9.9",
+    "@xmldom/xmldom": "0.9.10",
     "brace-expansion": "1.1.13",
     "flatted": "3.4.2",
     "lodash": "4.18.1",
