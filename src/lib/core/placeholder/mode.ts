@@ -1,6 +1,25 @@
-import { randomBytes } from "node:crypto";
-
 import { envBooleanOptional } from "@/lib/config";
+
+/**
+ * Generates a stable-format placeholder session token without importing Node
+ * builtins into client-reachable code.
+ *
+ * The placeholder runtime module can be pulled into the dashboard dependency
+ * graph during development builds, so this helper must work in both browser
+ * and server compilation contexts. Web Crypto is available in modern Node and
+ * browsers, which keeps the token generation cryptographically strong without
+ * requiring a `node:crypto` import.
+ * @returns A 32-byte random token encoded as 64 lowercase hexadecimal characters.
+ */
+function createPlaceholderSessionToken() {
+  const tokenBytes = new Uint8Array(32);
+
+  crypto.getRandomValues(tokenBytes);
+
+  return Array.from(tokenBytes, (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+}
 
 export const RUNTIME_FLAGS = {
   /**
@@ -41,5 +60,5 @@ export const PLACEHOLDER_ADMIN_USER = {
   passwordHash:
     "placeholder-admin-salt:fa68d3bb667b1689527c99821adac9c2e02910bfa20e34bfc0a9a5a6c239edc80ae30f8b59dd6c37cebc0d6919b26ae68848cb0e56cbf81108e43327765bfeb2" as const,
   // Cryptographically random per-process token — never a hardcoded constant.
-  sessionToken: randomBytes(32).toString("hex"),
+  sessionToken: createPlaceholderSessionToken(),
 } as const;
