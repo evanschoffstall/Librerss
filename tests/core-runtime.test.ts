@@ -52,6 +52,14 @@ describe("runtime – PLACEHOLDER_ADMIN_USER", () => {
     expect(PLACEHOLDER_ADMIN_USER.sessionToken).toMatch(/^[0-9a-f]+$/);
     expect(PLACEHOLDER_ADMIN_USER.sessionToken.length).toBe(64); // 32 bytes = 64 hex
   });
+
+  test("shared core barrel exposes the feed URL validation helpers", async () => {
+    const coreModule = await import("@/lib/core");
+
+    expect(coreModule).toHaveProperty("assertPublicFeedUrl");
+    expect(coreModule).toHaveProperty("isAllowedFeedUrl");
+    expect(coreModule).toHaveProperty("PUBLIC_FEED_URL_ERROR");
+  });
 });
 
 describe("core/runtime and utils/rate-limit", () => {

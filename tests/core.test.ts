@@ -18,24 +18,24 @@ afterEach(() => {
 
 describe("feed-url-validator", () => {
   test("isAllowedFeedUrl accepts valid feed URLs", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core");
+    const { isAllowedFeedUrl } = await import("@/lib/core/url-validator");
     expect(await isAllowedFeedUrl("https://example.com/feed.xml")).toBe(true);
     expect(await isAllowedFeedUrl("http://example.com/rss")).toBe(true);
   });
 
   test("isAllowedFeedUrl rejects non-http protocols", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core");
+    const { isAllowedFeedUrl } = await import("@/lib/core/url-validator");
     expect(await isAllowedFeedUrl("ftp://example.com/feed")).toBe(false);
     expect(await isAllowedFeedUrl("javascript:alert(1)")).toBe(false);
   });
 
   test("isAllowedFeedUrl rejects URLs without protocol", async () => {
-    const { isAllowedFeedUrl } = await import("@/lib/core");
+    const { isAllowedFeedUrl } = await import("@/lib/core/url-validator");
     expect(await isAllowedFeedUrl("example.com/feed")).toBe(false);
   });
 
   test("assertPublicFeedUrl throws for invalid URLs", async () => {
-    const { assertPublicFeedUrl } = await import("@/lib/core");
+    const { assertPublicFeedUrl } = await import("@/lib/core/url-validator");
     await expect(assertPublicFeedUrl("not-a-url")).rejects.toThrow();
   });
 });
