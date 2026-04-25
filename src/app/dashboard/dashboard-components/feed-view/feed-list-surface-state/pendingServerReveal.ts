@@ -1,6 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+import {
+  FEED_INVERTED_LOAD_MORE_THRESHOLD_PX,
+  SKELETON_MIN_VISIBLE_MS,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
 export interface HandleFeedPaginationRevealCountTransitionOptions extends SchedulePendingServerRevealCompletionOptions {
   isLoadingMore: boolean;
@@ -76,7 +79,21 @@ export function completePendingServerReveal(
 
   if (options.isInvertedScroll) {
     options.lastInvertedAwayBoundarySnapshotRef.current = null;
-    options.lastInvertedScrollTopRef.current = null;
+    // Preserve the recorded scroll position when the user was genuinely away from
+    // the boundary during the pending reveal.  Clearing it unconditionally would
+    // cause the server-load gate in maybeLoadInvertedNextPage to block a
+    // subsequent boundary hit even though the user already demonstrated
+    // away-and-back intent (they left to scrollTop > threshold, a reveal fired
+    // in the background, and they returned to the boundary).
+    // Only reset when the user was at or below the boundary threshold; that
+    // covers the "pinned at top the whole time" case that the gate must block.
+    const currentScrollTop = options.lastInvertedScrollTopRef.current;
+    if (
+      currentScrollTop === null ||
+      currentScrollTop <= FEED_INVERTED_LOAD_MORE_THRESHOLD_PX
+    ) {
+      options.lastInvertedScrollTopRef.current = null;
+    }
   }
 
   options.startServerLoadRearmCooldown();
@@ -115,6 +132,17 @@ export function handleFeedPaginationRevealCountTransition(
   const hasRevealRequestOwnership = resolveHasRevealRequestOwnership(options);
 
   if (
+    shouldCompleteViewportRefillRevealAfterServerResponse(
+      options,
+      currentVisibleCount,
+      hasRevealRequestOwnership,
+    )
+  ) {
+    completePendingServerReveal(options);
+    return;
+  }
+
+  if (
     shouldSkipRevealCountTransition(
       options,
       hasRevealRequestOwnership,
@@ -129,16 +157,6 @@ export function handleFeedPaginationRevealCountTransition(
     options.isStandardViewportRefillActiveRef.current
   ) {
     completePendingServerReveal(options);
-
-    const refillVisibleCount = resolveViewportRefillVisibleCount(
-      currentVisibleCount,
-      options.filteredFeedLength,
-    );
-
-    if (refillVisibleCount !== currentVisibleCount) {
-      options.commitVisibleArticleCount(refillVisibleCount);
-    }
-
     return;
   }
 
@@ -182,13 +200,15 @@ export function schedulePendingServerRevealCompletion(
         options.pendingServerRevealCountRef.current = null;
         completePendingServerReveal(options);
 
-        const refillVisibleCount = resolveViewportRefillVisibleCount(
-          options.visibleArticleCountRef.current,
-          options.filteredFeedLength,
-        );
-
-        if (refillVisibleCount !== options.visibleArticleCountRef.current) {
-          options.commitVisibleArticleCount(refillVisibleCount);
+        // For inverted scroll the visible window must advance to cover all
+        // newly loaded articles immediately after the reveal so that the next
+        // boundary hit calls requestMoreFromServer() rather than running a
+        // local expandVisibleWindow() step first.
+        if (
+          options.isInvertedScroll &&
+          options.filteredFeedLength > options.visibleArticleCountRef.current
+        ) {
+          options.commitVisibleArticleCount(options.filteredFeedLength);
         }
       }, SKELETON_MIN_VISIBLE_MS);
     },
@@ -238,6 +258,29 @@ function shouldCommitViewportRefillReveal(
     !options.hasPendingServerRevealRef.current &&
     !options.hasRequestedServerLoadRef.current &&
     options.isStandardViewportRefillActiveRef.current
+  );
+}
+
+/**
+ * Return whether a standard viewport refill already received additional unread
+ * articles from the server and can therefore clear its pending reveal even when
+ * the overall unread count is still below the previous cycle's total.
+ * @param options - The active reveal-transition options.
+ * @param currentVisibleCount - The current rendered article count before applying the transition.
+ * @param hasRevealRequestOwnership - Whether server-reveal state still owns the transition.
+ * @returns Whether the standard viewport refill can finish the pending reveal.
+ */
+function shouldCompleteViewportRefillRevealAfterServerResponse(
+  options: HandleFeedPaginationRevealCountTransitionOptions,
+  currentVisibleCount: number,
+  hasRevealRequestOwnership: boolean,
+) {
+  return (
+    !options.isLoadingMore &&
+    hasRevealRequestOwnership &&
+    !options.isInvertedScroll &&
+    options.isStandardViewportRefillActiveRef.current &&
+    currentVisibleCount < options.filteredFeedLength
   );
 }
 

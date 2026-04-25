@@ -260,6 +260,8 @@ function useFeedPaginationBoundaryRefs() {
   const normalScrollIntentSuppressionFrameRef = useRef<null | number>(null);
   const lastStandardScrollTopRef = useRef<null | number>(null);
   const lastAutoFillListHeightRef = useRef<null | number>(null);
+  const suppressNextInitialViewportAutoFillRef = useRef(false);
+  const suppressNextRefreshViewportRefillRef = useRef(false);
   const standardViewportRefillTargetVisibleCountRef = useRef<null | number>(
     null,
   );
@@ -272,6 +274,8 @@ function useFeedPaginationBoundaryRefs() {
     normalScrollIntentSuppressionFrameRef,
     paginationFrameRef,
     standardViewportRefillTargetVisibleCountRef,
+    suppressNextInitialViewportAutoFillRef,
+    suppressNextRefreshViewportRefillRef,
   };
 }
 

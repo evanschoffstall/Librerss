@@ -34,6 +34,7 @@ interface RequestMoreFromServerOptions {
 
 interface UseFeedPaginationServerLoadCooldownOptions extends FeedPaginationServerLoadCooldownStateOptions {
   clearServerLoadCooldown: () => void;
+  onCooldownComplete: React.Dispatch<React.SetStateAction<number>>;
 }
 
 interface UseFeedPaginationServerLoadOptions {
@@ -85,65 +86,48 @@ export function completeFeedServerLoadCooldown(
 export function useFeedPaginationServerLoad(
   options: UseFeedPaginationServerLoadOptions,
 ) {
-  const {
-    canLoadMoreFromServer,
-    isInvertedLoadBoundaryArmedRef,
-    isInvertedScroll,
-    isStandardLoadBoundaryArmedRef,
-    maybeLoadNextPageRef,
-    onLoadMore,
-    paginationFrameRef,
-  } = options;
-  const {
-    hasPendingBoundaryRearmAfterCooldownRef,
-    hasPendingServerRevealRef,
-    hasRequestedServerLoadRef,
-    hasResolvedStandardViewportRevealRef,
-    isStandardViewportRefillActiveRef,
-    serverLoadCooldownTimerRef,
-  } = useFeedPaginationServerLoadRefs();
+  const refs = useFeedPaginationServerLoadRefs();
+  const cooldownState = useServerLoadCooldownState(
+    refs.serverLoadCooldownTimerRef,
+  );
   const [isPendingServerRevealVisible, setIsPendingServerRevealVisible] =
     useState(false);
-
-  const clearServerLoadCooldown = useCallback(() => {
-    if (serverLoadCooldownTimerRef.current !== null) {
-      clearTimeout(serverLoadCooldownTimerRef.current);
-      serverLoadCooldownTimerRef.current = null;
-    }
-  }, [serverLoadCooldownTimerRef]);
-
   const startServerLoadRearmCooldown = useFeedPaginationServerLoadCooldown({
-    clearServerLoadCooldown,
-    hasPendingBoundaryRearmAfterCooldownRef,
-    hasRequestedServerLoadRef,
-    isInvertedLoadBoundaryArmedRef,
-    isInvertedScroll,
-    isStandardLoadBoundaryArmedRef,
-    maybeLoadNextPageRef,
-    paginationFrameRef,
-    serverLoadCooldownTimerRef,
+    clearServerLoadCooldown: cooldownState.clearServerLoadCooldown,
+    hasPendingBoundaryRearmAfterCooldownRef:
+      refs.hasPendingBoundaryRearmAfterCooldownRef,
+    hasRequestedServerLoadRef: refs.hasRequestedServerLoadRef,
+    isInvertedLoadBoundaryArmedRef: options.isInvertedLoadBoundaryArmedRef,
+    isInvertedScroll: options.isInvertedScroll,
+    isStandardLoadBoundaryArmedRef: options.isStandardLoadBoundaryArmedRef,
+    maybeLoadNextPageRef: options.maybeLoadNextPageRef,
+    onCooldownComplete: cooldownState.setServerLoadCooldownEpoch,
+    paginationFrameRef: options.paginationFrameRef,
+    serverLoadCooldownTimerRef: refs.serverLoadCooldownTimerRef,
   });
-
   const requestMoreFromServer = useRequestMoreFromServer({
-    canLoadMoreFromServer,
-    hasPendingBoundaryRearmAfterCooldownRef,
-    hasPendingServerRevealRef,
-    hasRequestedServerLoadRef,
-    isInvertedScroll,
-    isStandardViewportRefillActiveRef,
-    onLoadMore,
+    canLoadMoreFromServer: options.canLoadMoreFromServer,
+    hasPendingBoundaryRearmAfterCooldownRef:
+      refs.hasPendingBoundaryRearmAfterCooldownRef,
+    hasPendingServerRevealRef: refs.hasPendingServerRevealRef,
+    hasRequestedServerLoadRef: refs.hasRequestedServerLoadRef,
+    isInvertedScroll: options.isInvertedScroll,
+    isStandardViewportRefillActiveRef: refs.isStandardViewportRefillActiveRef,
+    onLoadMore: options.onLoadMore,
     setIsPendingServerRevealVisible,
   });
-
   return {
-    clearServerLoadCooldown,
-    hasPendingBoundaryRearmAfterCooldownRef,
-    hasPendingServerRevealRef,
-    hasRequestedServerLoadRef,
-    hasResolvedStandardViewportRevealRef,
+    clearServerLoadCooldown: cooldownState.clearServerLoadCooldown,
+    hasPendingBoundaryRearmAfterCooldownRef:
+      refs.hasPendingBoundaryRearmAfterCooldownRef,
+    hasPendingServerRevealRef: refs.hasPendingServerRevealRef,
+    hasRequestedServerLoadRef: refs.hasRequestedServerLoadRef,
+    hasResolvedStandardViewportRevealRef:
+      refs.hasResolvedStandardViewportRevealRef,
     isPendingServerRevealVisible,
-    isStandardViewportRefillActiveRef,
+    isStandardViewportRefillActiveRef: refs.isStandardViewportRefillActiveRef,
     requestMoreFromServer,
+    serverLoadCooldownEpoch: cooldownState.serverLoadCooldownEpoch,
     setIsPendingServerRevealVisible,
     startServerLoadRearmCooldown,
   };
@@ -169,6 +153,31 @@ function rearmFeedLoadBoundary(
 }
 
 /**
+ * Build the stable `clearServerLoadCooldown` callback that cancels and forgets
+ * any in-flight server-load rearm cooldown timer.
+ *
+ * Extracted from `useFeedPaginationServerLoad` so the parent hook stays under
+ * the lizard NLOC threshold while preserving the original ownership semantics:
+ * the timer ref is cleared synchronously and the slot is reset to `null` so the
+ * next cooldown can install a fresh timer without leaking the previous handle.
+ *
+ * @param serverLoadCooldownTimerRef - The mutable ref holding the active cooldown timer.
+ * @returns A stable callback that clears the cooldown timer when invoked.
+ */
+function useClearServerLoadCooldown(
+  serverLoadCooldownTimerRef: React.RefObject<null | ReturnType<
+    typeof setTimeout
+  >>,
+): () => void {
+  return useCallback(() => {
+    if (serverLoadCooldownTimerRef.current !== null) {
+      clearTimeout(serverLoadCooldownTimerRef.current);
+      serverLoadCooldownTimerRef.current = null;
+    }
+  }, [serverLoadCooldownTimerRef]);
+}
+
+/**
  * Manage the feed pagination server load cooldown.
  * @param options - The options used to manage the feed pagination server load cooldown.
  * @returns The feed pagination server load cooldown state and callbacks.
@@ -184,6 +193,7 @@ function useFeedPaginationServerLoadCooldown(
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
     maybeLoadNextPageRef,
+    onCooldownComplete,
     paginationFrameRef,
     serverLoadCooldownTimerRef,
   } = options;
@@ -215,6 +225,7 @@ function useFeedPaginationServerLoadCooldown(
         paginationFrameRef,
         serverLoadCooldownTimerRef,
       });
+      onCooldownComplete((prev) => prev + 1);
     }, FEED_SERVER_LOAD_REARM_COOLDOWN_MS);
   }, [
     clearServerLoadCooldown,
@@ -223,6 +234,7 @@ function useFeedPaginationServerLoadCooldown(
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     maybeLoadNextPageRef,
+    onCooldownComplete,
     paginationFrameRef,
     isStandardLoadBoundaryArmedRef,
     serverLoadCooldownTimerRef,
@@ -284,4 +296,32 @@ function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
     },
     [options],
   );
+}
+
+/**
+ * Bundle the cooldown timer state, epoch counter, and clear callback into a
+ * single helper so `useFeedPaginationServerLoad` stays under the lizard NLOC
+ * threshold without losing the ownership semantics of the cooldown lifecycle.
+ *
+ * The epoch counter is bumped every time the cooldown timer elapses, allowing
+ * downstream effects (e.g., the post-cooldown auto-fill re-trigger) to react
+ * without subscribing to the timer ref directly.
+ *
+ * @param serverLoadCooldownTimerRef - The mutable ref holding the active cooldown timer.
+ * @returns The bundled cooldown lifecycle state.
+ */
+function useServerLoadCooldownState(
+  serverLoadCooldownTimerRef: React.RefObject<null | ReturnType<
+    typeof setTimeout
+  >>,
+) {
+  const [serverLoadCooldownEpoch, setServerLoadCooldownEpoch] = useState(0);
+  const clearServerLoadCooldown = useClearServerLoadCooldown(
+    serverLoadCooldownTimerRef,
+  );
+  return {
+    clearServerLoadCooldown,
+    serverLoadCooldownEpoch,
+    setServerLoadCooldownEpoch,
+  };
 }

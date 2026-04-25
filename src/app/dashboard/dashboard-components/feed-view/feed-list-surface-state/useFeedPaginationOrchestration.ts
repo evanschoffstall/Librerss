@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 import type {
   FeedPaginationControllers,
   FeedPaginationRuntimeOptions,
@@ -21,6 +23,12 @@ import {
   useInitialFeedPaginationAutoFillEffect,
   useResolvedStandardViewportRevealEffect,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
+
+interface FeedPaginationAutoFillAfterCooldownEffectOptions {
+  isInvertedScroll: boolean;
+  maybeAutoFillViewport: ReturnType<typeof useMaybeAutoFillViewport>;
+  serverLoadCooldownEpoch: number;
+}
 
 interface FeedPaginationRuntimeBindingOptions extends FeedPaginationRuntimeSupportOptions {
   maybeLoadNextPage: ReturnType<typeof useMaybeLoadNextPage>;
@@ -118,26 +126,12 @@ export function useFeedPaginationRuntimeViewportEffects(
 ) {
   const { controllers, maybeAutoFillViewport, options } =
     runtimeViewportOptions;
-  const { anchorState, localState, serverLoadState } = controllers;
+  const { anchorState, localState } = controllers;
 
-  useBackfillDepletedRevealedPageEffect({
-    articleFilter: options.articleFilter,
-    articlesPerPage: options.articlesPerPage,
-    canLoadMoreFromServer: options.canLoadMoreFromServer,
-    filteredFeedLength: options.filteredFeedLength,
-    hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
-    hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
-    isInvertedScroll: options.isInvertedScroll,
-    primeInvertedPaginationAnchor: anchorState.primeInvertedPaginationAnchor,
-    requestMoreFromServer: serverLoadState.requestMoreFromServer,
-    visibleArticleCountRef: localState.visibleArticleCountRef,
-  });
-  useResolvedStandardViewportRevealEffect({
-    filteredFeedLength: options.filteredFeedLength,
-    hasResolvedStandardViewportRevealRef:
-      serverLoadState.hasResolvedStandardViewportRevealRef,
-    isInvertedScroll: options.isInvertedScroll,
+  useFeedPaginationServerRevealLifecycleEffects({
+    controllers,
     maybeAutoFillViewport,
+    options,
   });
 
   const shouldUseVirtualizedFeed =
@@ -152,6 +146,8 @@ export function useFeedPaginationRuntimeViewportEffects(
     maybeAutoFillViewport,
     scrollViewport: options.scrollViewport,
     shouldUseVirtualizedFeed,
+    suppressNextInitialViewportAutoFillRef:
+      localState.suppressNextInitialViewportAutoFillRef,
     visibleArticleCount: localState.visibleArticleCount,
   });
   useFeedPaginationScrollPositionPriming({
@@ -237,11 +233,47 @@ function resolveMaybeLoadNextPageOptions(
     isInvertedLoadBoundaryArmedRef: localState.isInvertedLoadBoundaryArmedRef,
     isInvertedScroll: options.isInvertedScroll,
     isStandardLoadBoundaryArmedRef: localState.isStandardLoadBoundaryArmedRef,
+    lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
     primeInvertedPaginationAnchor: anchorState.primeInvertedPaginationAnchor,
     requestMoreFromServer: serverLoadState.requestMoreFromServer,
     scrollViewport: options.scrollViewport,
     visibleArticleCountRef: localState.visibleArticleCountRef,
   };
+}
+
+/**
+ * Re-trigger viewport auto-fill once the server-load rearm cooldown elapses.
+ *
+ * After every successful server reveal the pagination layer enters a cooldown
+ * window that gates the next request. Once the cooldown timer fires the local
+ * window may still be underfilled (e.g., after mark-as-read trims the unread
+ * set), so this hook schedules one auto-fill pass on the next animation frame
+ * to give the standard viewport refill a chance to expand or, if the local set
+ * is exhausted but the viewport is still not scrollable, request the next page
+ * from the server. The effect is a no-op until the first cooldown completes
+ * (`serverLoadCooldownEpoch === 0`) and is skipped entirely for inverted
+ * scroll surfaces, which use a separate top-edge reveal mechanism.
+ *
+ * @param options - The cooldown epoch, scroll-mode flag, and auto-fill callback.
+ */
+function useFeedPaginationAutoFillAfterCooldownEffect(
+  options: FeedPaginationAutoFillAfterCooldownEffectOptions,
+) {
+  const { isInvertedScroll, maybeAutoFillViewport, serverLoadCooldownEpoch } =
+    options;
+  useEffect(() => {
+    if (serverLoadCooldownEpoch === 0 || isInvertedScroll) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      maybeAutoFillViewport(undefined, true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [isInvertedScroll, maybeAutoFillViewport, serverLoadCooldownEpoch]);
 }
 
 /**
@@ -330,6 +362,48 @@ function useFeedPaginationObserverAndCleanupBindings(
     normalScrollIntentSuppressionFrameRef:
       localState.normalScrollIntentSuppressionFrameRef,
     paginationFrameRef: localState.paginationFrameRef,
+  });
+}
+
+/**
+ * Wire the three server-reveal lifecycle effects (revealed-page backfill,
+ * resolved standard reveal auto-fill, and post-cooldown auto-fill re-trigger)
+ * onto the runtime viewport hook.
+ *
+ * Extracted from `useFeedPaginationRuntimeViewportEffects` so that hook stays
+ * under the lizard token threshold while keeping each effect's invocation
+ * site adjacent to the others it cooperates with.
+ *
+ * @param params - The runtime viewport inputs and shared callbacks.
+ */
+function useFeedPaginationServerRevealLifecycleEffects(
+  params: FeedPaginationRuntimeViewportOptions,
+) {
+  const { controllers, maybeAutoFillViewport, options } = params;
+  const { anchorState, localState, serverLoadState } = controllers;
+  useBackfillDepletedRevealedPageEffect({
+    articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
+    canLoadMoreFromServer: options.canLoadMoreFromServer,
+    filteredFeedLength: options.filteredFeedLength,
+    hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
+    hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
+    isInvertedScroll: options.isInvertedScroll,
+    primeInvertedPaginationAnchor: anchorState.primeInvertedPaginationAnchor,
+    requestMoreFromServer: serverLoadState.requestMoreFromServer,
+    visibleArticleCountRef: localState.visibleArticleCountRef,
+  });
+  useResolvedStandardViewportRevealEffect({
+    filteredFeedLength: options.filteredFeedLength,
+    hasResolvedStandardViewportRevealRef:
+      serverLoadState.hasResolvedStandardViewportRevealRef,
+    isInvertedScroll: options.isInvertedScroll,
+    maybeAutoFillViewport,
+  });
+  useFeedPaginationAutoFillAfterCooldownEffect({
+    isInvertedScroll: options.isInvertedScroll,
+    maybeAutoFillViewport,
+    serverLoadCooldownEpoch: serverLoadState.serverLoadCooldownEpoch,
   });
 }
 

@@ -9,8 +9,8 @@ import {
   resolveNextVisibleCount,
   resolvePaginationBoundaryState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
 
-const MIN_UNREAD_REFILL_OVERFLOW_ARTICLES = 1;
 interface BackfillDepletedRevealedPageEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -41,6 +41,11 @@ interface MaybeLoadInvertedNextPageOptions {
   currentVisibleCount: number;
   expandVisibleWindow: () => boolean;
   isInvertedLoadBoundaryArmedRef: { current: boolean };
+  /** The last recorded inverted-scroll position, reset to `null` after each
+   * server reveal.  Used to gate consecutive server loads: if still `null` the
+   * user has not yet moved away from the boundary since the previous reveal, so
+   * requestMoreFromServer must not fire even if the boundary is armed. */
+  lastInvertedScrollTopRef: { current: null | number };
   primeInvertedPaginationAnchor: () => void;
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
   scrollViewport: HTMLElement;
@@ -56,6 +61,7 @@ interface MaybeLoadNextPageOptions {
   isInvertedLoadBoundaryArmedRef: { current: boolean };
   isInvertedScroll: boolean;
   isStandardLoadBoundaryArmedRef: { current: boolean };
+  lastInvertedScrollTopRef: { current: null | number };
   primeInvertedPaginationAnchor: () => void;
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
   scrollViewport: HTMLElement | null;
@@ -227,8 +233,12 @@ export function useMaybeAutoFillViewport(
     visibleArticleCountRef,
   } = options;
   return useCallback(
-    (committedListHeight?: number) => {
+    (
+      committedListHeight?: number,
+      allowOwnedTargetContinuationWithoutLocalBacklog?: boolean,
+    ) => {
       maybeAutoFillViewportNow({
+        allowOwnedTargetContinuationWithoutLocalBacklog,
         articleFilter,
         articlesPerPage,
         canLoadMoreFromServer,
@@ -290,6 +300,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
+    lastInvertedScrollTopRef,
     primeInvertedPaginationAnchor,
     requestMoreFromServer,
     scrollViewport,
@@ -316,6 +327,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
           currentVisibleCount,
           expandVisibleWindow,
           isInvertedLoadBoundaryArmedRef,
+          lastInvertedScrollTopRef,
           primeInvertedPaginationAnchor,
           requestMoreFromServer,
           scrollViewport,
@@ -343,6 +355,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
       isInvertedLoadBoundaryArmedRef,
       isInvertedScroll,
       isStandardLoadBoundaryArmedRef,
+      lastInvertedScrollTopRef,
       primeInvertedPaginationAnchor,
       requestMoreFromServer,
       scrollViewport,
@@ -366,9 +379,24 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
     return;
   }
 
-  options.primeInvertedPaginationAnchor();
-
   if (options.currentVisibleCount >= options.currentFilteredFeedLength) {
+    // Require proof that the user has moved away from the boundary since the
+    // previous reveal before issuing another server request.  The position ref
+    // is reset to null by completePendingServerReveal and only advances when
+    // the user genuinely scrolls or gestures away, so a null value here means
+    // the user is still pinned at the top boundary and no away-intent has been
+    // recorded yet.
+    //
+    // NOTE: This gate must be evaluated before primeInvertedPaginationAnchor() is
+    // called.  Priming the anchor runs syncInvertedPaginationAnchor(), which can
+    // write a new non-null value into lastInvertedScrollTopRef.current — this
+    // would silently bypass the null guard and trigger a spurious server request
+    // for a user who has never left the boundary.
+    if (options.lastInvertedScrollTopRef.current === null) {
+      return;
+    }
+
+    options.primeInvertedPaginationAnchor();
     const didRequestMore = options.requestMoreFromServer();
     if (didRequestMore) {
       options.isInvertedLoadBoundaryArmedRef.current = false;
@@ -376,6 +404,7 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
     return;
   }
 
+  options.primeInvertedPaginationAnchor();
   flushSync(() => {
     const didExpandVisibleWindow = options.expandVisibleWindow();
     if (didExpandVisibleWindow) {
@@ -415,13 +444,4 @@ function maybeLoadStandardNextPage(options: MaybeLoadStandardNextPageOptions) {
   if (options.expandVisibleWindow()) {
     options.isStandardLoadBoundaryArmedRef.current = false;
   }
-}
-
-/**
- * Resolve the unread refill threshold.
- * @param articlesPerPage - The articles per page.
- * @returns The unread refill threshold.
- */
-function resolveUnreadRefillThreshold(articlesPerPage: number) {
-  return Math.max(0, articlesPerPage + MIN_UNREAD_REFILL_OVERFLOW_ARTICLES);
 }

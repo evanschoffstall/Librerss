@@ -139,7 +139,21 @@ export function useFeedPaginationEffects(
   localState.filteredFeedLengthRef.current = options.filteredFeedLength;
 
   useMountedFlagCleanupEffect({ isMountedRef: localState.isMountedRef });
+  useFeedPaginationQueryResetEffect({
+    articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
+    feedViewKey: options.feedViewKey,
+    isInvertedScroll: options.isInvertedScroll,
+    resetPaginationState,
+    searchTerm: options.searchTerm,
+    suppressNextInitialViewportAutoFillRef:
+      localState.suppressNextInitialViewportAutoFillRef,
+    suppressNextRefreshViewportRefillRef:
+      localState.suppressNextRefreshViewportRefillRef,
+  });
   useFeedPaginationRefreshResetEffect({
+    articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
     hasUserScrolledRef: options.hasUserScrolledRef,
     isInvertedScroll: options.isInvertedScroll,
     isLoadingMore: options.isLoadingMore,
@@ -149,13 +163,10 @@ export function useFeedPaginationEffects(
     previousRefreshEpochRef: localState.previousRefreshEpochRef,
     refreshEpoch: options.refreshEpoch,
     resetPaginationState,
-  });
-  useFeedPaginationQueryResetEffect({
-    articleFilter: options.articleFilter,
-    feedViewKey: options.feedViewKey,
-    isInvertedScroll: options.isInvertedScroll,
-    resetPaginationState,
-    searchTerm: options.searchTerm,
+    standardViewportRefillTargetVisibleCountRef:
+      localState.standardViewportRefillTargetVisibleCountRef,
+    suppressNextRefreshViewportRefillRef:
+      localState.suppressNextRefreshViewportRefillRef,
   });
   useFeedPaginationRevealEffects(
     options,
@@ -256,6 +267,7 @@ function useFeedPaginationBoundaryControllers(
         isInvertedScroll: options.isInvertedScroll,
         isStandardLoadBoundaryArmedRef:
           localState.isStandardLoadBoundaryArmedRef,
+        lastInvertedScrollTopRef: anchorState.lastInvertedScrollTopRef,
         scrollViewport: options.scrollViewport,
       }),
     suppressImmediateNormalScrollIntent,
@@ -290,7 +302,6 @@ function useFeedPaginationResetControllers(
       serverLoadState.hasResolvedStandardViewportRevealRef,
     hasUserScrolledRef: options.hasUserScrolledRef,
     isInvertedLoadBoundaryArmedRef: localState.isInvertedLoadBoundaryArmedRef,
-    isPendingServerRevealVisible: serverLoadState.isPendingServerRevealVisible,
     isStandardLoadBoundaryArmedRef: localState.isStandardLoadBoundaryArmedRef,
     isStandardViewportRefillActiveRef:
       serverLoadState.isStandardViewportRefillActiveRef,

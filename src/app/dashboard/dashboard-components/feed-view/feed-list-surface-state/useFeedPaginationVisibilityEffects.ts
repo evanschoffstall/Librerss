@@ -1,73 +1,33 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 
+import type {
+  CollapsingArticlesRefSyncOptions,
+  FeedPaginationLoadingMoreRevealEffectOptions,
+  FeedPaginationQueryResetEffectOptions,
+  FeedPaginationRefreshResetEffectOptions,
+  FeedPaginationRevealCountEffectOptions,
+  InitialFeedPaginationAutoFillEffectOptions,
+  MountedFlagCleanupEffectOptions,
+  NullableNumberRef,
+  RearmPaginationBoundaryFromUserIntentOptions,
+  ResolvedStandardViewportRevealEffectOptions,
+  TimeoutHandleRef,
+  VisibleArticleCountRefSyncOptions,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationVisibilityEffectsTypes";
+
 import {
   finalizePaginationBoundaryRearm,
-  type PaginationBoundaryUserIntentOptions,
   shouldAbortPaginationBoundaryRearm,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
-import { resolvePaginationBoundaryState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+import {
+  maybeAdvanceInvertedScrollTopHistory,
+  resolvePaginationBoundaryState,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 import {
   cancelPendingServerRevealCompletion,
   completePendingServerReveal,
   handleFeedPaginationRevealCountTransition,
-  type PendingServerRevealLifecycleOptions,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/pendingServerReveal";
-
-interface CollapsingArticlesRefSyncOptions {
-  hasCollapsingArticles: boolean;
-  hasCollapsingArticlesRef: { current: boolean };
-}
-interface FeedPaginationQueryResetEffectOptions {
-  articleFilter: string;
-  feedViewKey: string;
-  isInvertedScroll: boolean;
-  resetPaginationState: () => void;
-  searchTerm: string;
-}
-
-interface FeedPaginationRefreshResetEffectOptions {
-  hasUserScrolledRef: { current: boolean };
-  isInvertedScroll: boolean;
-  isLoadingMore: boolean;
-  isRefreshing: boolean;
-  isStandardViewportRefillActiveRef: { current: boolean };
-  previousRefreshEpochRef: { current: number };
-  refreshEpoch: number;
-  resetPaginationState: () => void;
-}
-
-interface InitialFeedPaginationAutoFillEffectOptions {
-  filteredFeedLength: number;
-  isInitialLoading: boolean;
-  maybeAutoFillViewport: (committedListHeight?: number) => void;
-  scrollViewport: HTMLElement | null;
-  shouldUseVirtualizedFeed: boolean;
-  visibleArticleCount: number;
-}
-interface MountedFlagCleanupEffectOptions {
-  isMountedRef: { current: boolean };
-}
-
-interface NullableNumberRef {
-  current: null | number;
-}
-
-interface ResolvedStandardViewportRevealEffectOptions {
-  filteredFeedLength: number;
-  hasResolvedStandardViewportRevealRef: { current: boolean };
-  isInvertedScroll: boolean;
-  maybeAutoFillViewport: (committedListHeight?: number) => void;
-}
-
-interface TimeoutHandleRef {
-  current: null | ReturnType<typeof setTimeout>;
-}
-
-interface VisibleArticleCountRefSyncOptions {
-  visibleArticleCount: number;
-  visibleArticleCountRef: { current: number };
-}
-
 /**
  * Manage the collapsing articles ref sync.
  * @param options - The options used to manage the collapsing articles ref sync.
@@ -79,18 +39,13 @@ export function useCollapsingArticlesRefSync(
     options.hasCollapsingArticlesRef.current = options.hasCollapsingArticles;
   }, [options.hasCollapsingArticles, options.hasCollapsingArticlesRef]);
 }
+
 /**
  * Manage the feed pagination loading more reveal effect.
  * @param options - The options used to manage the feed pagination loading more reveal effect.
  */
 export function useFeedPaginationLoadingMoreRevealEffect(
-  options: PendingServerRevealLifecycleOptions & {
-    canLoadMoreFromServer: boolean;
-    filteredFeedLength: number;
-    isLoadingMore: boolean;
-    previousIsLoadingMoreRef: { current: boolean };
-    visibleArticleCount: number;
-  },
+  options: FeedPaginationLoadingMoreRevealEffectOptions,
 ) {
   const {
     canLoadMoreFromServer,
@@ -153,7 +108,6 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     visibleArticleCount,
   ]);
 }
-
 /**
  * Manage the feed pagination query reset effect.
  * @param options - The options used to manage the feed pagination query reset effect.
@@ -163,28 +117,37 @@ export function useFeedPaginationQueryResetEffect(
 ) {
   const {
     articleFilter,
+    articlesPerPage,
     feedViewKey,
     isInvertedScroll,
     resetPaginationState,
     searchTerm,
+    suppressNextInitialViewportAutoFillRef,
+    suppressNextRefreshViewportRefillRef,
   } = options;
   const hasMountedRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!hasMountedRef.current) {
       hasMountedRef.current = true;
       return;
     }
 
+    suppressNextInitialViewportAutoFillRef.current = true;
+    suppressNextRefreshViewportRefillRef.current = true;
     resetPaginationState();
   }, [
+    articlesPerPage,
     articleFilter,
     feedViewKey,
     isInvertedScroll,
     resetPaginationState,
     searchTerm,
+    suppressNextInitialViewportAutoFillRef,
+    suppressNextRefreshViewportRefillRef,
   ]);
 }
+
 /**
  * Manage the feed pagination refresh reset effect.
  * @param options - The options used to manage the feed pagination refresh reset effect.
@@ -193,6 +156,8 @@ export function useFeedPaginationRefreshResetEffect(
   options: FeedPaginationRefreshResetEffectOptions,
 ) {
   const {
+    articleFilter,
+    articlesPerPage,
     hasUserScrolledRef,
     isInvertedScroll,
     isLoadingMore,
@@ -201,6 +166,8 @@ export function useFeedPaginationRefreshResetEffect(
     previousRefreshEpochRef,
     refreshEpoch,
     resetPaginationState,
+    standardViewportRefillTargetVisibleCountRef,
+    suppressNextRefreshViewportRefillRef,
   } = options;
   useLayoutEffect(() => {
     const didRefreshEpochChange =
@@ -210,12 +177,30 @@ export function useFeedPaginationRefreshResetEffect(
       didRefreshEpochChange && isRefreshing && !isLoadingMore;
 
     if (shouldResetForActiveRefresh) {
+      const shouldSuppressRefreshViewportRefill =
+        suppressNextRefreshViewportRefillRef.current;
+      suppressNextRefreshViewportRefillRef.current = false;
+
       if (!isInvertedScroll) {
         isStandardViewportRefillActiveRef.current = false;
       }
       resetPaginationState();
+
+      if (
+        !isInvertedScroll &&
+        articleFilter === "unread" &&
+        !shouldSuppressRefreshViewportRefill
+      ) {
+        // Refresh resets re-establish the one-page baseline, then allow only
+        // the minimum extra rows needed to regain a stable overflow window.
+        isStandardViewportRefillActiveRef.current = true;
+        standardViewportRefillTargetVisibleCountRef.current =
+          articlesPerPage * 2;
+      }
     }
   }, [
+    articleFilter,
+    articlesPerPage,
     hasUserScrolledRef,
     isInvertedScroll,
     isLoadingMore,
@@ -224,6 +209,8 @@ export function useFeedPaginationRefreshResetEffect(
     previousRefreshEpochRef,
     refreshEpoch,
     resetPaginationState,
+    standardViewportRefillTargetVisibleCountRef,
+    suppressNextRefreshViewportRefillRef,
   ]);
 }
 
@@ -232,14 +219,7 @@ export function useFeedPaginationRefreshResetEffect(
  * @param options - The options used to manage the feed pagination reveal count effect.
  */
 export function useFeedPaginationRevealCountEffect(
-  options: PendingServerRevealLifecycleOptions & {
-    commitVisibleArticleCount: (nextVisibleCount: number) => void;
-    filteredFeedLength: number;
-    hasRequestedServerLoadRef: { current: boolean };
-    isLoadingMore: boolean;
-    previousFilteredFeedLengthRef: { current: number };
-    visibleArticleCountRef: { current: number };
-  },
+  options: FeedPaginationRevealCountEffectOptions,
 ) {
   const {
     commitVisibleArticleCount,
@@ -321,6 +301,7 @@ export function useInitialFeedPaginationAutoFillEffect(
     isInitialLoading,
     maybeAutoFillViewport,
     scrollViewport,
+    suppressNextInitialViewportAutoFillRef,
     visibleArticleCount,
   } = options;
   useEffect(() => {
@@ -329,6 +310,11 @@ export function useInitialFeedPaginationAutoFillEffect(
       isInitialLoading ||
       visibleArticleCount >= filteredFeedLength
     ) {
+      return;
+    }
+
+    if (suppressNextInitialViewportAutoFillRef.current) {
+      suppressNextInitialViewportAutoFillRef.current = false;
       return;
     }
 
@@ -344,6 +330,7 @@ export function useInitialFeedPaginationAutoFillEffect(
     isInitialLoading,
     maybeAutoFillViewport,
     scrollViewport,
+    suppressNextInitialViewportAutoFillRef,
     visibleArticleCount,
   ]);
 }
@@ -368,7 +355,7 @@ export function useMountedFlagCleanupEffect(
  * @returns The rearm pagination boundary from user intent state and callbacks.
  */
 export function useRearmPaginationBoundaryFromUserIntent(
-  options: PaginationBoundaryUserIntentOptions,
+  options: RearmPaginationBoundaryFromUserIntentOptions,
 ) {
   const {
     hasPendingBoundaryRearmAfterCooldownRef,
@@ -389,6 +376,15 @@ export function useRearmPaginationBoundaryFromUserIntent(
       if (hasPendingServerRevealRef.current) {
         return;
       }
+
+      // When the user's current scroll position is away from the top boundary,
+      // record it so the scroll handler's position-history stays accurate and
+      // maybeLoadInvertedNextPage can later distinguish a genuine
+      // return-from-away gesture from a repeated pinned-at-boundary touch.
+      maybeAdvanceInvertedScrollTopHistory(
+        scrollViewport,
+        options.lastInvertedScrollTopRef,
+      );
 
       finalizePaginationBoundaryRearm({
         armedBoundaryRef: isInvertedLoadBoundaryArmedRef,
@@ -430,6 +426,7 @@ export function useRearmPaginationBoundaryFromUserIntent(
     isInvertedLoadBoundaryArmedRef,
     isInvertedScroll,
     isStandardLoadBoundaryArmedRef,
+    options.lastInvertedScrollTopRef,
     scrollViewport,
   ]);
 }
@@ -453,7 +450,7 @@ export function useResolvedStandardViewportRevealEffect(
     }
 
     hasResolvedStandardViewportRevealRef.current = false;
-    maybeAutoFillViewport();
+    maybeAutoFillViewport(undefined, true);
   }, [
     filteredFeedLength,
     hasResolvedStandardViewportRevealRef,
