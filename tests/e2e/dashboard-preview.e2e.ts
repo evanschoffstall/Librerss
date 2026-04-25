@@ -55,7 +55,16 @@ function previewFeedButton(
   page: Parameters<typeof gotoPreviewDashboard>[0],
   feedName: string,
 ) {
-  return page.locator("button").filter({ hasText: feedName }).first();
+  const escapedFeedName = feedName.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+  return page
+    .locator("button:visible")
+    .filter({
+      has: page.locator("p", {
+        hasText: new RegExp(`^${escapedFeedName}$`),
+      }),
+    })
+    .first();
 }
 
 async function selectPreviewSource(
@@ -272,7 +281,18 @@ test.describe("dashboard preview mode", () => {
       page.locator("button").filter({ hasText: "NASA Image of the Day" }),
     ).toHaveCount(0);
 
-    await previewFeedButton(page, "NIH Research Matters").click();
+    const nihResearchMattersButton = previewFeedButton(
+      page,
+      "NIH Research Matters",
+    );
+    await expect(nihResearchMattersButton).toBeVisible();
+    await nihResearchMattersButton.evaluate((button) => {
+      if (!(button instanceof HTMLElement)) {
+        throw new Error("Expected a feed button element.");
+      }
+
+      button.click();
+    });
     await expect(
       page.getByRole("heading", {
         name: /Treating addiction/i,
