@@ -32,7 +32,6 @@
         "@tanstack/react-query": "^5.99.0",
         "@tanstack/react-virtual": "^3.13.24",
         "@vercel/analytics": "^2.0.1",
-        "@xmldom/xmldom": "^0.9.10",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
