@@ -2,9 +2,11 @@
 
 import { useRef, useState } from "react";
 
-import type { CategoryTreeNode } from "@/lib/core";
-
 import { getDashboardArticleWindowCounts } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPaging";
+import {
+  type DashboardArticleWindowState,
+  type UseDashboardArticleWindowOptions,
+} from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow.types";
 import {
   useArticleWindowAvailability,
   useResetArticleWindowOnSelectionChange,
@@ -15,7 +17,6 @@ import {
   useDashboardArticleWindowLoadingState,
   useDashboardArticleWindowPrefetch,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
-import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
 type DashboardArticleWindowAvailabilityOptions = Pick<
   DashboardArticleWindowLifecycleOptions,
@@ -47,32 +48,16 @@ interface DashboardArticleWindowLifecycleOptions {
   selectedCategoryNode: UseDashboardArticleWindowOptions["selectedCategoryNode"];
   selectedFeedUrl: UseDashboardArticleWindowOptions["selectedFeedUrl"];
   shouldUseArticleWindow: UseDashboardArticleWindowOptions["shouldUseArticleWindow"];
+  usePlaceholderData: UseDashboardArticleWindowOptions["usePlaceholderData"];
 }
 
-interface DashboardArticleWindowState {
-  articleWindowLimit: number | undefined;
-  handleLoadMoreArticles: () => void;
-  hasMoreServerArticles: boolean;
-  isLoadingMoreArticles: boolean;
-  pendingLoadMoreArticleCount: number;
-  requestedArticleLimit: number;
-}
-
-interface UseDashboardArticleWindowOptions extends FeedSelectionFetchers {
+interface DashboardArticleWindowSelectionResetLifecycleOptions {
   articleFilter: string;
   articlesPerPage: number;
-  currentFeedLength: number;
-  currentFilteredFeedLength: number;
-  isCategoriesLoading: boolean;
   isLoading: boolean;
-  prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
-  prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
-  prefetchFeed: FeedSelectionFetchers["fetchFeed"];
+  lifecycleState: ReturnType<typeof getDashboardArticleWindowAvailabilityState>;
   selectedCategory: string;
-  selectedCategoryNode?: CategoryTreeNode;
-  selectedFeedUrl?: string;
   shouldUseArticleWindow: boolean;
-  usePlaceholderData: boolean;
 }
 
 /**
@@ -376,6 +361,47 @@ function useDashboardArticleWindowNextPagePrefetch(
     selectedFeedUrl: options.selectedFeedUrl,
     shouldUseArticleWindow: options.shouldUseArticleWindow,
     usePlaceholderData: options.usePlaceholderData,
+  });
+}
+
+/**
+ * Manage the selection-reset and loading-state hooks that prepare article
+ * window availability resolution.
+ * @param options - The shared article-window lifecycle options for reset and loading state.
+ */
+function useDashboardArticleWindowSelectionResetLifecycle(
+  options: DashboardArticleWindowSelectionResetLifecycleOptions,
+) {
+  useResetArticleWindowOnSelectionChange({
+    allowPartialArticleWindowGrowthRef:
+      options.lifecycleState.allowPartialGrowthRef,
+    articleFilter: options.articleFilter,
+    articlesPerPage: options.articlesPerPage,
+    hasStartedArticleWindowSettlementRef:
+      options.lifecycleState.hasStartedSettlementRef,
+    inFlightPrefetchedLimitRef:
+      options.lifecycleState.inFlightPrefetchedLimitRef,
+    isAwaitingArticleWindowSettlementRef:
+      options.lifecycleState.isAwaitingSettlementRef,
+    isLoadingMoreArticlesRef: options.lifecycleState.isLoadingMoreArticlesRef,
+    isRefillingDepletedUnreadWindowRef:
+      options.lifecycleState.isRefillingDepletedUnreadWindowRef,
+    lastPrefetchedLimitRef: options.lifecycleState.lastPrefetchedLimitRef,
+    previousAwaitedFeedLengthRef:
+      options.lifecycleState.previousAwaitedFeedLengthRef,
+    selectedCategory: options.selectedCategory,
+    setHasMoreServerArticles: options.lifecycleState.setHasMoreServerArticles,
+    setIsLoadingMoreArticles: options.lifecycleState.setIsLoadingMoreArticles,
+    setRequestedArticleLimit: options.lifecycleState.setRequestedArticleLimit,
+    shouldUseArticleWindow: options.shouldUseArticleWindow,
+  });
+  useDashboardArticleWindowLoadingState({
+    hasStartedArticleWindowSettlementRef:
+      options.lifecycleState.hasStartedSettlementRef,
+    isAwaitingArticleWindowSettlementRef:
+      options.lifecycleState.isAwaitingSettlementRef,
+    isLoading: options.isLoading,
+    shouldUseArticleWindow: options.shouldUseArticleWindow,
   });
 }
 
