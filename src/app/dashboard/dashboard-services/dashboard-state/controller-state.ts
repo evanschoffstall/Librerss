@@ -45,6 +45,12 @@ interface DashboardFeedListState {
   isInitialLoading: boolean;
   isLoadingMore: boolean;
   isRefreshing: boolean;
+  /**
+   * `true` while a background search fetch is in flight.  Passed to the feed
+   * list to render article-shell skeletons instead of the empty state when the
+   * locally-filtered window is empty but the server may still return results.
+   */
+  isSearchFetching: boolean;
   loadingMoreArticleCount: number;
   /** Stable callback invoked when a specific article's entrance animation finishes. */
   onArticleEnteringDone: (articleKey: string) => void;

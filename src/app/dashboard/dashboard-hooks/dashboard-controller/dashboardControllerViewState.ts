@@ -62,6 +62,12 @@ export interface UseDashboardControllerViewStateOptions {
   isFeedListRefreshing: boolean;
   isLoadingMoreArticles: boolean;
   isMobileSidebarOpen: boolean;
+  /**
+   * `true` while a background search fetch is in flight.  Passed to the feed
+   * list so it can show article-shell skeletons when the locally-filtered
+   * window is empty but the server may still return results.
+   */
+  isSearchFetching: boolean;
   isSearchPending: boolean;
   isShellLoading: boolean;
   isSidebarVisible: boolean;
@@ -175,6 +181,8 @@ function buildDashboardFeedListState(
     isInitialLoading: options.isShellLoading,
     isLoadingMore: options.isLoadingMoreArticles,
     isRefreshing: options.isFeedListRefreshing,
+    /** Mirrors `isBackgroundLoading` from the feed loader — true while a background search fetch is in flight. */
+    isSearchFetching: options.isSearchFetching,
     loadingMoreArticleCount: options.pendingLoadMoreArticleCount,
     onArticleEnteringDone: options.handleArticleEnteringDone,
     onArticleExpandedSwipeRead:

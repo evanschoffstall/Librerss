@@ -112,6 +112,13 @@ export function useFeedLoader(options: UseFeedLoaderOptions) {
     fetchAllFeeds: selectionState.fetchAllFeeds,
     fetchCategoryFeeds: selectionState.fetchCategoryFeeds,
     fetchFeed: selectionState.fetchFeed,
+    /**
+     * `true` while a background (search-change) fetch is in flight.  Unlike
+     * the main `loading` flag, this does not trigger a full shell animation;
+     * it is used by the feed list to show article-shell skeletons when the
+     * current visible window is empty but a server response may still arrive.
+     */
+    isBackgroundLoading: loaderResources.requestState.isBackgroundLoading,
     loadFeedSources: loaderResources.loadFeedSources,
     loading: loaderResources.requestState.loading,
     loadingEpoch: loaderResources.requestState.loadingEpoch,

@@ -176,6 +176,12 @@ function buildDashboardControllerArticleViewState(
     isCollapseScrollRestoreActive:
       controllerResources.articleActions.isCollapseScrollRestoreActive,
     isLoadingMoreArticles: articleWindowState.isLoadingMoreArticles,
+    /**
+     * Forwarded from the feed loader so the feed list can show article-shell
+     * skeletons when a background search fetch is in flight and the current
+     * locally-filtered window is empty.
+     */
+    isSearchFetching: controllerResources.feedLoader.isBackgroundLoading,
     loading: dashboardState.loading,
     loadingEpoch: controllerResources.feedLoader.loadingEpoch,
     pendingLoadMoreArticleCount: articleWindowState.pendingLoadMoreArticleCount,

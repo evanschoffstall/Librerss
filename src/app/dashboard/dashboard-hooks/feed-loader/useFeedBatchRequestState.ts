@@ -8,6 +8,28 @@ import type { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 import { isCanceledBatchRequest } from "@/app/dashboard/dashboard-services/feed-loader-state";
 
 /**
+ * Describes the feed batch request state.
+ *
+ * The `isBackgroundLoading` flag tracks in-flight background fetches (those
+ * issued with `keepExistingFeed: true`, i.e. Search-change requests). It is
+ * separate from `loading` so the feed list can show skeletons when the current
+ * visible window produces zero local matches but the server may still return
+ * hits — without triggering a full shell-loading animation.
+ */
+export interface FeedBatchRequestState {
+  beginFeedRequest: (
+    options: BeginFeedRequestOptions,
+  ) => BeginFeedRequestResult;
+  cancelPendingRequest: () => number;
+  finishFeedRequest: (requestId: number) => void;
+  isBackgroundLoading: boolean;
+  isCurrentFeedRequest: (requestId: number) => boolean;
+  isLoadingRequest: () => boolean;
+  loading: boolean;
+  loadingEpoch: number;
+}
+
+/**
  * Describes the options for begin feed request.
  */
 interface BeginFeedRequestOptions {
@@ -43,22 +65,8 @@ interface FeedBatchRequestActionsOptions {
   queryClient: QueryClient;
   requestRefs: ReturnType<typeof useFeedBatchRequestRefs>;
   setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
+  syncBackgroundLoading: (value: boolean) => void;
   syncLoading: (value: boolean) => void;
-}
-
-/**
- * Describes the feed batch request state.
- */
-interface FeedBatchRequestState {
-  beginFeedRequest: (
-    options: BeginFeedRequestOptions,
-  ) => BeginFeedRequestResult;
-  cancelPendingRequest: () => number;
-  finishFeedRequest: (requestId: number) => void;
-  isCurrentFeedRequest: (requestId: number) => boolean;
-  isLoadingRequest: () => boolean;
-  loading: boolean;
-  loadingEpoch: number;
 }
 
 /**
@@ -73,6 +81,7 @@ interface StartNextFeedRequestOptions {
   queryKey: FeedBatchQueryKey;
   requestSignature: string;
   setLoadingEpoch: React.Dispatch<React.SetStateAction<number>>;
+  syncBackgroundLoading: (value: boolean) => void;
   syncLoading: (value: boolean) => void;
 }
 
@@ -93,23 +102,81 @@ export function useFeedBatchRequestState(
   options: UseFeedBatchRequestStateOptions,
 ): FeedBatchRequestState {
   const { queryClient, setLoading } = options;
-  const { loading, loadingEpoch, loadingRef, setLoadingEpoch, syncLoading } =
-    useFeedBatchLoadingState(setLoading);
+  const {
+    isBackgroundLoading,
+    loading,
+    loadingEpoch,
+    loadingRef,
+    setLoadingEpoch,
+    syncBackgroundLoading,
+    syncLoading,
+  } = useFeedBatchLoadingState(setLoading);
   const requestRefs = useFeedBatchRequestRefs();
   const requestActions = useFeedBatchRequestActions({
     loadingRef,
     queryClient,
     requestRefs,
     setLoadingEpoch,
+    syncBackgroundLoading,
     syncLoading,
   });
 
   return {
     ...requestActions,
+    isBackgroundLoading,
     loading,
     loadingEpoch,
   };
 }
+/**
+ * Standalone implementation for beginning a feed request, extracted from
+ * `useFeedBatchRequestActions` to keep that hook within the line-length budget
+ * while avoiding any change to observable behaviour.
+ * @param beginOptions - The per-call options describing the desired fetch.
+ * @param actionOptions - The closed-over action dependencies from the parent hook.
+ * @returns The result of the begin feed request.
+ */
+function beginFeedRequestImpl(
+  beginOptions: BeginFeedRequestOptions,
+  actionOptions: FeedBatchRequestActionsOptions,
+): BeginFeedRequestResult {
+  const { forceRefresh, isBackground, queryKey, requestSignature } =
+    beginOptions;
+  const {
+    loadingRef,
+    queryClient,
+    requestRefs,
+    setLoadingEpoch,
+    syncBackgroundLoading,
+    syncLoading,
+  } = actionOptions;
+  if (
+    loadingRef.current &&
+    requestRefs.activeRequestSignatureRef.current === requestSignature &&
+    !forceRefresh
+  ) {
+    return {
+      requestId: requestRefs.currentRequestIdRef.current,
+      skippedDuplicate: true,
+    };
+  }
+  return {
+    requestId: startNextFeedRequest({
+      activeRequestQueryKeyRef: requestRefs.activeRequestQueryKeyRef,
+      activeRequestSignatureRef: requestRefs.activeRequestSignatureRef,
+      currentRequestIdRef: requestRefs.currentRequestIdRef,
+      isBackground,
+      queryClient,
+      queryKey,
+      requestSignature,
+      setLoadingEpoch,
+      syncBackgroundLoading,
+      syncLoading,
+    }),
+    skippedDuplicate: false,
+  };
+}
+
 /**
  * Process the cancel active feed batch query.
  * @param activeRequestQueryKeyRef - The ref that stores the active request query key ref.
@@ -142,21 +209,27 @@ function cancelActiveFeedBatchQuery(
 /**
  * Process the reset active feed request.
  * @param requestRefs - The request refs.
+ * @param syncBackgroundLoading - The callback that clears the background-loading flag.
  * @param syncLoading - The callback that sync loading.
  */
 function resetActiveFeedRequest(
   requestRefs: ReturnType<typeof useFeedBatchRequestRefs>,
+  syncBackgroundLoading: (value: boolean) => void,
   syncLoading: (value: boolean) => void,
 ) {
   requestRefs.activeRequestQueryKeyRef.current = null;
   requestRefs.activeRequestSignatureRef.current = null;
+  syncBackgroundLoading(false);
   syncLoading(false);
 }
-
 /**
  * Process the start next feed request.
+ *
+ * Background requests (search-change) set `isBackgroundLoading` instead of
+ * the main `loading` flag so the feed surface can show article-shell skeletons
+ * without triggering a full shell reload animation.
  * @param options - The options used to process the start next feed request.
- * @returns The start next feed request.
+ * @returns The new request ID.
  */
 function startNextFeedRequest(options: StartNextFeedRequestOptions) {
   const {
@@ -168,6 +241,7 @@ function startNextFeedRequest(options: StartNextFeedRequestOptions) {
     queryKey,
     requestSignature,
     setLoadingEpoch,
+    syncBackgroundLoading,
     syncLoading,
   } = options;
   currentRequestIdRef.current += 1;
@@ -177,16 +251,29 @@ function startNextFeedRequest(options: StartNextFeedRequestOptions) {
   activeRequestSignatureRef.current = requestSignature;
   activeRequestQueryKeyRef.current = queryKey;
 
-  if (!isBackground) {
+  if (isBackground) {
+    // Background fetches (e.g. search-change with keepExistingFeed) do not
+    // show the full shell loading indicator; they only raise the
+    // isBackgroundLoading flag so the feed list can conditionally render
+    // article skeletons when the visible window is currently empty.
+    syncBackgroundLoading(true);
+  } else {
+    syncBackgroundLoading(false);
     syncLoading(true);
     setLoadingEpoch((epoch) => epoch + 1);
   }
 
   return requestId;
 }
+
 /**
  * Manage the feed batch loading state.
- * @param setLoading - The set loading.
+ *
+ * Tracks two orthogonal loading signals:
+ * - `loading` — a foreground fetch is in flight (triggers shell skeleton / refresh indicator).
+ * - `isBackgroundLoading` — a background fetch is in flight (e.g. Search-change); used to
+ *   show article-shell skeletons when the visible window is empty without a full shell reload.
+ * @param setLoading - External setter that mirrors the foreground loading flag into dashboard state.
  * @returns The feed batch loading state state and callbacks.
  */
 function useFeedBatchLoadingState(
@@ -194,6 +281,7 @@ function useFeedBatchLoadingState(
 ) {
   const loadingRef = useRef(false);
   const [loading, setLocalLoading] = useState(false);
+  const [isBackgroundLoading, setIsBackgroundLoading] = useState(false);
   const [loadingEpoch, setLoadingEpoch] = useState(0);
   const syncLoading = useCallback(
     (value: boolean) => {
@@ -203,8 +291,19 @@ function useFeedBatchLoadingState(
     },
     [setLoading],
   );
+  const syncBackgroundLoading = useCallback((value: boolean) => {
+    setIsBackgroundLoading(value);
+  }, []);
 
-  return { loading, loadingEpoch, loadingRef, setLoadingEpoch, syncLoading };
+  return {
+    isBackgroundLoading,
+    loading,
+    loadingEpoch,
+    loadingRef,
+    setLoadingEpoch,
+    syncBackgroundLoading,
+    syncLoading,
+  };
 }
 
 /**
@@ -213,51 +312,41 @@ function useFeedBatchLoadingState(
  * @returns The feed batch request actions state and callbacks.
  */
 function useFeedBatchRequestActions(options: FeedBatchRequestActionsOptions) {
-  const { loadingRef, queryClient, requestRefs, setLoadingEpoch, syncLoading } =
-    options;
+  const {
+    loadingRef,
+    queryClient,
+    requestRefs,
+    setLoadingEpoch,
+    syncBackgroundLoading,
+    syncLoading,
+  } = options;
   const beginFeedRequest = useCallback(
-    ({
-      forceRefresh,
-      isBackground,
-      queryKey,
-      requestSignature,
-    }: BeginFeedRequestOptions): BeginFeedRequestResult => {
-      if (
-        loadingRef.current &&
-        requestRefs.activeRequestSignatureRef.current === requestSignature &&
-        !forceRefresh
-      ) {
-        return {
-          requestId: requestRefs.currentRequestIdRef.current,
-          skippedDuplicate: true,
-        };
-      }
-
-      return {
-        requestId: startNextFeedRequest({
-          activeRequestQueryKeyRef: requestRefs.activeRequestQueryKeyRef,
-          activeRequestSignatureRef: requestRefs.activeRequestSignatureRef,
-          currentRequestIdRef: requestRefs.currentRequestIdRef,
-          isBackground,
-          queryClient,
-          queryKey,
-          requestSignature,
-          setLoadingEpoch,
-          syncLoading,
-        }),
-        skippedDuplicate: false,
-      };
-    },
-    [loadingRef, queryClient, requestRefs, setLoadingEpoch, syncLoading],
+    (opts: BeginFeedRequestOptions): BeginFeedRequestResult =>
+      beginFeedRequestImpl(opts, {
+        loadingRef,
+        queryClient,
+        requestRefs,
+        setLoadingEpoch,
+        syncBackgroundLoading,
+        syncLoading,
+      }),
+    [
+      loadingRef,
+      queryClient,
+      requestRefs,
+      setLoadingEpoch,
+      syncBackgroundLoading,
+      syncLoading,
+    ],
   );
   const finishFeedRequest = useCallback(
     (requestId: number) => {
       if (requestRefs.currentRequestIdRef.current !== requestId) {
         return;
       }
-      resetActiveFeedRequest(requestRefs, syncLoading);
+      resetActiveFeedRequest(requestRefs, syncBackgroundLoading, syncLoading);
     },
-    [requestRefs, syncLoading],
+    [requestRefs, syncBackgroundLoading, syncLoading],
   );
   const isCurrentFeedRequest = useCallback(
     (requestId: number) =>
@@ -269,10 +358,10 @@ function useFeedBatchRequestActions(options: FeedBatchRequestActionsOptions) {
       requestRefs.activeRequestQueryKeyRef,
       queryClient,
     );
-    resetActiveFeedRequest(requestRefs, syncLoading);
+    resetActiveFeedRequest(requestRefs, syncBackgroundLoading, syncLoading);
     requestRefs.currentRequestIdRef.current += 1;
     return requestRefs.currentRequestIdRef.current;
-  }, [queryClient, requestRefs, syncLoading]);
+  }, [queryClient, requestRefs, syncBackgroundLoading, syncLoading]);
   const isLoadingRequest = useCallback(() => loadingRef.current, [loadingRef]);
 
   return {

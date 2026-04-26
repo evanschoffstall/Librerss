@@ -116,6 +116,7 @@ export const FeedList = memo(
       isInitialLoading,
       isLoadingMore = false,
       isRefreshing,
+      isSearchFetching = false,
       onEnteringDone,
       onExpandedSwipeRead,
       onLoadMore,
@@ -481,8 +482,14 @@ export const FeedList = memo(
       ],
     );
 
+    // Treat a pending background search as equivalent to a refresh for the
+    // purpose of skeleton display: if the server is still looking for matching
+    // articles and the current locally-filtered window is empty, show article
+    // shells so the user sees loading progress instead of "no results".
     const shouldShowEmptyFeedSkeleton =
-      !isInitialLoading && isRefreshing && filteredFeed.length === 0;
+      !isInitialLoading &&
+      (isRefreshing || isSearchFetching) &&
+      filteredFeed.length === 0;
     const shouldShowFeedSkeleton =
       isInitialLoading ||
       shouldShowViewportResolutionSkeleton ||

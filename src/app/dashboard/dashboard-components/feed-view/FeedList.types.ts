@@ -46,6 +46,13 @@ export interface FeedListProps {
   isInitialLoading: boolean;
   isLoadingMore?: boolean;
   isRefreshing: boolean;
+  /**
+   * `true` while a background search fetch is in flight.  When this is true
+   * and the locally-filtered feed is empty the list renders article-shell
+   * skeletons instead of the "no results" empty state, because the server may
+   * still return matches that the current paginated window does not contain.
+   */
+  isSearchFetching?: boolean;
   loadingMoreArticleCount?: number;
   /** Stable callback invoked when a specific article's entrance animation settles. */
   onEnteringDone?: (articleKey: string) => void;

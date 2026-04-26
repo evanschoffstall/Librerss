@@ -126,6 +126,7 @@ function DashboardFeedSection(props: DashboardFeedSectionProps) {
         isInitialLoading={feedList.isInitialLoading}
         isLoadingMore={feedList.isLoadingMore}
         isRefreshing={feedList.isRefreshing}
+        isSearchFetching={feedList.isSearchFetching}
         loadingMoreArticleCount={feedList.loadingMoreArticleCount}
         onEnteringDone={feedList.onArticleEnteringDone}
         onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}

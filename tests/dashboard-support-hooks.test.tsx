@@ -54,6 +54,7 @@ describe("dashboard support hooks", () => {
         isInitialLoading: false,
         isLoadingMore: false,
         isRefreshing: false,
+        isSearchFetching: false,
         loadingMoreArticleCount: 0,
         onArticleEnteringDone: mock(() => {}),
         onArticleExpandedSwipeRead: mock(() => {}),
