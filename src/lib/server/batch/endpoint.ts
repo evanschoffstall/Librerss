@@ -313,6 +313,7 @@ export function logBatchRequestReceivedWhenEnabled(
     userId: options.userId,
   });
 }
+
 /**
  * Process the log batch status summary.
  * @param options - The options used to process the log batch status summary.
@@ -330,7 +331,6 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
     `Batch [${n} feed${plural}]: client=${options.intent} resolved=${options.resolution} | ${options.refreshedCount} refreshed, ${options.cachedCount} cached${cooldownNote} in ${durationMs}ms`,
   );
 }
-
 /**
  * Process the log batch warnings.
  * @param options - The options used to process the log batch warnings.
@@ -350,6 +350,44 @@ export function logBatchWarnings(options: LogBatchWarningsOptions) {
       `Returning 207 Multi-Status — ${options.invalidUrlCount} invalid feed URL(s) were rejected before fetch`,
     );
   }
+}
+
+/**
+ * Parse the batch request search term.
+ * @param value - The raw search term payload.
+ * @returns The trimmed search term, `undefined` when omitted, or a 400 response.
+ */
+export function parseBatchSearchTerm(
+  value: unknown,
+): Response | string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return NextResponse.json(
+      {
+        error: "searchTerm must be a string when provided",
+      },
+      { status: 400 },
+    );
+  }
+
+  const normalizedValue = value.trim();
+  if (normalizedValue.length === 0) {
+    return undefined;
+  }
+
+  if (normalizedValue.length > CONFIG.MAX_ARTICLE_TITLE_LENGTH) {
+    return NextResponse.json(
+      {
+        error: `searchTerm must be at most ${CONFIG.MAX_ARTICLE_TITLE_LENGTH} characters`,
+      },
+      { status: 400 },
+    );
+  }
+
+  return normalizedValue;
 }
 
 /**

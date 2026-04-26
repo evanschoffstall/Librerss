@@ -28,6 +28,7 @@ export {
   logBatchStatusSummary,
   logBatchWarnings,
   type NormalizedBatchUrls,
+  parseBatchSearchTerm,
   resolveNormalizedBatchUrls,
   validateBatchRequestState,
 } from "@/lib/server/batch";
