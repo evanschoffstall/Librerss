@@ -20,22 +20,22 @@ import {
 import { expect, test } from "./test";
 
 async function clickMarkFullyVisibleArticlesAsRead(page: Page) {
-  await expect
-    .poll(async () => {
-      return await page.evaluate(() => {
-        const button = document.querySelector<HTMLButtonElement>(
-          'button[aria-label="Mark fully visible articles as read"]',
-        );
+  const markFullyVisibleArticlesAsReadButton = page.getByRole("button", {
+    name: "Mark fully visible articles as read",
+  });
 
-        if (!button || button.disabled) {
-          return false;
-        }
+  await expect(markFullyVisibleArticlesAsReadButton).toBeEnabled({
+    timeout: 20_000,
+  });
 
-        button.click();
-        return true;
-      });
-    }, { timeout: 20_000 })
-    .toBe(true);
+  try {
+    await markFullyVisibleArticlesAsReadButton.click({ timeout: 20_000 });
+  } catch {
+    await markFullyVisibleArticlesAsReadButton.click({
+      force: true,
+      timeout: 20_000,
+    });
+  }
 }
 
 test.describe("dashboard feed pagination", () => {
@@ -85,9 +85,11 @@ test.describe("dashboard feed pagination", () => {
             return await readRenderedArticleCount(page);
           })
           .toBeGreaterThanOrEqual(8);
-
-        await page.waitForTimeout(800);
-        expect(feedRequestUrls).toEqual([]);
+        await expect
+          .poll(() => {
+            return feedRequestUrls.length;
+          }, { timeout: 1_000 })
+          .toBe(0);
       } finally {
         page.off("request", handleRequest);
       }

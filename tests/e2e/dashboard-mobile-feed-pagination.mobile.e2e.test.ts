@@ -184,8 +184,21 @@ test.describe("dashboard mobile feed pagination", () => {
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         await wheelActiveFeedViewport(page, -700);
-        await page.waitForTimeout(180);
-        thirdVisibleCount = await readVisibleFeedArticleCount(page);
+
+        try {
+          await expect
+            .poll(async () => {
+              return await readVisibleFeedArticleCount(page);
+            }, {
+              intervals: [80, 120, 160],
+              timeout: 700,
+            })
+            .toBeGreaterThan(secondVisibleCount);
+          thirdVisibleCount = await readVisibleFeedArticleCount(page);
+          break;
+        } catch {
+          thirdVisibleCount = await readVisibleFeedArticleCount(page);
+        }
 
         if (thirdVisibleCount > secondVisibleCount) {
           break;

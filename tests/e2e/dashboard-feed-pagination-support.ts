@@ -10,6 +10,7 @@ import {
   readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   setFeedViewportScrollTop,
+  triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect } from "./test";
 
@@ -139,7 +140,8 @@ export async function readDesktopMarkVisibleReadSnapshot(
       };
     }
 
-    const viewportRect = viewport.getBoundingClientRect();
+    const viewportTop = viewport.scrollTop;
+    const viewportBottom = viewportTop + viewport.clientHeight;
     const articleElements = Array.from(
       viewport.querySelectorAll<HTMLElement>("article[data-article-key]"),
     );
@@ -154,12 +156,14 @@ export async function readDesktopMarkVisibleReadSnapshot(
           return false;
         }
 
-        const articleRect = articleElement.getBoundingClientRect();
+        const articleTop = articleElement.offsetTop;
+        const articleBottom = articleTop + articleElement.offsetHeight;
+
         return (
-          articleRect.top >= viewportRect.top &&
-          articleRect.right <= viewportRect.right &&
-          articleRect.bottom <= viewportRect.bottom &&
-          articleRect.left >= viewportRect.left
+          articleTop >= viewportTop &&
+          articleBottom <= viewportBottom &&
+          articleElement.offsetWidth > 0 &&
+          articleElement.offsetHeight > 0
         );
       })
       .map((articleElement) => articleElement.dataset.articleKey)
@@ -274,13 +278,21 @@ export async function rearmDesktopPaginationAfterRefresh(page: Page) {
   const metrics = await readFeedViewportMetrics(page);
 
   await setFeedViewportScrollTop(page, Math.floor(metrics.maxScrollTop * 0.45));
-  await page.waitForTimeout(800);
+  await triggerFeedViewportWheelIntent(page, 240);
+  await expect
+    .poll(async () => {
+      const currentMetrics = await readFeedViewportMetrics(page);
+
+      return currentMetrics.remaining;
+    })
+    .toBeGreaterThan(0);
 
   const rearmMetrics = await readFeedViewportMetrics(page);
   await setFeedViewportScrollTop(
     page,
     Math.floor(rearmMetrics.maxScrollTop * 0.95),
   );
+  await triggerFeedViewportWheelIntent(page, 240);
 }
 
 /**

@@ -150,10 +150,13 @@ test.describe("dashboard feed pagination", () => {
         page,
         Math.floor(firstRevealMetrics.maxScrollTop * 0.35),
       );
+      await expect
+        .poll(async () => {
+          const metrics = await readFeedViewportMetrics(page);
 
-      await page.waitForTimeout(400);
-
-      await page.waitForTimeout(800);
+          return metrics.remaining;
+        })
+        .toBeGreaterThan(0);
       await setFeedViewportScrollTop(
         page,
         Math.floor(firstRevealMetrics.maxScrollTop * 0.4),

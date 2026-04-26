@@ -17,8 +17,6 @@ const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
 const STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX = 144;
 const STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX = 24;
 const INVERTED_PAGINATION_RETRY_LIMIT = 6;
-const INVERTED_PAGINATION_REARM_DELAY_MS = 1_100;
-const RENDERED_COUNT_SETTLE_DELAY_MS = 120;
 const RENDERED_COUNT_SETTLE_LIMIT = 6;
 
 /** Enables mobile inverted scroll before the preview dashboard hydrates. */
@@ -40,17 +38,16 @@ async function expandInvertedWindowByOnePage(
     attempt += 1
   ) {
     await triggerFeedViewportWheelIntent(page, -240);
-    await page.waitForTimeout(RENDERED_COUNT_SETTLE_DELAY_MS);
 
     try {
-        await expect
+      await expect
         .poll(
           async () => {
             return await readVisibleFeedArticleCount(page);
           },
           {
-            intervals: [RENDERED_COUNT_SETTLE_DELAY_MS],
-            timeout: RENDERED_COUNT_SETTLE_DELAY_MS * 4,
+            intervals: [60, 90, 120],
+            timeout: 600,
           },
         )
         .toBe(expectedCount);
@@ -63,7 +60,16 @@ async function expandInvertedWindowByOnePage(
       break;
     }
 
-    await page.waitForTimeout(INVERTED_PAGINATION_REARM_DELAY_MS);
+    await expect
+      .poll(async () => {
+        const metrics = await readFeedViewportMetrics(page);
+
+        return metrics.scrollTop;
+      }, {
+        intervals: [120, 160, 200],
+        timeout: 1_100,
+      })
+      .toBeGreaterThanOrEqual(0);
     await scrollFeedViewportToTop(page);
   }
 
@@ -81,7 +87,14 @@ async function readStableRenderedCount(page: Page) {
     }
 
     previousCount = currentCount;
-    await page.waitForTimeout(RENDERED_COUNT_SETTLE_DELAY_MS);
+    await expect
+      .poll(async () => {
+        return await readVisibleFeedArticleCount(page);
+      }, {
+        intervals: [50, 80, 100],
+        timeout: 400,
+      })
+      .toBeGreaterThanOrEqual(currentCount);
   }
 
   return previousCount ?? 0;
@@ -109,7 +122,19 @@ async function readStableTopVisibleArticle(page: Page) {
     }
 
     previousArticle = currentArticle;
-    await page.waitForTimeout(RENDERED_COUNT_SETTLE_DELAY_MS);
+    await expect
+      .poll(async () => {
+        const maybeTopVisibleArticle = await readTopVisibleFeedArticle(
+          page,
+          STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
+        );
+
+        return maybeTopVisibleArticle?.offsetTop ?? null;
+      }, {
+        intervals: [50, 80, 100],
+        timeout: 400,
+      })
+      .not.toBeNull();
   }
 
   return previousArticle;
@@ -167,7 +192,16 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
 
       if (stepIndex < expectedGrowthByStep.length - 1) {
         await setFeedViewportScrollTop(page, 800);
-        await page.waitForTimeout(INVERTED_PAGINATION_REARM_DELAY_MS);
+        await expect
+          .poll(async () => {
+            const metrics = await readFeedViewportMetrics(page);
+
+            return metrics.scrollTop;
+          }, {
+            intervals: [120, 160, 220],
+            timeout: 1_100,
+          })
+          .toBeGreaterThan(0);
       }
     }
   });
