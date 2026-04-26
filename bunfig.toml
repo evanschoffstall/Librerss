@@ -6,6 +6,7 @@ preload = ["./tests/setup.ts"]
 coverage = true
 coverageReporter = ["lcov"]
 coverageSkipTestFiles = true
+pathIgnorePatterns = ["tests/e2e/**/*.test.ts", "tests/e2e/**/*.test.tsx"]
 
 # Coverage directories
 coverageDir = "./coverage"
