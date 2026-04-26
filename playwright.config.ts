@@ -13,14 +13,20 @@ const htmlReportDir =
 const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
 const isCoverageRun = process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const junitReportPath = process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
+const htmlReportEnabled =
+  process.env.PLAYWRIGHT_HTML_REPORT_ENABLED === "1" || !isCoverageRun;
 const outputDir =
   process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results/playwright";
 const workerOverride = process.env.PLAYWRIGHT_WORKERS?.trim();
 const consoleReporter = process.env.CI ? "dot" : "line";
-const LOCAL_PLAYWRIGHT_WORKER_CAP = 8;
+const LOCAL_PLAYWRIGHT_WORKER_CAP = 10;
 const reporter: ReporterDescription[] = [
   [consoleReporter],
-  ["html", { open: "never", outputFolder: htmlReportDir }],
+  ...(htmlReportEnabled
+    ? ([
+        ["html", { open: "never", outputFolder: htmlReportDir }],
+      ] satisfies ReporterDescription[])
+    : []),
   ...(junitReportPath
     ? ([
         ["junit", { outputFile: junitReportPath }],

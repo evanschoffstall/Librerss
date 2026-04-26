@@ -24,6 +24,8 @@ const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_OUTPUT_DIR ?? "coverage/playwright-raw";
 const PLAYWRIGHT_COVERAGE_REPORT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_REPORT_DIR ?? "coverage/playwright";
+const PLAYWRIGHT_COVERAGE_HTML_REPORT_ENABLED =
+  process.env.PLAYWRIGHT_COVERAGE_HTML_REPORT_ENABLED === "1";
 
 /**
  * Defines the coverage summary type.
@@ -218,7 +220,11 @@ async function main(): Promise<void> {
     name: "playwright-e2e",
     outputDir: reportDirectoryPath,
     reports: [
-      ["html", { subdir: "html" }],
+      ...(PLAYWRIGHT_COVERAGE_HTML_REPORT_ENABLED
+        ? ([
+            ["html", { subdir: "html" }],
+          ] as const)
+        : []),
       ["json-summary", { file: "summary.json" }],
       ["lcovonly", { file: "lcov.info" }],
     ],
