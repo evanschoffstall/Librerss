@@ -24,6 +24,8 @@ export interface BatchFeedResult {
 export interface BatchFetchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
+  /** Display order: `"newest"` (default, descending publication date) or `"oldest"`. */
+  articleSortOrder?: ArticleSortOrder;
   forceRefresh?: boolean;
   forceResolveUpstream?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -36,6 +38,8 @@ export interface BatchFetchOptions {
 export interface BatchFetchRequest {
   articleFilter: ArticleFilter;
   articleLimit: number;
+  /** Display order applied to the article-window query. */
+  articleSortOrder: ArticleSortOrder;
   feedUrls: string[];
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -88,6 +92,7 @@ export interface FeedUpstreamTransport {
 }
 
 type ArticleFilter = "all" | "read" | "starred" | "unread";
+type ArticleSortOrder = "newest" | "oldest";
 interface CachedArticleMapOptions {
   allowedUrls: string[];
   cachedArticlesByUrl: Map<string, ArticleRow[]> | undefined;
@@ -101,6 +106,7 @@ interface CachedBatchResponseOptions {
   onCacheHit: (_details: {
     articleFilter: ArticleFilter;
     articleLimit: number;
+    articleSortOrder: ArticleSortOrder;
     feedCount: number;
     forceRefreshCooldownHit: boolean;
     requestSource: string;
@@ -178,6 +184,7 @@ export function buildCachedBatchResponse(
   options.onCacheHit({
     articleFilter: options.request.articleFilter,
     articleLimit: options.request.articleLimit,
+    articleSortOrder: options.request.articleSortOrder,
     feedCount: cachedCount,
     forceRefreshCooldownHit: options.allWithinCooldown,
     requestSource: options.request.requestSource,
@@ -350,6 +357,7 @@ export function createBatchFetchRequest(
   const {
     articleFilter = "all",
     articleLimit = CONFIG.MAX_ALL_ARTICLES_LIMIT,
+    articleSortOrder = "newest",
     forceRefresh = false,
     forceResolveUpstream = false,
     knownLastFetchedAtByUrl,
@@ -361,6 +369,7 @@ export function createBatchFetchRequest(
   return {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     feedUrls,
     forceRefresh,
     forceResolveUpstream,

@@ -239,6 +239,8 @@ describe("api/feeds/batch route", () => {
       expect(response.status).toBe(200);
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: false,
         requestedUrlCount: 0,
         requestSource: "dashboard",
@@ -462,6 +464,8 @@ describe("api/feeds/batch route", () => {
       expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: false,
         requestedUrlCount: 2,
         requestSource: "unspecified",
@@ -536,16 +540,21 @@ describe("api/feeds/batch route", () => {
       expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
       expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: true,
         knownLastFetchedAtByUrl: new Map([
           [normalizedUrl, new Date(knownLastFetchedAt)],
         ]),
         requestSource: "coverage-test",
         resolveProxyTransport: expect.any(Function),
+        searchTerm: undefined,
         skipRefresh: false,
       });
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: true,
         requestedUrlCount: 1,
         requestSource: "coverage-test",
@@ -561,12 +570,15 @@ describe("api/feeds/batch route", () => {
       );
       expect(info).toHaveBeenNthCalledWith(3, "Feed batch request completed", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: true,
         invalidUrlCount: 0,
         missingCount: 0,
         normalizedUrlCount: 1,
         okCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         totalArticles: 1,
         upstreamErrorCount: 0,
@@ -630,15 +642,20 @@ describe("api/feeds/batch route", () => {
       expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
       expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: false,
         forceResolveUpstream: true,
         knownLastFetchedAtByUrl: new Map(),
         requestSource: "coverage-test",
         resolveProxyTransport: expect.any(Function),
+        searchTerm: undefined,
         skipRefresh: false,
       });
       expect(info).toHaveBeenNthCalledWith(1, "Feed batch request received", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: true,
         forceResolveUpstream: true,
         requestedUrlCount: 1,
@@ -655,6 +672,8 @@ describe("api/feeds/batch route", () => {
       );
       expect(info).toHaveBeenNthCalledWith(3, "Feed batch request completed", {
         articleFilter: "all",
+        articleLimit: undefined,
+        articleSortOrder: "newest",
         forceRefresh: true,
         forceResolveUpstream: true,
         invalidUrlCount: 0,
@@ -662,6 +681,7 @@ describe("api/feeds/batch route", () => {
         normalizedUrlCount: 1,
         okCount: 1,
         requestSource: "coverage-test",
+        searchTerm: undefined,
         skipRefresh: false,
         totalArticles: 0,
         upstreamErrorCount: 0,
@@ -747,6 +767,8 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
     expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
       articleFilter: "unread",
+      articleLimit: undefined,
+      articleSortOrder: "newest",
       forceRefresh: false,
       knownLastFetchedAtByUrl: new Map(),
       requestSource: "unspecified",
@@ -775,6 +797,8 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
     expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toEqual({
       articleFilter: "all",
+      articleLimit: undefined,
+      articleSortOrder: "newest",
       forceRefresh: false,
       knownLastFetchedAtByUrl: new Map(),
       requestSource: "unspecified",

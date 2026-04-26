@@ -1,4 +1,4 @@
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 import type { FeedUpstreamTransport } from "@/lib/core/feed-fetcher-batch";
 import type { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 
@@ -9,6 +9,7 @@ import { buildBatchResultItem } from "./result-item";
 interface BatchFetchRequestOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -33,6 +34,7 @@ export function buildBatchFetchRequestOptions(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
     forceRefresh: options.forceRefresh,
     knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,

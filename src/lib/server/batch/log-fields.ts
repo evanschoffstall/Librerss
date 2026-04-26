@@ -1,8 +1,9 @@
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 interface BatchRequestLogFieldsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
 }
@@ -18,6 +19,7 @@ export function buildBatchRequestLogFields(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     forceRefresh: options.forceRefresh || options.forceResolveUpstream,
     ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
   };

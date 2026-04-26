@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { CONFIG, logger } from "@/lib";
 
@@ -9,6 +9,7 @@ import { buildBatchRequestLogFields } from "./log-fields";
 export interface BatchRequestBody {
   articleFilter?: unknown;
   articleLimit?: unknown;
+  articleSortOrder?: unknown;
   forceRefresh?: unknown;
   forceResolveUpstream?: unknown;
   knownLastFetchedAtByUrl?: unknown;
@@ -21,6 +22,7 @@ export interface BatchRequestBody {
 export interface BatchRequestCompletedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   cachedCount: number;
   cooldownLimitedCount: number;
   diagnosticsEnabled: boolean;
@@ -43,6 +45,7 @@ export interface BatchRequestCompletedOptions {
 export interface BatchRequestState {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -71,6 +74,7 @@ interface BatchIntentOptions {
 interface BatchRequestStateParsers {
   parseArticleFilter: (value: unknown) => ArticleFilter | Response;
   parseArticleLimit: (value: unknown) => number | Response | undefined;
+  parseArticleSortOrder: (value: unknown) => ArticleSortOrder | Response;
   parseForceResolveUpstream: (value: unknown) => boolean | Response;
   parseKnownLastFetchedAtByUrl: (
     value: unknown,
@@ -87,6 +91,7 @@ interface InvalidBatchResultResponseOptions {
 interface LogBatchDiagnosticsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   invalidUrlCount: number;
@@ -102,6 +107,7 @@ interface LogBatchDiagnosticsOptions {
 interface LogBatchRequestReceivedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   requestSource: string | undefined;
@@ -114,6 +120,7 @@ interface LogBatchRequestReceivedOptions {
 interface LogBatchRequestReceivedWhenEnabledOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   diagnosticsEnabled: boolean;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -146,6 +153,7 @@ interface NormalizedBatchUrlsOptions {
 interface ValidatedBatchRequestStateOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   body: BatchRequestBody;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -295,6 +303,7 @@ export function logBatchRequestReceivedWhenEnabled(
   logBatchRequestReceived({
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     forceRefresh: options.forceRefresh,
     forceResolveUpstream: options.forceResolveUpstream,
     requestSource: options.requestSource,
@@ -393,6 +402,7 @@ export function validateBatchRequestState(
   return buildValidatedBatchRequestState({
     articleFilter: parsedState.articleFilter,
     articleLimit: parsedState.articleLimit,
+    articleSortOrder: parsedState.articleSortOrder,
     body: options.body,
     forceResolveUpstream: parsedState.forceResolveUpstream,
     knownLastFetchedAtByUrl: parsedState.knownLastFetchedAtByUrl,
@@ -412,6 +422,7 @@ function buildValidatedBatchRequestState(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     forceRefresh: options.body.forceRefresh === true,
     forceResolveUpstream: options.forceResolveUpstream,
     knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
@@ -457,6 +468,13 @@ function parseBatchRequestStateFields(
     return articleLimit;
   }
 
+  const articleSortOrder = options.parseArticleSortOrder(
+    options.body.articleSortOrder,
+  );
+  if (articleSortOrder instanceof Response) {
+    return articleSortOrder;
+  }
+
   const searchTerm = options.parseSearchTerm(options.body.searchTerm);
   if (searchTerm instanceof Response) {
     return searchTerm;
@@ -465,6 +483,7 @@ function parseBatchRequestStateFields(
   return {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
     searchTerm,

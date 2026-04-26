@@ -5,7 +5,12 @@ import type React from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { type RefObject, useCallback, useRef } from "react";
 
-import type { Article, ArticleFilter, CategoryTreeNode } from "@/lib/core";
+import type {
+  Article,
+  ArticleFilter,
+  ArticleSortOrder,
+  CategoryTreeNode,
+} from "@/lib/core";
 
 import {
   useFeedBatchFetcher,
@@ -39,6 +44,7 @@ interface FeedSourceTreeLoaderOptions {
 
 interface UseFeedLoaderOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   categoriesRef: RefObject<CategoryTreeNode[]>;
   feedRef: RefObject<Article[]>;
   onFeedBatchLoaded?: (timestamp: Date) => void;
@@ -58,6 +64,7 @@ interface UseFeedLoaderOptions {
 export function useFeedLoader(options: UseFeedLoaderOptions) {
   const {
     articleFilter,
+    articleSortOrder,
     categoriesRef,
     feedRef,
     onFeedBatchLoaded,
@@ -70,6 +77,7 @@ export function useFeedLoader(options: UseFeedLoaderOptions) {
   } = options;
   const loaderResources = useFeedLoaderResources({
     articleFilter,
+    articleSortOrder,
     feedRef,
     onFeedBatchLoaded,
     onNewArticlesArrived,
@@ -107,11 +115,13 @@ export function useFeedLoader(options: UseFeedLoaderOptions) {
 /**
  * Manage the feed batch request helpers.
  * @param articleFilter - The article filter.
+ * @param articleSortOrder - The article sort order applied to request signatures.
  * @param lastFetchedAtByUrlRef - The ref that stores the last fetched at by url ref.
  * @returns The feed batch request helpers state and callbacks.
  */
 function useFeedBatchRequestHelpers(
   articleFilter: ArticleFilter,
+  articleSortOrder: ArticleSortOrder,
   lastFetchedAtByUrlRef: React.RefObject<Map<string, Date>>,
 ) {
   const buildRequestSignature = useCallback(
@@ -119,10 +129,12 @@ function useFeedBatchRequestHelpers(
       normalizedSources: FeedBatchSource[],
       articleLimit?: FeedFetchOptions["articleLimit"],
       searchTerm?: FeedFetchOptions["searchTerm"],
+      overrideArticleSortOrder?: FeedFetchOptions["articleSortOrder"],
     ) => {
-      return `${articleFilter}:${articleLimit ?? "all-articles"}:${searchTerm?.trim() ?? ""}::${buildBatchRequestSignature(normalizedSources)}`;
+      const resolvedSortOrder = overrideArticleSortOrder ?? articleSortOrder;
+      return `${articleFilter}:${resolvedSortOrder}:${articleLimit ?? "all-articles"}:${searchTerm?.trim() ?? ""}::${buildBatchRequestSignature(normalizedSources)}`;
     },
-    [articleFilter],
+    [articleFilter, articleSortOrder],
   );
 
   const getKnownLastFetchedAtByUrl = useCallback(
@@ -181,6 +193,7 @@ function useFeedLoaderResources(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     feedRef,
     onFeedBatchLoaded,
     onNewArticlesArrived,
@@ -194,12 +207,14 @@ function useFeedLoaderResources(
   const lastFetchedAtByUrlRef = useRef(new Map<string, Date>());
   const requestHelpers = useFeedBatchRequestHelpers(
     articleFilter,
+    articleSortOrder,
     lastFetchedAtByUrlRef,
   );
   const requestState = useFeedBatchRequestState({ queryClient, setLoading });
   const logRefreshDiagnostics = useFeedLoaderDiagnostics();
   const { loadBatchResults, prefetchFeedBatch } = useFeedBatchQuery({
     articleFilter,
+    articleSortOrder,
     buildRequestSignature: requestHelpers.buildRequestSignature,
     getKnownLastFetchedAtByUrl: requestHelpers.getKnownLastFetchedAtByUrl,
     queryClient,
@@ -209,6 +224,7 @@ function useFeedLoaderResources(
   return {
     fetchFeedBatch: useFeedBatchFetcher({
       articleFilter,
+      articleSortOrder,
       feedRef,
       lastFetchedAtByUrlRef,
       loadBatchResults,

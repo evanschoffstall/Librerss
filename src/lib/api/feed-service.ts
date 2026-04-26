@@ -1,4 +1,9 @@
-import type { Article, ArticleFilter, FeedSource } from "@/lib/core";
+import type {
+  Article,
+  ArticleFilter,
+  ArticleSortOrder,
+  FeedSource,
+} from "@/lib/core";
 
 import {
   type BatchFeedResponseItem,
@@ -44,6 +49,7 @@ const feedServiceBaseUrl = "/api";
 interface FeedsBatchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
+  articleSortOrder?: ArticleSortOrder;
   forceRefresh?: boolean;
   forceResolveUpstream?: boolean;
   knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -129,6 +135,7 @@ export const FeedService = {
     const {
       articleFilter = "all",
       articleLimit,
+      articleSortOrder = "newest",
       forceRefresh = false,
       forceResolveUpstream = false,
       knownLastFetchedAtByUrl,
@@ -152,6 +159,7 @@ export const FeedService = {
           {
             articleFilter,
             ...(typeof articleLimit === "number" ? { articleLimit } : {}),
+            articleSortOrder,
             ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
             forceRefresh,
             ...(serializedKnownLastFetchedAtByUrl

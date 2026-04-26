@@ -47,9 +47,12 @@ export interface FeedFetcherBatchRuntimeDependencies {
   getCachedBatch: (
     userId: number,
     urls: string[],
-    articleFilter: BatchFetchRequest["articleFilter"],
-    articleLimit?: number,
-    searchTerm?: string,
+    options?: {
+      articleFilter?: BatchFetchRequest["articleFilter"];
+      articleLimit?: number;
+      articleSortOrder?: BatchFetchRequest["articleSortOrder"];
+      searchTerm?: string;
+    },
   ) => CachedBatchPayload | null;
   invalidateUserCache: (userId: number) => void;
   mapRowsToArticleMap: (
@@ -61,9 +64,12 @@ export interface FeedFetcherBatchRuntimeDependencies {
     db: ReturnType<DbMod["getDb"]>,
     userId: number,
     feedIds: number[],
-    articleFilter: BatchFetchRequest["articleFilter"],
-    articleLimit: number,
-    searchTerm?: string,
+    options?: {
+      articleFilter?: BatchFetchRequest["articleFilter"];
+      articleLimit?: number;
+      articleSortOrder?: BatchFetchRequest["articleSortOrder"];
+      searchTerm?: string;
+    },
   ) => Promise<RankedRow[]>;
   resolveAuthorizedFeedRecords: (
     db: ReturnType<DbMod["getDb"]>,
@@ -76,10 +82,13 @@ export interface FeedFetcherBatchRuntimeDependencies {
   setCachedBatch: (
     userId: number,
     urls: string[],
-    articleFilter: BatchFetchRequest["articleFilter"],
-    articleLimit: number | undefined,
-    searchTerm: string | undefined,
     result: CachedBatchPayload,
+    options?: {
+      articleFilter?: BatchFetchRequest["articleFilter"];
+      articleLimit?: number;
+      articleSortOrder?: BatchFetchRequest["articleSortOrder"];
+      searchTerm?: string;
+    },
   ) => void;
   shouldForceRefreshFeed: (lastFetched: Date) => boolean;
   shouldRefreshFeed: (lastFetched: Date) => boolean;
@@ -270,13 +279,12 @@ export function resolveCachedBatchResult(
   request: BatchFetchRequest,
   shouldForceRefresh: boolean,
 ): { cached: CachedBatchPayload | null; result: BatchFeedResult | null } {
-  const cached = dependencies.getCachedBatch(
-    request.userId,
-    request.feedUrls,
-    request.articleFilter,
-    request.articleLimit,
-    request.searchTerm,
-  );
+  const cached = dependencies.getCachedBatch(request.userId, request.feedUrls, {
+    articleFilter: request.articleFilter,
+    articleLimit: request.articleLimit,
+    articleSortOrder: request.articleSortOrder,
+    searchTerm: request.searchTerm,
+  });
   if (!cached || request.forceResolveUpstream) {
     return { cached, result: null };
   }
@@ -464,13 +472,16 @@ function persistBatchCache(
     dependencies.setCachedBatch(
       query.request.userId,
       query.batchFeeds.allowedUrls,
-      query.request.articleFilter,
-      query.request.articleLimit,
-      query.request.searchTerm,
       {
         articles: cacheArticleMap,
         errors: query.refreshExecution.errors,
         lastFetchedByUrl: query.lastFetchedByUrl,
+      },
+      {
+        articleFilter: query.request.articleFilter,
+        articleLimit: query.request.articleLimit,
+        articleSortOrder: query.request.articleSortOrder,
+        searchTerm: query.request.searchTerm,
       },
     );
   }
@@ -494,9 +505,12 @@ async function queryChangedBatchArticles(
     db,
     query.request.userId,
     changedFeedIds,
-    query.request.articleFilter,
-    query.request.articleLimit,
-    query.request.searchTerm,
+    {
+      articleFilter: query.request.articleFilter,
+      articleLimit: query.request.articleLimit,
+      articleSortOrder: query.request.articleSortOrder,
+      searchTerm: query.request.searchTerm,
+    },
   );
   const articleMap = dependencies.mapRowsToArticleMap(
     rows,

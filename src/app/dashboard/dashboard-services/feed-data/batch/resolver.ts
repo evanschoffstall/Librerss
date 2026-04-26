@@ -1,7 +1,7 @@
 import type { FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data/batch";
 import type { FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
-import type { Article, ArticleFilter } from "@/lib/core";
+import type { Article, ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { filterArticlesByState } from "@/app/dashboard/dashboard-services/article";
 import { FeedService } from "@/lib/api";
@@ -13,6 +13,7 @@ interface FeedBatchResolverDependencies {
     options?: {
       articleFilter?: ArticleFilter;
       articleLimit?: number;
+      articleSortOrder?: ArticleSortOrder;
       forceRefresh?: boolean;
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -71,6 +72,7 @@ export async function resolveFeedBatchResults(
     {
       articleFilter: options?.articleFilter,
       articleLimit: options?.articleLimit,
+      articleSortOrder: options?.articleSortOrder,
       ...(options?.forceResolveUpstream === true
         ? { forceResolveUpstream: true }
         : {}),

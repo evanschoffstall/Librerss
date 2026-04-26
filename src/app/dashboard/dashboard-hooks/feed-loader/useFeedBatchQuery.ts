@@ -23,6 +23,7 @@ import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/select
 
 interface FeedBatchPrefetchOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
+  articleSortOrder: FeedFetchOptions["articleSortOrder"];
   buildFeedBatchQueryOptions: ReturnType<
     typeof useFeedBatchQueryOptionsBuilder
   >;
@@ -49,6 +50,7 @@ interface FeedBatchQueryState {
 
 interface PrefetchBatchRequestOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
+  articleSortOrder: FeedFetchOptions["articleSortOrder"];
   buildRequestSignature: UseFeedBatchQueryOptions["buildRequestSignature"];
   getKnownLastFetchedAtByUrl: UseFeedBatchQueryOptions["getKnownLastFetchedAtByUrl"];
   normalizedSources: FeedBatchSource[];
@@ -60,6 +62,7 @@ interface QueryFnOptions {
 }
 interface UseFeedBatchQueryOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
+  articleSortOrder: FeedFetchOptions["articleSortOrder"];
   buildRequestSignature: FeedBatchRequestHelpers["buildRequestSignature"];
   getKnownLastFetchedAtByUrl: FeedBatchRequestHelpers["getKnownLastFetchedAtByUrl"];
   queryClient: QueryClient;
@@ -76,6 +79,7 @@ export function useFeedBatchQuery(
 ): FeedBatchQueryState {
   const {
     articleFilter,
+    articleSortOrder,
     buildRequestSignature,
     getKnownLastFetchedAtByUrl,
     queryClient,
@@ -83,6 +87,7 @@ export function useFeedBatchQuery(
   } = options;
   const buildFeedBatchQueryOptions = useFeedBatchQueryOptionsBuilder({
     articleFilter,
+    articleSortOrder,
     usePlaceholderData,
   });
   const loadBatchResults = useCallback(
@@ -119,6 +124,7 @@ export function useFeedBatchQuery(
   );
   const prefetchFeedBatch = useFeedBatchPrefetch({
     articleFilter,
+    articleSortOrder,
     buildFeedBatchQueryOptions,
     buildRequestSignature,
     getKnownLastFetchedAtByUrl,
@@ -136,6 +142,7 @@ export function useFeedBatchQuery(
 function buildPrefetchBatchRequest(options: PrefetchBatchRequestOptions) {
   const {
     articleFilter,
+    articleSortOrder,
     buildRequestSignature,
     getKnownLastFetchedAtByUrl,
     normalizedSources,
@@ -149,6 +156,7 @@ function buildPrefetchBatchRequest(options: PrefetchBatchRequestOptions) {
     normalizedSources,
     requestOptions?.articleLimit,
     requestOptions?.searchTerm,
+    articleSortOrder,
   );
 
   return {
@@ -156,6 +164,7 @@ function buildPrefetchBatchRequest(options: PrefetchBatchRequestOptions) {
     queryKey: getFeedBatchQueryKey(requestSignature, {
       articleFilter,
       articleLimit: requestOptions?.articleLimit,
+      articleSortOrder,
       knownLastFetchedAtByUrl,
       searchTerm: requestOptions?.searchTerm,
       skipRefresh: requestOptions?.skipRefresh,
@@ -171,6 +180,7 @@ function buildPrefetchBatchRequest(options: PrefetchBatchRequestOptions) {
 function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
   const {
     articleFilter,
+    articleSortOrder,
     buildFeedBatchQueryOptions,
     buildRequestSignature,
     getKnownLastFetchedAtByUrl,
@@ -187,6 +197,7 @@ function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
 
       const prefetchRequest = buildPrefetchBatchRequest({
         articleFilter,
+        articleSortOrder,
         buildRequestSignature,
         getKnownLastFetchedAtByUrl,
         normalizedSources,
@@ -201,6 +212,7 @@ function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
             ...requestOptions,
             articleFilter,
             articleLimit: requestOptions?.articleLimit,
+            articleSortOrder,
             knownLastFetchedAtByUrl: prefetchRequest.knownLastFetchedAtByUrl,
             searchTerm: requestOptions?.searchTerm,
           },
@@ -209,6 +221,7 @@ function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
     },
     [
       articleFilter,
+      articleSortOrder,
       buildFeedBatchQueryOptions,
       buildRequestSignature,
       getKnownLastFetchedAtByUrl,
@@ -226,10 +239,10 @@ function useFeedBatchPrefetch(options: FeedBatchPrefetchOptions) {
 function useFeedBatchQueryOptionsBuilder(
   options: Pick<
     UseFeedBatchQueryOptions,
-    "articleFilter" | "usePlaceholderData"
+    "articleFilter" | "articleSortOrder" | "usePlaceholderData"
   >,
 ) {
-  const { articleFilter, usePlaceholderData } = options;
+  const { articleFilter, articleSortOrder, usePlaceholderData } = options;
   return useCallback(
     (
       normalizedSources: FeedBatchSource[],
@@ -249,6 +262,7 @@ function useFeedBatchQueryOptionsBuilder(
           {
             ...requestOptions,
             articleFilter,
+            articleSortOrder,
           },
           signal,
         );
@@ -256,6 +270,6 @@ function useFeedBatchQueryOptionsBuilder(
       queryKey,
       staleTime: resolveFeedBatchStaleTime(requestOptions),
     }),
-    [articleFilter, usePlaceholderData],
+    [articleFilter, articleSortOrder, usePlaceholderData],
   );
 }

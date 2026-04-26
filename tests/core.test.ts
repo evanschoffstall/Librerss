@@ -1090,6 +1090,7 @@ describe("feed-batch-pipeline", () => {
       dbWithArray as unknown as any,
       1,
       [10],
+      {},
     );
     expect(arrayResult).toEqual(arrayRows);
 
@@ -1114,6 +1115,7 @@ describe("feed-batch-pipeline", () => {
       dbWithWrapped as unknown as any,
       1,
       [11],
+      {},
     );
     expect(wrappedResult).toEqual(wrappedRows);
 
@@ -1125,6 +1127,7 @@ describe("feed-batch-pipeline", () => {
       dbWithMissingRows as unknown as any,
       1,
       [11],
+      {},
     );
     expect(missingRowsResult).toEqual([]);
   });
@@ -1138,7 +1141,9 @@ describe("feed-batch-pipeline", () => {
     const execute = mock(async (_query: unknown) => []);
     const db = { execute };
 
-    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], "unread");
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], {
+      articleFilter: "unread",
+    });
 
     expect(execute).toHaveBeenCalledTimes(1);
 
@@ -1171,14 +1176,11 @@ describe("feed-batch-pipeline", () => {
     const execute = mock(async (_query: unknown) => []);
     const db = { execute };
 
-    await queryTopArticlesPerFeed(
-      db as unknown as any,
-      7,
-      [10, 11],
-      "all",
-      20,
-      "50%_match\\value",
-    );
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], {
+      articleFilter: "all",
+      articleLimit: 20,
+      searchTerm: "50%_match\\value",
+    });
 
     expect(execute).toHaveBeenCalledTimes(1);
 
@@ -1823,43 +1825,31 @@ describe("core/feed-cache – setCachedBatch eviction", () => {
       setCachedBatch(
         userId,
         [`https://feed-${i}.example.com/`],
-        "all",
-        undefined,
-        undefined,
         makeResult(i),
+        { articleFilter: "all" },
       );
     }
 
     // Verify first entry exists
     expect(
-      getCachedBatch(
-        userId,
-        ["https://feed-0.example.com/"],
-        "all",
-        undefined,
-        undefined,
-      ),
+      getCachedBatch(userId, ["https://feed-0.example.com/"], {
+        articleFilter: "all",
+      }),
     ).not.toBeNull();
 
     // Adding one more should evict the oldest
     setCachedBatch(
       userId,
       ["https://feed-overflow.example.com/"],
-      "all",
-      undefined,
-      undefined,
       makeResult(MAX_ENTRIES),
+      { articleFilter: "all" },
     );
 
     // Overflow entry is present; oldest may have been evicted
     expect(
-      getCachedBatch(
-        userId,
-        ["https://feed-overflow.example.com/"],
-        "all",
-        undefined,
-        undefined,
-      ),
+      getCachedBatch(userId, ["https://feed-overflow.example.com/"], {
+        articleFilter: "all",
+      }),
     ).not.toBeNull();
 
     invalidateUserCache(userId); // cleanup
@@ -2107,9 +2097,9 @@ describe("lib/core/feed-cache – getCachedBatch evicts stale entries", () => {
       // Use a high userId to avoid colliding with other tests
       const userId = 999998;
       const urls = ["https://stale-cache-test.example.com/feed"];
-      setCachedBatch(userId, urls, "all", undefined, undefined, mockResult);
+      setCachedBatch(userId, urls, mockResult, { articleFilter: "all" });
       // With TTL=0, the entry should immediately be stale → evicted → null
-      const cached = getCachedBatch(userId, urls, "all", undefined, undefined);
+      const cached = getCachedBatch(userId, urls, { articleFilter: "all" });
       expect(cached).toBeNull();
     } finally {
       if (savedTtl !== undefined) process.env.FEED_CACHE_TTL_MINUTES = savedTtl;
@@ -2132,10 +2122,26 @@ describe("lib/core/feed-cache – searchTerm cache keys", () => {
     };
 
     invalidateUserCache(userId);
-    setCachedBatch(userId, urls, "all", 20, "mars", searchResult);
+    setCachedBatch(userId, urls, searchResult, {
+      articleFilter: "all",
+      articleLimit: 20,
+      searchTerm: "mars",
+    });
 
-    expect(getCachedBatch(userId, urls, "all", 20, "mars")).not.toBeNull();
-    expect(getCachedBatch(userId, urls, "all", 20, "venus")).toBeNull();
+    expect(
+      getCachedBatch(userId, urls, {
+        articleFilter: "all",
+        articleLimit: 20,
+        searchTerm: "mars",
+      }),
+    ).not.toBeNull();
+    expect(
+      getCachedBatch(userId, urls, {
+        articleFilter: "all",
+        articleLimit: 20,
+        searchTerm: "venus",
+      }),
+    ).toBeNull();
 
     invalidateUserCache(userId);
   });
