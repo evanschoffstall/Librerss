@@ -5,12 +5,18 @@ import { useEffect, useState } from "react";
 import BackgroundParticles from "@/app/dashboard/dashboard-components/BackgroundParticles";
 import BackgroundStars from "@/app/dashboard/dashboard-components/BackgroundStars";
 
+/**
+ * Describes the props for the background layer component.
+ */
 interface BackgroundLayerProps extends Props {
   gradientTone: "dark" | "light";
   particleColor: "dark" | "light";
   variant: "particles" | "stars";
 }
 
+/**
+ * Describes the props for the props component.
+ */
 interface Props {
   quantity?: number;
 }

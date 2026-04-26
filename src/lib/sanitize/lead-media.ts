@@ -6,6 +6,9 @@ const LEADING_IMAGE_RE = /^<img\b[^>]*\/?>(?:\s*)/i;
 const LEADING_ANCHOR_CLOSE_RE = /^<\/a>\s*/i;
 const LEADING_HEADING_RE = /^<h[2-4]\b[^>]*>[\s\S]*?<\/h[2-4]>\s*/i;
 
+/**
+ * Describes the lead media prefix.
+ */
 interface LeadMediaPrefix {
   consumedLength: number;
   headingBlock: string;

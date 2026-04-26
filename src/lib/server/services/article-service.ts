@@ -23,6 +23,9 @@ import {
   sanitizeArticleTitle,
 } from "@/lib/sanitize";
 
+/**
+ * Describes the create article params.
+ */
 export interface CreateArticleParams {
   content: string;
   feedId: number;
@@ -32,11 +35,17 @@ export interface CreateArticleParams {
   title: string;
 }
 
+/**
+ * Describes the status update.
+ */
 export interface StatusUpdate {
   isRead?: boolean;
   isStarred?: boolean;
 }
 
+/**
+ * Describes the article service deps.
+ */
 interface ArticleServiceDeps {
   getDbFn?: typeof getDb;
   getUserOwnedArticleByIdFn?: typeof getUserOwnedArticleById;

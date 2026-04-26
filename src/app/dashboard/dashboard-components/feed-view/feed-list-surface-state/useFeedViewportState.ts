@@ -6,6 +6,9 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedViewportLifecycle";
 import { type FeedViewportResolutionState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for feed viewport history.
+ */
 interface FeedViewportHistoryOptions {
   feedViewKey: string;
   hasResolvedInitialViewportRef: React.RefObject<boolean>;
@@ -16,6 +19,9 @@ interface FeedViewportHistoryOptions {
   refreshEpoch: number;
 }
 
+/**
+ * Describes the options for feed viewport host ref.
+ */
 interface FeedViewportHostRefOptions {
   isMountedRef: React.RefObject<boolean>;
   setScrollViewport: React.Dispatch<React.SetStateAction<HTMLElement | null>>;
@@ -24,6 +30,9 @@ interface FeedViewportHostRefOptions {
   >;
   viewportResolutionRequestRef: React.RefObject<number>;
 }
+/**
+ * Describes the options for use feed viewport state.
+ */
 interface UseFeedViewportStateOptions {
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;

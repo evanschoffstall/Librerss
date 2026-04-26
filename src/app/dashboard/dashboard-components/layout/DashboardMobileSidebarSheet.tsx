@@ -12,6 +12,9 @@ import { useLocalStorage } from "@/lib/hooks";
 
 import { DashboardSidebarContent } from "./DashboardSidebarContent";
 
+/**
+ * Describes the props for the dashboard mobile sidebar sheet component.
+ */
 interface DashboardMobileSidebarSheetProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;

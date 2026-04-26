@@ -8,11 +8,17 @@ import {
   stripUrlFragment as stripUrlFragmentFromUrl,
 } from "@/lib/utils";
 
+/**
+ * Defines the validated HTTP cloak request fn type.
+ */
 export type ValidatedHttpCloakRequestFn = (
   url: URL,
   requestHeaders: Record<string, string>,
 ) => Promise<HttpCloakResponseLike>;
 
+/**
+ * Describes the validated HTTP cloak response.
+ */
 export interface ValidatedHttpCloakResponse {
   body: Buffer;
   headers: Record<string, string | string[] | undefined>;
@@ -22,6 +28,9 @@ export interface ValidatedHttpCloakResponse {
   text?: string;
 }
 
+/**
+ * Describes the HTTP cloak response like.
+ */
 interface HttpCloakResponseLike {
   body: Buffer | string;
   headers: Record<string, string | string[] | undefined>;
@@ -29,6 +38,9 @@ interface HttpCloakResponseLike {
   text?: string;
 }
 
+/**
+ * Describes the HTTP cloak session like.
+ */
 interface HttpCloakSessionLike {
   close: () => void;
   get: (
@@ -37,11 +49,17 @@ interface HttpCloakSessionLike {
   ) => Promise<HttpCloakResponseLike>;
 }
 
+/**
+ * Describes the request HTTP cloak hop transport.
+ */
 interface RequestHttpCloakHopTransport {
   session: HttpCloakSessionLike | null;
   timeoutSeconds: number;
 }
 
+/**
+ * Describes the request with HTTP cloak deps.
+ */
 interface RequestWithHttpCloakDeps {
   createSessionFn?: (options: SessionOptions) => HttpCloakSessionLike;
   requestFn?: ValidatedHttpCloakRequestFn;
@@ -51,6 +69,9 @@ interface RequestWithHttpCloakDeps {
   ) => Promise<Record<string, string> | undefined>;
 }
 
+/**
+ * Describes the options for request with HTTP cloak.
+ */
 interface RequestWithHttpCloakOptions {
   allowInsecureTls?: boolean;
   browserPreset?: string;

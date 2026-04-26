@@ -26,6 +26,9 @@ import {
 } from "@/lib/core/server";
 import { categoryOrders, getDb } from "@/lib/db";
 
+/**
+ * Describes the feed service deps.
+ */
 interface FeedServiceDeps {
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
   deleteFeedSourceForUserFn?: typeof deleteFeedSourceForUser;
@@ -37,6 +40,9 @@ interface FeedServiceDeps {
 
 // ─── Feed source listing ──────────────────────────────────────────────────────
 
+/**
+ * Describes the feed settings settings.
+ */
 interface FeedSettingsSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;

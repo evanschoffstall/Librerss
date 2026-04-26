@@ -5,6 +5,9 @@ import { toast } from "sonner";
 
 import { type OpmlFeedImportEntry, parseOpmlFeedImport } from "@/lib/utils";
 
+/**
+ * Describes the options for use settings opml import state.
+ */
 interface UseSettingsOpmlImportStateOptions {
   onImportOpml: (entries: OpmlFeedImportEntry[]) => Promise<void>;
 }

@@ -6,6 +6,9 @@ import {
   useFeedPaginationRuntime,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationCoordinator";
 
+/**
+ * Describes the options for use feed pagination.
+ */
 export interface UseFeedPaginationOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -32,6 +35,9 @@ export interface UseFeedPaginationOptions {
   shouldLockInitialNormalScroll: () => boolean;
 }
 
+/**
+ * Describes the maybe load next page ref.
+ */
 interface MaybeLoadNextPageRef {
   current: ((_trigger: "scroll" | "sentinel") => void) | null;
 }

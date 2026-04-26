@@ -13,6 +13,9 @@ import { isSafePositiveItemId } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Describes the status payload.
+ */
 interface StatusPayload {
   articleId: number;
   isRead?: boolean;

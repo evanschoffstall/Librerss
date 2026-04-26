@@ -10,16 +10,25 @@ import { assertPublicFeedUrl } from "./url-validator";
 
 const MAX_FEED_REDIRECTS = 5;
 
+/**
+ * Describes the feed upstream transport.
+ */
 export interface FeedUpstreamTransport {
   allowInsecureTls?: boolean;
   proxyUrl?: string;
 }
 
+/**
+ * Describes the feed HTTP deps.
+ */
 interface FeedHttpDeps {
   assertPublicFeedUrlFn?: (url: string) => Promise<void>;
   httpCloakRequestFn?: ValidatedHttpCloakRequestFn;
 }
 
+/**
+ * Describes the feed stage error response.
+ */
 interface FeedStageErrorResponse {
   headers: Record<string, string | string[] | undefined>;
   redirectHop: number;

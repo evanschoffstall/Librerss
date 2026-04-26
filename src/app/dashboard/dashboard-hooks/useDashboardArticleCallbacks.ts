@@ -6,6 +6,9 @@ import type { Article } from "@/lib/core";
 
 import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
 
+/**
+ * Describes the options for use dashboard article callbacks.
+ */
 interface UseDashboardArticleCallbacksOptions {
   articleFilter: ArticleFilter;
   capturePreExpandSnapshot: (article: Article) => void;

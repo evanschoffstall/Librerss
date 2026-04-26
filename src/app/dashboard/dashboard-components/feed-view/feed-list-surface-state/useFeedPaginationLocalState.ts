@@ -2,26 +2,44 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 
 import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the cached page reveal state is mounted ref.
+ */
 interface CachedPageRevealStateIsMountedRef {
   current: boolean;
 }
 
+/**
+ * Describes the cached page reveal state visible article count ref.
+ */
 interface CachedPageRevealStateVisibleArticleCountRef {
   current: number;
 }
 
+/**
+ * Describes the cancel pending cached reveal frame pending cached reveal frame ref.
+ */
 interface CancelPendingCachedRevealFramePendingCachedRevealFrameRef {
   current: null | number;
 }
 
+/**
+ * Describes the cancel pending cached reveal pending cached reveal frame ref.
+ */
 interface CancelPendingCachedRevealPendingCachedRevealFrameRef {
   current: null | number;
 }
 
+/**
+ * Describes the cancel pending cached reveal pending cached reveal timeout ref.
+ */
 interface CancelPendingCachedRevealPendingCachedRevealTimeoutRef {
   current: null | ReturnType<typeof setTimeout>;
 }
 
+/**
+ * Describes the options for feed pagination history refs.
+ */
 interface FeedPaginationHistoryRefsOptions {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -29,6 +47,9 @@ interface FeedPaginationHistoryRefsOptions {
   isLoadingMore: boolean;
   refreshEpoch: number;
 }
+/**
+ * Describes the options for feed pagination local state.
+ */
 interface FeedPaginationLocalStateOptions {
   articlesPerPage: number;
   filteredFeedLength: number;
@@ -38,6 +59,9 @@ interface FeedPaginationLocalStateOptions {
   refreshEpoch: number;
 }
 
+/**
+ * Describes the pending cached reveal count ref.
+ */
 interface PendingCachedRevealCountRef {
   current: null | number;
 }

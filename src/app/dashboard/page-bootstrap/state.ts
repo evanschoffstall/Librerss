@@ -1,5 +1,8 @@
 import type { AuthSession } from "@/lib/core";
 
+/**
+ * Describes the dashboard page bootstrap state.
+ */
 export interface DashboardPageBootstrapState {
   hasPreviewQuery: boolean;
   initialAutoLoginPath?: string;
@@ -8,15 +11,24 @@ export interface DashboardPageBootstrapState {
   initialSession: AuthSession;
 }
 
+/**
+ * Describes the dashboard page search params.
+ */
 export interface DashboardPageSearchParams {
   devLogin?: string | string[];
   explore?: string | string[];
 }
 
+/**
+ * Describes the dashboard cookie store.
+ */
 interface DashboardCookieStore {
   get(name: string): undefined | { value: string };
 }
 
+/**
+ * Describes the dashboard page bootstrap deps.
+ */
 interface DashboardPageBootstrapDeps {
   buildDevAutoLoginRequestPath: (returnTo: string) => string;
   getUserFromSessionToken: (
@@ -31,6 +43,9 @@ interface DashboardPageBootstrapDeps {
   sessionCookieName: string;
 }
 
+/**
+ * Describes the dashboard page bootstrap input.
+ */
 interface DashboardPageBootstrapInput {
   cookieStore: DashboardCookieStore;
   deps: DashboardPageBootstrapDeps;

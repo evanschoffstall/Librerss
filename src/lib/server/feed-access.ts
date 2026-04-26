@@ -7,6 +7,9 @@ import * as serverApi from "./server-api";
 
 const FEED_MANAGEMENT_DISABLED_ERROR =
   "Feed source management is disabled when DATABASE_URL is not configured";
+/**
+ * Describes the options for require mutable feed access.
+ */
 interface RequireMutableFeedAccessOptions {
   rateLimit?: {
     key: string;

@@ -39,6 +39,9 @@ import {
   parseDateOrNull,
 } from "@/lib/utils";
 
+/**
+ * Describes the batch route deps.
+ */
 export interface BatchRouteDeps {
   fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
   getDbFn?: typeof getDb;
@@ -47,6 +50,9 @@ export interface BatchRouteDeps {
   resolveUserProxyFn?: typeof resolveUserProxy;
 }
 
+/**
+ * Describes the batch fetch execution result.
+ */
 interface BatchFetchExecutionResult {
   cachedCount: number;
   cooldownLimitedCount: number;
@@ -63,6 +69,9 @@ interface BatchFetchExecutionResult {
   >["errors"];
 }
 
+/**
+ * Describes the resolved batch request state.
+ */
 interface ResolvedBatchRequestState extends BatchRequestState {
   user: Exclude<
     Awaited<ReturnType<typeof serverApi.requireMutableAuthenticatedUser>>,
@@ -70,6 +79,9 @@ interface ResolvedBatchRequestState extends BatchRequestState {
   >;
 }
 
+/**
+ * Describes the resolved batch request URLs.
+ */
 interface ResolvedBatchRequestUrls {
   invalidUrlCount: number;
   normalizedUrls: string[];
@@ -79,10 +91,16 @@ interface ResolvedBatchRequestUrls {
 const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
   serverApi;
 
+/**
+ * Describes the options for batch execution preflight.
+ */
 interface BatchExecutionPreflightOptions {
   diagnosticsEnabled: boolean;
   requestState: ResolvedBatchRequestState;
 }
+/**
+ * Describes the options for batch intent state.
+ */
 interface BatchIntentStateOptions {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -90,22 +108,34 @@ interface BatchIntentStateOptions {
   urls: string[];
 }
 
+/**
+ * Describes the options for batch proxy transport.
+ */
 interface BatchProxyTransportOptions {
   resolveUserProxyForRoute: NonNullable<
     ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
   >;
   userId: number;
 }
+/**
+ * Describes the options for batch request state for post.
+ */
 interface BatchRequestStateForPostOptions {
   deps: BatchRouteDeps;
   request: NextRequest;
 }
 
+/**
+ * Describes the options for batch request URLs.
+ */
 interface BatchRequestUrlsOptions {
   diagnosticsEnabled: boolean;
   urls: string[];
   userId: number;
 }
+/**
+ * Describes the options for batch success response options.
+ */
 interface BatchSuccessResponseOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -124,6 +154,9 @@ interface BatchSuccessResponseOptionsOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for execute batch fetch.
+ */
 interface ExecuteBatchFetchOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -140,6 +173,9 @@ interface ExecuteBatchFetchOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for handle resolved batch post request.
+ */
 interface HandleResolvedBatchPostRequestOptions {
   deps: BatchRouteDeps;
   diagnosticsEnabled: boolean;

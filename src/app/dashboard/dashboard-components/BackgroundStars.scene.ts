@@ -3,6 +3,9 @@ const TWINKLE_MIN_SPEED = 0.0012;
 const FADE_MAX_SPEED = 0.0014;
 const FADE_MIN_SPEED = 0.0006;
 
+/**
+ * Describes the star.
+ */
 export interface Star {
   alpha: number;
   colorRgb: string;
@@ -19,16 +22,25 @@ export interface Star {
   x: number;
   y: number;
 }
+/**
+ * Describes the background star canvas size.
+ */
 interface BackgroundStarCanvasSize {
   h: number;
   w: number;
 }
 
+/**
+ * Describes the background star mouse.
+ */
 interface BackgroundStarMouse {
   x: number;
   y: number;
 }
 
+/**
+ * Describes the options for background star pointer offset.
+ */
 interface BackgroundStarPointerOffsetOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   canvasSize: React.RefObject<{ h: number; w: number }>;

@@ -9,6 +9,9 @@ import {
   resolveFeedViewport,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+/**
+ * Describes the article viewport snapshot.
+ */
 export interface ArticleViewportSnapshot {
   articleBottomOffsetTop: number;
   articleHeaderViewportOffsetTop: number;
@@ -18,6 +21,9 @@ export interface ArticleViewportSnapshot {
   viewportScrollTop: number;
 }
 
+/**
+ * Describes the options for collapse restore layout observer.
+ */
 export interface CollapseRestoreLayoutObserverOptions {
   articleKey: string;
   onLayoutChange: () => void;

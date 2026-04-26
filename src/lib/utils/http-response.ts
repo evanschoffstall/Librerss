@@ -8,6 +8,9 @@ export interface EncodedHttpResponse {
   headers: Record<string, string | string[] | undefined>;
   text?: string;
 }
+/**
+ * Describes the options for HTTP response body.
+ */
 interface HttpResponseBodyOptions {
   maxOutputBytes: number;
 }

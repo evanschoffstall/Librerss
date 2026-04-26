@@ -7,6 +7,9 @@ import { buildFeedVirtualListEntries } from "@/app/dashboard/dashboard-component
 import { FeedVirtualListTestSurface } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListTestSurface";
 import { FeedVirtualListRuntime } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListViewport";
 
+/**
+ * Describes the props for the feed virtual list component.
+ */
 export interface FeedVirtualListProps extends FeedVirtualListSharedProps {
   articles: Article[];
   expandedArticleKey: null | string;

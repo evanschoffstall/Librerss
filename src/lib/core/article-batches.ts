@@ -14,8 +14,14 @@ import {
   type RankedRow,
 } from "./batch-types";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
+/**
+ * Describes the options for query top articles per feed.
+ */
 interface QueryTopArticlesPerFeedOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
@@ -23,6 +29,9 @@ interface QueryTopArticlesPerFeedOptions {
   searchTerm?: string;
 }
 
+/**
+ * Describes the options for top articles per feed query.
+ */
 interface TopArticlesPerFeedQueryOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;

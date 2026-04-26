@@ -18,6 +18,9 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { getPlaceholderArticlesForSource } from "@/lib/core";
 
+/**
+ * Describes the options for apply feed batch outcome metadata.
+ */
 interface ApplyFeedBatchOutcomeMetadataOptions {
   batchResults: NonNullable<BatchResults>;
   capturedOutcome: ReturnType<typeof buildFeedBatchOutcome>;
@@ -30,6 +33,9 @@ interface ApplyFeedBatchOutcomeMetadataOptions {
   onFeedBatchLoaded?: (timestamp: Date) => void;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
 }
+/**
+ * Describes the options for apply feed batch results.
+ */
 interface ApplyFeedBatchResultsOptions {
   batchResults: BatchResults;
   context: FeedBatchRequestContext;
@@ -46,6 +52,9 @@ interface ApplyFeedBatchResultsOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Defines the batch results type.
+ */
 type BatchResults = Awaited<
   ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>
 >;

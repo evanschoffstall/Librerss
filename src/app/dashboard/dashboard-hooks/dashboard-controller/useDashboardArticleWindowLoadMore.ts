@@ -6,6 +6,9 @@ import { scheduleDashboardArticleWindowRefresh } from "@/app/dashboard/dashboard
 import { shouldBlockArticleWindowLoadMore } from "@/app/dashboard/dashboard-services/article";
 import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the options for use dashboard article window load more.
+ */
 interface UseDashboardArticleWindowLoadMoreOptions {
   allowPartialArticleWindowGrowthRef: React.RefObject<boolean>;
   articlesPerPage: number;

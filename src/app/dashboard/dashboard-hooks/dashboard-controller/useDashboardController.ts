@@ -20,6 +20,9 @@ import { computeNextOrderedCategoryLabels } from "@/app/dashboard/dashboard-serv
 import { INITIAL_CATEGORIES } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Describes the props for the dashboard controller component.
+ */
 export interface DashboardControllerProps {
   backgroundMode: BackgroundMode;
   distillStrategy: string;
@@ -28,6 +31,9 @@ export interface DashboardControllerProps {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard controller effects.
+ */
 interface DashboardControllerEffectsOptions {
   articleFilter: ArticleFilter;
   categories: typeof INITIAL_CATEGORIES;
@@ -40,6 +46,9 @@ interface DashboardControllerEffectsOptions {
   >["setExpandedArticleKey"];
 }
 
+/**
+ * Describes the options for dashboard controller resource state.
+ */
 interface DashboardControllerResourceStateOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   dashboardState: ReturnType<typeof useDashboardState>;
@@ -47,6 +56,9 @@ interface DashboardControllerResourceStateOptions {
   refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
   usePlaceholderData: boolean;
 }
+/**
+ * Describes the dashboard controller state parts.
+ */
 interface DashboardControllerStateParts {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
@@ -58,6 +70,9 @@ interface DashboardControllerStateParts {
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
 
+/**
+ * Describes the options for dashboard controller window runtime state.
+ */
 interface DashboardControllerWindowRuntimeStateOptions {
   controllerResources: ReturnType<typeof useDashboardControllerResources>;
   dashboardState: ReturnType<typeof useDashboardState>;

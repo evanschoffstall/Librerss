@@ -6,7 +6,13 @@ import type { FeedFetchOptions } from "@/app/dashboard/dashboard-services/select
 
 const DASHBOARD_FEED_BATCH_SELECTION_STALE_TIME_MS = 45_000;
 
+/**
+ * Defines the feed batch query key type.
+ */
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
+/**
+ * Describes the is fresh feed batch query query client.
+ */
 interface IsFreshFeedBatchQueryQueryClient {
   getQueryState: (
     queryKey: FeedBatchQueryKey,

@@ -11,6 +11,9 @@ import type { Article } from "@/lib/core";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types";
 
+/**
+ * Describes the options for handle expanded article toggle.
+ */
 interface HandleExpandedArticleToggleOptions {
   articleFilter: UseExpandedArticleCollapseOptions["articleFilter"];
   cancelCollapseScrollRestore: UseExpandedArticleCollapseOptions["cancelCollapseScrollRestore"];
@@ -28,6 +31,9 @@ interface HandleExpandedArticleToggleOptions {
   setExpandedArticleKey: UseExpandedArticleCollapseOptions["setExpandedArticleKey"];
 }
 
+/**
+ * Describes the options for handle expanded swipe read.
+ */
 interface HandleExpandedSwipeReadOptions {
   collapseExpandedArticle: (
     article: Article,
@@ -39,6 +45,9 @@ interface HandleExpandedSwipeReadOptions {
   markArticleReadIfNeeded: (article: Article) => Promise<void>;
 }
 
+/**
+ * Describes the options for use expanded article collapse.
+ */
 interface UseExpandedArticleCollapseOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   cancelCollapseScrollRestore: () => void;

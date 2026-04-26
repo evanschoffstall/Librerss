@@ -11,6 +11,9 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
 
+/**
+ * Describes the options for backfill depleted revealed page effect.
+ */
 interface BackfillDepletedRevealedPageEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -24,6 +27,9 @@ interface BackfillDepletedRevealedPageEffectOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the options for expand visible window.
+ */
 interface ExpandVisibleWindowOptions {
   articlesPerPage: number;
   commitVisibleArticleCount: (nextVisibleCount: number) => void;
@@ -31,11 +37,17 @@ interface ExpandVisibleWindowOptions {
   scheduleCachedPageReveal: (nextCount: number) => void;
   visibleArticleCountRef: { current: number };
 }
+/**
+ * Describes the options for has reached standard load boundary.
+ */
 interface HasReachedStandardLoadBoundaryOptions {
   isInvertedScroll: boolean;
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for maybe load inverted next page.
+ */
 interface MaybeLoadInvertedNextPageOptions {
   currentFilteredFeedLength: number;
   currentVisibleCount: number;
@@ -50,6 +62,9 @@ interface MaybeLoadInvertedNextPageOptions {
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
   scrollViewport: HTMLElement;
 }
+/**
+ * Describes the options for maybe load next page.
+ */
 interface MaybeLoadNextPageOptions {
   expandedArticleKey: null | string;
   expandVisibleWindow: () => boolean;
@@ -68,6 +83,9 @@ interface MaybeLoadNextPageOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the options for maybe load standard next page.
+ */
 interface MaybeLoadStandardNextPageOptions {
   currentFilteredFeedLength: number;
   currentVisibleCount: number;

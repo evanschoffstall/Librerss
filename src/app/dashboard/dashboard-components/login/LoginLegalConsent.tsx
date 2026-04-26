@@ -2,6 +2,9 @@ import { LoginFieldError } from "@/app/dashboard/dashboard-components/login/Logi
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Describes the props for the login legal consent component.
+ */
 interface LoginLegalConsentProps {
   errorMessage: string | undefined;
   hasAcceptedLegalTerms: boolean;

@@ -2,6 +2,9 @@ import * as zlib from "zlib";
 
 const TOO_LARGE_ERROR_MESSAGE = "Upstream response too large";
 
+/**
+ * Describes the options for decode text body.
+ */
 interface DecodeTextBodyOptions {
   maxOutputBytes?: number;
 }

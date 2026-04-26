@@ -3,6 +3,9 @@ import type { InvertedExpansionScrollLockTransitionOptions } from "@/app/dashboa
 import { useInvertedExpansionScrollLockReadEvents } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedExpansionScrollLockReadEvents";
 import { useInvertedExpansionScrollLockTransitionEvents } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedExpansionScrollLockTransitionEvents";
 
+/**
+ * Describes the options for use inverted expansion scroll lock events.
+ */
 interface UseInvertedExpansionScrollLockEventsOptions extends InvertedExpansionScrollLockTransitionOptions {
   articleFilter: string;
   prepareInvertedUnreadRemovalScrollLock: (

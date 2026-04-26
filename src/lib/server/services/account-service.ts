@@ -21,10 +21,16 @@ import {
 } from "@/lib/db";
 import { getUrlCredentials } from "@/lib/utils";
 
+/**
+ * Describes the account service deps.
+ */
 interface AccountServiceDeps {
   getDbFn?: () => Pick<ReturnType<typeof getDb>, "select">;
 }
 
+/**
+ * Describes the export account base records.
+ */
 interface ExportAccountBaseRecords {
   categoryOrderRows: {
     orderedLabels: typeof categoryOrders.$inferSelect.orderedLabels;
@@ -60,6 +66,9 @@ interface ExportAccountBaseRecords {
   }[];
 }
 
+/**
+ * Describes the export account relations.
+ */
 interface ExportAccountRelations {
   articleRows: {
     articleId: typeof articleStatuses.$inferSelect.articleId;
@@ -73,6 +82,9 @@ interface ExportAccountRelations {
   }[];
 }
 
+/**
+ * Describes the exported user.
+ */
 interface ExportedUser {
   allowInsecureTls: typeof users.$inferSelect.allowInsecureTls;
   createdAt: typeof users.$inferSelect.createdAt;

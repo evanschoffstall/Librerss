@@ -25,6 +25,9 @@ import { useLocalStorage } from "@/lib/hooks";
 
 export const ARTICLES_PER_PAGE_OPTIONS = [4, 6, 8, 12] as const;
 
+/**
+ * Describes the props for the settings display section component.
+ */
 export interface SettingsDisplaySectionProps {
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
@@ -38,12 +41,18 @@ export interface SettingsDisplaySectionProps {
   showFavicons: boolean;
 }
 
+/**
+ * Describes the props for the auto refresh control component.
+ */
 interface AutoRefreshControlProps {
   autoRefreshDraft: string;
   autoRefreshIntervalMinutes: number;
   commitAutoRefreshDraft: () => void;
   setAutoRefreshDraft: (value: string) => void;
 }
+/**
+ * Describes the props for the display mobile toggle group component.
+ */
 interface DisplayMobileToggleGroupProps {
   isMobileInvertedScrollAvailable: boolean;
   mobileGroupedLayout: boolean;

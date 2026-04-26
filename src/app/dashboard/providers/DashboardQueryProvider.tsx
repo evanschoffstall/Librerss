@@ -7,6 +7,9 @@ import {
 } from "@tanstack/react-query";
 import { useState } from "react";
 
+/**
+ * Describes the props for the dashboard query provider component.
+ */
 interface DashboardQueryProviderProps {
   children: React.ReactNode;
 }

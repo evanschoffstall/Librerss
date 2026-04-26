@@ -25,6 +25,9 @@ import {
   shouldAutoAnchorInvertedScrollViewport,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for feed list surface state result.
+ */
 interface FeedListSurfaceStateResultOptions {
   feedSurfaceMode: FeedSurfaceMode;
   filteredFeedLength: number;
@@ -49,6 +52,9 @@ interface FeedListSurfaceStateResultOptions {
   trimmedSearchTerm: string;
   visibleArticleCount: number;
 }
+/**
+ * Describes the options for feed surface auto anchor.
+ */
 interface FeedSurfaceAutoAnchorOptions {
   expandedArticleKey: null | string;
   hasClaimedInvertedScrollOwnershipRef: React.RefObject<boolean>;
@@ -56,6 +62,9 @@ interface FeedSurfaceAutoAnchorOptions {
   shouldAnchorUnderfilledInvertedViewport: () => boolean;
 }
 
+/**
+ * Describes the options for feed surface base states.
+ */
 interface FeedSurfaceBaseStatesOptions {
   articleFilter: string;
   collapsingArticles: Readonly<CollapsingArticles>;
@@ -68,6 +77,9 @@ interface FeedSurfaceBaseStatesOptions {
   isInvertedScroll: boolean;
   refreshEpoch: number;
 }
+/**
+ * Describes the options for feed surface composition result.
+ */
 interface FeedSurfaceCompositionResultOptions {
   expansionLockState: ReturnType<typeof useFeedSurfaceExpansionLock>;
   ownershipState: ReturnType<typeof useFeedSurfaceOwnership>;
@@ -77,10 +89,16 @@ interface FeedSurfaceCompositionResultOptions {
   viewportState: ReturnType<typeof useFeedSurfaceViewportState>;
 }
 
+/**
+ * Describes the options for feed surface controller.
+ */
 type FeedSurfaceControllerOptions = Omit<
   UseFeedListSurfaceStateOptions,
   "invertedScrollAnchorIndex"
 >;
+/**
+ * Describes the options for feed surface derived state.
+ */
 interface FeedSurfaceDerivedStateOptions {
   expandedArticleKey: null | string;
   filteredFeedLength: number;
@@ -92,12 +110,18 @@ interface FeedSurfaceDerivedStateOptions {
   viewportState: ReturnType<typeof useFeedSurfaceViewportState>;
 }
 
+/**
+ * Describes the options for feed surface pagination callbacks.
+ */
 interface FeedSurfacePaginationCallbacksOptions {
   expansionLockState: ReturnType<typeof useFeedSurfaceExpansionLock>;
   onLoadMore?: () => void;
   ownershipState: ReturnType<typeof useFeedSurfaceOwnership>;
 }
 
+/**
+ * Describes the options for feed surface pagination options.
+ */
 interface FeedSurfacePaginationOptionsOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -118,6 +142,9 @@ interface FeedSurfacePaginationOptionsOptions {
   viewportState: ReturnType<typeof useFeedSurfaceViewportState>;
 }
 
+/**
+ * Describes the options for feed surface presentation.
+ */
 interface FeedSurfacePresentationOptions {
   filteredFeedLength: number;
   isInitialLoading: boolean;
@@ -126,6 +153,9 @@ interface FeedSurfacePresentationOptions {
   viewportResolutionState: FeedViewportResolutionState;
 }
 
+/**
+ * Describes the options for feed surface viewport state.
+ */
 interface FeedSurfaceViewportStateOptions {
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;

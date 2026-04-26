@@ -10,12 +10,18 @@ import {
   resolveFeedViewport,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+/**
+ * Describes the visible anchor candidate.
+ */
 interface VisibleAnchorCandidate {
   element: HTMLElement;
   intersectsViewport: boolean;
   visibleScore: number;
 }
 
+/**
+ * Describes the visible article header entry.
+ */
 interface VisibleArticleHeaderEntry {
   articleKey: string;
   fullyVisible: boolean;

@@ -4,6 +4,9 @@ import { useLayoutEffect } from "react";
 
 import { resolveFeedListSkeletonCount } from "@/app/dashboard/dashboard-components/feed-config";
 
+/**
+ * Describes the options for use feed list skeleton count.
+ */
 interface UseFeedListSkeletonCountOptions {
   listRef: React.RefObject<HTMLDivElement | null>;
   setSkeletonCount: React.Dispatch<React.SetStateAction<number>>;

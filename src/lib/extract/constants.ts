@@ -31,23 +31,35 @@ export const ARTICLE_EXTRACTION_ERROR_MESSAGE = EXTRACT.errors.extraction;
 
 // ─── Module types (merged from types.ts) ─────────────────────────────────────
 
+/**
+ * Describes the cached extract response.
+ */
 export interface CachedExtractResponse {
   expiresAt: number;
   payload: ExtractResponsePayload;
   version?: number;
 }
 
+/**
+ * Describes the extract request context.
+ */
 export interface ExtractRequestContext {
   extractAttemptId: string;
   requestId: null | string;
 }
 
+/**
+ * Describes the extract response payload.
+ */
 export interface ExtractResponsePayload {
   content: string;
   source: null | string;
   title: null | string;
 }
 
+/**
+ * Describes the placeholder snapshot hit.
+ */
 export interface PlaceholderSnapshotHit {
   html: string;
   snapshotPath: string;

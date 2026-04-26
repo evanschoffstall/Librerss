@@ -21,6 +21,9 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the options for feed batch prefetch.
+ */
 interface FeedBatchPrefetchOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
   articleSortOrder: FeedFetchOptions["articleSortOrder"];
@@ -33,8 +36,14 @@ interface FeedBatchPrefetchOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Defines the feed batch query key type.
+ */
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
+/**
+ * Describes the feed batch query state.
+ */
 interface FeedBatchQueryState {
   loadBatchResults: (
     normalizedSources: FeedBatchSource[],
@@ -48,6 +57,9 @@ interface FeedBatchQueryState {
   ) => Promise<void>;
 }
 
+/**
+ * Describes the options for prefetch batch request.
+ */
 interface PrefetchBatchRequestOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
   articleSortOrder: FeedFetchOptions["articleSortOrder"];
@@ -57,9 +69,15 @@ interface PrefetchBatchRequestOptions {
   requestOptions?: FeedFetchOptions;
 }
 
+/**
+ * Describes the options for query fn.
+ */
 interface QueryFnOptions {
   signal: AbortSignal;
 }
+/**
+ * Describes the options for use feed batch query.
+ */
 interface UseFeedBatchQueryOptions {
   articleFilter: FeedFetchOptions["articleFilter"];
   articleSortOrder: FeedFetchOptions["articleSortOrder"];

@@ -16,6 +16,9 @@ import { useArticleHydration } from "@/app/dashboard/dashboard-hooks/useArticleH
 import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
 import { type FeedExtractionSettings } from "@/app/dashboard/display-types";
 
+/**
+ * Describes the options for article action dependencies result.
+ */
 interface ArticleActionDependenciesResultOptions {
   actionHandlers: ReturnType<typeof useArticleActionHandlers>;
   expansion: ReturnType<typeof useArticleExpansionDependencies>;
@@ -25,6 +28,9 @@ interface ArticleActionDependenciesResultOptions {
   readState: ReturnType<typeof useArticleReadState>;
 }
 
+/**
+ * Describes the options for article action handlers.
+ */
 interface ArticleActionHandlersOptions {
   articleFilter: UseArticleActionsOptions["articleFilter"];
   markExpandedArticleHydrationHandled: (articleKey: string) => void;
@@ -42,6 +48,9 @@ interface ArticleActionHandlersOptions {
     markExpandedArticleHydrationHandled: (articleKey: string) => void,
   ) => Promise<void>;
 }
+/**
+ * Describes the options for article expansion dependencies.
+ */
 interface ArticleExpansionDependenciesOptions {
   articleFilter: UseArticleActionsOptions["articleFilter"];
   distillStrategy: UseArticleActionsOptions["distillStrategy"];
@@ -53,6 +62,9 @@ interface ArticleExpansionDependenciesOptions {
   setFeed: UseArticleActionsOptions["setFeed"];
 }
 
+/**
+ * Describes the options for use article actions.
+ */
 interface UseArticleActionsOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   categories?: CategoryTreeNode[];

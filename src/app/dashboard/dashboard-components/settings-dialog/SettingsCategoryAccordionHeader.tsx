@@ -14,6 +14,9 @@ import {
 import { AccordionTrigger } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Describes the props for the category drag handle component.
+ */
 interface CategoryDragHandleProps {
   categoryLabel: string;
   isEditing: boolean;
@@ -24,6 +27,9 @@ interface CategoryDragHandleProps {
   ) => void;
 }
 
+/**
+ * Describes the props for the category rename fields component.
+ */
 interface CategoryRenameFieldsProps {
   categoryLabel: string;
   editingCategoryName: string;
@@ -33,11 +39,17 @@ interface CategoryRenameFieldsProps {
   savingCategoryLabel: null | string;
 }
 
+/**
+ * Describes the props for the category summary trigger component.
+ */
 interface CategorySummaryTriggerProps {
   categoryFeeds: CategoryTreeNode[];
   categoryLabel: string;
   onStartCategoryEdit: (label: string) => void;
 }
+/**
+ * Describes the props for the settings category accordion header component.
+ */
 interface SettingsCategoryAccordionHeaderProps extends SettingsCategoryHeaderCallbacks {
   categoryFeeds: CategoryTreeNode[];
   categoryNode: CategoryTreeNode;

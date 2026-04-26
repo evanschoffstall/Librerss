@@ -20,6 +20,9 @@ export { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-ho
 export { useDashboardControllerOutput } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerOutput";
 export { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
 
+/**
+ * Describes the options for dashboard article window state.
+ */
 interface DashboardArticleWindowStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   feedLoader: ReturnType<typeof useFeedLoader>;
@@ -31,6 +34,9 @@ interface DashboardArticleWindowStateOptions {
   usePlaceholderData: boolean;
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
+/**
+ * Describes the options for dashboard controller resources.
+ */
 interface DashboardControllerResourcesOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   dashboardState: ReturnType<typeof useDashboardState>;
@@ -39,12 +45,18 @@ interface DashboardControllerResourcesOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard feed loader options.
+ */
 interface DashboardFeedLoaderOptionsOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   dashboardState: ReturnType<typeof useDashboardState>;
   refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
   usePlaceholderData: boolean;
 }
+/**
+ * Describes the options for dashboard feed loading state.
+ */
 interface DashboardFeedLoadingStateOptions {
   articleFilter: ArticleFilter;
   feedLength: number;
@@ -56,6 +68,9 @@ interface DashboardFeedLoadingStateOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard view model state.
+ */
 interface DashboardViewModelStateOptions {
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];

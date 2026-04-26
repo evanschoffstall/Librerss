@@ -5,6 +5,9 @@ import { CONFIG } from "@/lib";
 import { DEFAULT_CATEGORY_LABEL } from "./categories";
 import { tryNormalizeFeedUrl } from "./url";
 
+/**
+ * Describes the opml feed import entry.
+ */
 export interface OpmlFeedImportEntry {
   category: string;
   name: string;

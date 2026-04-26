@@ -20,10 +20,16 @@ export {
   shouldAutoAnchorInvertedScrollViewport,
 };
 
+/**
+     * Describes the inverted pagination anchor ref contract.
+     */
 interface InvertedPaginationAnchorRefContract {
   current: InvertedPaginationAnchorState | null;
 }
 
+/**
+ * Describes the use feed list surface state result.
+ */
 interface UseFeedListSurfaceStateResult {
   contentKey: string;
   feedSurfaceMode: FeedSurfaceMode;

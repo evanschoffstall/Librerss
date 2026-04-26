@@ -14,6 +14,9 @@ import {
   FeedVirtualListBoundaryRow,
 } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListRows";
 
+/**
+ * Describes the options for feed virtualizer.
+ */
 interface FeedVirtualizerOptions {
   entries: FeedVirtualListRuntimeProps["entries"];
   estimatedItemHeight: number;
@@ -24,6 +27,9 @@ interface FeedVirtualizerOptions {
   scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
 }
 
+/**
+ * Describes the options for feed virtual list layout.
+ */
 interface FeedVirtualListLayoutOptions {
   entries: FeedVirtualListRuntimeProps["entries"];
   minimumTotalListHeight: FeedVirtualListRuntimeProps["minimumTotalListHeight"];
@@ -31,6 +37,9 @@ interface FeedVirtualListLayoutOptions {
   scrollViewport: FeedVirtualListRuntimeProps["scrollViewport"];
   virtualizer: Virtualizer<HTMLElement, Element>;
 }
+/**
+ * Describes the props for the feed virtual list runtime component.
+ */
 interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
   entries: ReturnType<typeof buildFeedVirtualListEntries>;
   expandedArticleKey: null | string;
@@ -38,6 +47,9 @@ interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
   isCollapseScrollRestoreActive: boolean;
 }
 
+/**
+ * Describes the options for virtual entry.
+ */
 interface VirtualEntryOptions {
   entries: FeedVirtualListRuntimeProps["entries"];
   key: string;

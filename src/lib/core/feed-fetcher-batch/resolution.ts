@@ -25,6 +25,9 @@ import {
   collectUnchangedUrls,
 } from "./results";
 
+/**
+ * Describes the feed fetcher batch runtime dependencies.
+ */
 export interface FeedFetcherBatchRuntimeDependencies {
   buildRefreshPlan: (
     feedByUrl: Map<string, FeedRecord>,
@@ -94,8 +97,14 @@ export interface FeedFetcherBatchRuntimeDependencies {
   shouldRefreshFeed: (lastFetched: Date) => boolean;
 }
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
+/**
+ * Describes the options for refresh proxy transport.
+ */
 interface RefreshProxyTransportOptions {
   allowedUrls: string[];
   dependencies: FeedFetcherBatchRuntimeDependencies;

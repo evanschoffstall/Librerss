@@ -6,6 +6,9 @@ import type { BatchUrlDescriptor } from "./endpoint";
 
 import { buildBatchResultItem } from "./result-item";
 
+/**
+ * Describes the options for batch fetch request options.
+ */
 interface BatchFetchRequestOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -19,6 +22,9 @@ interface BatchFetchRequestOptionsOptions {
   skipRefresh: boolean;
 }
 
+/**
+ * Describes the options for batch fetch results.
+ */
 interface BatchFetchResultsOptions {
   requestUrls: BatchUrlDescriptor[];
   response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;

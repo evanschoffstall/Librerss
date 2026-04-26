@@ -17,6 +17,9 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-loader-state";
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the feed batch request context.
+ */
 export interface FeedBatchRequestContext {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;
@@ -33,6 +36,9 @@ export interface FeedBatchRequestContext {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the feed batch request helpers.
+ */
 export interface FeedBatchRequestHelpers {
   buildRequestSignature: (
     normalizedSources: FeedBatchSource[],
@@ -46,6 +52,9 @@ export interface FeedBatchRequestHelpers {
   ) => Map<string, Date> | undefined;
 }
 
+/**
+ * Describes the options for feed batch request query state.
+ */
 interface FeedBatchRequestQueryStateOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;
@@ -55,6 +64,9 @@ interface FeedBatchRequestQueryStateOptions {
   requestHelpers: FeedBatchRequestHelpers;
 }
 
+/**
+ * Describes the options for prepare feed batch request context.
+ */
 interface PrepareFeedBatchRequestContextOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;

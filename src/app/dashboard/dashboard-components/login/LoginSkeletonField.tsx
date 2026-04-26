@@ -1,5 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Describes the props for the login skeleton field component.
+ */
 interface LoginSkeletonFieldProps {
   inputWidth?: string;
   labelWidth: string;

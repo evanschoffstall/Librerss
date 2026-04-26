@@ -17,6 +17,9 @@ import { CONFIG } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Describes the options for cached batch key.
+ */
 interface CachedBatchKeyOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
@@ -24,6 +27,9 @@ interface CachedBatchKeyOptions {
   searchTerm?: string;
 }
 
+/**
+ * Describes the cached batch result.
+ */
 interface CachedBatchResult {
   articles: Map<string, ArticleRow[]>;
   /** Epoch-ms when this entry was written. */
@@ -32,12 +38,18 @@ interface CachedBatchResult {
   lastFetchedByUrl: Map<string, Date>;
 }
 
+/**
+ * Describes the cached feed source list result.
+ */
 interface CachedFeedSourceListResult {
   /** Epoch-ms when this entry was written. */
   cachedAt: number;
   sources: FeedSourceListRow[];
 }
 
+/**
+ * Describes the cache entry.
+ */
 interface CacheEntry {
   result: CachedBatchResult;
   /** Sorted, joined URL key for quick comparison. */

@@ -1,5 +1,8 @@
 import { AnimatePresence, motion, type MotionStyle } from "motion/react";
 
+/**
+ * Describes the props for the article card content component.
+ */
 interface ArticleCardContentProps {
   bodyMeasureRef: React.RefObject<HTMLDivElement | null>;
   bodyTransitionMs: number;
@@ -22,6 +25,9 @@ const ARTICLE_SURFACE_EASING_ARRAY: [number, number, number, number] = [
   0.25, 1, 0.5, 1,
 ];
 
+/**
+ * Describes the props for the article body motion component.
+ */
 interface ArticleBodyMotionProps {
   bodyInteractionProps: Pick<
     React.ComponentProps<typeof motion.div>,
@@ -37,6 +43,9 @@ interface ArticleBodyMotionProps {
   showPreviewLayer: boolean;
   visuallyExpanded: boolean;
 }
+/**
+ * Describes the props for the article collapsed preview component.
+ */
 interface ArticleCollapsedPreviewProps {
   bodyTransitionMs: number;
   collapsedPreview: string;

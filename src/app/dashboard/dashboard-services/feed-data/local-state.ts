@@ -1,5 +1,8 @@
 import type { Article } from "@/lib/core";
 
+/**
+ * Describes the options for merge feed local state.
+ */
 interface MergeFeedLocalStateOptions {
   preserveLocalFeedState: boolean;
 }

@@ -4,6 +4,9 @@ import { useEffect } from "react";
 
 import { LoginViewSkeleton } from "./LoginViewSkeleton";
 
+/**
+ * Describes the props for the dev auto login redirect component.
+ */
 interface DevAutoLoginRedirectProps {
   autoLoginPath: string;
 }

@@ -21,10 +21,16 @@ import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collec
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types";
 
+/**
+ * Defines the collapsing articles type.
+ */
 export type CollapsingArticles = Partial<
   Record<string, CollapsingArticleState>
 >;
 
+/**
+ * Describes the options for article collapse scroll restore state.
+ */
 interface ArticleCollapseScrollRestoreStateOptions {
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>;
   clearPreExpandSnapshot: (
@@ -36,6 +42,9 @@ interface ArticleCollapseScrollRestoreStateOptions {
   >;
 }
 
+/**
+ * Describes the options for article removal animation state.
+ */
 interface ArticleRemovalAnimationStateOptions {
   collapseRemovalTimeoutsRef: React.RefObject<
     Map<string, RemovalAnimationTimeoutId>
@@ -43,14 +52,23 @@ interface ArticleRemovalAnimationStateOptions {
   feed: Article[];
 }
 
+/**
+ * Describes the collapsing article state.
+ */
 interface CollapsingArticleState {
   article: Article;
   index: number;
   mode: ArticleRemovalAnimationMode;
 }
 
+/**
+ * Defines the removal animation timeout ID type.
+ */
 type RemovalAnimationTimeoutId = number;
 
+/**
+ * Describes the options for start collapse scroll restore.
+ */
 interface StartCollapseScrollRestoreOptions {
   articleKey: string;
   clearPreExpandSnapshot: (
@@ -63,6 +81,9 @@ interface StartCollapseScrollRestoreOptions {
   snapshot: ArticleViewportSnapshot;
 }
 
+/**
+ * Describes the options for use article collapse state.
+ */
 interface UseArticleCollapseStateOptions {
   feed: Article[];
 }

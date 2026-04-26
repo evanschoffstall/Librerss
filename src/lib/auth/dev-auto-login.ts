@@ -10,6 +10,9 @@ export const DEV_AUTO_LOGIN_FAILURE_QUERY_KEY = "devLogin";
 export const DEV_AUTO_LOGIN_FAILURE_QUERY_VALUE = "failed";
 export const DEV_AUTO_LOGIN_RETURN_TO_QUERY_KEY = "returnTo";
 
+/**
+ * Describes the dev auto login credentials.
+ */
 interface DevAutoLoginCredentials {
   email: string;
   password: string;

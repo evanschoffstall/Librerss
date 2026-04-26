@@ -13,10 +13,16 @@ import {
 } from "@/app/dashboard/dashboard-hooks/article-actions";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 
+/**
+ * Describes the options for set read state.
+ */
 interface SetReadStateOptions {
   suppressErrorToast?: boolean;
 }
 
+/**
+ * Describes the options for use article read state.
+ */
 interface UseArticleReadStateOptions {
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData?: boolean;

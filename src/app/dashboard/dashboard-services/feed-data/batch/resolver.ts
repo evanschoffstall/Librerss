@@ -7,6 +7,9 @@ import { filterArticlesByState } from "@/app/dashboard/dashboard-services/articl
 import { FeedService } from "@/lib/api";
 import { getPlaceholderArticlesForSource } from "@/lib/core";
 
+/**
+ * Describes the feed batch resolver dependencies.
+ */
 interface FeedBatchResolverDependencies {
   fetchFeedsBatch: (
     urls: string[],
@@ -26,6 +29,9 @@ interface FeedBatchResolverDependencies {
   getPlaceholderArticles: (url: string) => Article[];
 }
 
+/**
+ * Describes the placeholder article candidate.
+ */
 interface PlaceholderArticleCandidate {
   article: Article;
   sourceName: string | undefined;

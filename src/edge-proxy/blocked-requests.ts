@@ -5,6 +5,9 @@ import { NextResponse } from "next/server";
 const BLOCKED_REQUEST_STATUS = 403;
 const FORBIDDEN_PAGE_PATH = "/forbidden";
 
+/**
+ * Describes the blocked request policy.
+ */
 export interface BlockedRequestPolicy {
   code: string;
   pagePath: string;

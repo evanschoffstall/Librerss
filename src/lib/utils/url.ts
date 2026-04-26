@@ -37,6 +37,9 @@ const DEFAULT_PROXY_PORT_BY_PROTOCOL: Readonly<Record<string, string>> = {
   "socks:": "1080",
 };
 
+/**
+ * Describes the options for URL hostname display label.
+ */
 interface UrlHostnameDisplayLabelOptions {
   fallback?: string;
   stripWww?: boolean;

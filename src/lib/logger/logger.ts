@@ -1,5 +1,8 @@
 import { CONFIG, envBooleanOptional, isDevelopment } from "@/lib/config";
 
+/**
+ * Describes the log context.
+ */
 interface LogContext {
   [key: string]: unknown;
   email?: string;
@@ -9,10 +12,22 @@ interface LogContext {
   userId?: number;
 }
 
+/**
+ * Defines the log level type.
+ */
 type LogLevel = "debug" | "error" | "info" | "warn";
 
+/**
+ * Implements the logger.
+ */
 export class Logger {
+  /**
+       * Stores the dim.
+       */
   private readonly dim = "\u001b[2m";
+  /**
+       * Stores the level colors.
+       */
   private readonly levelColors: Record<LogLevel, string> = {
     debug: "\u001b[38;5;141m",
     error: "\u001b[38;5;196m",
@@ -20,11 +35,20 @@ export class Logger {
     warn: "\u001b[38;5;214m",
   };
 
+  /**
+       * Stores the reset.
+       */
   private readonly reset = "\u001b[0m";
 
+  /**
+       * Stores the sensitive key pattern.
+       */
   private readonly sensitiveKeyPattern =
     /(pass(word)?|secret|token|api[-_]?key|authorization|cookie|session|credential|private[-_]?key)/i;
 
+  /**
+       * Stores the sensitive keys.
+       */
   private readonly sensitiveKeys = new Set([
     "proxy-url",
     "proxy_url",

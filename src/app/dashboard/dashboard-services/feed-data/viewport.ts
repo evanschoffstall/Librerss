@@ -1,9 +1,15 @@
+/**
+ * Describes the options for observe feed viewport layout.
+ */
 interface ObserveFeedViewportLayoutOptions {
   findAnchor: () => Element | null;
   onLayoutChange: () => void;
   viewport: HTMLElement;
 }
 
+/**
+ * Describes the options for resolve feed viewport.
+ */
 interface ResolveFeedViewportOptions {
   candidateViewports: (HTMLElement | null)[];
   fallbackViewport: HTMLElement;

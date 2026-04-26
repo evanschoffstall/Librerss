@@ -24,6 +24,9 @@ import {
 import { createSafeRegExp, isSafeRegExpPattern } from "check-suite/regex";
 import { defineStep, runGitFileScan } from "check-suite/step";
 
+/**
+ * Describes the architecture code targets configuration.
+ */
 interface ArchitectureCodeTargetsConfig {
   declarationFilePatterns: string[];
   includePatterns: string[];
@@ -31,6 +34,9 @@ interface ArchitectureCodeTargetsConfig {
   resolutionExtensions: string[];
   testFilePatterns: string[];
 }
+/**
+ * Describes the options for coverage command step.
+ */
 interface CoverageCommandStepOptions {
   allowSuiteFlagArgs?: boolean;
   args: string[];
@@ -52,6 +58,9 @@ interface CoverageCommandStepOptions {
   timeoutMs?: number | string;
   tokens?: Record<string, number | string>;
 }
+/**
+ * Describes the options for coverage.
+ */
 interface CoverageOptions {
   excludedFiles?: string[];
   excludedPaths?: string[];
@@ -61,6 +70,9 @@ interface CoverageOptions {
   reportPath?: string;
   threshold?: number | string;
 }
+/**
+ * Describes the options for coverage report post process.
+ */
 interface CoverageReportPostProcessOptions {
   defaultThreshold: number;
   parseConsoleCoverage?: (output: string) => CoverageTotals | null;
@@ -71,6 +83,9 @@ interface CoverageReportPostProcessOptions {
     readFileSync: InlineTypeScriptPostProcessContext["readFileSync"],
   ) => ExecutionReport;
 }
+/**
+ * Describes the coverage state.
+ */
 interface CoverageState {
   coverageExcludedFiles: Set<string>;
   coverageExcludedPaths: string[];
@@ -80,6 +95,9 @@ interface CoverageState {
   coverageThreshold: number;
   reportPath: string;
 }
+/**
+ * Describes the options for coverage step.
+ */
 interface CoverageStepOptions {
   enabled?: boolean;
   failMsg?: string;
@@ -90,11 +108,17 @@ interface CoverageStepOptions {
   timeoutMs?: number | string;
   tokens?: Record<string, number | string>;
 }
+/**
+ * Describes the coverage totals.
+ */
 interface CoverageTotals {
   covered: number;
   found: number;
   pct: number;
 }
+/**
+ * Describes the execution report.
+ */
 interface ExecutionReport {
   failed: number;
   failedItems: string[];
@@ -102,10 +126,19 @@ interface ExecutionReport {
   skipped: number;
   skippedItems: string[];
 }
+/**
+ * Defines the pattern summary type.
+ */
 type PatternSummary = Extract<Summary, { type: "pattern" }>;
+/**
+ * Describes the purge CSS check result.
+ */
 type PurgeCssCheckResult =
   | { kind: "invalid-safelist"; message: string }
   | { kind: "ok"; unusedSelectors: string[] };
+/**
+ * Describes the purge CSS configuration.
+ */
 interface PurgeCssConfig {
   contentGlobs: string[];
   cssFiles: string[];
@@ -116,6 +149,9 @@ interface PurgeCssConfig {
 // ── Helper functions ──────────────────────────────────────────────────────────
 const BUN_LINE_COVERAGE_PATTERN =
   /(?:^|\n)\s*[│|]\s*Lines\s*[│|]\s*([\d.]+)\s*%\s*[│|]\s*([\d,]+)\s*[│|]\s*[\d,]+\s*[│|]\s*([\d,]+)\s*[│|]/u;
+/**
+ * Describes the options for collect line coverage.
+ */
 interface CollectLineCoverageOptions {
   coveragePath: string;
   excludedFiles: ReadonlySet<string>;
@@ -125,12 +161,18 @@ interface CollectLineCoverageOptions {
   readFileSync: InlineTypeScriptPostProcessContext["readFileSync"];
 }
 
+/**
+ * Describes the coverage check result input.
+ */
 interface CoverageCheckResultInput {
   coverageLabel: string;
   coveragePath?: string;
   coverageThreshold: number;
   totals: CoverageTotals | null;
 }
+/**
+ * Describes the options for purge CSS.
+ */
 interface PurgeCssOptions {
   config: PurgeCssConfig;
   cwd: string;

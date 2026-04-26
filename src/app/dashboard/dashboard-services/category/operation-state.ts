@@ -13,6 +13,9 @@ import {
   removeCategoryLabel,
 } from "@/lib/utils";
 
+/**
+ * Describes the options for restore selected category from source URL.
+ */
 interface RestoreSelectedCategoryFromSourceUrlOptions {
   refreshedCategories: CategoryTreeNode[];
   selectedSourceUrl?: string;

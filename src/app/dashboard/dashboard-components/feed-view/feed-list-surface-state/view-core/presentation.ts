@@ -3,18 +3,27 @@ import {
   type FeedViewportResolutionState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core/types";
 
+/**
+ * Describes the options for feed surface content key.
+ */
 interface FeedSurfaceContentKeyOptions {
   isInitialLoading: boolean;
   shouldShowViewportResolutionSkeleton: boolean;
   showEmptyState: boolean;
 }
 
+/**
+ * Describes the options for feed surface mode.
+ */
 interface FeedSurfaceModeOptions {
   isInitialLoading: boolean;
   shouldShowViewportResolutionSkeleton: boolean;
   shouldUseVirtualizedFeed: boolean;
   showEmptyState: boolean;
 }
+/**
+ * Describes the options for feed surface presentation.
+ */
 interface FeedSurfacePresentationOptions {
   filteredFeedLength: number;
   isInitialLoading: boolean;

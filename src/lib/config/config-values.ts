@@ -64,6 +64,9 @@ export const envStringOptional = (key: string): string | undefined => {
 
 const LOG_LEVEL_VALUES = ["none", "error", "warn", "info", "verbose"] as const;
 
+/**
+ * Defines the log level type.
+ */
 type LogLevel = (typeof LOG_LEVEL_VALUES)[number];
 
 /**
@@ -130,6 +133,9 @@ export const maxArticleConsecutiveBlankLines = (): number => {
   return envNumber("MAX_ARTICLE_CONSECUTIVE_BLANK_LINES");
 };
 
+/**
+ * Describes the config keys.
+ */
 interface ConfigKeys {
   DNS_CACHE_MAX_ENTRIES: number;
   DNS_CACHE_TTL_MS: number;

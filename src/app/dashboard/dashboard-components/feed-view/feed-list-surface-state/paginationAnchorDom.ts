@@ -1,3 +1,6 @@
+/**
+ * Describes the inverted pagination anchor frame ref.
+ */
 interface InvertedPaginationAnchorFrameRef {
   current: null | number;
 }

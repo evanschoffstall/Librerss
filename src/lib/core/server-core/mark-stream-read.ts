@@ -5,8 +5,17 @@ import { FEED_STREAM_PREFIX, parseUserLabel, STARRED_STATE } from "@/lib/core";
 
 import { canUseArticleStatusesTable, upsertArticleStatuses } from "./status";
 
+/**
+ * Defines the DB instance type.
+ */
 type DbInstance = ReturnType<DbMod["getDb"]>;
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
+/**
+ * Defines the DB tables type.
+ */
 type DbTables = Pick<
   DbMod,
   "articles" | "articleStatuses" | "feedCategories" | "feeds" | "feedSources"
@@ -27,10 +36,16 @@ const MARK_ALL_READ_BATCH_SIZE = 500;
  */
 const MARK_ALL_READ_HARD_LIMIT = 10_000;
 
+/**
+ * Describes the article ID row.
+ */
 interface ArticleIdRow {
   articleId: number;
 }
 
+/**
+ * Describes the options for article IDs for stream.
+ */
 interface ArticleIdsForStreamOptions {
   /** Exclusive lower bound on article ID; used as the pagination cursor. */
   afterId: number;
@@ -52,6 +67,9 @@ interface LabelStream {
   userLabel: string;
 }
 
+/**
+ * Describes the mark stream as read deps.
+ */
 interface MarkStreamAsReadDeps {
   beforeMs?: number;
   canUseArticleStatusesTableFn?: typeof canUseArticleStatusesTable;

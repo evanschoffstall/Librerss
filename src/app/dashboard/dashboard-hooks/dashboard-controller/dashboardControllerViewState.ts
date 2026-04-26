@@ -20,6 +20,9 @@ import { type useDashboardCategoryTree } from "@/app/dashboard/dashboard-hooks";
 import { getAllFeedNodes } from "@/app/dashboard/dashboard-services/category-tree";
 import { buildDashboardControllerState } from "@/app/dashboard/dashboard-services/dashboard-state";
 
+/**
+ * Describes the options for use dashboard controller view state.
+ */
 export interface UseDashboardControllerViewStateOptions {
   animatingInArticleKeys: ReadonlySet<string>;
   articleCallbacks: {

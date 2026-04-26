@@ -7,6 +7,9 @@ import type { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 
 import { isCanceledBatchRequest } from "@/app/dashboard/dashboard-services/feed-loader-state";
 
+/**
+ * Describes the options for begin feed request.
+ */
 interface BeginFeedRequestOptions {
   forceRefresh: boolean;
   isBackground: boolean;
@@ -14,6 +17,9 @@ interface BeginFeedRequestOptions {
   requestSignature: string;
 }
 
+/**
+ * Describes the begin feed request result.
+ */
 type BeginFeedRequestResult =
   | {
       requestId: number;
@@ -24,8 +30,14 @@ type BeginFeedRequestResult =
       skippedDuplicate: true;
     };
 
+/**
+ * Defines the feed batch query key type.
+ */
 type FeedBatchQueryKey = ReturnType<typeof getFeedBatchQueryKey>;
 
+/**
+ * Describes the options for feed batch request actions.
+ */
 interface FeedBatchRequestActionsOptions {
   loadingRef: React.RefObject<boolean>;
   queryClient: QueryClient;
@@ -34,6 +46,9 @@ interface FeedBatchRequestActionsOptions {
   syncLoading: (value: boolean) => void;
 }
 
+/**
+ * Describes the feed batch request state.
+ */
 interface FeedBatchRequestState {
   beginFeedRequest: (
     options: BeginFeedRequestOptions,
@@ -46,6 +61,9 @@ interface FeedBatchRequestState {
   loadingEpoch: number;
 }
 
+/**
+ * Describes the options for start next feed request.
+ */
 interface StartNextFeedRequestOptions {
   activeRequestQueryKeyRef: React.RefObject<FeedBatchQueryKey | null>;
   activeRequestSignatureRef: React.RefObject<null | string>;
@@ -58,6 +76,9 @@ interface StartNextFeedRequestOptions {
   syncLoading: (value: boolean) => void;
 }
 
+/**
+ * Describes the options for use feed batch request state.
+ */
 interface UseFeedBatchRequestStateOptions {
   queryClient: QueryClient;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;

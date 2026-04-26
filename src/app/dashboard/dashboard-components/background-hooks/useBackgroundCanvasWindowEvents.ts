@@ -2,6 +2,9 @@
 
 import { useEffect } from "react";
 
+/**
+ * Describes the options for use background canvas window events.
+ */
 interface UseBackgroundCanvasWindowEventsOptions {
   onMouseMove: (event: MouseEvent) => void;
   onResize: () => void;

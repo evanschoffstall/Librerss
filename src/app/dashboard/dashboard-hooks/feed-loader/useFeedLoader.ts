@@ -30,18 +30,27 @@ import { loadFeedSourceTree } from "@/app/dashboard/dashboard-services/feed-data
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 
+/**
+ * Describes the options for feed loader selection state.
+ */
 interface FeedLoaderSelectionStateOptions {
   categoriesRef: RefObject<CategoryTreeNode[]>;
   fetchFeedBatch: ReturnType<typeof useFeedBatchFetcher>;
   prefetchFeedBatch: ReturnType<typeof useFeedBatchQuery>["prefetchFeedBatch"];
 }
 
+/**
+ * Describes the options for feed source tree loader.
+ */
 interface FeedSourceTreeLoaderOptions {
   queryClient: ReturnType<typeof useQueryClient>;
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for use feed loader.
+ */
 interface UseFeedLoaderOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;

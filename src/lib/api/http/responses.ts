@@ -4,6 +4,9 @@ import { parseDateOrNull } from "@/lib/utils";
 
 // ── Response builders ─────────────────────────────────────────────────────────
 
+/**
+ * Describes the batch feed response item.
+ */
 export interface BatchFeedResponseItem {
   articles: Article[];
   error?: string;

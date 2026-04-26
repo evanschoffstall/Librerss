@@ -5,34 +5,52 @@ import {
   FEED_STANDARD_LOAD_MORE_TRIGGER_RATIO,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for has moved away from boundary since previous scroll.
+ */
 export interface HasMovedAwayFromBoundarySincePreviousScrollOptions {
   isInvertedScroll: boolean;
   previousScrollTop: null | number;
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the pagination boundary state.
+ */
 export interface PaginationBoundaryState {
   hasMovedAwayFromBoundary: boolean;
   hasReachedBoundary: boolean;
 }
 
+/**
+ * Describes the options for resolve inverted pagination anchor scroll top.
+ */
 export interface ResolveInvertedPaginationAnchorScrollTopOptions {
   anchorViewportOffsetTop: number;
   currentAnchorOffsetTop: number;
   currentScrollTop: number;
 }
 
+/**
+ * Describes the options for resolve next visible count.
+ */
 export interface ResolveNextVisibleCountOptions {
   articlesPerPage: number;
   currentVisibleCount: number;
   filteredFeedLength: number;
 }
 
+/**
+ * Describes the options for resolve pagination boundary state.
+ */
 export interface ResolvePaginationBoundaryStateOptions {
   isInvertedScroll: boolean;
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the options for should auto fill viewport.
+ */
 export interface ShouldAutoFillViewportOptions {
   activeViewportRefillTargetVisibleCount?: null | number;
   articleFilter: string;

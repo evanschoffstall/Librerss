@@ -1,3 +1,6 @@
+/**
+ * Describes the compatibility result.
+ */
 export interface CompatibilityResult {
   compatibilitySignalDetected: boolean;
   error?: string;
@@ -6,6 +9,9 @@ export interface CompatibilityResult {
   vendor: string;
 }
 
+/**
+ * Describes the proxy routing check.
+ */
 export interface ProxyRoutingCheck {
   directIp: null | string;
   error: null | string;
@@ -13,6 +19,9 @@ export interface ProxyRoutingCheck {
   status: "error" | "proxy-only" | "same-egress" | "verified";
 }
 
+/**
+ * Describes the proxy settings snapshot.
+ */
 export interface ProxySettingsSnapshot {
   allowInsecureTls: boolean;
   error: null | string;
@@ -23,6 +32,9 @@ export interface ProxySettingsSnapshot {
   routingCheck: null | ProxyRoutingCheck;
 }
 
+/**
+ * Defines the proxy UI status type.
+ */
 export type ProxyUIStatus =
   | "checking"
   | "loading"
@@ -30,11 +42,17 @@ export type ProxyUIStatus =
   | "reachable"
   | "unreachable";
 
+/**
+ * Describes the compatibility results cache.
+ */
 interface CompatibilityResultsCache {
   checkedAt: number;
   results: CompatibilityResult[];
 }
 
+/**
+ * Describes the persisted proxy settings.
+ */
 interface PersistedProxySettings {
   allowInsecureTls: boolean;
   error?: string;
@@ -45,6 +63,9 @@ interface PersistedProxySettings {
   status: Exclude<ProxyUIStatus, "loading" | "none">;
 }
 
+/**
+ * Describes the proxy compatibility check result.
+ */
 interface ProxyCompatibilityCheckResult {
   compatibilitySignalDetected: boolean;
   error?: string;
@@ -53,10 +74,16 @@ interface ProxyCompatibilityCheckResult {
   vendor: string;
 }
 
+/**
+ * Describes the storage reader.
+ */
 interface StorageReader {
   getItem: (key: string) => null | string;
 }
 
+/**
+ * Describes the storage writer.
+ */
 interface StorageWriter extends StorageReader {
   removeItem: (key: string) => void;
   setItem: (key: string, value: string) => void;

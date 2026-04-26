@@ -1,3 +1,6 @@
+/**
+ * Describes the login field errors.
+ */
 export interface LoginFieldErrors {
   confirm?: string;
   email?: string;
@@ -6,6 +9,9 @@ export interface LoginFieldErrors {
   password?: string;
 }
 
+/**
+ * Describes the login validation input.
+ */
 interface LoginValidationInput {
   allowSignup: boolean;
   confirmPassword: string;

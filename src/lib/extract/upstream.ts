@@ -12,22 +12,34 @@ import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
 
 import { EXTRACT_403_RETRIES } from "./constants";
 
+/**
+ * Describes the fetch HTML deps.
+ */
 interface FetchHtmlDeps {
   delayFn?: (ms: number) => Promise<void>;
   httpCloakFetchFn?: typeof fetchHtmlWithHttpCloak;
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;
 }
 
+/**
+ * Describes the options for fetch HTML.
+ */
 interface FetchHtmlOptions {
   allowInsecureTls?: boolean;
   proxyUrl?: string;
   useProxy?: boolean;
 }
 
+/**
+ * Describes the fetch stage result.
+ */
 type FetchStageResult =
   | { error: unknown; ok: false; preferredError?: Error }
   | { html: string; ok: true };
 
+/**
+ * Describes the options for HTTP cloak stage.
+ */
 interface HttpCloakStageOptions {
   allowInsecureTls: boolean;
   attempts: number;
@@ -41,8 +53,14 @@ interface HttpCloakStageOptions {
   url: string;
 }
 
+/**
+ * Defines the proxy mode type.
+ */
 type ProxyMode = "direct" | "http" | "socks";
 
+/**
+ * Describes the stage log context.
+ */
 interface StageLogContext {
   [key: string]: unknown;
   allowInsecureTls: boolean;
@@ -62,6 +80,9 @@ interface StageLogContext {
   url: string;
 }
 
+/**
+ * Defines the stage log extras type.
+ */
 type StageLogExtras = Omit<
   StageLogContext,
   "allowInsecureTls" | "attempt" | "attempts" | "proxyAddress" | "url"
@@ -69,6 +90,9 @@ type StageLogExtras = Omit<
   proxyMode?: ProxyMode;
 };
 
+/**
+ * Describes the stage options base.
+ */
 interface StageOptionsBase {
   allowInsecureTls: boolean;
   attempts: number;

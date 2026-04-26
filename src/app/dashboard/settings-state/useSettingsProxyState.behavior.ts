@@ -16,12 +16,18 @@ import {
 } from "@/app/dashboard/settings-state/useSettingsProxyState.state";
 import { ArticleService } from "@/lib/api";
 
+/**
+ * Describes the options for handle run compatibility check.
+ */
 interface HandleRunCompatibilityCheckOptions {
   hasProxy: boolean;
   proxyState: SettingsProxyWritableState;
   requestState: SettingsProxyRequestState;
 }
 
+/**
+ * Describes the options for load proxy settings.
+ */
 interface LoadProxySettingsOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   hasCachedSnapshot: boolean;
@@ -29,6 +35,9 @@ interface LoadProxySettingsOptions {
   proxyState: SettingsProxyWritableState;
   requestState: SettingsProxyRequestState;
 }
+/**
+ * Describes the options for proxy mutation handler.
+ */
 interface ProxyMutationHandlerOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   clearCompatibilityResults: () => void;
@@ -36,6 +45,9 @@ interface ProxyMutationHandlerOptions {
   requestState: SettingsProxyRequestState;
 }
 
+/**
+ * Describes the options for settings proxy actions.
+ */
 interface SettingsProxyActionsOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   clearCompatibilityResults: () => void;
@@ -43,6 +55,9 @@ interface SettingsProxyActionsOptions {
   proxyState: SettingsProxyWritableState;
   requestState: SettingsProxyRequestState;
 }
+/**
+ * Describes the options for settings proxy lifecycle.
+ */
 interface SettingsProxyLifecycleOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   hasCachedSnapshot: boolean;
@@ -51,6 +66,9 @@ interface SettingsProxyLifecycleOptions {
   requestState: SettingsProxyRequestState;
 }
 
+/**
+ * Describes the options for sync allow insecure tls.
+ */
 interface SyncAllowInsecureTlsOptions {
   applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
   proxyState: SettingsProxyWritableState;

@@ -1,8 +1,14 @@
+/**
+ * Describes the email password credentials.
+ */
 interface EmailPasswordCredentials {
   email: string;
   password: string;
 }
 
+/**
+ * Describes the options for email password field.
+ */
 interface EmailPasswordFieldOptions {
   emailKeys?: readonly string[];
   passwordKeys?: readonly string[];
@@ -11,6 +17,9 @@ interface EmailPasswordFieldOptions {
 const DEFAULT_EMAIL_KEYS = ["email", "Email", "username"] as const;
 const DEFAULT_PASSWORD_KEYS = ["password", "Passwd", "passwd"] as const;
 
+/**
+ * Defines the data source type.
+ */
 type DataSource =
   | { data: FormData; type: "form" }
   | { data: Record<string, unknown>; type: "object" }

@@ -13,10 +13,16 @@ import {
 } from "@/app/dashboard/settings-state";
 import { Separator } from "@/components/ui/separator";
 
+/**
+ * Describes the props for the settings proxy section component.
+ */
 interface SettingsProxySectionProps {
   isPreviewMode?: boolean;
 }
 
+/**
+ * Describes the options for should show proxy status badges.
+ */
 interface ShouldShowProxyStatusBadgesOptions {
   badgeStatus: ReturnType<typeof getProxyBadgeStatus>;
   hasProxy: boolean;

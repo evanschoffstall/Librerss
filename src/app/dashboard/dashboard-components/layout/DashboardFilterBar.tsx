@@ -25,6 +25,9 @@ import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
  */
 const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14", "w-16"];
 
+/**
+ * Describes the props for the dashboard filter bar frame component.
+ */
 interface DashboardFilterBarFrameProps {
   children: React.ReactNode;
   skeleton?: boolean;

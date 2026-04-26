@@ -4,6 +4,9 @@ import { type FeedArticleSkeletonDescriptor } from "@/app/dashboard/dashboard-co
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
+/**
+ * Describes the props for the feed article card skeleton component.
+ */
 interface FeedArticleCardSkeletonProps {
   descriptor: FeedArticleSkeletonDescriptor;
 }

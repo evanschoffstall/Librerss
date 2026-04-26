@@ -3,12 +3,18 @@
 import { toolbarActionSkeletonClassName } from "@/app/dashboard/dashboard-components/DashboardToolbarActionButton";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Describes the props for the dashboard toolbar skeleton component.
+ */
 interface DashboardToolbarSkeletonProps {
   isDevelopmentMode: boolean;
   mobileToolbarBottom: boolean;
   mobileToolbarMirror: boolean;
 }
 
+/**
+ * Describes the props for the toolbar desktop actions component.
+ */
 interface ToolbarDesktopActionsProps {
   desktopActionCount: number;
 }

@@ -8,6 +8,9 @@ import { prefetchNextPageForCurrentSelection } from "@/app/dashboard/dashboard-h
 import { prefetchArticleWindowLimitIfNeeded } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
 import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the options for article window prefetch effect.
+ */
 interface ArticleWindowPrefetchEffectOptions {
   articlesPerPage: number;
   hasMoreServerArticles: boolean;
@@ -19,6 +22,9 @@ interface ArticleWindowPrefetchEffectOptions {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * Describes the options for use dashboard article window loading state.
+ */
 interface UseDashboardArticleWindowLoadingStateOptions {
   hasStartedArticleWindowSettlementRef: React.RefObject<boolean>;
   isAwaitingArticleWindowSettlementRef: React.RefObject<boolean>;
@@ -26,6 +32,9 @@ interface UseDashboardArticleWindowLoadingStateOptions {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * Describes the options for use dashboard article window prefetch.
+ */
 interface UseDashboardArticleWindowPrefetchOptions {
   articlesPerPage: number;
   hasMoreServerArticles: boolean;

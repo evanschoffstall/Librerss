@@ -21,8 +21,17 @@ import {
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { refreshCurrentSelection } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Defines the dashboard article filter type.
+ */
 type DashboardArticleFilter = "all" | "read" | "starred" | "unread";
+/**
+ * Defines the dashboard article sort order type.
+ */
 type DashboardArticleSortOrder = "newest" | "oldest";
+/**
+ * Describes the options for dashboard auto refresh.
+ */
 interface DashboardAutoRefreshOptions {
   autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;
@@ -32,6 +41,9 @@ interface DashboardAutoRefreshOptions {
   >["setRelativeRefreshTick"];
 }
 
+/**
+ * Describes the options for dashboard selection refresh.
+ */
 interface DashboardSelectionRefreshOptions<TValue> {
   appliedValueRef: React.RefObject<TValue>;
   articleWindowLimit: DashboardHandlersOptions["articleLimit"];
@@ -47,10 +59,16 @@ interface DashboardSelectionRefreshOptions<TValue> {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Defines the dashboard selection refresh request source type.
+ */
 type DashboardSelectionRefreshRequestSource =
   | "article-filter-change"
   | "article-sort-order-change";
 
+/**
+ * Describes the options for use dashboard controller runtime.
+ */
 type UseDashboardControllerRuntimeOptions = Omit<
   DashboardControllerRuntimeStateOptions,
   "articleLimit" | "initialArticleLimit" | "onTimeout"

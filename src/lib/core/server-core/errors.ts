@@ -1,3 +1,6 @@
+/**
+ * Implements the feed source not found error.
+ */
 export class FeedSourceNotFoundError extends Error {
   /**
    * Creates an error for feed URLs that do not map to any configured source.
@@ -9,6 +12,9 @@ export class FeedSourceNotFoundError extends Error {
   }
 }
 
+/**
+ * Implements the upstream feed error.
+ */
 export class UpstreamFeedError extends Error {
   /**
    * Creates an error for upstream feed fetch failures.

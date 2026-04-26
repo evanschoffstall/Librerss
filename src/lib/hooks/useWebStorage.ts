@@ -27,6 +27,9 @@ import {
 
 const STORAGE_SYNC_EVENT = "librerss:storage-sync";
 
+/**
+ * Describes the storage sync detail.
+ */
 interface StorageSyncDetail {
   key: string;
   value: string;

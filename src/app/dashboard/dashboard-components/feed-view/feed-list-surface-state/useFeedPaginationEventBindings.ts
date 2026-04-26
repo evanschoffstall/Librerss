@@ -10,6 +10,9 @@ import {
   FEED_LOAD_MORE_THRESHOLD_PX,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for feed pagination cleanup effect.
+ */
 interface FeedPaginationCleanupEffectOptions {
   clearServerLoadCooldown: () => void;
   hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
@@ -18,6 +21,9 @@ interface FeedPaginationCleanupEffectOptions {
   paginationFrameRef: { current: null | number };
 }
 
+/**
+ * Describes the options for feed pagination intent binding.
+ */
 interface FeedPaginationIntentBindingOptions {
   capturePendingInvertedPaginationAnchorSnapshot: () => void;
   clearInitialNormalScrollLock: () => void;
@@ -37,12 +43,18 @@ interface FeedPaginationIntentBindingOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for feed pagination scroll position priming.
+ */
 interface FeedPaginationScrollPositionPrimingOptions {
   isInvertedScroll: boolean;
   lastInvertedScrollTopRef: { current: null | number };
   lastStandardScrollTopRef: { current: null | number };
   scrollViewport: HTMLElement | null;
 }
+/**
+ * Describes the options for feed pagination sentinel load.
+ */
 interface FeedPaginationSentinelLoadOptions {
   clearInitialNormalScrollLock: () => void;
   hasUserScrolledRef: { current: boolean };
@@ -54,6 +66,9 @@ interface FeedPaginationSentinelLoadOptions {
   suppressImmediateNormalScrollIntent: () => void;
 }
 
+/**
+ * Describes the options for feed pagination sentinel observer.
+ */
 interface FeedPaginationSentinelObserverOptions extends FeedPaginationSentinelLoadOptions {
   scrollViewport: HTMLElement | null;
   shouldObserveLoadMoreBoundary: boolean;

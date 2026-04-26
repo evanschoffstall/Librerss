@@ -3,6 +3,9 @@ import type { AuthSession, AuthUser } from "@/lib/core";
 import { LEGAL_CONSENT_VERSION } from "@/lib";
 import { getApiClient } from "@/lib/api/http";
 
+/**
+ * Describes the auth session response.
+ */
 interface AuthSessionResponse {
   user: AuthUser;
 }

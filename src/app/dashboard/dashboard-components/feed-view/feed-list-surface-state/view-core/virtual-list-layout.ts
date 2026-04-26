@@ -3,12 +3,18 @@ import type { Article } from "@/lib/core";
 import { type FeedScrollMode } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core/scroll-mode";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 
+/**
+ * Describes the feed virtual list entry.
+ */
 export interface FeedVirtualListEntry {
   article?: Article;
   key: string;
   kind: "article" | "boundary";
 }
 
+/**
+ * Describes the viewport increase.
+ */
 interface ViewportIncrease {
   bottom: number;
   top: number;

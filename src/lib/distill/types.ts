@@ -1,3 +1,6 @@
+/**
+ * Defines the distill strategy type.
+ */
 export type DistillStrategy = "defuddle" | "librerss" | "readability";
 
 export const DISTILL_STRATEGIES: readonly DistillStrategy[] = [
@@ -6,6 +9,9 @@ export const DISTILL_STRATEGIES: readonly DistillStrategy[] = [
   "defuddle",
 ] as const;
 
+/**
+ * Describes the distilled article.
+ */
 export interface DistilledArticle {
   content: string;
   description?: string;
@@ -13,6 +19,9 @@ export interface DistilledArticle {
   title?: string;
 }
 
+/**
+ * Describes the options for distill.
+ */
 export interface DistillOptions {
   contentLengthThreshold?: number;
 }

@@ -7,6 +7,9 @@ const AUTHOR_BIO_MARKER_RE =
   /\b(author|columnist|journalist|reporter|editor|host|producer|correspondent|staff writer|has written|writes about|writes on|award-winning|newsletter|based in|lives in|joined|email\s*:|contact\s*:|follow\s+on)\b/gi;
 const EMAIL_SIGNAL_RE = /\b[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}\b/i;
 
+/**
+ * Describes the inline bio signals.
+ */
 interface InlineBioSignals {
   hasContactSignal: boolean;
   leadingText: string;

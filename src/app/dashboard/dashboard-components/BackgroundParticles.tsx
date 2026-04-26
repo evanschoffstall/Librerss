@@ -114,6 +114,9 @@ interface BackgroundParticleRendererOptions {
   staticity: number;
 }
 
+/**
+ * Describes the circle.
+ */
 interface Circle {
   alphaBase: number;
   alphaPhase: number;
@@ -127,6 +130,9 @@ interface Circle {
   translateY: number;
 }
 
+/**
+ * Describes the options for initialize background particle canvas.
+ */
 interface InitializeBackgroundParticleCanvasOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   ctxRef: React.RefObject<CanvasRenderingContext2D | null>;
@@ -134,6 +140,9 @@ interface InitializeBackgroundParticleCanvasOptions {
   startedAtRef: React.RefObject<number>;
 }
 
+/**
+ * Describes the props for the particles component.
+ */
 interface ParticlesProps {
   className?: string;
   color?: "dark" | "light";

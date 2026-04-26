@@ -6,6 +6,9 @@ import { CONFIG, logger } from "@/lib";
 
 import { buildBatchRequestLogFields } from "./log-fields";
 
+/**
+ * Describes the batch request body.
+ */
 export interface BatchRequestBody {
   articleFilter?: unknown;
   articleLimit?: unknown;
@@ -19,6 +22,9 @@ export interface BatchRequestBody {
   urls?: unknown;
 }
 
+/**
+ * Describes the options for batch request completed.
+ */
 export interface BatchRequestCompletedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -42,6 +48,9 @@ export interface BatchRequestCompletedOptions {
   userId: number;
 }
 
+/**
+ * Describes the batch request state.
+ */
 export interface BatchRequestState {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -55,22 +64,34 @@ export interface BatchRequestState {
   urls: string[];
 }
 
+/**
+ * Describes the batch URL descriptor.
+ */
 export interface BatchUrlDescriptor {
   kind: "invalid" | "valid";
   url: string;
 }
 
+/**
+ * Describes the normalized batch URLs.
+ */
 export interface NormalizedBatchUrls {
   invalidUrlCount: number;
   normalizedUrls: string[];
   requestUrls: BatchUrlDescriptor[];
 }
 
+/**
+ * Describes the options for batch intent.
+ */
 interface BatchIntentOptions {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   skipRefresh: boolean;
 }
+/**
+ * Describes the batch request state parsers.
+ */
 interface BatchRequestStateParsers {
   parseArticleFilter: (value: unknown) => ArticleFilter | Response;
   parseArticleLimit: (value: unknown) => number | Response | undefined;
@@ -82,12 +103,18 @@ interface BatchRequestStateParsers {
   parseSearchTerm: (value: unknown) => Response | string | undefined;
 }
 
+/**
+ * Describes the options for invalid batch result response.
+ */
 interface InvalidBatchResultResponseOptions {
   diagnosticsEnabled: boolean;
   invalidUrlCount: number;
   requestUrls: BatchUrlDescriptor[];
   userId: number;
 }
+/**
+ * Describes the options for log batch diagnostics.
+ */
 interface LogBatchDiagnosticsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -104,6 +131,9 @@ interface LogBatchDiagnosticsOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch request received.
+ */
 interface LogBatchRequestReceivedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -117,6 +147,9 @@ interface LogBatchRequestReceivedOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch request received when enabled.
+ */
 interface LogBatchRequestReceivedWhenEnabledOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
@@ -131,6 +164,9 @@ interface LogBatchRequestReceivedWhenEnabledOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch status summary.
+ */
 interface LogBatchStatusSummaryOptions {
   cachedCount: number;
   cooldownLimitedCount: number;
@@ -140,16 +176,25 @@ interface LogBatchStatusSummaryOptions {
   requestStartedAt: number;
   resolution: string;
 }
+/**
+ * Describes the options for log batch warnings.
+ */
 interface LogBatchWarningsOptions {
   invalidUrlCount: number;
   upstreamErrors: Map<string, string>;
 }
 
+/**
+ * Describes the options for normalized batch URLs.
+ */
 interface NormalizedBatchUrlsOptions {
   normalizeFeedUrl: (url: string) => string;
   urls: string[];
 }
 
+/**
+ * Describes the options for validated batch request state.
+ */
 interface ValidatedBatchRequestStateOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;

@@ -15,6 +15,9 @@ import {
 const articleContentSearchTextCache = new WeakMap<Article, string>();
 const articleTitleSearchTextCache = new WeakMap<Article, string>();
 
+/**
+ * Describes the dashboard view model input.
+ */
 interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;

@@ -8,6 +8,9 @@ import type { Article } from "@/lib/core";
 
 import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
 
+/**
+ * Describes the props for the feed article row component.
+ */
 export interface FeedArticleRowProps extends Omit<
   FeedArticleCardProps,
   "showFavicon"
@@ -20,6 +23,9 @@ export interface FeedArticleRowProps extends Omit<
   showFavicons: boolean;
 }
 
+/**
+ * Describes the props for the feed list component.
+ */
 export interface FeedListProps {
   /** Set of article keys whose entrance animation is currently running. */
   animatingInArticleKeys?: ReadonlySet<string>;
@@ -56,6 +62,9 @@ export interface FeedListProps {
   updatingArticleState: Record<string, boolean>;
 }
 
+/**
+ * Describes the props for the feed list row component.
+ */
 export interface FeedListRowProps {
   articleKey: string;
   children: React.ReactNode;
@@ -68,4 +77,7 @@ export interface FeedListRowProps {
   removalAnimationMode: ArticleRemovalAnimationMode | null;
 }
 
+/**
+ * Describes the props for the feed article card component.
+ */
 type FeedArticleCardProps = React.ComponentProps<typeof ArticleCard>;

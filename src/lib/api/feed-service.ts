@@ -16,6 +16,9 @@ import {
 } from "@/lib/api/http";
 import { normalizeDistinctUrlList } from "@/lib/utils";
 
+/**
+ * Describes the category order response.
+ */
 interface CategoryOrderResponse {
   orderedLabels?: unknown;
 }
@@ -46,6 +49,9 @@ function serializeKnownLastFetchedAtByUrl(
 }
 
 const feedServiceBaseUrl = "/api";
+/**
+ * Describes the options for feeds batch.
+ */
 interface FeedsBatchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
@@ -59,6 +65,9 @@ interface FeedsBatchOptions {
   skipRefresh?: boolean;
 }
 
+/**
+ * Describes the feed settings settings.
+ */
 interface FeedSettingsSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;

@@ -1,3 +1,6 @@
+/**
+ * Defines the source compatibility signal type.
+ */
 export type SourceCompatibilitySignal =
   | {
       challengeCookies: string[];
@@ -6,6 +9,9 @@ export type SourceCompatibilitySignal =
     }
   | { detected: false };
 
+/**
+ * Defines the compatibility provider type.
+ */
 type CompatibilityProvider =
   | "Cloudflare"
   | "DataDome"

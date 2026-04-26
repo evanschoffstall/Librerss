@@ -5,6 +5,9 @@ import { AlertTriangle, RotateCcw } from "lucide-react";
 import { StatusPage } from "@/app/app-components";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Describes the props for the global error component.
+ */
 interface GlobalErrorProps {
   error: Error & { digest?: string };
   reset: () => void;

@@ -10,6 +10,9 @@ import {
   DEFAULT_FEED_URL,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Describes the options for feed fetch.
+ */
 export interface FeedFetchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
@@ -23,6 +26,9 @@ export interface FeedFetchOptions {
   skipRefresh?: boolean;
 }
 
+/**
+ * Describes the feed selection fetchers.
+ */
 export interface FeedSelectionFetchers {
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
@@ -35,6 +41,9 @@ export interface FeedSelectionFetchers {
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
 }
 
+/**
+ * Defines the feed request source type.
+ */
 type FeedRequestSource =
   | "article-filter-change"
   | "article-sort-order-change"
@@ -52,6 +61,9 @@ type FeedRequestSource =
   | "sidebar-feed-prefetch"
   | "sidebar-feed-select";
 
+/**
+ * Describes the options for initialize dashboard selection.
+ */
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
   initialArticleLimit?: number;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
@@ -60,6 +72,9 @@ type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
   setSelectedCategory: (value: string) => void;
 };
 
+/**
+ * Describes the options for refresh current selection.
+ */
 type RefreshCurrentSelectionOptions = FeedSelectionFetchers & {
   articleLimit?: number;
   fallbackFeedUrl?: string;

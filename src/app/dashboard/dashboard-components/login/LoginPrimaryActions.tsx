@@ -3,6 +3,9 @@ import { motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
 
+/**
+ * Describes the props for the login primary actions component.
+ */
 interface LoginPrimaryActionsProps {
   allowSignup: boolean;
   isSubmitting: boolean;

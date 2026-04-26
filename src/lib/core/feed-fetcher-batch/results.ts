@@ -4,12 +4,18 @@ import { CONFIG } from "@/lib/config";
 
 export type { ArticleRow } from "@/lib/core";
 
+/**
+ * Describes the batch feed resolution.
+ */
 export interface BatchFeedResolution {
   allowedUrls: string[];
   feedByUrl: Map<string, FeedRecord>;
   proxyTransport?: FeedUpstreamTransport;
 }
 
+/**
+ * Describes the batch feed result.
+ */
 export interface BatchFeedResult {
   articles: Map<string, ArticleRow[]>;
   cachedCount: number;
@@ -21,6 +27,9 @@ export interface BatchFeedResult {
   unchangedUrls: Set<string>;
 }
 
+/**
+ * Describes the options for batch fetch.
+ */
 export interface BatchFetchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
@@ -35,6 +44,9 @@ export interface BatchFetchOptions {
   skipRefresh?: boolean;
 }
 
+/**
+ * Describes the batch fetch request.
+ */
 export interface BatchFetchRequest {
   articleFilter: ArticleFilter;
   articleLimit: number;
@@ -51,6 +63,9 @@ export interface BatchFetchRequest {
   userId: number;
 }
 
+/**
+ * Describes the batch refresh execution.
+ */
 export interface BatchRefreshExecution {
   cooldownLimitedCount: number;
   errors: Map<string, string>;
@@ -58,12 +73,18 @@ export interface BatchRefreshExecution {
   refreshedUrls: Set<string>;
 }
 
+/**
+ * Describes the cached batch payload.
+ */
 export interface CachedBatchPayload {
   articles: Map<string, ArticleRow[]>;
   errors: Map<string, string>;
   lastFetchedByUrl: Map<string, Date>;
 }
 
+/**
+ * Describes the changed batch article query.
+ */
 export interface ChangedBatchArticleQuery {
   batchFeeds: BatchFeedResolution;
   cached: CachedBatchPayload | null;
@@ -74,10 +95,16 @@ export interface ChangedBatchArticleQuery {
   unchangedUrls: Set<string>;
 }
 
+/**
+ * Describes the options for feed fetch proxy.
+ */
 export interface FeedFetchProxyOptions {
   resolveProxyTransport?: () => Promise<FeedUpstreamTransport | undefined>;
 }
 
+/**
+ * Describes the feed record.
+ */
 export interface FeedRecord {
   id: number;
   lastFetched: Date;
@@ -86,13 +113,25 @@ export interface FeedRecord {
   url: string;
 }
 
+/**
+ * Describes the feed upstream transport.
+ */
 export interface FeedUpstreamTransport {
   allowInsecureTls?: boolean;
   proxyUrl?: string;
 }
 
+/**
+ * Defines the article filter type.
+ */
 type ArticleFilter = "all" | "read" | "starred" | "unread";
+/**
+ * Defines the article sort order type.
+ */
 type ArticleSortOrder = "newest" | "oldest";
+/**
+ * Describes the options for cached article map.
+ */
 interface CachedArticleMapOptions {
   allowedUrls: string[];
   cachedArticlesByUrl: Map<string, ArticleRow[]> | undefined;
@@ -100,6 +139,9 @@ interface CachedArticleMapOptions {
   unchangedUrls: ReadonlySet<string>;
 }
 
+/**
+ * Describes the options for cached batch response.
+ */
 interface CachedBatchResponseOptions {
   allWithinCooldown: boolean;
   cached: CachedBatchPayload;
@@ -114,6 +156,9 @@ interface CachedBatchResponseOptions {
   }) => void;
   request: BatchFetchRequest;
 }
+/**
+ * Describes the options for collect unchanged URLs.
+ */
 interface CollectUnchangedUrlsOptions {
   articleLimit?: number;
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined;
@@ -121,22 +166,34 @@ interface CollectUnchangedUrlsOptions {
   urls: string[];
 }
 
+/**
+ * Describes the options for feed idless batch result.
+ */
 interface FeedIdlessBatchResultOptions {
   allowedUrls: string[];
   refreshExecution: BatchRefreshExecution;
 }
 
+/**
+ * Describes the options for last fetched by URL.
+ */
 interface LastFetchedByUrlOptions {
   allowedUrls: string[];
   feedByUrl: ReadonlyMap<string, FeedRecord>;
   refreshedUrls: ReadonlySet<string>;
 }
+/**
+ * Describes the options for queried batch result.
+ */
 interface QueriedBatchResultOptions {
   articleMap: Map<string, ArticleRow[]>;
   lastFetchedByUrl: Map<string, Date>;
   query: ChangedBatchArticleQuery;
 }
 
+/**
+ * Describes the options for unchanged batch result.
+ */
 interface UnchangedBatchResultOptions {
   allowedUrlCount: number;
   lastFetchedByUrl: Map<string, Date>;

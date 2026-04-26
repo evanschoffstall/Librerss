@@ -16,6 +16,9 @@ import type {
 
 import * as schema from "./schema";
 
+/**
+ * Describes the options for neon database.
+ */
 interface NeonDatabaseOptions {
   connectionString: string;
   idleTimeoutMillis: number;

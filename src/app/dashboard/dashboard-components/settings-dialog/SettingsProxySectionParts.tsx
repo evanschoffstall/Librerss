@@ -19,6 +19,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+/**
+ * Describes the props for the proxy credentials section component.
+ */
 type ProxyCredentialsSectionProps = Pick<
   UseSettingsProxyStateResult,
   | "hasProxyPassword"
@@ -32,6 +35,9 @@ type ProxyCredentialsSectionProps = Pick<
   showUsernameField: boolean;
 };
 
+/**
+ * Describes the props for the proxy section header component.
+ */
 type ProxySectionHeaderProps = Pick<
   UseSettingsProxyStateResult,
   "proxyRoutingCheck"
@@ -44,6 +50,9 @@ type ProxySectionHeaderProps = Pick<
   showStatusSkeletons: boolean;
 };
 
+/**
+ * Describes the props for the proxy tls toggle component.
+ */
 type ProxyTlsToggleProps = Pick<
   UseSettingsProxyStateResult,
   "allowInsecureTls" | "saving" | "syncAllowInsecureTls"
@@ -51,6 +60,9 @@ type ProxyTlsToggleProps = Pick<
   showTlsToggle: boolean;
 };
 
+/**
+ * Describes the props for the proxy URL section component.
+ */
 type ProxyUrlSectionProps = Pick<
   UseSettingsProxyStateResult,
   | "error"
@@ -67,6 +79,9 @@ type ProxyUrlSectionProps = Pick<
   showProxyUrlRow: boolean;
 };
 
+/**
+ * Describes the props for the settings proxy section body component.
+ */
 interface SettingsProxySectionBodyProps {
   proxyState: UseSettingsProxyStateResult;
 }

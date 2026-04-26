@@ -11,6 +11,9 @@ import { isApiError } from "@/lib/api/http";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core";
 import { isValidUrl } from "@/lib/utils";
 
+/**
+ * Describes the article hydration state.
+ */
 export interface ArticleHydrationState {
   articleHydrationInFlightRef: React.RefObject<Map<string, number>>;
   hydratedArticleLinks: Record<string, boolean>;
@@ -24,6 +27,9 @@ export interface ArticleHydrationState {
   >;
 }
 
+/**
+ * Describes the options for finish article hydration.
+ */
 interface FinishArticleHydrationOptions {
   articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
   hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
@@ -31,6 +37,9 @@ interface FinishArticleHydrationOptions {
   setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
 }
 
+/**
+ * Describes the options for load hydrated article content.
+ */
 interface LoadHydratedArticleContentOptions {
   abortController: AbortController;
   article: Article;
@@ -38,6 +47,9 @@ interface LoadHydratedArticleContentOptions {
   distillStrategy: UseArticleHydrationOptions["distillStrategy"];
 }
 
+/**
+ * Describes the options for prepare article hydration.
+ */
 interface PrepareArticleHydrationOptions {
   article: Article;
   forceHydration: boolean;
@@ -45,6 +57,9 @@ interface PrepareArticleHydrationOptions {
   hydrationState: ArticleHydrationState;
 }
 
+/**
+ * Describes the options for should hydrate article.
+ */
 interface ShouldHydrateArticleOptions {
   article: Article;
   forceHydration: boolean;
@@ -52,6 +67,9 @@ interface ShouldHydrateArticleOptions {
   inFlightCount: number;
   link: string;
 }
+/**
+ * Describes the options for start article hydration.
+ */
 interface StartArticleHydrationOptions {
   articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
   hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];

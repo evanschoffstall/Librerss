@@ -11,6 +11,9 @@ import {
 } from "@/app/dashboard/dashboard-hooks";
 import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/dashboard-services";
 
+/**
+ * Describes the options for dashboard controller runtime state.
+ */
 export interface DashboardControllerRuntimeStateOptions {
   articleLimit: DashboardHandlersOptions["articleLimit"];
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
@@ -40,12 +43,24 @@ export interface DashboardControllerRuntimeStateOptions {
   setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
   timeoutMs: DashboardEffectsOptions["timeoutMs"];
 }
+/**
+ * Describes the options for dashboard effects.
+ */
 export type DashboardEffectsOptions = Parameters<typeof useDashboardEffects>[0];
+/**
+ * Describes the options for dashboard events.
+ */
 export type DashboardEventsOptions = Parameters<typeof useDashboardEvents>[0];
 
+/**
+ * Describes the options for dashboard handlers.
+ */
 export type DashboardHandlersOptions = Parameters<
   typeof useDashboardHandlers
 >[0];
+/**
+ * Describes the options for dashboard controller event bindings.
+ */
 interface DashboardControllerEventBindingsOptions {
   feed: Article[];
   handleMarkArticlesRead: (articles: Article[]) => Promise<void>;
@@ -60,6 +75,9 @@ interface DashboardControllerEventBindingsOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard handler options.
+ */
 interface DashboardHandlerOptionsOptions {
   articleLimit: DashboardHandlersOptions["articleLimit"];
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
@@ -77,6 +95,9 @@ interface DashboardHandlerOptionsOptions {
   setSelectedCategory: DashboardHandlersOptions["setSelectedCategory"];
 }
 
+/**
+ * Describes the options for dashboard shared fetch options.
+ */
 interface DashboardSharedFetchOptionsOptions {
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
   fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];

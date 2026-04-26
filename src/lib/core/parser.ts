@@ -18,6 +18,9 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Describes the pending article.
+ */
 export interface PendingArticle {
   content: string;
   feedId: number;

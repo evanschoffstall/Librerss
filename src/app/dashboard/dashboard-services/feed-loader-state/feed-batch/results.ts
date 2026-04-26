@@ -7,6 +7,9 @@ import {
   retainMissingPreviousFeedArticles,
 } from "@/app/dashboard/dashboard-services/feed-data";
 
+/**
+ * Describes the options for merge hydrated content.
+ */
 interface MergeHydratedContentOptions {
   preserveLocalFeedState?: boolean;
 }

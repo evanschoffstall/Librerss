@@ -32,6 +32,9 @@ import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types"
 import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
 
+/**
+ * Describes the options for apply read swipe action.
+ */
 interface ApplyReadSwipeActionOptions {
   article: Article;
   isExpanded: boolean;
@@ -39,6 +42,9 @@ interface ApplyReadSwipeActionOptions {
   onSwipeRead?: ((article: Article) => void) | undefined;
   onToggleRead: (article: Article) => void;
 }
+/**
+ * Describes the props for the article card component.
+ */
 interface ArticleCardProps {
   article: Article;
   articleKey: string;

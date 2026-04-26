@@ -1,5 +1,8 @@
 import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
+/**
+ * Describes the options for batch request log fields.
+ */
 interface BatchRequestLogFieldsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;

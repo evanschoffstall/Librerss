@@ -34,6 +34,9 @@ const feedSourceFields = {
   url: feedSources.url,
 };
 
+/**
+ * Describes the feed settings for user settings.
+ */
 interface FeedSettingsForUserSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;

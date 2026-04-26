@@ -1,5 +1,8 @@
 import type { Article } from "@/lib/core";
 
+/**
+ * Describes the props for the feed virtual list article row component.
+ */
 interface FeedVirtualListArticleRowProps {
   article: Article;
   estimatedItemHeight?: number;
@@ -10,6 +13,9 @@ interface FeedVirtualListArticleRowProps {
   renderArticle: (article: Article) => React.JSX.Element;
 }
 
+/**
+ * Describes the props for the feed virtual list boundary row component.
+ */
 interface FeedVirtualListBoundaryRowProps {
   index: number;
   itemKey: string;

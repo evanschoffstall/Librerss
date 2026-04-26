@@ -9,6 +9,9 @@ import { LoginCardContent } from "@/app/dashboard/dashboard-components/login/Log
 import { LoginCardHeader } from "@/app/dashboard/dashboard-components/login/LoginCardHeader";
 import { Card } from "@/components/ui/card";
 
+/**
+ * Describes the props for the login view component.
+ */
 interface LoginViewProps {
   allowSignup: boolean;
   initialFormError?: string;

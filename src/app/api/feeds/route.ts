@@ -46,6 +46,9 @@ export const dynamic = "force-dynamic";
 
 const UPSTREAM_FEED_ERROR_MESSAGE = "Failed to fetch feed from upstream";
 
+/**
+ * Describes the feed route deps.
+ */
 interface FeedRouteDeps {
   assertAllowedFeedUrlFn?: typeof assertAllowedFeedUrl;
   createOrUpdateFeedSourceFn?: typeof createOrUpdateFeedSource;
@@ -74,17 +77,26 @@ interface FeedRouteDeps {
   warnFn?: typeof logger.warn;
 }
 
+/**
+ * Defines the feed route warn type.
+ */
 type FeedRouteWarn = (
   message: string,
   context?: Record<string, unknown>,
 ) => void;
 
+/**
+ * Describes the rename feed source from payload parsed payload.
+ */
 interface RenameFeedSourceFromPayloadParsedPayload {
   name: string;
   sourceId: number;
   url: string;
 }
 
+/**
+ * Describes the resolved feed route deps.
+ */
 interface ResolvedFeedRouteDeps {
   assertAllowedUrl: typeof assertAllowedFeedUrl;
   parseCreatePayload: typeof parseCreateFeedPayload;

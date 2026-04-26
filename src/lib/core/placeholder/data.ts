@@ -4,6 +4,9 @@ import {
 } from "@/lib/core/placeholder-sources";
 import { normalizeFeedUrl, tryNormalizeFeedUrl } from "@/lib/utils";
 
+/**
+ * Describes the article.
+ */
 interface Article {
   content: string;
   feedId: number;
@@ -14,6 +17,9 @@ interface Article {
   title: string;
 }
 
+/**
+ * Describes the feed source.
+ */
 interface FeedSource {
   category?: string;
   enabled?: boolean;

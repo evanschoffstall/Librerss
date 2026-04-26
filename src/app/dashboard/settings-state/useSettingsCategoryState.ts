@@ -6,6 +6,9 @@ import type { CategoryTreeNode } from "@/lib/core";
 
 import { isSameCategoryLabel } from "@/lib/utils";
 
+/**
+ * Describes the options for use settings category state.
+ */
 interface UseSettingsCategoryStateOptions {
   categories: CategoryTreeNode[];
   onAddCategory: (name: string) => boolean;

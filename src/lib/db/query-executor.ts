@@ -8,6 +8,9 @@ import {
 import { createNeonQueryExecutor } from "./neon-provider";
 import { createNodePostgresQueryExecutor } from "./node-postgres-provider";
 
+/**
+ * Defines the query executor factory type.
+ */
 type QueryExecutorFactory = () => SqlQueryExecutor;
 
 /**

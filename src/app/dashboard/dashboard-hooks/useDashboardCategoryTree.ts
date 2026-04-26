@@ -12,6 +12,9 @@ import { useFeedSourceActions } from "@/app/dashboard/dashboard-hooks/category-t
 import { useCategoryCrudActions } from "@/app/dashboard/dashboard-hooks/useCategoryCrudActions";
 import { useCategoryOrderState } from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
 
+/**
+ * Describes the options for use dashboard category tree.
+ */
 interface UseDashboardCategoryTreeOptions extends FeedSourceActionState {
   usePlaceholderData?: boolean;
 }

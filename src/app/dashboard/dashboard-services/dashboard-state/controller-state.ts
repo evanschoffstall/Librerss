@@ -12,6 +12,9 @@ import {
 } from "@/app/dashboard/dashboard-services/article";
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Describes the dashboard controller state.
+ */
 interface DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
   feedList: DashboardFeedListState;
   filterBar: DashboardFilterBarState;
@@ -19,6 +22,9 @@ interface DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
   sidebar: DashboardSidebarState<SidebarScrollRef>;
 }
 
+/**
+ * Describes the dashboard feed list state.
+ */
 interface DashboardFeedListState {
   /** Set of article keys whose entrance animation is currently running. */
   animatingInArticleKeys: ReadonlySet<string>;
@@ -55,6 +61,9 @@ interface DashboardFeedListState {
   updatingArticleState: Record<string, boolean>;
 }
 
+/**
+ * Describes the dashboard filter bar state.
+ */
 interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
   /** Current display sort order: newest-first (default) or oldest-first. */
@@ -68,6 +77,9 @@ interface DashboardFilterBarState {
   setArticleSortOrder: (value: ArticleSortOrder) => void;
 }
 
+/**
+ * Describes the dashboard settings state.
+ */
 interface DashboardSettingsState<CategoryTreeController> {
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
@@ -87,6 +99,9 @@ interface DashboardSettingsState<CategoryTreeController> {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the dashboard sidebar content state.
+ */
 interface DashboardSidebarContentState {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
@@ -99,6 +114,9 @@ interface DashboardSidebarContentState {
   sidebarCategories: CategoryTreeNode[];
 }
 
+/**
+ * Describes the dashboard sidebar state.
+ */
 interface DashboardSidebarState<SidebarScrollRef> {
   isMobileSidebarOpen: boolean;
   isSidebarVisible: boolean;

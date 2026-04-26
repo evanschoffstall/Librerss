@@ -10,6 +10,9 @@ import type {
 
 import * as schema from "./schema";
 
+/**
+ * Describes the options for node postgres database.
+ */
 interface NodePostgresDatabaseOptions {
   connectionString: string;
   idleTimeoutMillis: number;

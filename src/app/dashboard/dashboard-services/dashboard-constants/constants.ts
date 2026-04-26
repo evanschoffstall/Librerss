@@ -65,4 +65,7 @@ export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   },
 ];
 
+/**
+ * Defines the background mode type.
+ */
 export type BackgroundMode = "none" | "particles" | "stars";

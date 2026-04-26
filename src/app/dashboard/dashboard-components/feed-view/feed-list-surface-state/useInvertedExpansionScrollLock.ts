@@ -11,6 +11,9 @@ import {
   useInvertedExpansionViewportSnapshot,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedExpansionScrollLockLifecycle";
 
+/**
+ * Describes the options for use inverted expansion scroll lock.
+ */
 export interface UseInvertedExpansionScrollLockOptions {
   articleFilter: string;
   collapsingArticles: Readonly<CollapsingArticles>;
@@ -23,16 +26,25 @@ export interface UseInvertedExpansionScrollLockOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for inverted expansion scroll lock runtime.
+ */
 interface InvertedExpansionScrollLockRuntimeOptions {
   expandedArticleKey: null | string;
   isInvertedScroll: boolean;
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the inverted expansion scroll lock runtime state.
+ */
 type InvertedExpansionScrollLockRuntimeState = ReturnType<
   typeof useInvertedExpansionScrollLockState
 >;
 
+/**
+ * Describes the options for release inverted expansion scroll lock with cooldown.
+ */
 interface ReleaseInvertedExpansionScrollLockWithCooldownOptions {
   invertedExpansionScrollLockRef: InvertedExpansionScrollLockRuntimeState["invertedExpansionScrollLockRef"];
   invertedExpansionViewportSnapshotRef: InvertedExpansionScrollLockRuntimeState["invertedExpansionViewportSnapshotRef"];

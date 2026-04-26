@@ -1,5 +1,8 @@
 import type { Article } from "@/lib/core";
 
+/**
+ * Defines the feed scroll mode type.
+ */
 export type FeedScrollMode = "inverted" | "standard";
 
 /**

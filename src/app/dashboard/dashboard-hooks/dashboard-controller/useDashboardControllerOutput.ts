@@ -17,6 +17,9 @@ import { useDashboardControllerViewState } from "@/app/dashboard/dashboard-hooks
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 
+/**
+ * Describes the options for dashboard controller article view state.
+ */
 interface DashboardControllerArticleViewStateOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
@@ -26,6 +29,9 @@ interface DashboardControllerArticleViewStateOptions {
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
 
+/**
+ * Describes the options for dashboard controller chrome state.
+ */
 interface DashboardControllerChromeStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   runtimeState: ReturnType<typeof useDashboardRuntimeState>;
@@ -33,6 +39,9 @@ interface DashboardControllerChromeStateOptions {
     typeof import("@/app/dashboard/dashboard-services/dashboard-state/view-model").buildDashboardViewModel
   >["sidebarCategories"];
 }
+/**
+ * Describes the options for dashboard controller layout view state.
+ */
 interface DashboardControllerLayoutViewStateOptions {
   backgroundMode: BackgroundMode;
   controllerResources: ReturnType<typeof useDashboardControllerResources>;
@@ -45,6 +54,9 @@ interface DashboardControllerLayoutViewStateOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard controller output.
+ */
 interface DashboardControllerOutputOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
@@ -60,6 +72,9 @@ interface DashboardControllerOutputOptions {
   usePlaceholderData: boolean;
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
+/**
+ * Describes the options for dashboard sidebar content state.
+ */
 interface DashboardSidebarContentStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   runtimeState: ReturnType<typeof useDashboardRuntimeState>;

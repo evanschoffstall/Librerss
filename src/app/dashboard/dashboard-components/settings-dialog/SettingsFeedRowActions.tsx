@@ -24,6 +24,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * Describes the settings feed row derived state.
+ */
 export interface SettingsFeedRowDerivedState {
   isDeleting: boolean;
   isDragging: boolean;
@@ -43,6 +46,9 @@ export interface SettingsFeedRowDerivedState {
   startEditingFeed: () => void;
 }
 
+/**
+ * Describes the props for the feed row actions component.
+ */
 interface FeedRowActionsProps {
   isMobile: boolean;
   rowProps: SettingsFeedRowProps;

@@ -12,6 +12,9 @@ import {
 import { serverApi } from "@/lib/server";
 import { isValidEmail } from "@/lib/utils";
 
+/**
+ * Describes the login payload.
+ */
 interface LoginPayload {
   email: string;
   password: string;

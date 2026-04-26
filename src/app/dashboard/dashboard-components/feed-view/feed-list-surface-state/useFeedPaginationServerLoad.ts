@@ -4,6 +4,9 @@ import { useCallback, useRef, useState } from "react";
 
 import { FEED_SERVER_LOAD_REARM_COOLDOWN_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for feed pagination server load cooldown state.
+ */
 interface FeedPaginationServerLoadCooldownStateOptions {
   hasPendingBoundaryRearmAfterCooldownRef: React.RefObject<boolean>;
   hasRequestedServerLoadRef: React.RefObject<boolean>;
@@ -19,6 +22,9 @@ interface FeedPaginationServerLoadCooldownStateOptions {
   >>;
 }
 
+/**
+ * Describes the options for request more from server.
+ */
 interface RequestMoreFromServerOptions {
   canLoadMoreFromServer: boolean;
   hasPendingBoundaryRearmAfterCooldownRef: React.RefObject<boolean>;
@@ -32,11 +38,17 @@ interface RequestMoreFromServerOptions {
   >;
 }
 
+/**
+ * Describes the options for use feed pagination server load cooldown.
+ */
 interface UseFeedPaginationServerLoadCooldownOptions extends FeedPaginationServerLoadCooldownStateOptions {
   clearServerLoadCooldown: () => void;
   onCooldownComplete: React.Dispatch<React.SetStateAction<number>>;
 }
 
+/**
+ * Describes the options for use feed pagination server load.
+ */
 interface UseFeedPaginationServerLoadOptions {
   canLoadMoreFromServer: boolean;
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;

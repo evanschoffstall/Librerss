@@ -12,6 +12,9 @@ import {
   useViewportRestoreRefs,
 } from "@/lib/hooks/viewportRestoreController";
 
+/**
+ * Describes the use viewport restore result.
+ */
 interface UseViewportRestoreResult {
   capture: () => void;
   flush: () => void;

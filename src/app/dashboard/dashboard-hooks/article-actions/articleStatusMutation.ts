@@ -28,10 +28,16 @@ export interface OptimisticArticleStatusMutationResult {
   failedArticleKeys: Set<string>;
 }
 
+/**
+ * Defines the article status patch type.
+ */
 type ArticleStatusPatch = Parameters<
   typeof ArticleService.updateArticleStatus
 >[1];
 
+/**
+ * Describes the options for optimistic article status mutation.
+ */
 interface OptimisticArticleStatusMutationOptions {
   applyOptimisticUpdate: (
     currentFeed: Article[],

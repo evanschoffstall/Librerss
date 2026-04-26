@@ -32,11 +32,17 @@ import {
 } from "@/app/dashboard/dashboard-services/feed-data/batch";
 import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the options for feed batch fetcher hook.
+ */
 type FeedBatchFetcherHookOptions = Omit<
   FeedBatchRequestExecutionOptions,
   "options" | "sources"
 >;
 
+/**
+ * Describes the options for feed batch request execution.
+ */
 interface FeedBatchRequestExecutionOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;
@@ -59,6 +65,9 @@ interface FeedBatchRequestExecutionOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for feed request cancellation.
+ */
 interface FeedRequestCancellationOptions {
   cancelPendingRequest: ReturnType<
     typeof useFeedBatchRequestState
@@ -69,6 +78,9 @@ interface FeedRequestCancellationOptions {
   ) => void;
 }
 
+/**
+ * Describes the options for feed selection fetchers.
+ */
 interface FeedSelectionFetchersOptions {
   categoriesRef: RefObject<CategoryTreeNode[]>;
   fetchFeedBatch: (
@@ -76,11 +88,17 @@ interface FeedSelectionFetchersOptions {
     options?: FeedFetchOptions,
   ) => Promise<void>;
 }
+/**
+ * Describes the options for feed selection prefetchers.
+ */
 interface FeedSelectionPrefetchersOptions {
   categoriesRef: RefObject<CategoryTreeNode[]>;
   prefetchFeedBatch: ReturnType<typeof useFeedBatchQuery>["prefetchFeedBatch"];
 }
 
+/**
+ * Describes the options for prepared feed batch request.
+ */
 interface PreparedFeedBatchRequestOptions {
   context: NonNullable<ReturnType<typeof prepareFeedBatchExecution>>;
   feedRef: FeedBatchFetcherHookOptions["feedRef"];
@@ -100,6 +118,9 @@ interface PreparedFeedBatchRequestOptions {
   setFeed: FeedBatchFetcherHookOptions["setFeed"];
   usePlaceholderData: FeedBatchFetcherHookOptions["usePlaceholderData"];
 }
+/**
+ * Describes the options for prepare feed batch execution.
+ */
 interface PrepareFeedBatchExecutionOptions {
   articleFilter: ArticleFilter;
   articleSortOrder: ArticleSortOrder;
@@ -116,6 +137,9 @@ interface PrepareFeedBatchExecutionOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for restore prepared feed batch snapshot on error.
+ */
 interface RestorePreparedFeedBatchSnapshotOnErrorOptions {
   batchResults: Awaited<
     ReturnType<ReturnType<typeof useFeedBatchQuery>["loadBatchResults"]>

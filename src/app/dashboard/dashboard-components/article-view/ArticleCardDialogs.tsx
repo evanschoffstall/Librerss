@@ -15,6 +15,9 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Describes the props for the article card dialogs component.
+ */
 interface ArticleCardDialogsProps {
   copyLinkInputRef: React.RefObject<HTMLInputElement | null>;
   isCopyLinkOpen: boolean;
@@ -30,6 +33,9 @@ interface ArticleCardDialogsProps {
   shareUrl: string;
 }
 
+/**
+ * Describes the props for the raw HTML header content component.
+ */
 interface RawHtmlHeaderContentProps {
   onSelectRawHtml: ArticleCardDialogsProps["onSelectRawHtml"];
   title: string;

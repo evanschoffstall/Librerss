@@ -6,6 +6,9 @@ import type { toErrorMessage } from "@/lib/utils";
 
 import type { requireMutableAuthenticatedUser } from "./guards";
 
+/**
+ * Describes the extract post deps.
+ */
 export interface ExtractPostDeps {
   cleanSanitizedHtmlFn?: typeof cleanSanitizedHtml;
   errorFn?: typeof logger.error;
@@ -20,6 +23,9 @@ export interface ExtractPostDeps {
   warnFn?: typeof logger.warn;
 }
 
+/**
+ * Describes the extract resolved user proxy.
+ */
 export interface ExtractResolvedUserProxy {
   allowInsecureTls: boolean;
   proxyUrl: string | undefined;

@@ -10,6 +10,9 @@ import {
   refreshCurrentSelection,
 } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the options for dashboard article window counts.
+ */
 interface DashboardArticleWindowCountsOptions {
   currentFeedLength: number;
   isLoadingMoreArticles: boolean;
@@ -17,6 +20,9 @@ interface DashboardArticleWindowCountsOptions {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * Describes the options for dashboard article window helper.
+ */
 interface DashboardArticleWindowHelperOptions {
   prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
   prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
@@ -27,6 +33,9 @@ interface DashboardArticleWindowHelperOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard article window refill.
+ */
 interface DashboardArticleWindowRefillOptions extends FeedSelectionFetchers {
   allowPartialArticleWindowGrowthRef: React.RefObject<boolean>;
   /**
@@ -49,6 +58,9 @@ interface DashboardArticleWindowRefillOptions extends FeedSelectionFetchers {
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
 
+/**
+ * Describes the options for dashboard article window refresh.
+ */
 interface DashboardArticleWindowRefreshOptions extends FeedSelectionFetchers {
   articleLimit: number;
   articlesPerPage: number;
@@ -60,6 +72,9 @@ interface DashboardArticleWindowRefreshOptions extends FeedSelectionFetchers {
   setIsLoadingMoreArticles: React.Dispatch<React.SetStateAction<boolean>>;
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
+/**
+ * Describes the dashboard article window reset state.
+ */
 interface DashboardArticleWindowResetState {
   allowPartialArticleWindowGrowthRef: React.RefObject<boolean>;
   hasStartedArticleWindowSettlementRef: React.RefObject<boolean>;
@@ -72,6 +87,9 @@ interface DashboardArticleWindowResetState {
   setRequestedArticleLimit: React.Dispatch<React.SetStateAction<number>>;
 }
 
+/**
+ * Describes the options for reset dashboard article window state.
+ */
 interface ResetDashboardArticleWindowStateOptions {
   articlesPerPage: number;
   shouldUseArticleWindow: boolean;

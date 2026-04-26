@@ -10,6 +10,9 @@ export const animTransitionColorsClass =
 
 export const settingsDragHandleCls =
   "shrink-0 cursor-grab text-muted-foreground/70 transition-colors hover:text-foreground active:cursor-grabbing";
+/**
+ * Describes the props for the settings icon button component.
+ */
 interface SettingsIconButtonProps {
   ariaLabel?: string;
   children: React.ReactNode;

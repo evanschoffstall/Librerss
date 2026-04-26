@@ -23,6 +23,9 @@ const LEAD_IMAGE_TAG_RE = /<img\b[^>]*>/i;
 const ANCHOR_HREF_RE = /<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi;
 const IMAGE_DOWNLOAD_HREF_RE = /\.(?:avif|gif|jpe?g|png|webp)(?:$|[?#])/i;
 
+/**
+ * Describes the options for respond to upstream extract error.
+ */
 interface RespondToUpstreamExtractErrorOptions {
   errorLog: typeof logger.error;
   proxyUrl: string | undefined;
@@ -32,6 +35,9 @@ interface RespondToUpstreamExtractErrorOptions {
   verboseLoggingEnabled: boolean;
 }
 
+/**
+ * Implements the early response error.
+ */
 export class EarlyResponseError extends Error {
   /**
    * Creates an internal control-flow error that carries a prepared response.

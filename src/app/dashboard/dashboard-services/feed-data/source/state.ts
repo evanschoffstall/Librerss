@@ -8,6 +8,9 @@ import {
 } from "@/app/dashboard/dashboard-services/category-tree";
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Defines the feed removal resolution type.
+ */
 type FeedRemovalResolution =
   | { categoryNode: CategoryTreeNode; type: "category" }
   | { feedUrl: string; nextSelectedCategory?: string; type: "feed" }

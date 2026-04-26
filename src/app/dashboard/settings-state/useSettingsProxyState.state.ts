@@ -17,6 +17,9 @@ import {
   type ProxyUIStatus,
 } from "@/app/dashboard/dashboard-services";
 
+/**
+ * Describes the settings proxy request state.
+ */
 export interface SettingsProxyRequestState {
   activeCompatibilityRequestId: null | number;
   activeProxyMutationRequestId: null | number;
@@ -31,6 +34,9 @@ export interface SettingsProxyRequestState {
   startProxyRequest: () => number;
 }
 
+/**
+ * Describes the settings proxy writable state.
+ */
 export interface SettingsProxyWritableState {
   allowInsecureTls: boolean;
   compatibilityCheckedAt: null | number;
@@ -64,6 +70,9 @@ export interface SettingsProxyWritableState {
   setProxyUsername: Dispatch<SetStateAction<string>>;
   shouldAutoScrollToResultsRef: RefObject<boolean>;
 }
+/**
+ * Describes the options for apply proxy settings snapshot.
+ */
 interface ApplyProxySettingsSnapshotOptions {
   setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<null | string>>;

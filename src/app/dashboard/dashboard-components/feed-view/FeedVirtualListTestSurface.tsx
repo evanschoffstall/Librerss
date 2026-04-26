@@ -14,10 +14,16 @@ import {
   FeedVirtualListBoundaryRow,
 } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListRows";
 
+/**
+ * Defines the feed virtual list entry type.
+ */
 type FeedVirtualListEntry = ReturnType<
   typeof buildFeedVirtualListEntries
 >[number];
 
+/**
+ * Describes the props for the feed virtual list test surface component.
+ */
 interface FeedVirtualListTestSurfaceProps {
   className: string;
   entries: ReturnType<typeof buildFeedVirtualListEntries>;
@@ -29,8 +35,14 @@ interface FeedVirtualListTestSurfaceProps {
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the options for measured test surface.
+ */
 type MeasuredTestSurfaceOptions = Parameters<typeof reportMeasuredTotalSize>[0];
 
+/**
+ * Describes the options for report measured total size.
+ */
 interface ReportMeasuredTotalSizeOptions {
   containerRef: RefObject<HTMLDivElement | null>;
   estimatedItemHeight: number;

@@ -17,6 +17,9 @@ import { DashboardToolbarIconButton } from "@/app/dashboard/dashboard-components
 import { type useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Describes the props for the dashboard toolbar desktop actions component.
+ */
 type DashboardToolbarDesktopActionsProps = Pick<
   ReturnType<typeof useDashboardToolbarState>,
   | "handleMarkAllRead"
@@ -35,11 +38,17 @@ type DashboardToolbarDesktopActionsProps = Pick<
   | "themeToggleLabel"
 > & { isToolbarActionPending: boolean };
 
+/**
+ * Describes the props for the dashboard toolbar reset icon button component.
+ */
 interface DashboardToolbarResetIconButtonProps {
   handleReset: () => Promise<void>;
   isDevelopmentMode: boolean;
   isResetting: boolean;
 }
+/**
+ * Describes the props for the dashboard toolbar theme button component.
+ */
 interface DashboardToolbarThemeButtonProps {
   handleToggleTheme: () => void;
   isDark: boolean;
@@ -47,6 +56,9 @@ interface DashboardToolbarThemeButtonProps {
   themeToggleLabel: string;
 }
 
+/**
+ * Describes the props for the dashboard toolbar upstream refresh button component.
+ */
 interface DashboardToolbarUpstreamRefreshButtonProps {
   handleRefreshFromUpstream: () => void;
   isDevelopmentMode: boolean;

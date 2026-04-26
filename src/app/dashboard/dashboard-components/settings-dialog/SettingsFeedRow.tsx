@@ -61,16 +61,25 @@ export interface SettingsFeedRowProps {
   updatingSettingsKey: null | string;
 }
 
+/**
+ * Describes the props for the feed row display content component.
+ */
 interface FeedRowDisplayContentProps {
   feedNode: CategoryTreeNode;
   isEnabled: boolean;
   movingFeedKey: null | string;
   selectedCategory: string;
 }
+/**
+ * Describes the props for the feed row drop marker component.
+ */
 interface FeedRowDropMarkerProps {
   position: "bottom" | "top";
 }
 
+/**
+ * Describes the props for the feed row editing fields component.
+ */
 interface FeedRowEditingFieldsProps {
   editingFeedName: string;
   editingFeedUrl: string;

@@ -5,6 +5,9 @@ import { useEffect, useState } from "react";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { readDashboardPreviewModeFromLocation } from "@/app/dashboard/toolbar/dashboardWindowEvents";
 
+/**
+ * Describes the options for dashboard toolbar window listeners.
+ */
 interface DashboardToolbarWindowListenersOptions {
   setIsMarkingAllRead: React.Dispatch<React.SetStateAction<boolean>>;
   setIsMarkingViewportRead: React.Dispatch<React.SetStateAction<boolean>>;
@@ -15,6 +18,9 @@ interface DashboardToolbarWindowListenersOptions {
   setTitle: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the dashboard toolbar window state.
+ */
 interface DashboardToolbarWindowState {
   isMarkingAllRead: boolean;
   isMarkingViewportRead: boolean;

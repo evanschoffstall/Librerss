@@ -7,6 +7,9 @@ import type { Article } from "@/lib/core";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { type FeedExtractionSettings } from "@/app/dashboard/display-types";
 
+/**
+ * Describes the options for expanded article distill strategy effect.
+ */
 interface ExpandedArticleDistillStrategyEffectOptions {
   autoHydratedExpandedKeyRef: React.RefObject<null | string>;
   distillStrategy: string | undefined;
@@ -18,6 +21,9 @@ interface ExpandedArticleDistillStrategyEffectOptions {
   previousDistillStrategyRef: React.RefObject<string | undefined>;
 }
 
+/**
+ * Describes the options for expanded article hydration restore effect.
+ */
 interface ExpandedArticleHydrationRestoreEffectOptions {
   autoHydratedExpandedKeyRef: React.RefObject<null | string>;
   awaitingExpandedSyncKeyRef: React.RefObject<null | string>;
@@ -28,6 +34,9 @@ interface ExpandedArticleHydrationRestoreEffectOptions {
   hydratingArticleLinks: Record<string, boolean>;
 }
 
+/**
+ * Describes the options for use expanded article hydration.
+ */
 interface UseExpandedArticleHydrationOptions {
   distillStrategy?: string;
   expandedArticleKey: null | string;

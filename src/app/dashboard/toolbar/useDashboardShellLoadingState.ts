@@ -4,12 +4,18 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Describes the options for dashboard shell loading state.
+ */
 interface DashboardShellLoadingStateOptions {
   hasReceivedShellLoadingEvent: boolean;
   readyState: DocumentReadyState;
   shellLoadingFromDocument: boolean | null;
 }
 
+/**
+ * Describes the shell loading event detail.
+ */
 interface ShellLoadingEventDetail {
   loading?: boolean;
 }

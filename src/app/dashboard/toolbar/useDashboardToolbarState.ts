@@ -29,11 +29,17 @@ export {
   resolveDashboardShellLoadingState,
 };
 
+/**
+     * Describes the options for dashboard theme state.
+     */
 interface DashboardThemeStateOptions {
   mounted: boolean;
   resolvedTheme: string | undefined;
   setTheme: (theme: string) => void;
 }
+/**
+ * Describes the options for dashboard toolbar actions.
+ */
 interface DashboardToolbarActionsOptions {
   isPreviewMode: boolean;
   isRefreshing: boolean;
@@ -45,11 +51,17 @@ interface DashboardToolbarActionsOptions {
   setSearch: (term: string) => void;
 }
 
+/**
+ * Describes the options for dashboard toolbar event actions.
+ */
 interface DashboardToolbarEventActionsOptions {
   isRefreshing: boolean;
   setSearch: (term: string) => void;
 }
 
+/**
+ * Describes the options for dashboard toolbar session actions.
+ */
 interface DashboardToolbarSessionActionsOptions {
   isPreviewMode: boolean;
   isResetting: boolean;
@@ -58,6 +70,9 @@ interface DashboardToolbarSessionActionsOptions {
   setIsResetting: React.Dispatch<React.SetStateAction<boolean>>;
   setIsSigningOut: React.Dispatch<React.SetStateAction<boolean>>;
 }
+/**
+ * Describes the dashboard toolbar state state.
+ */
 interface DashboardToolbarStateState {
   handleMarkAllRead: () => void;
   handleMarkViewportRead: () => void;

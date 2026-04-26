@@ -18,6 +18,9 @@ import {
   useDashboardArticleWindowPrefetch,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
 
+/**
+ * Describes the options for dashboard article window availability.
+ */
 type DashboardArticleWindowAvailabilityOptions = Pick<
   DashboardArticleWindowLifecycleOptions,
   | "articleFilter"
@@ -30,6 +33,9 @@ type DashboardArticleWindowAvailabilityOptions = Pick<
   | "usePlaceholderData"
 >;
 
+/**
+ * Describes the options for dashboard article window availability resolution lifecycle.
+ */
 interface DashboardArticleWindowAvailabilityResolutionLifecycleOptions {
   articleFilter: string;
   currentFeedLength: number;
@@ -39,11 +45,17 @@ interface DashboardArticleWindowAvailabilityResolutionLifecycleOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard article window controls.
+ */
 interface DashboardArticleWindowControlsOptions {
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
   options: UseDashboardArticleWindowOptions;
 }
 
+/**
+ * Describes the options for dashboard article window lifecycle.
+ */
 interface DashboardArticleWindowLifecycleOptions {
   articleFilter: UseDashboardArticleWindowOptions["articleFilter"];
   articlesPerPage: UseDashboardArticleWindowOptions["articlesPerPage"];
@@ -61,6 +73,9 @@ interface DashboardArticleWindowLifecycleOptions {
   usePlaceholderData: UseDashboardArticleWindowOptions["usePlaceholderData"];
 }
 
+/**
+ * Describes the options for dashboard article window selection reset lifecycle.
+ */
 interface DashboardArticleWindowSelectionResetLifecycleOptions {
   articleFilter: string;
   articlesPerPage: number;

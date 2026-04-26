@@ -17,12 +17,18 @@ import type { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader"
 import { useDashboardArticleCallbacks } from "@/app/dashboard/dashboard-hooks";
 import { useDashboardControllerRuntime } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
 
+/**
+ * Describes the options for dashboard runtime setter state.
+ */
 interface DashboardRuntimeSetterStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   feedLoader: ReturnType<typeof useFeedLoader>;
   refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
 }
 
+/**
+ * Describes the options for dashboard runtime state.
+ */
 interface DashboardRuntimeStateOptions {
   articleActions: ReturnType<typeof useArticleActions>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;

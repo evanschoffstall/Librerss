@@ -20,6 +20,9 @@ import {
 } from "@/app/dashboard/dashboard-services/article";
 import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the article window ref collection.
+ */
 interface ArticleWindowRefCollection {
   allowPartialArticleWindowGrowthRef: RefObject<boolean>;
   hasStartedArticleWindowSettlementRef: RefObject<boolean>;
@@ -31,6 +34,9 @@ interface ArticleWindowRefCollection {
   previousAwaitedFeedLengthRef: RefObject<number>;
 }
 
+/**
+ * Describes the options for use article window availability.
+ */
 interface UseArticleWindowAvailabilityOptions {
   allowPartialArticleWindowGrowthRef: RefObject<boolean>;
   currentFeedLength: number;
@@ -48,6 +54,9 @@ interface UseArticleWindowAvailabilityOptions {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * Describes the options for use reset article window.
+ */
 interface UseResetArticleWindowOptions extends ArticleWindowRefCollection {
   articleFilter: string;
   articlesPerPage: number;
@@ -58,6 +67,9 @@ interface UseResetArticleWindowOptions extends ArticleWindowRefCollection {
   shouldUseArticleWindow: boolean;
 }
 
+/**
+ * Describes the options for use unread window refill.
+ */
 interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
   allowPartialArticleWindowGrowthRef: RefObject<boolean>;
   articleFilter: string;
