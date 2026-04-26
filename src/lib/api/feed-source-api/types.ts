@@ -27,8 +27,8 @@ export type FeedTransaction = Parameters<
 export type { FeedSourceListRow, FeedSourceRecord };
 
 /**
-     * Describes the rename feed payload.
-     */
+ * Describes the rename feed payload.
+ */
 export interface RenameFeedPayload {
   name: string;
   sourceId: number;

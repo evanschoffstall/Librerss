@@ -37,12 +37,12 @@ export class RateLimiter {
   /** Cached once per instance so env is not re-read on every request. */
   private _trustedProxyCount: number | undefined;
   /**
-       * Stores the cleanup timer.
-       */
+   * Stores the cleanup timer.
+   */
   private readonly cleanupTimer: ReturnType<typeof setInterval>;
   /**
-       * Stores the store.
-       */
+   * Stores the store.
+   */
   private store = new Map<string, RateLimitEntry>();
 
   // Clean up expired entries every 5 minutes

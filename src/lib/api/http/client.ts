@@ -60,8 +60,8 @@ export interface ApiResponse<T> {
  */
 export class ApiError<T = unknown> extends Error {
   /**
-       * Stores the is API error.
-       */
+   * Stores the is API error.
+   */
   readonly isApiError = true;
 
   /**

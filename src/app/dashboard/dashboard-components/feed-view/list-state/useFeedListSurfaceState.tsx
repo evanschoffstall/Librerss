@@ -21,8 +21,8 @@ export {
 };
 
 /**
-     * Describes the inverted pagination anchor ref contract.
-     */
+ * Describes the inverted pagination anchor ref contract.
+ */
 interface InvertedPaginationAnchorRefContract {
   current: InvertedPaginationAnchorState | null;
 }

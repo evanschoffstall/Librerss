@@ -17,37 +17,37 @@ export interface HttpCloakUpstreamErrorOptions {
  */
 export class HttpCloakUpstreamError extends Error {
   /**
-       * Stores the allow insecure tls.
-       */
+   * Stores the allow insecure tls.
+   */
   readonly allowInsecureTls: boolean;
 
   /**
-       * Stores the proxy address.
-       */
+   * Stores the proxy address.
+   */
   readonly proxyAddress: null | string;
   /**
-       * Stores the proxy mode.
-       */
+   * Stores the proxy mode.
+   */
   readonly proxyMode: string;
   /**
-       * Stores the redirect hop.
-       */
+   * Stores the redirect hop.
+   */
   readonly redirectHop: number;
   /**
-       * Stores the request headers.
-       */
+   * Stores the request headers.
+   */
   readonly requestHeaders: Record<string, string>;
   /**
-       * Stores the response body.
-       */
+   * Stores the response body.
+   */
   readonly responseBody: string;
   /**
-       * Stores the response headers.
-       */
+   * Stores the response headers.
+   */
   readonly responseHeaders: Record<string, string | string[] | undefined>;
   /**
-       * Stores the status code.
-       */
+   * Stores the status code.
+   */
   readonly statusCode: number;
 
   /**

@@ -66,8 +66,8 @@ type DbMod = typeof import("@/lib/db");
 export { isFeedSourceNotFoundError, isUpstreamFeedError };
 
 /**
-     * Describes the feed fetcher dependencies.
-     */
+ * Describes the feed fetcher dependencies.
+ */
 interface FeedFetcherDependencies extends FeedFetcherBatchRuntimeDependencies {
   ensureFeedRecordByUrl: DbMod["ensureFeedRecordByUrl"];
   refreshFeedFromUpstream: typeof refreshFeedFromUpstream;

@@ -30,8 +30,8 @@ export {
 };
 
 /**
-     * Describes the options for dashboard theme state.
-     */
+ * Describes the options for dashboard theme state.
+ */
 interface DashboardThemeStateOptions {
   mounted: boolean;
   resolvedTheme: string | undefined;

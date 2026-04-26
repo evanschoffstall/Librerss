@@ -11,8 +11,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export type { LegalDocumentPageProps, LegalSection };
 
 /**
-     * Describes the props for the legal document section component.
-     */
+ * Describes the props for the legal document section component.
+ */
 interface LegalDocumentSectionProps {
   contactCard: LegalDocumentPageProps["contactCard"];
   section: LegalSection;
