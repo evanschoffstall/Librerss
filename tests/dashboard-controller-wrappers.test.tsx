@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 const getDashboardArticleWindowCountsMock = mock();
@@ -73,14 +73,18 @@ describe("dashboard controller wrapper hooks", () => {
   });
 
   test("tracks animating article keys", async () => {
-    const { useDashboardAnimatingArticleState } = await loadControllerSectionsModule();
+    const { useDashboardAnimatingArticleState } =
+      await loadControllerSectionsModule();
     const { result } = renderHook(() => useDashboardAnimatingArticleState());
 
     act(() => {
       result.current.handleNewArticlesArrived(new Set(["a", "b"]));
       result.current.handleNewArticlesArrived(new Set());
     });
-    expect(Array.from(result.current.animatingInArticleKeys)).toEqual(["a", "b"]);
+    expect(Array.from(result.current.animatingInArticleKeys)).toEqual([
+      "a",
+      "b",
+    ]);
 
     act(() => {
       result.current.handleArticleEnteringDone("a");
@@ -90,7 +94,8 @@ describe("dashboard controller wrapper hooks", () => {
   });
 
   test("derives dashboard feed loading state from loading and search inputs", async () => {
-    const { useDashboardFeedLoadingState } = await loadControllerSectionsModule();
+    const { useDashboardFeedLoadingState } =
+      await loadControllerSectionsModule();
     const { rerender, result } = renderHook(
       ({
         feedLength,
@@ -134,8 +139,10 @@ describe("dashboard controller wrapper hooks", () => {
     });
 
     expect(result.current.isFeedListInitialLoading).toBe(false);
-    expect(result.current.isFeedListRefreshing).toBe(true);
     expect(result.current.shouldUseArticleWindow).toBe(true);
+    await waitFor(() => {
+      expect(result.current.isFeedListRefreshing).toBe(true);
+    });
   });
 
   test("composes the dashboard article window lifecycle and controls", async () => {
@@ -146,7 +153,9 @@ describe("dashboard controller wrapper hooks", () => {
       pendingLoadMoreArticleCount: 10,
     });
     useDashboardArticleWindowPrefetchMock.mockReturnValue(prefetchNextPage);
-    useDashboardArticleWindowLoadMoreMock.mockReturnValue(handleLoadMoreArticles);
+    useDashboardArticleWindowLoadMoreMock.mockReturnValue(
+      handleLoadMoreArticles,
+    );
 
     const { useDashboardArticleWindow } = await setupArticleWindowModule();
     const options = {

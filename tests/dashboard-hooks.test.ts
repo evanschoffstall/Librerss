@@ -1421,7 +1421,7 @@ describe("useArticleHydration", () => {
   });
 
   test("hydrateArticleContent loads stored article content when extraction is disabled", async () => {
-    const article = createMockArticle();
+    const article = createMockArticle({ content: "" });
     let feedState = [article];
     const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
       feedState = typeof updater === "function" ? updater(feedState) : updater;
@@ -1449,6 +1449,7 @@ describe("useArticleHydration", () => {
 
   test("hydrateArticleContent keeps placeholder snapshot URLs on the extract path", async () => {
     const article = createMockArticle({
+      content: "",
       feedUrl: "https://www.usgs.gov/news/news-releases",
       link: "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
     });

@@ -216,6 +216,7 @@ function useDashboardControllerResourceState(
     categoryTree: controllerResources.categoryTree,
     collapsedArticles: controllerResources.articleActions.collapsingArticles,
     dashboardState: options.dashboardState,
+    usePlaceholderData: options.usePlaceholderData,
   });
 
   return {

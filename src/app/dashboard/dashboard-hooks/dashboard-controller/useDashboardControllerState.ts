@@ -57,6 +57,9 @@ export function useDashboardRuntimeState(
     viewModelState,
   } = options;
   const appliedBatchArticleFilterRef = useRef(dashboardState.articleFilter);
+  const appliedBatchArticleSortOrderRef = useRef(
+    dashboardState.articleSortOrder,
+  );
   const appliedBatchSearchTermRef = useRef(
     loadingState.deferredSearchTerm.trim(),
   );

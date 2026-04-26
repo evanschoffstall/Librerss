@@ -536,6 +536,41 @@ describe("FeedList", () => {
     expect(feedFrame?.getAttribute("style") ?? "").not.toContain("opacity: 0");
   });
 
+  test("shows article skeletons instead of the up-to-date empty state during an empty refresh", async () => {
+    const { container, queryByText } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-dashboard-feed-list-skeleton='true']"),
+      ).toBeTruthy();
+      expect(
+        container.querySelector("[data-feed-empty-state='true']"),
+      ).toBeNull();
+      expect(queryByText("You're up to date")).toBeNull();
+    });
+  });
+
   test("does not prefetch another server page during idle auto-fill before any scroll intent", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 8 }, (_value, index) =>

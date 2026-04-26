@@ -169,6 +169,31 @@ test.describe("dashboard toolbar loading", () => {
       .toBe(true);
   });
 
+  test("refreshing the feed never flashes the up-to-date empty state", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+
+    await page
+      .locator('[data-dashboard-feed-list-skeleton="true"]')
+      .waitFor({ state: "detached", timeout: 15_000 });
+    await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
+
+    await page
+      .getByRole("button", { exact: true, name: "Refresh selected feed" })
+      .first()
+      .click();
+
+    await expect(page.locator('[data-feed-empty-state="true"]')).toHaveCount(
+      0,
+      { timeout: 1_000 },
+    );
+    await expect(page.getByText("You're up to date")).toHaveCount(0, {
+      timeout: 1_000,
+    });
+  });
+
   test("all skeleton surfaces are present together and disappear together on initial load", async ({
     page,
   }) => {

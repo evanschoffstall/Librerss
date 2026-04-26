@@ -358,6 +358,34 @@ describe("useDashboardState", () => {
     expect(result.current.isFeedListRefreshing).toBe(true);
   });
 
+  test("treats empty feed reloads as feed refreshes after the shell has settled", async () => {
+    const { rerender, result } = renderHook(
+      ({ feedLength, loading }: { feedLength: number; loading: boolean }) =>
+        useDashboardFeedLoadingState({
+          articleFilter: "unread",
+          feedLength,
+          isCategoriesLoading: false,
+          loading,
+          searchTerm: "",
+          settleMs: 0,
+          usePlaceholderData: false,
+        }),
+      {
+        initialProps: { feedLength: 8, loading: false },
+      },
+    );
+
+    await waitFor(() => {
+      expect(result.current.isShellLoading).toBe(false);
+    });
+
+    rerender({ feedLength: 0, loading: true });
+
+    expect(result.current.isShellLoading).toBe(false);
+    expect(result.current.isFeedListInitialLoading).toBe(true);
+    expect(result.current.isFeedListRefreshing).toBe(true);
+  });
+
   test("isShellLoading stays true while categories are loading even after the feed list finishes", async () => {
     // Regression: sidebar used isCategoriesLoading directly and unmasked before
     // the toolbar/filterBar/feedList which wait for isShellLoading.  Verifying

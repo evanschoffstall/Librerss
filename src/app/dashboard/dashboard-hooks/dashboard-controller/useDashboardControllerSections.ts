@@ -60,6 +60,7 @@ interface DashboardViewModelStateOptions {
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
   dashboardState: ReturnType<typeof useDashboardState>;
+  usePlaceholderData: boolean;
 }
 /**
  * Manage the dashboard animating article state.
@@ -211,16 +212,17 @@ export function useDashboardFeedLoadingState(
   // Shell loading clears only when BOTH the article list AND the category tree
   // have finished their initial load so all three skeleton surfaces resolve together.
   const isShellInitialLoading = isFeedListInitialLoading || isCategoriesLoading;
+  const isShellLoading = useDashboardShellLoadingState(
+    isShellInitialLoading,
+    settleMs,
+  );
 
   return {
     deferredSearchTerm,
     isFeedListInitialLoading,
-    isFeedListRefreshing: loading && feedLength > 0,
+    isFeedListRefreshing: loading && !isShellLoading,
     isSearchPending: searchTerm !== deferredSearchTerm,
-    isShellLoading: useDashboardShellLoadingState(
-      isShellInitialLoading,
-      settleMs,
-    ),
+    isShellLoading,
     shouldUseArticleWindow: trimmedSearchTerm === "",
   };
 }
@@ -232,7 +234,12 @@ export function useDashboardFeedLoadingState(
 export function useDashboardViewModelState(
   options: DashboardViewModelStateOptions,
 ) {
-  const { categoryTree, collapsedArticles, dashboardState } = options;
+  const {
+    categoryTree,
+    collapsedArticles,
+    dashboardState,
+    usePlaceholderData,
+  } = options;
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
@@ -258,6 +265,7 @@ export function useDashboardViewModelState(
         // The server search runs in the background (debounced) and merges
         // results into the feed without clearing the visible list.
         useLocalSearch: true,
+        usePlaceholderData,
       }),
     [
       categoryTree.customCategoryLabels,
@@ -267,8 +275,10 @@ export function useDashboardViewModelState(
       dashboardState.categories,
       dashboardState.expandedArticleKey,
       dashboardState.feed,
+      dashboardState.articleSortOrder,
       dashboardState.searchTerm,
       dashboardState.selectedCategory,
+      usePlaceholderData,
     ],
   );
 
