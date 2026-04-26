@@ -1,3 +1,6 @@
+/**
+ * Describes the props for the login field error component.
+ */
 interface LoginFieldErrorProps {
   message: string | undefined;
 }

@@ -24,6 +24,9 @@ const scrypt = promisify(scryptCallback) as (
 
 export const SESSION_COOKIE_NAME = "librerss_session";
 
+/**
+ * Describes the session user.
+ */
 export interface SessionUser {
   email: string;
   expiresAt: Date;

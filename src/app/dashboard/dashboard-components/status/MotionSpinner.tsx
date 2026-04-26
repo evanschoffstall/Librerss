@@ -5,6 +5,9 @@ import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Describes the props for the motion spinner component.
+ */
 interface MotionSpinnerProps {
   className?: string;
   iconClassName?: string;

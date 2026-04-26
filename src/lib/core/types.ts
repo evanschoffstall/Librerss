@@ -2,6 +2,9 @@ import type { CategoryTreeNode, FeedSource } from "@/lib/types";
 
 // Type definitions and interfaces for LibreRSS
 
+/**
+ * Describes the article.
+ */
 export interface Article {
   content: string;
   feedId: number;
@@ -17,6 +20,9 @@ export interface Article {
   title: string;
 }
 
+/**
+ * Describes the auth session.
+ */
 export interface AuthSession {
   allowSignup: boolean;
   authenticated: boolean;
@@ -24,6 +30,9 @@ export interface AuthSession {
   user: AuthUser | null;
 }
 
+/**
+ * Describes the auth user.
+ */
 export interface AuthUser {
   email: string;
   id: number;

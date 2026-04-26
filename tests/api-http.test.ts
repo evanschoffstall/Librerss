@@ -626,7 +626,13 @@ describe("responses", () => {
 
   test("normalizeBatchItem normalizes partial and invalid payloads", () => {
     const normalized = normalizeBatchItem({
-      articles: [{ id: 1 }],
+      articles: [
+        {
+          id: 1,
+          lastChecked: "2026-03-13T12:30:00.000Z",
+          publicationDate: "2026-03-13T12:00:00.000Z",
+        },
+      ],
       error: "timeout",
       lastFetchedAt: "2024-02-03T04:05:06.000Z",
       ok: 1,
@@ -641,6 +647,8 @@ describe("responses", () => {
       unchanged: true,
       url: "https://example.com/feed.xml",
     });
+    expect(normalized.articles[0]?.lastChecked).toBeInstanceOf(Date);
+    expect(normalized.articles[0]?.publicationDate).toBeInstanceOf(Date);
     expect(normalized.lastFetchedAt).toBeInstanceOf(Date);
 
     expect(normalizeBatchItem(null)).toEqual({

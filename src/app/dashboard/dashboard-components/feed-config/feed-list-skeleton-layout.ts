@@ -32,6 +32,9 @@ export const DEFAULT_FEED_LIST_SKELETON_COUNT =
   FEED_ARTICLE_SKELETONS.length + 1;
 export const FEED_LIST_SKELETON_OVERFLOW_ROW_COUNT = 1;
 export const MIN_FEED_LIST_SKELETON_COUNT = 1;
+/**
+ * Describes the options for feed list skeleton count.
+ */
 interface FeedListSkeletonCountOptions {
   rowGap: number;
   skeletonRowHeight: number;

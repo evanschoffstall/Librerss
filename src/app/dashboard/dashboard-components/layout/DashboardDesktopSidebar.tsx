@@ -11,6 +11,9 @@ const DASHBOARD_SIDEBAR_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
+/**
+ * Describes the props for the dashboard desktop sidebar component.
+ */
 interface DashboardDesktopSidebarProps {
   isSidebarVisible: boolean;
   sidebarContentProps: ComponentProps<typeof DashboardSidebarContent>;

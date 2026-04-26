@@ -1,18 +1,22 @@
 import type { FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data/batch";
 import type { FeedFetchOptions } from "@/app/dashboard/dashboard-services/selection";
 import type { BatchFeedResponseItem } from "@/lib/api/http";
-import type { Article, ArticleFilter } from "@/lib/core";
+import type { Article, ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { filterArticlesByState } from "@/app/dashboard/dashboard-services/article";
 import { FeedService } from "@/lib/api";
 import { getPlaceholderArticlesForSource } from "@/lib/core";
 
+/**
+ * Describes the feed batch resolver dependencies.
+ */
 interface FeedBatchResolverDependencies {
   fetchFeedsBatch: (
     urls: string[],
     options?: {
       articleFilter?: ArticleFilter;
       articleLimit?: number;
+      articleSortOrder?: ArticleSortOrder;
       forceRefresh?: boolean;
       forceResolveUpstream?: boolean;
       knownLastFetchedAtByUrl?: ReadonlyMap<string, Date>;
@@ -25,6 +29,9 @@ interface FeedBatchResolverDependencies {
   getPlaceholderArticles: (url: string) => Article[];
 }
 
+/**
+ * Describes the placeholder article candidate.
+ */
 interface PlaceholderArticleCandidate {
   article: Article;
   sourceName: string | undefined;
@@ -71,6 +78,7 @@ export async function resolveFeedBatchResults(
     {
       articleFilter: options?.articleFilter,
       articleLimit: options?.articleLimit,
+      articleSortOrder: options?.articleSortOrder,
       ...(options?.forceResolveUpstream === true
         ? { forceResolveUpstream: true }
         : {}),
@@ -82,6 +90,30 @@ export async function resolveFeedBatchResults(
       skipRefresh: options?.skipRefresh ?? false,
     },
   );
+}
+
+/**
+ * Compare placeholder article candidates before applying an article-window
+ * limit. Placeholder mode has no database query to choose the global oldest or
+ * newest window, so its in-memory resolver must apply the same chronological
+ * contract before slicing the candidate set.
+ * @param leftCandidate - The first placeholder candidate in the comparison.
+ * @param rightCandidate - The second placeholder candidate in the comparison.
+ * @param articleSortOrder - The requested chronological display order.
+ * @returns A negative number when the left candidate should appear first.
+ */
+function comparePlaceholderArticlesBySortOrder(
+  leftCandidate: PlaceholderArticleCandidate,
+  rightCandidate: PlaceholderArticleCandidate,
+  articleSortOrder: ArticleSortOrder,
+): number {
+  const publicationDateDelta =
+    leftCandidate.article.publicationDate.getTime() -
+    rightCandidate.article.publicationDate.getTime();
+  const articleIdDelta = leftCandidate.article.id - rightCandidate.article.id;
+  const ascendingDelta = publicationDateDelta || articleIdDelta;
+
+  return articleSortOrder === "oldest" ? ascendingDelta : -ascendingDelta;
 }
 
 /**
@@ -132,17 +164,13 @@ function resolveLimitedPlaceholderCandidates(
 
       return filteredArticles.length > 0;
     })
-    .sort((left, right) => {
-      const publicationDateDelta =
-        right.article.publicationDate.getTime() -
-        left.article.publicationDate.getTime();
-
-      if (publicationDateDelta !== 0) {
-        return publicationDateDelta;
-      }
-
-      return right.article.id - left.article.id;
-    });
+    .sort((leftCandidate, rightCandidate) =>
+      comparePlaceholderArticlesBySortOrder(
+        leftCandidate,
+        rightCandidate,
+        options?.articleSortOrder ?? "newest",
+      ),
+    );
 
   if (options?.articleLimit === undefined) {
     return filteredCandidates;

@@ -9,6 +9,9 @@ import {
   refreshCurrentSelection,
 } from "@/app/dashboard/dashboard-services/selection";
 
+/**
+ * Describes the dashboard refresh context.
+ */
 interface DashboardRefreshContext extends FeedSelectionFetchers {
   articleLimit?: number;
   onBeforeRefresh?: () => void;
@@ -18,10 +21,16 @@ interface DashboardRefreshContext extends FeedSelectionFetchers {
   selectedFeedUrl?: string;
 }
 
+/**
+ * Describes the manual dashboard refresh context.
+ */
 interface ManualDashboardRefreshContext extends DashboardRefreshContext {
   forceResolveUpstream?: FeedFetchOptions["forceResolveUpstream"];
 }
 
+/**
+ * Describes the options for prefetch dashboard category.
+ */
 interface PrefetchDashboardCategoryOptions {
   articleLimit?: FeedFetchOptions["articleLimit"];
   prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
@@ -29,6 +38,9 @@ interface PrefetchDashboardCategoryOptions {
   searchTerm?: FeedFetchOptions["searchTerm"];
   selectedCategory: string;
 }
+/**
+ * Describes the options for prefetch dashboard feed.
+ */
 interface PrefetchDashboardFeedOptions {
   articleLimit?: FeedFetchOptions["articleLimit"];
   prefetchFeed: FeedSelectionFetchers["fetchFeed"];
@@ -36,6 +48,9 @@ interface PrefetchDashboardFeedOptions {
   selectedCategory: string;
 }
 
+/**
+ * Describes the options for select dashboard category.
+ */
 interface SelectDashboardCategoryOptions {
   articleLimit?: FeedFetchOptions["articleLimit"];
   fetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
@@ -44,6 +59,9 @@ interface SelectDashboardCategoryOptions {
   setIsMobileSidebarOpen: Dispatch<SetStateAction<boolean>>;
   setSelectedCategory: Dispatch<SetStateAction<string>>;
 }
+/**
+ * Describes the options for select dashboard feed.
+ */
 interface SelectDashboardFeedOptions {
   articleLimit?: FeedFetchOptions["articleLimit"];
   fetchFeed: FeedSelectionFetchers["fetchFeed"];

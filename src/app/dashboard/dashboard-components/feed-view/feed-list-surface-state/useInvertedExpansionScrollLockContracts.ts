@@ -1,5 +1,8 @@
 import type { InvertedExpansionViewportSnapshot } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Defines the inverted expansion scroll lock starter type.
+ */
 export type InvertedExpansionScrollLockStarter = (
   articleKey: null | string,
   snapshot: InvertedExpansionViewportSnapshot | null,
@@ -7,6 +10,9 @@ export type InvertedExpansionScrollLockStarter = (
   releaseAt?: null | number,
 ) => void;
 
+/**
+ * Describes the options for inverted expansion scroll lock transition.
+ */
 export interface InvertedExpansionScrollLockTransitionOptions {
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
   invertedExpansionScrollLockRef: React.RefObject<unknown>;
@@ -18,6 +24,9 @@ export interface InvertedExpansionScrollLockTransitionOptions {
   viewportSnapshotRef: React.RefObject<InvertedExpansionViewportSnapshot | null>;
 }
 
+/**
+ * Defines the inverted expansion viewport snapshot capture type.
+ */
 export type InvertedExpansionViewportSnapshotCapture = (
   articleKey: string,
 ) => InvertedExpansionViewportSnapshot | null;

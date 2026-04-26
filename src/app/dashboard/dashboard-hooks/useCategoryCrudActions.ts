@@ -14,22 +14,34 @@ import {
 } from "@/app/dashboard/dashboard-services/category";
 import { includesCategoryLabel } from "@/lib/utils";
 
+/**
+ * Describes the options for add category action.
+ */
 interface AddCategoryActionOptions {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * Describes the options for ensure category label exists.
+ */
 interface EnsureCategoryLabelExistsOptions {
   categories: CategoryTreeNode[];
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * Describes the options for move category by drop action.
+ */
 interface MoveCategoryByDropActionOptions {
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * Describes the options for remove category action.
+ */
 interface RemoveCategoryActionOptions {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
@@ -45,6 +57,9 @@ interface RemoveCategoryActionOptions {
   >;
   setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
 }
+/**
+ * Describes the options for rename category action.
+ */
 interface RenameCategoryActionOptions {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
@@ -55,6 +70,9 @@ interface RenameCategoryActionOptions {
   setSelectedCategory: FeedSourceActionState["setSelectedCategory"];
 }
 
+/**
+ * Describes the options for use category crud actions.
+ */
 interface UseCategoryCrudActionsOptions extends Omit<
   FeedSourceActionState,
   "fetchAllFeeds" | "fetchCategoryFeeds" | "fetchFeed" | "setFeed"

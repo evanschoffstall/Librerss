@@ -31,6 +31,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { type AuthSession } from "@/lib/core";
 import { useLocalStorage } from "@/lib/hooks";
 
+/**
+ * Describes the props for the dashboard application surface component.
+ */
 interface DashboardApplicationSurfaceProps {
   backgroundMode: BackgroundMode;
   distillStrategy: string;
@@ -41,10 +44,16 @@ interface DashboardApplicationSurfaceProps {
   viewKey: string;
 }
 
+/**
+ * Describes the props for the dashboard background component.
+ */
 interface DashboardBackgroundProps {
   backgroundMode: BackgroundMode;
   isLightMode: boolean;
 }
+/**
+ * Describes the props for the dashboard login surface component.
+ */
 interface DashboardLoginSurfaceProps {
   allowSignup: boolean;
   initialAutoLoginPath?: string;
@@ -57,6 +66,9 @@ interface DashboardLoginSurfaceProps {
   viewKey: string;
 }
 
+/**
+ * Describes the props for the dashboard skeleton view component.
+ */
 interface DashboardSkeletonViewProps {
   viewKey: string;
 }

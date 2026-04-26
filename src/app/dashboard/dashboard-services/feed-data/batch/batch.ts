@@ -8,6 +8,9 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 import { dedupeAndSortArticles } from "@/app/dashboard/dashboard-services/article-collection";
 import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
 
+/**
+ * Describes the feed batch source.
+ */
 export interface FeedBatchSource {
   name: string | undefined;
   url: string;

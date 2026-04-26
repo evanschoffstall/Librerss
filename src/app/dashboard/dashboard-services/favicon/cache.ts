@@ -1,3 +1,6 @@
+/**
+ * Describes the favicon cache entry.
+ */
 interface FaviconCacheEntry {
   failedAt?: number;
   index: number;

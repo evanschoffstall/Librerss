@@ -5,6 +5,9 @@ import {
 } from "./cleaners";
 import { sanitizeArticleHtml } from "./sanitize";
 
+/**
+ * Describes the sanitized content context.
+ */
 interface SanitizedContentContext {
   containsHtml: boolean;
   htmlCandidate: string;

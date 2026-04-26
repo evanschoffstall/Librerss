@@ -9,6 +9,9 @@ export const toolbarButtonClassName =
 /** Shared layout footprint for icon-only toolbar buttons across breakpoints. */
 export const toolbarIconButtonLayoutClassName =
   "inline-flex shrink-0 items-center justify-center";
+/**
+ * Describes the props for the dashboard toolbar icon button component.
+ */
 interface DashboardToolbarIconButtonProps {
   ariaLabel: string;
   className?: string;

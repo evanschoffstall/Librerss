@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realLoggerModule from "@/lib/logger";
-import * as realServerModule from "@/lib/server";
+import {
+  consumeFatalServerError,
+  resetFatalServerErrorsForTesting,
+} from "@/lib/server";
 
 const mutableEnv = process.env as Record<string, string | undefined>;
 
@@ -69,10 +72,12 @@ function withDevAutoLoginEnv(
 
 beforeEach(() => {
   mock.restore();
+  resetFatalServerErrorsForTesting();
 });
 
 afterEach(() => {
   mock.restore();
+  resetFatalServerErrorsForTesting();
 });
 
 describe("Auth API - Dev Login", () => {
@@ -112,11 +117,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -166,11 +166,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -217,11 +212,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -266,11 +256,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -315,11 +300,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -377,11 +357,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -426,11 +401,6 @@ describe("Auth API - Dev Login", () => {
     mock.module("@/lib/logger", () =>
       createLoggerMock({ info: () => undefined, warn: () => undefined }),
     );
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError: () =>
-        NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    }));
 
     await withDevAutoLoginEnv(
       {
@@ -458,24 +428,24 @@ describe("Auth API - Dev Login", () => {
     );
   });
 
-  test("GET /api/auth/dev-login routes unexpected errors through the shared error responder", async () => {
+  test("GET /api/auth/dev-login redirects to /error and logs on unexpected exceptions", async () => {
     const authenticateCredentials = mock(async () => {
       throw new Error("boom");
     });
-    const logAndRespondError = mock(() =>
-      NextResponse.json({ error: "Internal Server Error" }, { status: 500 }),
-    );
+    const logError = mock(() => undefined);
 
     mock.module("@/lib/auth/session", () => ({
       ...realAuthSessionModule,
       authenticateCredentials,
       setSessionCookie: () => undefined,
     }));
-    mock.module("@/lib/logger", () => createLoggerMock({}));
-    mock.module("@/lib/server", () => ({
-      ...realServerModule,
-      logAndRespondError,
-    }));
+    mock.module("@/lib/logger", () =>
+      createLoggerMock({
+        error: logError,
+        info: () => undefined,
+        warn: () => undefined,
+      }),
+    );
 
     await withDevAutoLoginEnv(
       {
@@ -486,14 +456,42 @@ describe("Auth API - Dev Login", () => {
       async () => {
         const { GET } = await loadDevLoginRoute();
         const response = await GET(
-          new NextRequest("https://example.com/api/auth/dev-login"),
+          new NextRequest(
+            "https://example.com/api/auth/dev-login?returnTo=%2Fdashboard",
+            {
+              headers: {
+                host: "example.com",
+              },
+            },
+          ),
         );
 
-        expect(logAndRespondError).toHaveBeenCalledWith(
-          "Development auto-login error",
-          expect.any(Error),
+        // The route is a navigation endpoint so fatal exceptions must redirect
+        // to the /error page rather than returning a raw JSON 500 body.
+        expect(response.status).toBe(307);
+        const location = response.headers.get("location") ?? "";
+        // The redirect URL must target /error and include a ?cid= correlation
+        // ID so the [ERROR] log entry and the [WARN] "Server error page rendered"
+        // entry can be matched in the server logs.
+        expect(location).toMatch(
+          /^https:\/\/example\.com\/error\?cid=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u,
         );
-        expect(response.status).toBe(500);
+        const correlationId = new URL(location).searchParams.get("cid");
+
+        expect(correlationId).toEqual(expect.any(String));
+        const fatalError = consumeFatalServerError(correlationId ?? undefined);
+
+        expect(fatalError?.source).toBe("api/auth/dev-login");
+        expect(fatalError?.error.message).toBe("boom");
+        // The error must still be logged server-side for observability, and the
+        // same correlation ID used in the redirect URL must appear in the log.
+        expect(logError).toHaveBeenCalledWith(
+          "Development auto-login error",
+          expect.objectContaining({
+            correlationId,
+            error: expect.any(Error),
+          }),
+        );
       },
     );
   });

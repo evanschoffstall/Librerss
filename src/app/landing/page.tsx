@@ -75,6 +75,9 @@ const LandingView = () => {
   );
 };
 
+/**
+ * Describes the props for the landing feature card component.
+ */
 interface LandingFeatureCardProps {
   delay: number;
   desc: string;

@@ -16,20 +16,41 @@ import { createInterface } from "node:readline/promises";
 
 const MAIN_BRANCH = "main";
 const CICD_LOCK_NAME = "check-suite-cicd.lock";
+/**
+ * Defines the command type.
+ */
 type Command = readonly [string, ...string[]];
+/**
+ * Describes the command result.
+ */
 interface CommandResult {
   durationInMilliseconds: number;
   exitCode: number;
   stderr: string;
   stdout: string;
 }
+/**
+ * Describes the main branch revision state.
+ */
 interface MainBranchRevisionState {
   headRevision: string;
   remoteRevision: string;
 }
+/**
+ * Defines the main branch sync action type.
+ */
 type MainBranchSyncAction = "continue" | "fail" | "fast-forward";
+/**
+ * Defines the main branch sync phase type.
+ */
 type MainBranchSyncPhase = "post-release" | "pre-release";
+/**
+ * Defines the output mode type.
+ */
 type OutputMode = "capture" | "inherit";
+/**
+ * Describes the release step.
+ */
 interface ReleaseStep {
   command: Command;
   label: string;

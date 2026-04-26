@@ -4,10 +4,16 @@ import type { getDb } from "@/lib/db/db";
 
 import { feedCategories, feeds } from "@/lib/db/schema";
 
+/**
+ * Defines the feed DB executor type.
+ */
 type FeedDbExecutor =
   | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0]
   | ReturnType<typeof getDb>;
 
+/**
+ * Describes the feed record row.
+ */
 interface FeedRecordRow {
   id: number;
   lastFetched: Date;
@@ -22,12 +28,18 @@ export const feedRecordFields = {
   url: feeds.url,
 };
 
+/**
+ * Describes the options for remove user feed category.
+ */
 interface RemoveUserFeedCategoryOptions {
   category?: string;
   feedId: number;
   userId: number;
 }
 
+/**
+ * Describes the options for replace user feed category.
+ */
 interface ReplaceUserFeedCategoryOptions {
   category: string;
   feedId: number;

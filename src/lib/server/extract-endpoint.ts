@@ -54,12 +54,18 @@ import {
   tryGetUrlHostname,
 } from "./payload-primitives";
 
+/**
+ * Describes the extract request body.
+ */
 interface ExtractRequestBody {
   distillStrategy?: string;
   url?: string;
   useProxy?: boolean;
 }
 
+/**
+ * Describes the extract request resolution.
+ */
 interface ExtractRequestResolution {
   allowInsecureTls: boolean;
   articleUrl: string;
@@ -70,6 +76,9 @@ interface ExtractRequestResolution {
   useProxy: boolean;
 }
 
+/**
+ * Describes the extract runtime deps.
+ */
 interface ExtractRuntimeDeps {
   cleanContent: typeof cleanSanitizedHtml;
   errorLog: typeof logger.error;

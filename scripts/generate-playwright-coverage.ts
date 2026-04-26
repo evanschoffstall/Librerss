@@ -3,6 +3,9 @@ import type { Dirent } from "node:fs";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
+/**
+ * Describes the source path info.
+ */
 interface SourcePathInfo {
   distFile?: string;
 }
@@ -22,7 +25,13 @@ const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
 const PLAYWRIGHT_COVERAGE_REPORT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_REPORT_DIR ?? "coverage/playwright";
 
+/**
+ * Defines the coverage summary type.
+ */
 type CoverageSummary = Record<string, unknown>;
+/**
+ * Defines the raw coverage data type.
+ */
 type RawCoverageData = Record<string, unknown> | V8CoverageEntry[];
 const PROJECT_SOURCE_DIRECTORY_PATH = `${process.cwd().replaceAll("\\", "/")}/src/`;
 const SUMMARY_METRIC_KEYS = [
@@ -33,24 +42,42 @@ const SUMMARY_METRIC_KEYS = [
   "branchesTrue",
 ] as const;
 
+/**
+ * Describes the coverage metric.
+ */
 interface CoverageMetric {
   covered: number;
   pct: number;
   skipped: number;
   total: number;
 }
+/**
+ * Defines the coverage metric key type.
+ */
 type CoverageMetricKey = (typeof SUMMARY_METRIC_KEYS)[number];
 
+/**
+ * Defines the coverage summary entry type.
+ */
 type CoverageSummaryEntry = Partial<Record<CoverageMetricKey, CoverageMetric>>;
 
+/**
+ * Describes the monocart coverage report.
+ */
 interface MonocartCoverageReport {
   add: (coverageData: RawCoverageData) => Promise<void>;
   cleanCache: () => Promise<void>;
   generate: () => Promise<unknown>;
 }
+/**
+ * Defines the monocart coverage report factory type.
+ */
 type MonocartCoverageReportFactory = (
   options: Record<string, unknown>,
 ) => MonocartCoverageReport;
+/**
+ * Describes the v8 coverage entry.
+ */
 interface V8CoverageEntry {
   url: string;
 }

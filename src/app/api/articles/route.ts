@@ -21,6 +21,9 @@ import { isValidUrl, parseDateOrNull } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Describes the articles route deps.
+ */
 interface ArticlesRouteDeps {
   getDbFn?: typeof getDb;
   isAllowedFeedUrlFn?: typeof isAllowedFeedUrl;

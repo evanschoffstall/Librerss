@@ -3,6 +3,9 @@ import { flushSync } from "react-dom";
 
 import { FEED_MIN_SCROLLABLE_OVERFLOW_PX } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the inverted scroll ownership state.
+ */
 interface InvertedScrollOwnershipState {
   claimInvertedScrollOwnership: () => void;
   hasClaimedInvertedScrollOwnershipRef: { current: boolean };

@@ -17,6 +17,9 @@ import {
   type RouteHandlerContext,
 } from "./route-context";
 
+/**
+ * Describes the extract runtime deps.
+ */
 interface ExtractRuntimeDeps {
   cleanContent: typeof cleanSanitizedHtml;
   errorLog: typeof logger.error;

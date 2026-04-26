@@ -1,10 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import {
+  ARTICLE_SORT_ORDER_OPTIONS,
   filterArticlesByState,
   resolveArticleWindowAvailability,
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
+  sortArticlesByOrder,
 } from "@/app/dashboard/dashboard-services/article";
 import {
   dedupeAndSortArticles,
@@ -25,6 +27,7 @@ import {
   formatFeedFailureLabel,
   resolveFeedBatchResults,
 } from "@/app/dashboard/dashboard-services/feed-data";
+import { isArticleSortOrder } from "@/lib/core";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 
@@ -334,12 +337,14 @@ describe("dashboard pure service coverage", () => {
         content: "secondary body",
         id: 20,
         link: "https://example.com/title",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
         title: "Needle title",
       }),
       buildFeedListArticle({
         content: "contains special search needle",
         id: 21,
         link: "https://example.com/body",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
         title: "Other",
       }),
       buildFeedListArticle({
@@ -355,6 +360,7 @@ describe("dashboard pure service coverage", () => {
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "all",
+      articleSortOrder: "newest",
       categories,
       collapsingArticleKeys: [],
       customCategoryLabels: ["Custom"],
@@ -364,6 +370,7 @@ describe("dashboard pure service coverage", () => {
       searchTerm: "needle",
       selectedCategory: "feed-2",
       useLocalSearch: true,
+      usePlaceholderData: false,
     });
 
     expect(viewModel.filteredFeed.map((article) => article.link)).toEqual([
@@ -397,6 +404,7 @@ describe("dashboard pure service coverage", () => {
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "all",
+      articleSortOrder: "newest",
       categories,
       collapsingArticleKeys: [],
       customCategoryLabels: [],
@@ -406,6 +414,7 @@ describe("dashboard pure service coverage", () => {
       searchTerm: "needle",
       selectedCategory: "feed-1",
       useLocalSearch: false,
+      usePlaceholderData: false,
     });
 
     expect(viewModel.filteredFeed).toEqual(articles);
@@ -485,6 +494,51 @@ describe("dashboard pure service coverage", () => {
       buildFeedListArticle({ id: 40, link: `${url}/placeholder` }),
     ]);
 
+    const placeholderOldestWindow = await resolveFeedBatchResults(
+      normalizedSources.slice(0, 2),
+      true,
+      {
+        articleLimit: 2,
+        articleSortOrder: "oldest",
+      },
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: (url: string) =>
+          url.endsWith("/1")
+            ? [
+                buildFeedListArticle({
+                  id: 10,
+                  link: `${url}/newer`,
+                  publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+                }),
+                buildFeedListArticle({
+                  id: 11,
+                  link: `${url}/oldest`,
+                  publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+                }),
+              ]
+            : [
+                buildFeedListArticle({
+                  id: 20,
+                  link: `${url}/middle`,
+                  publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+                }),
+                buildFeedListArticle({
+                  id: 21,
+                  link: `${url}/newest`,
+                  publicationDate: new Date("2026-03-13T13:00:00.000Z"),
+                }),
+              ],
+      },
+    );
+
+    expect(
+      placeholderOldestWindow.flatMap((result) =>
+        result.articles.map((article) => article.id),
+      ),
+    ).toEqual([11, 20]);
+
     expect(
       await resolveFeedBatchResults(
         normalizedSources,
@@ -563,5 +617,167 @@ describe("dashboard pure service coverage", () => {
     ).toBe(batchResults);
 
     expect(fetchFeedsBatch).toHaveBeenCalled();
+  });
+});
+
+describe("article sort order utilities and view-model integration", () => {
+  test("ARTICLE_SORT_ORDER_OPTIONS exposes newest first then oldest", () => {
+    expect(ARTICLE_SORT_ORDER_OPTIONS).toEqual(["newest", "oldest"]);
+  });
+
+  test("isArticleSortOrder accepts known orders and rejects everything else", () => {
+    expect(isArticleSortOrder("newest")).toBe(true);
+    expect(isArticleSortOrder("oldest")).toBe(true);
+    expect(isArticleSortOrder("NEWEST")).toBe(false);
+    expect(isArticleSortOrder("")).toBe(false);
+    expect(isArticleSortOrder(null)).toBe(false);
+    expect(isArticleSortOrder(undefined)).toBe(false);
+    expect(isArticleSortOrder(0)).toBe(false);
+    expect(isArticleSortOrder({})).toBe(false);
+  });
+
+  test("sortArticlesByOrder returns newest-first by publication date without mutating input", () => {
+    const articles = [
+      buildFeedListArticle({
+        id: 1,
+        publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+        title: "A",
+      }),
+      buildFeedListArticle({
+        id: 2,
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+        title: "B",
+      }),
+      buildFeedListArticle({
+        id: 3,
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+        title: "C",
+      }),
+    ];
+
+    const result = sortArticlesByOrder(articles, "newest");
+
+    expect(result).not.toBe(articles);
+    expect(result.map((article) => article.id)).toEqual([2, 3, 1]);
+    expect(articles.map((article) => article.id)).toEqual([1, 2, 3]);
+  });
+
+  test("sortArticlesByOrder returns oldest-first by publication date without mutating input", () => {
+    const articles = [
+      buildFeedListArticle({
+        id: 1,
+        publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+        title: "A",
+      }),
+      buildFeedListArticle({
+        id: 2,
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+        title: "B",
+      }),
+      buildFeedListArticle({
+        id: 3,
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+        title: "C",
+      }),
+    ];
+
+    const result = sortArticlesByOrder(articles, "oldest");
+
+    expect(result).not.toBe(articles);
+    expect(result.map((article) => article.id)).toEqual([1, 3, 2]);
+    expect(articles.map((article) => article.id)).toEqual([1, 2, 3]);
+  });
+
+  test("sortArticlesByOrder handles empty input for both sort orders", () => {
+    expect(sortArticlesByOrder([], "newest")).toEqual([]);
+    expect(sortArticlesByOrder([], "oldest")).toEqual([]);
+  });
+
+  test("buildDashboardViewModel keeps stale live data aligned with the selected sort order", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({
+        id: 10,
+        link: "https://example.com/a",
+        publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 11,
+        link: "https://example.com/b",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 12,
+        link: "https://example.com/c",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+      }),
+    ];
+
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "",
+      selectedCategory: "feed-1",
+      useLocalSearch: true,
+      usePlaceholderData: false,
+    });
+
+    expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
+      11, 12, 10,
+    ]);
+  });
+
+  test("buildDashboardViewModel applies the selected sort order locally in placeholder mode", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({
+        id: 10,
+        link: "https://example.com/a",
+        publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 11,
+        link: "https://example.com/b",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 12,
+        link: "https://example.com/c",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+      }),
+    ];
+
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "",
+      selectedCategory: "feed-1",
+      useLocalSearch: true,
+      usePlaceholderData: true,
+    });
+
+    expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
+      11, 12, 10,
+    ]);
   });
 });

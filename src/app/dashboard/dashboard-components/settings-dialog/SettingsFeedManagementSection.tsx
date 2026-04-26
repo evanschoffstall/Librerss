@@ -12,6 +12,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/lib/hooks";
 import { generateOpml } from "@/lib/utils";
 
+/**
+ * Describes the props for the settings feed management actions component.
+ */
 interface SettingsFeedManagementActionsProps {
   categories: CategoryTreeNode[];
   isImportingOpml: boolean;
@@ -21,6 +24,9 @@ interface SettingsFeedManagementActionsProps {
   opmlInputRef: SettingsModalState["opmlInputRef"];
 }
 
+/**
+ * Describes the props for the settings feed management section component.
+ */
 interface SettingsFeedManagementSectionProps {
   categories: CategoryTreeNode[];
   isPreviewMode?: boolean;

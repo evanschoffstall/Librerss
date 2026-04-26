@@ -20,6 +20,9 @@ export { useDashboardControllerRefreshState } from "@/app/dashboard/dashboard-ho
 export { useDashboardControllerOutput } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerOutput";
 export { useDashboardRuntimeState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerState";
 
+/**
+ * Describes the options for dashboard article window state.
+ */
 interface DashboardArticleWindowStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   feedLoader: ReturnType<typeof useFeedLoader>;
@@ -31,6 +34,9 @@ interface DashboardArticleWindowStateOptions {
   usePlaceholderData: boolean;
   viewModelState: ReturnType<typeof useDashboardViewModelState>;
 }
+/**
+ * Describes the options for dashboard controller resources.
+ */
 interface DashboardControllerResourcesOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   dashboardState: ReturnType<typeof useDashboardState>;
@@ -39,12 +45,18 @@ interface DashboardControllerResourcesOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard feed loader options.
+ */
 interface DashboardFeedLoaderOptionsOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   dashboardState: ReturnType<typeof useDashboardState>;
   refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
   usePlaceholderData: boolean;
 }
+/**
+ * Describes the options for dashboard feed loading state.
+ */
 interface DashboardFeedLoadingStateOptions {
   articleFilter: ArticleFilter;
   feedLength: number;
@@ -56,10 +68,14 @@ interface DashboardFeedLoadingStateOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard view model state.
+ */
 interface DashboardViewModelStateOptions {
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsedArticles: ReturnType<typeof useArticleActions>["collapsingArticles"];
   dashboardState: ReturnType<typeof useDashboardState>;
+  usePlaceholderData: boolean;
 }
 /**
  * Manage the dashboard animating article state.
@@ -211,16 +227,17 @@ export function useDashboardFeedLoadingState(
   // Shell loading clears only when BOTH the article list AND the category tree
   // have finished their initial load so all three skeleton surfaces resolve together.
   const isShellInitialLoading = isFeedListInitialLoading || isCategoriesLoading;
+  const isShellLoading = useDashboardShellLoadingState(
+    isShellInitialLoading,
+    settleMs,
+  );
 
   return {
     deferredSearchTerm,
     isFeedListInitialLoading,
-    isFeedListRefreshing: loading && feedLength > 0,
+    isFeedListRefreshing: loading && !isShellLoading,
     isSearchPending: searchTerm !== deferredSearchTerm,
-    isShellLoading: useDashboardShellLoadingState(
-      isShellInitialLoading,
-      settleMs,
-    ),
+    isShellLoading,
     shouldUseArticleWindow: trimmedSearchTerm === "",
   };
 }
@@ -232,7 +249,12 @@ export function useDashboardFeedLoadingState(
 export function useDashboardViewModelState(
   options: DashboardViewModelStateOptions,
 ) {
-  const { categoryTree, collapsedArticles, dashboardState } = options;
+  const {
+    categoryTree,
+    collapsedArticles,
+    dashboardState,
+    usePlaceholderData,
+  } = options;
   const dashboardViewModel = useMemo(
     () =>
       buildDashboardViewModel({
@@ -242,6 +264,7 @@ export function useDashboardViewModelState(
         // Deferred filter caused a visible lag and a stale-filter window where
         // newly arrived server data would be filtered by the OLD value.
         articleFilter: dashboardState.articleFilter,
+        articleSortOrder: dashboardState.articleSortOrder,
         categories: dashboardState.categories,
         collapsingArticleKeys: Object.keys(collapsedArticles),
         customCategoryLabels: categoryTree.customCategoryLabels,
@@ -257,6 +280,7 @@ export function useDashboardViewModelState(
         // The server search runs in the background (debounced) and merges
         // results into the feed without clearing the visible list.
         useLocalSearch: true,
+        usePlaceholderData,
       }),
     [
       categoryTree.customCategoryLabels,
@@ -266,8 +290,10 @@ export function useDashboardViewModelState(
       dashboardState.categories,
       dashboardState.expandedArticleKey,
       dashboardState.feed,
+      dashboardState.articleSortOrder,
       dashboardState.searchTerm,
       dashboardState.selectedCategory,
+      usePlaceholderData,
     ],
   );
 
@@ -289,6 +315,7 @@ function buildDashboardFeedLoaderOptions(
     options;
   return {
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     categoriesRef: dashboardState.categoriesRef,
     feedRef: dashboardState.feedRef,
     onFeedBatchLoaded: refreshState.setLastRefreshedAt,

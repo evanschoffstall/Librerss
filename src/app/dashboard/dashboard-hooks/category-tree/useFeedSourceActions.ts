@@ -16,6 +16,9 @@ import {
   updateFeedSettingsAndRefresh,
 } from "@/app/dashboard/dashboard-services/feed-data/source";
 
+/**
+ * Describes the options for feed source category mutation.
+ */
 type FeedSourceCategoryMutationOptions = Pick<
   UseFeedSourceActionsOptions,
   | "categories"
@@ -29,6 +32,9 @@ type FeedSourceCategoryMutationOptions = Pick<
   | "setSelectedCategory"
 >;
 
+/**
+ * Describes the options for use feed source actions.
+ */
 interface UseFeedSourceActionsOptions extends FeedSourceActionState {
   ensureCategoryLabelExists: (label: string) => void;
 }

@@ -10,6 +10,9 @@ import { useArticleFavicon } from "@/app/dashboard/dashboard-components/article-
 import { setCachedFaviconIndex } from "@/app/dashboard/dashboard-services/favicon";
 import { getUrlHostnameLabel } from "@/lib/utils";
 
+/**
+ * Describes the props for the feed category button component.
+ */
 export interface FeedCategoryButtonProps {
   category: CategoryTreeNode;
   fallbackIconClassName?: string;

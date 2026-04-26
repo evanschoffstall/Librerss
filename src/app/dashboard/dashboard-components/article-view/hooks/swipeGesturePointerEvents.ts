@@ -9,6 +9,9 @@ import {
   type SwipeGestureContext,
 } from "./swipeGestureShared";
 
+/**
+ * Describes the swipe gesture controls.
+ */
 interface SwipeGestureControls {
   animateRelease: () => void;
   clearReleaseTimer: () => void;

@@ -7,6 +7,9 @@ import {
 const REQUEST_TIMEOUT_MS = 15_000;
 const BATCH_REQUEST_TIMEOUT_BUFFER_MS = 5_000;
 
+/**
+ * Describes the API client.
+ */
 export interface ApiClient {
   delete<T = unknown>(
     url: string,
@@ -33,12 +36,18 @@ export interface ApiClient {
   ): Promise<ApiResponse<T>>;
 }
 
+/**
+ * Describes the API client configuration.
+ */
 export interface ApiClientConfig {
   headers?: HeadersInit;
   responseType?: "blob" | "json" | "text";
   signal?: AbortSignal;
 }
 
+/**
+ * Describes the API response.
+ */
 export interface ApiResponse<T> {
   data: T;
   headers: Record<string, string>;
@@ -50,6 +59,9 @@ export interface ApiResponse<T> {
  * Structured fetch failure used by client services and UI error handling.
  */
 export class ApiError<T = unknown> extends Error {
+  /**
+   * Stores the is API error.
+   */
   readonly isApiError = true;
 
   /**

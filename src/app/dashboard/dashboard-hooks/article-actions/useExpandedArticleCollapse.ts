@@ -11,6 +11,9 @@ import type { Article } from "@/lib/core";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types";
 
+/**
+ * Describes the options for handle expanded article toggle.
+ */
 interface HandleExpandedArticleToggleOptions {
   articleFilter: UseExpandedArticleCollapseOptions["articleFilter"];
   cancelCollapseScrollRestore: UseExpandedArticleCollapseOptions["cancelCollapseScrollRestore"];
@@ -28,6 +31,9 @@ interface HandleExpandedArticleToggleOptions {
   setExpandedArticleKey: UseExpandedArticleCollapseOptions["setExpandedArticleKey"];
 }
 
+/**
+ * Describes the options for handle expanded swipe read.
+ */
 interface HandleExpandedSwipeReadOptions {
   collapseExpandedArticle: (
     article: Article,
@@ -39,6 +45,9 @@ interface HandleExpandedSwipeReadOptions {
   markArticleReadIfNeeded: (article: Article) => Promise<void>;
 }
 
+/**
+ * Describes the options for use expanded article collapse.
+ */
 interface UseExpandedArticleCollapseOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   cancelCollapseScrollRestore: () => void;
@@ -217,19 +226,18 @@ function useHandleExpandedArticleToggle(
 
       clearRemovalAnimation(nextArticleKey);
       cancelCollapseScrollRestore();
-      // Guard the restore effect BEFORE the state update so it sees the ref
-      // already set on the render that follows setExpandedArticleKey. Without
-      // this ordering the restore effect fires with autoHydratedExpandedKeyRef
-      // still null and starts hydration #1, and the explicit call below then
-      // starts hydration #2 once markArticleReadIfNeeded resolves — producing
-      // the skeleton → text → skeleton → text flash for extraction-disabled
-      // articles whose stored-content fetch returns null.
+      // Guard the restore effect before the state update so it sees the ref
+      // already set on the render that follows setExpandedArticleKey. Start
+      // hydration in that same synchronous turn so the expanded render receives
+      // a hydrating article link immediately instead of briefly revealing the
+      // feed excerpt before the skeleton state arrives.
       markExpandedArticleHydrationHandled(nextArticleKey);
+      const hydrationPromise = hydrateArticleContent(article);
       setExpandedArticleKey((current) =>
         current === nextArticleKey ? null : nextArticleKey,
       );
       await markArticleReadIfNeeded(article);
-      await hydrateArticleContent(article);
+      await hydrationPromise;
     },
     [
       articleFilter,

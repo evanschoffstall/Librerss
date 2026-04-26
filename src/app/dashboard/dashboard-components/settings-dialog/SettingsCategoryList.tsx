@@ -12,6 +12,9 @@ import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Describes the props for the add category controls component.
+ */
 interface AddCategoryControlsProps {
   buttonClassName: string;
   buttonLabel: string;
@@ -22,7 +25,13 @@ interface AddCategoryControlsProps {
   onNewCategoryNameChange: TextChangeHandler;
 }
 
+/**
+ * Defines the category label handler type.
+ */
 type CategoryLabelHandler = (categoryLabel: string) => void;
+/**
+ * Describes the props for the settings category list component.
+ */
 interface SettingsCategoryListProps {
   addingFeedInCategory: null | string;
   categories: CategoryTreeNode[];

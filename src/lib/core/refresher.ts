@@ -18,6 +18,9 @@ import {
   toPendingArticle,
 } from "./parser";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
@@ -49,6 +52,9 @@ const parser = new Parser({
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Describes the feed record.
+ */
 export interface FeedRecord {
   id: number;
   lastFetched: Date;
@@ -59,14 +65,23 @@ export interface FeedRecord {
 
 // ─── Upstream refresh ─────────────────────────────────────────────────────────
 
+/**
+ * Describes the upstream refresh result.
+ */
 export type UpstreamRefreshResult = { error: string; ok: false } | { ok: true };
 
+/**
+ * Describes the parsed refresh items.
+ */
 interface ParsedRefreshItems {
   parsedItems: (Parser.Item & { contentEncoded?: string })[];
   publicationDateRange: ReturnType<typeof getPublicationDateRange>;
   validItems: PendingArticle[];
 }
 
+/**
+ * Describes the refresh deps.
+ */
 interface RefreshDeps {
   dedupePendingArticlesFn?: typeof dedupePendingArticles;
   fetchFeedXmlFn?: (
@@ -83,6 +98,9 @@ interface RefreshDeps {
   toPendingArticleFn?: typeof toPendingArticle;
 }
 
+/**
+ * Describes the resolved refresh deps.
+ */
 interface ResolvedRefreshDeps {
   dedupePendingArticlesFn: typeof dedupePendingArticles;
   fetchFeedXmlFn: (

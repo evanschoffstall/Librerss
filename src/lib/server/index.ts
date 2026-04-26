@@ -1,4 +1,10 @@
 export { getHostname } from "./extract-endpoint";
+export {
+  consumeFatalServerError,
+  type FatalServerErrorRecord,
+  recordFatalServerError,
+  resetFatalServerErrorsForTesting,
+} from "./fatal-error-registry";
 export { requireMutableFeedAccess } from "./feed-access";
 export {
   type AuthenticatedUser,
@@ -28,6 +34,7 @@ export {
   logBatchStatusSummary,
   logBatchWarnings,
   type NormalizedBatchUrls,
+  parseBatchSearchTerm,
   resolveNormalizedBatchUrls,
   validateBatchRequestState,
 } from "@/lib/server/batch";

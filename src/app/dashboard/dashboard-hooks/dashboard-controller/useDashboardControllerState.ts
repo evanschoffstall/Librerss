@@ -17,12 +17,18 @@ import type { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader"
 import { useDashboardArticleCallbacks } from "@/app/dashboard/dashboard-hooks";
 import { useDashboardControllerRuntime } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
 
+/**
+ * Describes the options for dashboard runtime setter state.
+ */
 interface DashboardRuntimeSetterStateOptions {
   dashboardState: ReturnType<typeof useDashboardState>;
   feedLoader: ReturnType<typeof useFeedLoader>;
   refreshState: ReturnType<typeof useDashboardControllerRefreshState>;
 }
 
+/**
+ * Describes the options for dashboard runtime state.
+ */
 interface DashboardRuntimeStateOptions {
   articleActions: ReturnType<typeof useArticleActions>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
@@ -57,6 +63,9 @@ export function useDashboardRuntimeState(
     viewModelState,
   } = options;
   const appliedBatchArticleFilterRef = useRef(dashboardState.articleFilter);
+  const appliedBatchArticleSortOrderRef = useRef(
+    dashboardState.articleSortOrder,
+  );
   const appliedBatchSearchTermRef = useRef(
     loadingState.deferredSearchTerm.trim(),
   );
@@ -84,6 +93,7 @@ export function useDashboardRuntimeState(
   });
   const runtime = useDashboardControllerRuntime({
     appliedBatchArticleFilterRef,
+    appliedBatchArticleSortOrderRef,
     appliedBatchSearchTermRef,
     ...buildDashboardRuntimeDataState({
       articleActions,
@@ -127,6 +137,7 @@ function buildDashboardRuntimeDataState(
   } = options;
   return {
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     articleWindowLimit: articleWindowState.articleWindowLimit,
     autoRefreshIntervalMinutes: dashboardState.autoRefreshIntervalMinutes,
     feed: dashboardState.feed,

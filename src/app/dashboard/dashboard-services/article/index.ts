@@ -3,8 +3,13 @@ export {
   getArticleSourceLabel,
   getRichContentClass,
 } from "./content";
-export { ARTICLE_FILTER_OPTIONS, filterArticlesByState } from "./filters";
-export type { ArticleFilter } from "./filters";
+export {
+  ARTICLE_FILTER_OPTIONS,
+  ARTICLE_SORT_ORDER_OPTIONS,
+  filterArticlesByState,
+  sortArticlesByOrder,
+} from "./filters";
+export type { ArticleFilter, ArticleSortOrder } from "./filters";
 export type {
   ArticleWindowAvailabilityResult,
   ResolveArticleWindowAvailabilityOptions,

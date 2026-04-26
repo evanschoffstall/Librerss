@@ -1,6 +1,9 @@
 const DEFAULT_PLAYWRIGHT_HOST = "127.0.0.1";
 const DEFAULT_PLAYWRIGHT_PORT = 3100;
 
+/**
+ * Describes the playwright base URL env.
+ */
 interface PlaywrightBaseUrlEnv {
   PLAYWRIGHT_BASE_URL?: string;
   PLAYWRIGHT_HOST?: string;

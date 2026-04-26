@@ -1,15 +1,24 @@
+/**
+ * Describes the options for clear client origin state.
+ */
 interface ClearClientOriginStateOptions {
   preserveLocalStorageKeys?: readonly string[];
 }
 
 const ORIGIN_CLEANUP_CONCURRENCY = 4;
 
+/**
+ * Describes the cleanup task.
+ */
 interface CleanupTask {
   operation: string;
   run: () => Promise<void>;
   target?: string;
 }
 
+/**
+ * Describes the cleanup warning context.
+ */
 interface CleanupWarningContext {
   error: unknown;
   operation: string;

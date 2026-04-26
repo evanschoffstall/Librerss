@@ -1,5 +1,8 @@
 import type { BatchUrlDescriptor } from "./endpoint";
 
+/**
+ * Describes the options for batch result item.
+ */
 interface BatchResultItemOptions {
   batchMap: ReadonlyMap<string, unknown[]>;
   item: BatchUrlDescriptor;

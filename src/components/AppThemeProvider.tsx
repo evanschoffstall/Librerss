@@ -12,10 +12,16 @@ import { useIsMobile, useLocalStorage } from "@/lib/hooks";
 
 const bottomToastOffset = { bottom: 16, left: 16, right: 16 };
 const trueTopToastOffset = { left: 16, right: 16, top: 16 };
+/**
+ * Describes the props for the app theme provider component.
+ */
 interface AppThemeProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Describes the options for toast placement.
+ */
 interface ToastPlacementOptions {
   isMobileGroupedLayout: boolean;
   isMobileViewport: boolean;

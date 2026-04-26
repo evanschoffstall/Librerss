@@ -3,6 +3,9 @@
 import { useAnimationFrame, useReducedMotion } from "motion/react";
 import { useEffect, useRef } from "react";
 
+/**
+ * Describes the options for use background canvas animation.
+ */
 interface UseBackgroundCanvasAnimationOptions {
   onFrame: (now: number, delta: number) => void;
   onResume?: () => void;

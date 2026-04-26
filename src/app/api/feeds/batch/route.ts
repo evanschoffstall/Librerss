@@ -7,7 +7,12 @@ import {
   jsonErrorWithReason,
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
-import { type ArticleFilter, isArticleFilter } from "@/lib/core";
+import {
+  type ArticleFilter,
+  type ArticleSortOrder,
+  isArticleFilter,
+  isArticleSortOrder,
+} from "@/lib/core";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 import { getDb } from "@/lib/db";
 import { resolveUserProxy } from "@/lib/outbound-proxy";
@@ -23,6 +28,7 @@ import {
   createBatchSuccessResponse,
   ensureBatchUrlCount,
   logBatchRequestReceivedWhenEnabled,
+  parseBatchSearchTerm,
   resolveNormalizedBatchUrls,
   serverApi,
   validateBatchRequestState,
@@ -33,6 +39,9 @@ import {
   parseDateOrNull,
 } from "@/lib/utils";
 
+/**
+ * Describes the batch route deps.
+ */
 export interface BatchRouteDeps {
   fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
   getDbFn?: typeof getDb;
@@ -41,6 +50,9 @@ export interface BatchRouteDeps {
   resolveUserProxyFn?: typeof resolveUserProxy;
 }
 
+/**
+ * Describes the batch fetch execution result.
+ */
 interface BatchFetchExecutionResult {
   cachedCount: number;
   cooldownLimitedCount: number;
@@ -57,6 +69,9 @@ interface BatchFetchExecutionResult {
   >["errors"];
 }
 
+/**
+ * Describes the resolved batch request state.
+ */
 interface ResolvedBatchRequestState extends BatchRequestState {
   user: Exclude<
     Awaited<ReturnType<typeof serverApi.requireMutableAuthenticatedUser>>,
@@ -64,6 +79,9 @@ interface ResolvedBatchRequestState extends BatchRequestState {
   >;
 }
 
+/**
+ * Describes the resolved batch request URLs.
+ */
 interface ResolvedBatchRequestUrls {
   invalidUrlCount: number;
   normalizedUrls: string[];
@@ -73,10 +91,16 @@ interface ResolvedBatchRequestUrls {
 const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
   serverApi;
 
+/**
+ * Describes the options for batch execution preflight.
+ */
 interface BatchExecutionPreflightOptions {
   diagnosticsEnabled: boolean;
   requestState: ResolvedBatchRequestState;
 }
+/**
+ * Describes the options for batch intent state.
+ */
 interface BatchIntentStateOptions {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -84,25 +108,38 @@ interface BatchIntentStateOptions {
   urls: string[];
 }
 
+/**
+ * Describes the options for batch proxy transport.
+ */
 interface BatchProxyTransportOptions {
   resolveUserProxyForRoute: NonNullable<
     ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
   >;
   userId: number;
 }
+/**
+ * Describes the options for batch request state for post.
+ */
 interface BatchRequestStateForPostOptions {
   deps: BatchRouteDeps;
   request: NextRequest;
 }
 
+/**
+ * Describes the options for batch request URLs.
+ */
 interface BatchRequestUrlsOptions {
   diagnosticsEnabled: boolean;
   urls: string[];
   userId: number;
 }
+/**
+ * Describes the options for batch success response options.
+ */
 interface BatchSuccessResponseOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   batchFetchResult: BatchFetchExecutionResult;
   diagnosticsEnabled: boolean;
   forceRefresh: boolean;
@@ -117,9 +154,13 @@ interface BatchSuccessResponseOptionsOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for execute batch fetch.
+ */
 interface ExecuteBatchFetchOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   deps: BatchRouteDeps;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -132,6 +173,9 @@ interface ExecuteBatchFetchOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for handle resolved batch post request.
+ */
 interface HandleResolvedBatchPostRequestOptions {
   deps: BatchRouteDeps;
   diagnosticsEnabled: boolean;
@@ -190,6 +234,7 @@ function buildBatchSuccessResponseOptions(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     cachedCount: options.batchFetchResult.cachedCount,
     cooldownLimitedCount: options.batchFetchResult.cooldownLimitedCount,
     diagnosticsEnabled: options.diagnosticsEnabled,
@@ -226,6 +271,7 @@ async function executeBatchFetch(
     buildBatchFetchRequestOptions({
       articleFilter: options.articleFilter,
       articleLimit: options.articleLimit,
+      articleSortOrder: options.articleSortOrder,
       forceRefresh: options.forceRefresh,
       forceResolveUpstream: options.forceResolveUpstream,
       knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
@@ -269,6 +315,7 @@ async function handleResolvedBatchPostRequest(
   const {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceRefresh,
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
@@ -290,6 +337,7 @@ async function handleResolvedBatchPostRequest(
   const batchFetchResult = await executeBatchFetch({
     articleFilter,
     articleLimit,
+    articleSortOrder,
     deps: options.deps,
     forceRefresh,
     forceResolveUpstream,
@@ -306,6 +354,7 @@ async function handleResolvedBatchPostRequest(
     buildBatchSuccessResponseOptions({
       articleFilter,
       articleLimit,
+      articleSortOrder,
       batchFetchResult,
       diagnosticsEnabled: options.diagnosticsEnabled,
       forceRefresh,
@@ -362,6 +411,31 @@ function parseArticleLimit(value: unknown): number | Response | undefined {
   }
 
   return Math.min(value, CONFIG.MAX_ALL_ARTICLES_LIMIT);
+}
+
+/**
+ * Parse the article sort order. Defaults to `"newest"` when omitted so the
+ * server-side `ORDER BY` mirrors the historical descending publication date
+ * behavior.
+ * @param value - The raw value to validate.
+ * @returns The normalized {@link ArticleSortOrder} or a 400 error response
+ *   when the supplied value is not a recognized sort order.
+ */
+function parseArticleSortOrder(value: unknown): ArticleSortOrder | Response {
+  if (value === undefined) {
+    return "newest";
+  }
+
+  if (!isArticleSortOrder(value)) {
+    return NextResponse.json(
+      {
+        error: "articleSortOrder must be one of newest or oldest",
+      },
+      { status: 400 },
+    );
+  }
+
+  return value;
 } /**
  * Parse the force resolve upstream.
  * @param value - The value.
@@ -427,40 +501,6 @@ function parseKnownLastFetchedAtByUrl(
       (entry): entry is readonly [string, Date] => entry !== null,
     ),
   );
-} /**
- * Parse the search term.
- * @param value - The value.
- * @returns The search term.
- */
-function parseSearchTerm(value: unknown): Response | string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "string") {
-    return NextResponse.json(
-      {
-        error: "searchTerm must be a string when provided",
-      },
-      { status: 400 },
-    );
-  }
-
-  const normalizedValue = value.trim();
-  if (normalizedValue.length === 0) {
-    return undefined;
-  }
-
-  if (normalizedValue.length > CONFIG.MAX_ARTICLE_TITLE_LENGTH) {
-    return NextResponse.json(
-      {
-        error: `searchTerm must be at most ${CONFIG.MAX_ARTICLE_TITLE_LENGTH} characters`,
-      },
-      { status: 400 },
-    );
-  }
-
-  return normalizedValue;
 }
 
 /**
@@ -474,6 +514,7 @@ function resolveBatchExecutionPreflight(
   const {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceRefresh,
     forceResolveUpstream,
     requestSource,
@@ -486,6 +527,7 @@ function resolveBatchExecutionPreflight(
   logBatchRequestReceivedWhenEnabled({
     articleFilter,
     articleLimit,
+    articleSortOrder,
     diagnosticsEnabled: options.diagnosticsEnabled,
     forceRefresh,
     forceResolveUpstream,
@@ -607,9 +649,10 @@ async function resolveBatchRequestStateForPost(
     normalizeDistinctUrlList,
     parseArticleFilter,
     parseArticleLimit,
+    parseArticleSortOrder,
     parseForceResolveUpstream,
     parseKnownLastFetchedAtByUrl,
-    parseSearchTerm,
+    parseSearchTerm: parseBatchSearchTerm,
   });
 
   return requestState instanceof Response

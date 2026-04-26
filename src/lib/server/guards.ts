@@ -8,14 +8,23 @@ import { toError } from "@/lib/utils";
 
 import { rateLimiter } from "./rate-limit";
 
+/**
+ * Defines the authenticated user type.
+ */
 export type AuthenticatedUser = NonNullable<
   Awaited<ReturnType<typeof getUserFromRequest>>
 >;
 
+/**
+ * Describes the options for log and respond error.
+ */
 interface LogAndRespondErrorOptions {
   publicMessage?: string;
   status?: number;
 }
+/**
+ * Describes the options for mutation request.
+ */
 interface MutationRequestOptions {
   rateLimit?: {
     key: string;

@@ -2,6 +2,9 @@ import type { SettingsFeedRowProps } from "@/app/dashboard/dashboard-components/
 import type { UseSettingsDragReturn } from "@/app/dashboard/settings-state";
 import type { CategoryTreeNode } from "@/lib/core";
 
+/**
+ * Describes the props for the settings category draft feed component.
+ */
 export interface SettingsCategoryDraftFeedProps {
   isSavingFeed: boolean;
   newFeedName: string;
@@ -12,11 +15,17 @@ export interface SettingsCategoryDraftFeedProps {
   onNewFeedUrlChange: TextChangeHandler;
 }
 
+/**
+ * Describes the props for the settings category feed list component.
+ */
 export interface SettingsCategoryFeedListProps extends SharedFeedRowProps {
   categoryFeeds: CategoryTreeNode[];
   categoryLabel: string;
 }
 
+/**
+ * Describes the settings category header callbacks.
+ */
 export interface SettingsCategoryHeaderCallbacks {
   onCancelCategoryEdit: () => void;
   onCategoryDragEnd: () => void;
@@ -32,6 +41,9 @@ export interface SettingsCategoryHeaderCallbacks {
   savingCategoryLabel: null | string;
 }
 
+/**
+ * Describes the props for the shared feed row component.
+ */
 export type SharedFeedRowProps = Omit<
   SettingsFeedRowProps,
   | "categoryLabel"
@@ -62,4 +74,7 @@ export type SharedFeedRowProps = Omit<
   onToggleFeedEnabled: SettingsFeedRowProps["onToggleEnabled"];
 };
 
+/**
+ * Defines the text change handler type.
+ */
 export type TextChangeHandler = (value: string) => void;

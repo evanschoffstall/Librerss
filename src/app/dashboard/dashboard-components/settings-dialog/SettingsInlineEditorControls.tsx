@@ -1,6 +1,9 @@
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Describes the props for the settings inline editor controls component.
+ */
 interface SettingsInlineEditorControlsProps {
   disabled: boolean;
   isSaving: boolean;

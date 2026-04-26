@@ -15,6 +15,9 @@ import type { FeedSourceListRow } from "./types";
 
 import { listFeedSourcesForUser, toFeedSourceResponse } from "./repository";
 
+/**
+ * Describes the handle feed read deps.
+ */
 interface HandleFeedReadDeps {
   fetchAndCacheFeedArticlesFn?: typeof fetchAndCacheFeedArticles;
   getCachedFeedSourceListFn?: typeof getCachedFeedSourceList;
@@ -27,6 +30,9 @@ interface HandleFeedReadDeps {
   tryNormalizeFeedUrlFn?: typeof tryNormalizeFeedUrl;
 }
 
+/**
+ * Describes the handle feed source list read deps.
+ */
 interface HandleFeedSourceListReadDeps {
   getCachedFeedSources: typeof getCachedFeedSourceList;
   listSourcesForUser: typeof listFeedSourcesForUser;
@@ -35,11 +41,17 @@ interface HandleFeedSourceListReadDeps {
   toFeedSource: typeof toFeedSourceResponse;
 }
 
+/**
+ * Describes the handle single feed read deps.
+ */
 interface HandleSingleFeedReadDeps {
   fetchFeedArticles: typeof fetchAndCacheFeedArticles;
   getDbForRead: typeof getDb;
 }
 
+/**
+ * Describes the resolved feed read context.
+ */
 interface ResolvedFeedReadContext {
   fetchFeedArticles: typeof fetchAndCacheFeedArticles;
   getCachedFeedSources: typeof getCachedFeedSourceList;

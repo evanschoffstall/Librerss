@@ -3,6 +3,9 @@ export const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30;
 const DASHBOARD_PREVIEW_ENABLED_VALUE = "1";
 
+/**
+ * Describes the options for dashboard preview mode.
+ */
 interface DashboardPreviewModeOptions {
   hasExploreQuery: boolean;
 }

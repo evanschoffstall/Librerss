@@ -1,3 +1,6 @@
+/**
+ * Describes the pagination boundary rearm refs.
+ */
 export interface PaginationBoundaryRearmRefs {
   hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
   hasPendingServerRevealRef: BooleanRef;
@@ -5,6 +8,9 @@ export interface PaginationBoundaryRearmRefs {
   invertedPaginationAnchorRef: UnknownNullableRef;
 }
 
+/**
+ * Describes the options for pagination boundary user intent.
+ */
 export interface PaginationBoundaryUserIntentOptions extends PaginationBoundaryRearmRefs {
   isInvertedLoadBoundaryArmedRef: BooleanRef;
   isInvertedScroll: boolean;
@@ -18,24 +24,39 @@ export interface PaginationBoundaryUserIntentOptions extends PaginationBoundaryR
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the boolean ref.
+ */
 interface BooleanRef {
   current: boolean;
 }
 
+/**
+ * Describes the options for finalize pagination boundary rearm.
+ */
 interface FinalizePaginationBoundaryRearmOptions {
   armedBoundaryRef: BooleanRef;
   hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
   hasRequestedServerLoadRef: BooleanRef;
 }
 
+/**
+ * Describes the options for has pending pagination boundary state.
+ */
 interface HasPendingPaginationBoundaryStateOptions {
   hasPendingServerRevealRef: BooleanRef;
   invertedPaginationAnchorRef: UnknownNullableRef;
 }
+/**
+ * Describes the nullable number ref.
+ */
 interface NullableNumberRef {
   current: null | number;
 }
 
+/**
+ * Describes the options for reset pagination runtime state.
+ */
 interface ResetPaginationRuntimeStateOptions {
   clearServerLoadCooldown: () => void;
   filteredFeedLength: number;
@@ -56,6 +77,9 @@ interface ResetPaginationRuntimeStateOptions {
   previousFilteredFeedLengthRef: { current: number };
   standardViewportRefillTargetVisibleCountRef: NullableNumberRef;
 }
+/**
+ * Describes the unknown nullable ref.
+ */
 interface UnknownNullableRef {
   current: unknown;
 }

@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
 
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { CONFIG, logger } from "@/lib";
 
 import { buildBatchRequestLogFields } from "./log-fields";
 
+/**
+ * Describes the batch request body.
+ */
 export interface BatchRequestBody {
   articleFilter?: unknown;
   articleLimit?: unknown;
+  articleSortOrder?: unknown;
   forceRefresh?: unknown;
   forceResolveUpstream?: unknown;
   knownLastFetchedAtByUrl?: unknown;
@@ -18,9 +22,13 @@ export interface BatchRequestBody {
   urls?: unknown;
 }
 
+/**
+ * Describes the options for batch request completed.
+ */
 export interface BatchRequestCompletedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   cachedCount: number;
   cooldownLimitedCount: number;
   diagnosticsEnabled: boolean;
@@ -40,9 +48,13 @@ export interface BatchRequestCompletedOptions {
   userId: number;
 }
 
+/**
+ * Describes the batch request state.
+ */
 export interface BatchRequestState {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -52,25 +64,38 @@ export interface BatchRequestState {
   urls: string[];
 }
 
+/**
+ * Describes the batch URL descriptor.
+ */
 export interface BatchUrlDescriptor {
   kind: "invalid" | "valid";
   url: string;
 }
 
+/**
+ * Describes the normalized batch URLs.
+ */
 export interface NormalizedBatchUrls {
   invalidUrlCount: number;
   normalizedUrls: string[];
   requestUrls: BatchUrlDescriptor[];
 }
 
+/**
+ * Describes the options for batch intent.
+ */
 interface BatchIntentOptions {
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   skipRefresh: boolean;
 }
+/**
+ * Describes the batch request state parsers.
+ */
 interface BatchRequestStateParsers {
   parseArticleFilter: (value: unknown) => ArticleFilter | Response;
   parseArticleLimit: (value: unknown) => number | Response | undefined;
+  parseArticleSortOrder: (value: unknown) => ArticleSortOrder | Response;
   parseForceResolveUpstream: (value: unknown) => boolean | Response;
   parseKnownLastFetchedAtByUrl: (
     value: unknown,
@@ -78,15 +103,22 @@ interface BatchRequestStateParsers {
   parseSearchTerm: (value: unknown) => Response | string | undefined;
 }
 
+/**
+ * Describes the options for invalid batch result response.
+ */
 interface InvalidBatchResultResponseOptions {
   diagnosticsEnabled: boolean;
   invalidUrlCount: number;
   requestUrls: BatchUrlDescriptor[];
   userId: number;
 }
+/**
+ * Describes the options for log batch diagnostics.
+ */
 interface LogBatchDiagnosticsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   invalidUrlCount: number;
@@ -99,9 +131,13 @@ interface LogBatchDiagnosticsOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch request received.
+ */
 interface LogBatchRequestReceivedOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   requestSource: string | undefined;
@@ -111,9 +147,13 @@ interface LogBatchRequestReceivedOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch request received when enabled.
+ */
 interface LogBatchRequestReceivedWhenEnabledOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   diagnosticsEnabled: boolean;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -124,6 +164,9 @@ interface LogBatchRequestReceivedWhenEnabledOptions {
   userId: number;
 }
 
+/**
+ * Describes the options for log batch status summary.
+ */
 interface LogBatchStatusSummaryOptions {
   cachedCount: number;
   cooldownLimitedCount: number;
@@ -133,19 +176,29 @@ interface LogBatchStatusSummaryOptions {
   requestStartedAt: number;
   resolution: string;
 }
+/**
+ * Describes the options for log batch warnings.
+ */
 interface LogBatchWarningsOptions {
   invalidUrlCount: number;
   upstreamErrors: Map<string, string>;
 }
 
+/**
+ * Describes the options for normalized batch URLs.
+ */
 interface NormalizedBatchUrlsOptions {
   normalizeFeedUrl: (url: string) => string;
   urls: string[];
 }
 
+/**
+ * Describes the options for validated batch request state.
+ */
 interface ValidatedBatchRequestStateOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   body: BatchRequestBody;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -295,6 +348,7 @@ export function logBatchRequestReceivedWhenEnabled(
   logBatchRequestReceived({
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     forceRefresh: options.forceRefresh,
     forceResolveUpstream: options.forceResolveUpstream,
     requestSource: options.requestSource,
@@ -304,6 +358,7 @@ export function logBatchRequestReceivedWhenEnabled(
     userId: options.userId,
   });
 }
+
 /**
  * Process the log batch status summary.
  * @param options - The options used to process the log batch status summary.
@@ -321,7 +376,6 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
     `Batch [${n} feed${plural}]: client=${options.intent} resolved=${options.resolution} | ${options.refreshedCount} refreshed, ${options.cachedCount} cached${cooldownNote} in ${durationMs}ms`,
   );
 }
-
 /**
  * Process the log batch warnings.
  * @param options - The options used to process the log batch warnings.
@@ -341,6 +395,44 @@ export function logBatchWarnings(options: LogBatchWarningsOptions) {
       `Returning 207 Multi-Status — ${options.invalidUrlCount} invalid feed URL(s) were rejected before fetch`,
     );
   }
+}
+
+/**
+ * Parse the batch request search term.
+ * @param value - The raw search term payload.
+ * @returns The trimmed search term, `undefined` when omitted, or a 400 response.
+ */
+export function parseBatchSearchTerm(
+  value: unknown,
+): Response | string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return NextResponse.json(
+      {
+        error: "searchTerm must be a string when provided",
+      },
+      { status: 400 },
+    );
+  }
+
+  const normalizedValue = value.trim();
+  if (normalizedValue.length === 0) {
+    return undefined;
+  }
+
+  if (normalizedValue.length > CONFIG.MAX_ARTICLE_TITLE_LENGTH) {
+    return NextResponse.json(
+      {
+        error: `searchTerm must be at most ${CONFIG.MAX_ARTICLE_TITLE_LENGTH} characters`,
+      },
+      { status: 400 },
+    );
+  }
+
+  return normalizedValue;
 }
 
 /**
@@ -393,6 +485,7 @@ export function validateBatchRequestState(
   return buildValidatedBatchRequestState({
     articleFilter: parsedState.articleFilter,
     articleLimit: parsedState.articleLimit,
+    articleSortOrder: parsedState.articleSortOrder,
     body: options.body,
     forceResolveUpstream: parsedState.forceResolveUpstream,
     knownLastFetchedAtByUrl: parsedState.knownLastFetchedAtByUrl,
@@ -412,6 +505,7 @@ function buildValidatedBatchRequestState(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     forceRefresh: options.body.forceRefresh === true,
     forceResolveUpstream: options.forceResolveUpstream,
     knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
@@ -457,6 +551,13 @@ function parseBatchRequestStateFields(
     return articleLimit;
   }
 
+  const articleSortOrder = options.parseArticleSortOrder(
+    options.body.articleSortOrder,
+  );
+  if (articleSortOrder instanceof Response) {
+    return articleSortOrder;
+  }
+
   const searchTerm = options.parseSearchTerm(options.body.searchTerm);
   if (searchTerm instanceof Response) {
     return searchTerm;
@@ -465,6 +566,7 @@ function parseBatchRequestStateFields(
   return {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
     searchTerm,

@@ -41,6 +41,9 @@ const PUBLIC_IP_PROVIDERS = [
   },
 ] as const;
 
+/**
+ * Describes the proxy routing check result.
+ */
 export interface ProxyRoutingCheckResult {
   directIp: null | string;
   error: null | string;
@@ -48,27 +51,45 @@ export interface ProxyRoutingCheckResult {
   status: "error" | "proxy-only" | "same-egress" | "verified";
 }
 
+/**
+ * Describes the proxy status result.
+ */
 export interface ProxyStatusResult {
   configured: boolean;
   proxyUrl: null | string;
   status: "reachable" | "unreachable";
 }
 
+/**
+ * Describes the resolved user proxy.
+ */
 export interface ResolvedUserProxy {
   allowInsecureTls: boolean;
   proxyUrl: string | undefined;
 }
 
+/**
+ * Describes the proxy routing check deps.
+ */
 interface ProxyRoutingCheckDeps {
   fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
 }
 
+/**
+ * Describes the options for proxy routing check.
+ */
 interface ProxyRoutingCheckOptions {
   allowInsecureTls: boolean;
   proxyUrl: string;
 }
 
+/**
+ * Defines the public ip provider type.
+ */
 type PublicIpProvider = (typeof PUBLIC_IP_PROVIDERS)[number];
+/**
+ * Describes the options for resolved proxy URL.
+ */
 interface ResolvedProxyUrlOptions {
   baseProxyUrl: string | undefined;
   decryptedProxyPassword: null | string;
@@ -76,6 +97,9 @@ interface ResolvedProxyUrlOptions {
   proxyUsername: null | string;
 }
 
+/**
+ * Describes the stored user proxy row.
+ */
 interface StoredUserProxyRow {
   allowInsecureTls: boolean;
   proxyPassword: null | string;

@@ -9,7 +9,7 @@
  * path and should age out together under the same freshness budget.
  */
 
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 import type { ArticleRow } from "@/lib/core/feed-batch-pipeline";
 import type { FeedSourceListRow } from "@/lib/types";
 
@@ -17,6 +17,19 @@ import { CONFIG } from "@/lib/config";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Describes the options for cached batch key.
+ */
+interface CachedBatchKeyOptions {
+  articleFilter?: ArticleFilter;
+  articleLimit?: number;
+  articleSortOrder?: ArticleSortOrder;
+  searchTerm?: string;
+}
+
+/**
+ * Describes the cached batch result.
+ */
 interface CachedBatchResult {
   articles: Map<string, ArticleRow[]>;
   /** Epoch-ms when this entry was written. */
@@ -25,12 +38,18 @@ interface CachedBatchResult {
   lastFetchedByUrl: Map<string, Date>;
 }
 
+/**
+ * Describes the cached feed source list result.
+ */
 interface CachedFeedSourceListResult {
   /** Epoch-ms when this entry was written. */
   cachedAt: number;
   sources: FeedSourceListRow[];
 }
 
+/**
+ * Describes the cache entry.
+ */
 interface CacheEntry {
   result: CachedBatchResult;
   /** Sorted, joined URL key for quick comparison. */
@@ -47,21 +66,30 @@ const MAX_ENTRIES_PER_USER = 8;
  * Return the cached batch.
  * @param userId - The r id.
  * @param urls - The urls.
- * @param articleFilter - The article filter.
- * @param articleLimit - The article limit.
- * @param searchTerm - The search term.
+ * @param options - Cache-key options including the article filter, limit,
+ *   search term, and display sort order.
  * @returns The cached batch.
  */
 export function getCachedBatch(
   userId: number,
   urls: string[],
-  articleFilter: ArticleFilter,
-  articleLimit?: number,
-  searchTerm?: string,
+  options: CachedBatchKeyOptions = {},
 ): CachedBatchResult | null {
+  const {
+    articleFilter = "all",
+    articleLimit,
+    articleSortOrder = "newest",
+    searchTerm,
+  } = options;
   const userMap = userCaches.get(userId);
   if (!userMap) return null;
-  const key = buildUrlKey(urls, articleFilter, articleLimit, searchTerm);
+  const key = buildUrlKey(
+    urls,
+    articleFilter,
+    articleLimit,
+    searchTerm,
+    articleSortOrder,
+  );
   const entry = userMap.get(key);
   if (!entry) return null;
   if (!isFresh(entry)) {
@@ -112,26 +140,35 @@ export function invalidateUserFeedSourceListCache(userId: number): void {
  * Process the set cached batch.
  * @param userId - The r id.
  * @param urls - The urls.
- * @param articleFilter - The article filter.
- * @param articleLimit - The article limit.
- * @param searchTerm - The search term.
  * @param result - The result.
+ * @param options - Cache-key options including the article filter, limit,
+ *   search term, and display sort order.
  */
 export function setCachedBatch(
   userId: number,
   urls: string[],
-  articleFilter: ArticleFilter,
-  articleLimit: number | undefined,
-  searchTerm: string | undefined,
   result: Omit<CachedBatchResult, "cachedAt">,
+  options: CachedBatchKeyOptions = {},
 ): void {
+  const {
+    articleFilter = "all",
+    articleLimit,
+    articleSortOrder = "newest",
+    searchTerm,
+  } = options;
   let userMap = userCaches.get(userId);
   if (!userMap) {
     userMap = new Map();
     userCaches.set(userId, userMap);
   }
 
-  const key = buildUrlKey(urls, articleFilter, articleLimit, searchTerm);
+  const key = buildUrlKey(
+    urls,
+    articleFilter,
+    articleLimit,
+    searchTerm,
+    articleSortOrder,
+  );
 
   // Evict oldest if at capacity (simple LRU-ish: delete first inserted)
   if (userMap.size >= MAX_ENTRIES_PER_USER && !userMap.has(key)) {
@@ -168,6 +205,7 @@ export function setCachedFeedSourceList(
  * @param articleFilter - The article filter.
  * @param articleLimit - The article limit.
  * @param searchTerm - The search term.
+ * @param articleSortOrder - The display order: `"newest"` (default) or `"oldest"`.
  * @returns The url key.
  */
 function buildUrlKey(
@@ -175,8 +213,9 @@ function buildUrlKey(
   articleFilter: ArticleFilter,
   articleLimit?: number,
   searchTerm?: string,
+  articleSortOrder: ArticleSortOrder = "newest",
 ): string {
-  return `${articleFilter}\0${normalizeArticleLimit(articleLimit)}\0${searchTerm?.trim() ?? ""}\0${[...urls].sort().join("\0")}`;
+  return `${articleFilter}\0${normalizeArticleLimit(articleLimit)}\0${searchTerm?.trim() ?? ""}\0${articleSortOrder}\0${[...urls].sort().join("\0")}`;
 }
 
 /**

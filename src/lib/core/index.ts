@@ -1,8 +1,11 @@
 export type { ArticleRow, RankedRow, RefreshDecision } from "./batch-types";
 export {
   ARTICLE_FILTERS,
+  ARTICLE_SORT_ORDERS,
   type ArticleFilter,
+  type ArticleSortOrder,
   isArticleFilter,
+  isArticleSortOrder,
 } from "./filters";
 export {
   ARTICLE_CONTENT_PREVIEW_LENGTH,

@@ -59,10 +59,16 @@ export interface UseSettingsProxyStateResult {
   syncAllowInsecureTls: (checked: boolean) => Promise<void>;
 }
 
+/**
+ * Describes the options for use settings proxy state.
+ */
 interface UseSettingsProxyStateOptions {
   enabled?: boolean;
 }
 
+/**
+ * Describes the options for use settings proxy state result.
+ */
 interface UseSettingsProxyStateResultOptions {
   handleClear: () => Promise<void>;
   handleRunCompatibilityCheck: () => Promise<void>;

@@ -13,13 +13,22 @@ import type * as schema from "./schema";
  */
 export type Database = ReturnType<typeof drizzleNodePostgres<typeof schema>>;
 
+/**
+ * Defines the database pool type.
+ */
 export type DatabasePool = NeonPool | NodePostgresPool;
 
+/**
+ * Describes the database provider result.
+ */
 export interface DatabaseProviderResult {
   db: Database;
   pool: DatabasePool;
 }
 
+/**
+ * Defines the query result row type.
+ */
 export type QueryResultRow = Record<string, unknown>;
 
 /** Minimal direct-SQL executor used by Bun scripts and one-shot checks. */
@@ -31,6 +40,9 @@ export interface SqlQueryExecutor {
   ): Promise<SqlQueryResult<TRow>>;
 }
 
+/**
+ * Describes the sql query result.
+ */
 export interface SqlQueryResult<TRow extends QueryResultRow = QueryResultRow> {
   rowCount: null | number;
   rows: TRow[];

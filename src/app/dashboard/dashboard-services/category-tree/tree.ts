@@ -117,6 +117,9 @@ export const SYSTEM_ALL_FEEDS_CATEGORY: CategoryTreeNode = {
   label: ALL_FEEDS_LABEL,
 };
 
+/**
+ * Describes the options for insert relocated feed.
+ */
 interface InsertRelocatedFeedOptions {
   destinationCategoryIndex: number;
   movedSource: CategoryTreeNode;

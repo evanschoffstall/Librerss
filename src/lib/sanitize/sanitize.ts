@@ -13,6 +13,9 @@ import {
 } from "./cleaners";
 import { purifyRawHtml } from "./purify";
 
+/**
+ * Describes the exclusive filter frame.
+ */
 interface ExclusiveFilterFrame {
   attribs?: Record<string, string>;
   tag: string;

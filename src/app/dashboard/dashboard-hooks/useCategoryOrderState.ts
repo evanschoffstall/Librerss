@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 
 import { FeedService } from "@/lib/api";
 
+/**
+ * Describes the options for use category order state.
+ */
 interface UseCategoryOrderStateOptions {
   usePlaceholderData: boolean;
 }

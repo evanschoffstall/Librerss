@@ -54,6 +54,7 @@ describe("dashboard support hooks", () => {
         isInitialLoading: false,
         isLoadingMore: false,
         isRefreshing: false,
+        isSearchFetching: false,
         loadingMoreArticleCount: 0,
         onArticleEnteringDone: mock(() => {}),
         onArticleExpandedSwipeRead: mock(() => {}),
@@ -69,11 +70,13 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        articleSortOrder: "newest",
         isSearchPending: false,
         isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,
         setArticleFilter: mock(() => {}),
+        setArticleSortOrder: mock(() => {}),
       },
       settings: {
         articlesPerPage: 12,

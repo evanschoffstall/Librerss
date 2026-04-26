@@ -17,16 +17,25 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+/**
+ * Describes the props for the compatibility error row component.
+ */
 interface CompatibilityErrorRowProps {
   compatibilityError: string;
 }
 
+/**
+ * Describes the props for the compatibility panel body component.
+ */
 interface CompatibilityPanelBodyProps {
   compatibilityError: null | string;
   compatibilityResults: CompatibilityResult[] | null;
   resultsRef: React.RefObject<HTMLDivElement | null>;
   showLoadingSkeleton: boolean;
 }
+/**
+ * Describes the props for the compatibility panel header component.
+ */
 interface CompatibilityPanelHeaderProps {
   compatibilityCheckedAt: null | number;
   hasProxy: boolean;
@@ -37,16 +46,25 @@ interface CompatibilityPanelHeaderProps {
   showLoadingSkeleton: boolean;
 }
 
+/**
+ * Describes the props for the compatibility results list component.
+ */
 interface CompatibilityResultsListProps {
   compatibilityResults: CompatibilityResult[];
   resultsRef: React.RefObject<HTMLDivElement | null>;
 }
+/**
+ * Describes the props for the compatibility run button component.
+ */
 interface CompatibilityRunButtonProps {
   isRunningCompatibilityCheck: boolean;
   onRunCompatibilityCheck: () => Promise<void>;
   saving: boolean;
 }
 
+/**
+ * Describes the props for the settings proxy compatibility panel component.
+ */
 interface SettingsProxyCompatibilityPanelProps {
   compatibilityCheckedAt: null | number;
   compatibilityError: null | string;

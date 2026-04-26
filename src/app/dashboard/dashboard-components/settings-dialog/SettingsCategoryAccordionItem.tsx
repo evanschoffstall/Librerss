@@ -11,10 +11,16 @@ import { animTransitionColorsClass } from "@/app/dashboard/dashboard-components/
 import { AccordionContent, AccordionItem } from "@/components/ui/accordion";
 import { isSameCategoryLabel } from "@/lib/utils";
 
+/**
+ * Describes the props for the settings category accordion content component.
+ */
 interface SettingsCategoryAccordionContentProps {
   bodyProps: React.ComponentProps<typeof SettingsCategoryAccordionBody>;
 }
 
+/**
+ * Describes the props for the settings category accordion item component.
+ */
 interface SettingsCategoryAccordionItemProps
   extends
     SettingsCategoryDraftFeedProps,

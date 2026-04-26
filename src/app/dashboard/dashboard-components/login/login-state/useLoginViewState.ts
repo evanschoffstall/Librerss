@@ -12,16 +12,25 @@ import {
 import { AuthService } from "@/lib/api";
 import { isApiError } from "@/lib/api/http";
 
+/**
+ * Describes the auth error response.
+ */
 interface AuthErrorResponse {
   error?: unknown;
 }
 
+/**
+ * Describes the options for submit authentication request.
+ */
 interface SubmitAuthenticationRequestOptions {
   email: string;
   mode: "login" | "signup";
   password: string;
 }
 
+/**
+ * Describes the options for submit login view form.
+ */
 interface SubmitLoginViewFormOptions extends SubmitAuthenticationRequestOptions {
   allowSignup: boolean;
   confirmPassword: string;
@@ -31,6 +40,9 @@ interface SubmitLoginViewFormOptions extends SubmitAuthenticationRequestOptions 
   setIsSubmitting: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+/**
+ * Describes the options for use login view state.
+ */
 interface UseLoginViewStateOptions {
   allowSignup: boolean;
   initialFormError?: string;

@@ -2,28 +2,49 @@ import { CONFIG } from "@/lib";
 
 import { jsonError } from "./responses";
 
+/**
+ * Describes the options for form or query params.
+ */
 interface FormOrQueryParamsOptions {
   maxBytes?: number;
 }
 
+/**
+ * Describes the options for JSON body.
+ */
 interface JsonBodyOptions {
   maxBytes?: number;
 }
 
+/**
+ * Describes the options for JSON body or response.
+ */
 interface JsonBodyOrResponseOptions {
   maxBytes?: number;
 }
 
+/**
+ * Describes the options for JSON object body or response.
+ */
 interface JsonObjectBodyOrResponseOptions {
   maxBytes?: number;
 }
 
+/**
+ * Describes the parsed JSON failure.
+ */
 interface ParsedJsonFailure {
   ok: false;
   response: Response;
 }
+/**
+ * Describes the parsed JSON result.
+ */
 type ParsedJsonResult<T> = ParsedJsonFailure | ParsedJsonSuccess<T>;
 
+/**
+ * Describes the parsed JSON success.
+ */
 interface ParsedJsonSuccess<T> {
   data: T;
   ok: true;

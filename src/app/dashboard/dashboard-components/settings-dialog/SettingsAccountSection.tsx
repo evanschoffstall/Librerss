@@ -11,17 +11,26 @@ import { Separator } from "@/components/ui/separator";
 import { AccountService } from "@/lib/api";
 import { clearClientOriginState } from "@/lib/browser";
 
+/**
+ * Describes the props for the settings account action row component.
+ */
 interface SettingsAccountActionRowProps {
   action: ReactNode;
   description: string;
   title: ReactNode;
 }
 
+/**
+ * Describes the props for the settings account policy link component.
+ */
 interface SettingsAccountPolicyLinkProps {
   href: string;
   label: string;
 }
 
+/**
+ * Describes the props for the settings account section component.
+ */
 interface SettingsAccountSectionProps {
   onAccountDeleted: () => void;
 }

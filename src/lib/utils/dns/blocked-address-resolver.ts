@@ -9,12 +9,18 @@ import {
   resolveDnsDepsWithRuntimeDefaults,
 } from "./resolution";
 
+/**
+ * Describes the dns lookup context.
+ */
 export interface DnsLookupContext {
   cachedResult: boolean | undefined;
   normalizedHostname: null | string;
   resolvedDeps: null | ReturnType<typeof resolveDnsDepsWithRuntimeDefaults>;
 }
 
+/**
+ * Describes the dns lookup runtime deps.
+ */
 export interface DnsLookupRuntimeDeps {
   clearTimeoutFn?: typeof clearTimeout;
   isBlockedResolvedAddressFn?: (address: string) => boolean;
@@ -24,10 +30,16 @@ export interface DnsLookupRuntimeDeps {
   warnFn?: DnsResolveDeps["warnFn"];
 }
 
+/**
+ * Defines the dns resolver defaults type.
+ */
 export type DnsResolverDefaults = Pick<
   DnsResolveDeps,
   "isBlockedResolvedAddressFn" | "lookupFn" | "warnFn"
 >;
+/**
+ * Describes the options for blocked address with cache.
+ */
 interface BlockedAddressWithCacheOptions {
   cache: Map<string, DnsCacheEntry>;
   cacheTtlMs: number;
@@ -38,6 +50,9 @@ interface BlockedAddressWithCacheOptions {
   timeoutMs: number;
 }
 
+/**
+ * Describes the options for cache dns lookup failure.
+ */
 interface CacheDnsLookupFailureOptions {
   cache: Map<string, DnsCacheEntry>;
   error: unknown;

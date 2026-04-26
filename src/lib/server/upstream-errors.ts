@@ -8,12 +8,18 @@ import {
 import { HttpCloakUpstreamError, pickDiagnosticHeaders } from "@/lib/fetch";
 import { redactUrlForLogs, type toErrorMessage } from "@/lib/utils";
 
+/**
+ * Describes the feed attempt context.
+ */
 interface FeedAttemptContext {
   feedAttemptId?: string;
   requestId?: null | string;
   verboseLoggingEnabled?: boolean;
 }
 
+/**
+ * Describes the options for feed read error responder.
+ */
 interface FeedReadErrorResponderOptions {
   error: unknown;
   feedAttemptContext: FeedAttemptContext;
@@ -27,6 +33,9 @@ interface FeedReadErrorResponderOptions {
   warn: FeedRouteWarn;
 }
 
+/**
+ * Defines the feed route warn type.
+ */
 type FeedRouteWarn = (
   message: string,
   context?: Record<string, unknown>,

@@ -38,6 +38,9 @@ const COMPATIBILITY_CHECK_SITES = [
   },
 ] as const;
 
+/**
+ * Describes the compatibility check deps.
+ */
 interface CompatibilityCheckDeps {
   fetchHtmlWithHttpCloakFn?: typeof fetchHtmlWithHttpCloak;
   httpCloakUpstreamErrorClass?: typeof HttpCloakUpstreamError;
@@ -55,6 +58,9 @@ interface CompatibilityCheckDeps {
   serviceErrorClass?: typeof serverApi.ServerServiceError;
 }
 
+/**
+ * Describes the compatibility check execution context.
+ */
 interface CompatibilityCheckExecutionContext {
   allowInsecureTls: boolean;
   loggerInstance: typeof logger;
@@ -63,10 +69,16 @@ interface CompatibilityCheckExecutionContext {
   userId: number;
 }
 
+/**
+ * Describes the compatibility check request.
+ */
 interface CompatibilityCheckRequest {
   useProxy?: boolean;
 }
 
+/**
+ * Describes the compatibility check result.
+ */
 interface CompatibilityCheckResult {
   compatibilitySignalDetected: boolean;
   error?: string;
@@ -78,6 +90,9 @@ interface CompatibilityCheckResult {
   vendor: string;
 }
 
+/**
+ * Describes the resolved compatibility check deps.
+ */
 interface ResolvedCompatibilityCheckDeps {
   fetchHtmlWithHttpCloakFn: typeof fetchHtmlWithHttpCloak;
   httpCloakUpstreamErrorClass: typeof HttpCloakUpstreamError;
@@ -95,6 +110,9 @@ interface ResolvedCompatibilityCheckDeps {
   serviceErrorClass: typeof serverApi.ServerServiceError;
 }
 
+/**
+ * Describes the resolved user proxy configuration.
+ */
 interface ResolvedUserProxyConfig {
   allowInsecureTls: boolean;
   proxyUrl?: string;

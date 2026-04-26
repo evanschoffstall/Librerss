@@ -14,10 +14,16 @@ import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/lib/hooks";
 
+/**
+ * Describes the props for the dashboard toolbar content component.
+ */
 interface DashboardToolbarContentProps {
   toolbar: ReturnType<typeof useDashboardToolbarPresentationState>;
 }
 
+/**
+ * Describes the props for the dashboard toolbar component.
+ */
 interface DashboardToolbarProps {
   /**
    * When supplied by a parent controller, this value overrides the event-based
@@ -28,6 +34,9 @@ interface DashboardToolbarProps {
   isShellLoading?: boolean;
   startInShellLoading?: boolean;
 }
+/**
+ * Describes the props for the dashboard toolbar shell component.
+ */
 interface DashboardToolbarShellProps {
   children: React.ReactNode;
   mobileToolbarBottom: boolean;

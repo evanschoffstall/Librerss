@@ -16,7 +16,10 @@ import {
 import { expect, test } from "./test";
 
 /** Collapses an expanded article directly by key without requiring it to stay interactable in view. */
-async function collapseArticleByKey(page: Parameters<typeof articleCard>[0], articleKey: string) {
+async function collapseArticleByKey(
+  page: Parameters<typeof articleCard>[0],
+  articleKey: string,
+) {
   const articleSelector = `article[data-article-key="${articleKey}"]`;
   const header = page
     .locator(`${articleSelector} [data-article-swipe-zone='header']`)

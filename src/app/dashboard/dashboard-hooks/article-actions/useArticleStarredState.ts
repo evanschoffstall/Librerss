@@ -9,6 +9,9 @@ import {
 } from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutation";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 
+/**
+ * Describes the options for use article starred state.
+ */
 interface UseArticleStarredStateOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
   mutationTracker: Pick<

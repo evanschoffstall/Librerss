@@ -12,6 +12,9 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
 
+/**
+ * Describes the options for maybe auto fill viewport.
+ */
 export interface MaybeAutoFillViewportOptions {
   allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;
   articleFilter: string;
@@ -35,6 +38,9 @@ export interface MaybeAutoFillViewportOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the options for complete viewport auto fill.
+ */
 interface CompleteViewportAutoFillOptions {
   currentFilteredFeedLength: number;
   effectiveListHeight: number;
@@ -45,11 +51,17 @@ interface CompleteViewportAutoFillOptions {
   shouldAllowStandardViewportRefill: boolean;
 }
 
+/**
+ * Describes the options for effective list height.
+ */
 interface EffectiveListHeightOptions {
   committedListHeight?: number;
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the options for finish viewport auto fill.
+ */
 interface FinishViewportAutoFillOptions extends FinishStandardViewportRefillOptions {
   allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;
   articleFilter: string;
@@ -61,20 +73,32 @@ interface FinishViewportAutoFillOptions extends FinishStandardViewportRefillOpti
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
 }
 
+/**
+ * Describes the nullable number ref.
+ */
 interface NullableNumberRef {
   current: null | number;
 }
 
+/**
+ * Describes the options for resolve activate standard viewport refill.
+ */
 interface ResolveActivateStandardViewportRefillOptions {
   options: CompleteViewportAutoFillOptions;
   targetVisibleCountRef?: NullableNumberRef;
 }
 
+/**
+ * Describes the options for resolve finish viewport auto fill.
+ */
 interface ResolveFinishViewportAutoFillOptions {
   options: CompleteViewportAutoFillOptions;
   targetVisibleCountRef?: NullableNumberRef;
 }
 
+/**
+ * Describes the options for should continue auto fill.
+ */
 interface ShouldContinueAutoFillOptions {
   activeViewportRefillTargetVisibleCount: null | number;
   allowOwnedTargetContinuationWithoutLocalBacklog?: boolean;

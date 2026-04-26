@@ -1,6 +1,9 @@
 import type { FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 import type { CategoryTreeNode } from "@/lib/core";
 
+/**
+ * Describes the dashboard article window state.
+ */
 export interface DashboardArticleWindowState {
   articleWindowLimit: number | undefined;
   handleLoadMoreArticles: () => void;
@@ -10,6 +13,9 @@ export interface DashboardArticleWindowState {
   requestedArticleLimit: number;
 }
 
+/**
+ * Describes the options for use dashboard article window.
+ */
 export interface UseDashboardArticleWindowOptions extends FeedSelectionFetchers {
   articleFilter: string;
   articlesPerPage: number;

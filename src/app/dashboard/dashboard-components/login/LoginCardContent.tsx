@@ -7,6 +7,9 @@ import { LoginLegalConsent } from "@/app/dashboard/dashboard-components/login/Lo
 import { LoginPrimaryActions } from "@/app/dashboard/dashboard-components/login/LoginPrimaryActions";
 import { CardContent } from "@/components/ui/card";
 
+/**
+ * Describes the props for the login card content component.
+ */
 interface LoginCardContentProps {
   allowSignup: boolean;
   confirmPassword: string;
@@ -26,9 +29,15 @@ interface LoginCardContentProps {
   password: string;
 }
 
+/**
+ * Describes the props for the login form error component.
+ */
 interface LoginFormErrorProps {
   message?: string;
 }
+/**
+ * Describes the props for the signup fields component.
+ */
 interface SignupFieldsProps {
   confirmError?: string;
   confirmPassword: string;

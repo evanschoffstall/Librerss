@@ -30,16 +30,16 @@ function buildArticle(overrides: Partial<Article> = {}): Article {
 
 describe("useExpandedArticleCollapse", () => {
   /**
-   * Regression: for extraction-disabled (or any) articles whose stored-content
-   * fetch returns null, the restore effect and the toggle handler used to race.
-   * The restore effect fired hydration #1 while markArticleReadIfNeeded was
-   * in-flight; hydration #1 completed with null; then the toggle handler
-   * launched hydration #2, producing skeleton → text → skeleton → text.
+   * Regression: expansion ownership used to split across the restore effect
+   * and toggle handler. The restore effect could start hydration while the
+   * explicit toggle path was still waiting on read-state persistence, creating
+   * duplicate hydration and visible loading flashes.
    *
-   * The fix moves markExpandedArticleHydrationHandled BEFORE setExpandedArticleKey
-   * so the restore effect always sees the ref already set and skips.
+   * The fix marks expansion handled and starts hydration before the expanded
+   * key is committed. The next render therefore sees both ownership guards and
+   * the hydrating link state together.
    */
-  test("calls hydrateArticleContent exactly once per expansion — no double-hydration race", async () => {
+  test("starts hydration before committing the expanded article key", async () => {
     const article = buildArticle({ isRead: false });
     let expandedArticleKey: null | string = null;
 
@@ -64,6 +64,7 @@ describe("useExpandedArticleCollapse", () => {
           typeof updater === "function" ? updater(expandedArticleKey) : updater;
         // Confirm that the ref guard was set BEFORE the React state update fires.
         expect(capturedMarkedKeys).toContain(article.link);
+        expect(hydrateArticleContent).toHaveBeenCalledTimes(1);
       },
     );
 

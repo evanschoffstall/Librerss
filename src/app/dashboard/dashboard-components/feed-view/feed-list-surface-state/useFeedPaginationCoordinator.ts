@@ -21,6 +21,9 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
 import { useInvertedPaginationAnchor } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedPaginationAnchor";
 
+/**
+ * Describes the options for feed pagination controller.
+ */
 export interface FeedPaginationControllerOptions {
   articlesPerPage: number;
   canLoadMoreFromServer: boolean;
@@ -40,10 +43,16 @@ export interface FeedPaginationControllerOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Defines the feed pagination controllers type.
+ */
 export type FeedPaginationControllers = ReturnType<
   typeof useFeedPaginationControllers
 >;
 
+/**
+ * Describes the options for feed pagination effects.
+ */
 export interface FeedPaginationEffectsOptions extends FeedPaginationControllerOptions {
   articleFilter: string;
   controllers: ReturnType<typeof useFeedPaginationControllers>;
@@ -53,6 +62,9 @@ export interface FeedPaginationEffectsOptions extends FeedPaginationControllerOp
   searchTerm: string;
 }
 
+/**
+ * Describes the options for feed pagination runtime.
+ */
 export interface FeedPaginationRuntimeOptions extends FeedPaginationEffectsOptions {
   clearInitialNormalScrollLock: () => void;
   hasActiveInvertedExpansionScrollLock: () => boolean;

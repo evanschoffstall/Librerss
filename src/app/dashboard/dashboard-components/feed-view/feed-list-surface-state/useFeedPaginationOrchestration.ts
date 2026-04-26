@@ -24,22 +24,34 @@ import {
   useResolvedStandardViewportRevealEffect,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
 
+/**
+ * Describes the options for feed pagination auto fill after cooldown effect.
+ */
 interface FeedPaginationAutoFillAfterCooldownEffectOptions {
   isInvertedScroll: boolean;
   maybeAutoFillViewport: ReturnType<typeof useMaybeAutoFillViewport>;
   serverLoadCooldownEpoch: number;
 }
 
+/**
+ * Describes the options for feed pagination runtime binding.
+ */
 interface FeedPaginationRuntimeBindingOptions extends FeedPaginationRuntimeSupportOptions {
   maybeLoadNextPage: ReturnType<typeof useMaybeLoadNextPage>;
   shouldObserveLoadMoreBoundary: boolean;
 }
 
+/**
+ * Describes the options for feed pagination runtime support.
+ */
 interface FeedPaginationRuntimeSupportOptions {
   controllers: FeedPaginationControllers;
   options: FeedPaginationRuntimeOptions;
 }
 
+/**
+ * Describes the options for feed pagination runtime viewport.
+ */
 interface FeedPaginationRuntimeViewportOptions extends FeedPaginationRuntimeSupportOptions {
   maybeAutoFillViewport: ReturnType<typeof useMaybeAutoFillViewport>;
 }

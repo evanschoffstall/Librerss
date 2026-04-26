@@ -32,6 +32,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/**
+ * Describes the props for the dashboard toolbar mobile actions component.
+ */
 type DashboardToolbarMobileActionsProps = Pick<
   ReturnType<typeof useDashboardToolbarState>,
   | "handleMarkAllRead"
@@ -55,6 +58,9 @@ type DashboardToolbarMobileActionsProps = Pick<
   mobileToolbarMirror: boolean;
 };
 
+/**
+ * Describes the props for the dashboard toolbar mobile menu content component.
+ */
 type DashboardToolbarMobileMenuContentProps = Pick<
   ReturnType<typeof useDashboardToolbarState>,
   | "handleMarkAllRead"
@@ -210,18 +216,27 @@ const DashboardToolbarMobileActionsTrigger = React.forwardRef<
   },
 );
 
+/**
+ * Describes the props for the dashboard toolbar mobile quick action component.
+ */
 interface DashboardToolbarMobileQuickActionProps {
   ariaLabel: string;
   icon: typeof RefreshCw;
   isPending: boolean;
   onClick: () => void;
 }
+/**
+ * Describes the props for the dashboard toolbar reset menu item component.
+ */
 interface DashboardToolbarResetMenuItemProps {
   handleReset: () => Promise<void>;
   isDevelopmentMode: boolean;
   isResetting: boolean;
 }
 
+/**
+ * Describes the props for the dashboard toolbar upstream refresh menu item component.
+ */
 interface DashboardToolbarUpstreamRefreshMenuItemProps {
   handleRefreshFromUpstream: () => void;
   isDevelopmentMode: boolean;

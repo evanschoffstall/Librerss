@@ -21,6 +21,7 @@ export function getFeedBatchQueryKey(
     FeedFetchOptions,
     | "articleFilter"
     | "articleLimit"
+    | "articleSortOrder"
     | "knownLastFetchedAtByUrl"
     | "searchTerm"
     | "skipRefresh"
@@ -30,6 +31,7 @@ export function getFeedBatchQueryKey(
     ...DASHBOARD_FEED_BATCH_QUERY_KEY,
     requestSignature,
     options?.articleFilter ?? "all",
+    options?.articleSortOrder ?? "newest",
     options?.articleLimit ?? "all-articles",
     options?.searchTerm?.trim() ?? "",
     options?.skipRefresh === true ? "skip-refresh" : "refresh",

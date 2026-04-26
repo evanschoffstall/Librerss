@@ -115,7 +115,8 @@ export const FeedList = memo(
       isCollapseScrollRestoreActive = false,
       isInitialLoading,
       isLoadingMore = false,
-      isRefreshing: _isRefreshing,
+      isRefreshing,
+      isSearchFetching = false,
       onEnteringDone,
       onExpandedSwipeRead,
       onLoadMore,
@@ -192,7 +193,7 @@ export const FeedList = memo(
       isInitialLoading,
       isInvertedScroll: isActiveInvertedScroll,
       isLoadingMore,
-      isRefreshing: _isRefreshing,
+      isRefreshing,
       onLoadMore,
       refreshEpoch,
       searchTerm,
@@ -481,19 +482,31 @@ export const FeedList = memo(
       ],
     );
 
-    const showEmptyState = !isInitialLoading && filteredFeed.length === 0;
+    // Treat a pending background search as equivalent to a refresh for the
+    // purpose of skeleton display: if the server is still looking for matching
+    // articles and the current locally-filtered window is empty, show article
+    // shells so the user sees loading progress instead of "no results".
+    const shouldShowEmptyFeedSkeleton =
+      !isInitialLoading &&
+      (isRefreshing || isSearchFetching) &&
+      filteredFeed.length === 0;
+    const shouldShowFeedSkeleton =
+      isInitialLoading ||
+      shouldShowViewportResolutionSkeleton ||
+      shouldShowEmptyFeedSkeleton;
+    const showEmptyState = !shouldShowFeedSkeleton && filteredFeed.length === 0;
     const handleFeedSurfaceRef = useCallback(
       (node: HTMLDivElement | null) => {
         applyFeedSurfaceLayoutToHost(node);
 
-        if (isInitialLoading || showEmptyState) {
+        if (shouldShowFeedSkeleton || showEmptyState) {
           handleViewportHostRef(null);
           return;
         }
 
         handleViewportHostRef(node);
       },
-      [handleViewportHostRef, isInitialLoading, showEmptyState],
+      [handleViewportHostRef, shouldShowFeedSkeleton, showEmptyState],
     );
 
     return (
@@ -523,7 +536,7 @@ export const FeedList = memo(
           style={FEED_LIST_FILL_STYLE}
         >
           <AnimatePresence initial={false} mode="wait">
-            {isInitialLoading || shouldShowViewportResolutionSkeleton ? (
+            {shouldShowFeedSkeleton ? (
               <motion.div
                 animate={{ opacity: 1, scale: 1 }}
                 className={FEED_LIST_FRAME_CLASSNAME}

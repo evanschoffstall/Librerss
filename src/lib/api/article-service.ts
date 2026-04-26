@@ -2,14 +2,23 @@ import type { Article } from "@/lib/core";
 
 import { getApiClient } from "@/lib/api/http";
 
+/**
+ * Describes the article by ID response.
+ */
 interface ArticleByIdResponse {
   content?: unknown;
 }
 
+/**
+ * Describes the article extract response.
+ */
 interface ArticleExtractResponse {
   content?: unknown;
 }
 
+/**
+ * Describes the compatibility check response.
+ */
 interface CompatibilityCheckResponse {
   results: {
     compatibilitySignalDetected: boolean;
@@ -23,6 +32,9 @@ interface CompatibilityCheckResponse {
   }[];
 }
 
+/**
+ * Describes the proxy settings.
+ */
 interface ProxySettings {
   allowInsecureTls: boolean;
   configured: boolean;
@@ -39,6 +51,9 @@ interface ProxySettings {
   status: "checking" | "reachable" | "unreachable";
 }
 
+/**
+ * Describes the proxy status response.
+ */
 interface ProxyStatusResponse {
   configured: boolean;
   proxyUrl: null | string;
@@ -47,21 +62,33 @@ interface ProxyStatusResponse {
 
 const articleServiceBaseUrl = "/api";
 let proxySettingsRequest: null | Promise<ProxySettings> = null;
+/**
+ * Describes the article status updates.
+ */
 interface ArticleStatusUpdates {
   isRead?: boolean;
   isStarred?: boolean;
 }
 
+/**
+ * Describes the options for extract article content.
+ */
 interface ExtractArticleContentOptions {
   distillStrategy?: string;
   signal?: AbortSignal;
   useProxy?: boolean;
 }
 
+/**
+ * Describes the options for run proxy compatibility check.
+ */
 interface RunProxyCompatibilityCheckOptions {
   useProxy?: boolean;
 }
 
+/**
+ * Describes the options for save proxy URL.
+ */
 interface SaveProxyUrlOptions {
   allowInsecureTls?: boolean;
   proxyPassword?: null | string;

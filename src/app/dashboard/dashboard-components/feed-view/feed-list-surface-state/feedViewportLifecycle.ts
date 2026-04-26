@@ -1,3 +1,6 @@
+/**
+ * Describes the options for should skip normal viewport reset.
+ */
 interface ShouldSkipNormalViewportResetOptions {
   hasResolvedInitialViewport: boolean;
   isCollapseScrollRestoreActive: boolean;
@@ -6,6 +9,9 @@ interface ShouldSkipNormalViewportResetOptions {
   viewportIntentChanged: boolean;
 }
 
+/**
+ * Describes the options for sync normal viewport reset.
+ */
 interface SyncNormalViewportResetOptions {
   feedViewKey: string;
   hasResolvedInitialViewport: boolean;

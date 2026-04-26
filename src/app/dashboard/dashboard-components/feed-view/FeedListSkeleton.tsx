@@ -11,10 +11,16 @@ import { useFeedListSkeletonCount } from "@/app/dashboard/dashboard-components/f
 import { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "@/app/dashboard/shared";
 import { cn } from "@/lib/utils";
 
+/**
+ * Describes the props for the feed list skeleton component.
+ */
 interface FeedListSkeletonProps {
   isInvertedScroll?: boolean;
 }
 
+/**
+ * Describes the props for the feed load more skeleton rows component.
+ */
 interface FeedLoadMoreSkeletonRowsProps {
   count: number;
 }

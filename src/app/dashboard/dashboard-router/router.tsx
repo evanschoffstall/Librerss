@@ -21,6 +21,9 @@ import {
   DashboardSkeletonView,
 } from "./surfaces";
 
+/**
+ * Describes the options for dashboard router derived state.
+ */
 interface DashboardRouterDerivedStateOptions {
   backgroundMode: BackgroundMode;
   currentUser: AuthSession["user"] | null;
@@ -32,6 +35,9 @@ interface DashboardRouterDerivedStateOptions {
   resolvedTheme?: string;
 }
 
+/**
+ * Describes the options for dashboard router effects.
+ */
 interface DashboardRouterEffectsOptions {
   hasHydratedClientState: boolean;
   hasPreviewQuery: boolean;
@@ -47,6 +53,9 @@ interface DashboardRouterEffectsOptions {
   setUsePlaceholderData: React.Dispatch<React.SetStateAction<boolean>>;
   shouldAutoLogin: boolean;
 }
+/**
+ * Describes the options for dashboard router hydration effects.
+ */
 interface DashboardRouterHydrationEffectsOptions {
   hasHydratedClientState: boolean;
   hasPreviewQuery: boolean;
@@ -56,6 +65,9 @@ interface DashboardRouterHydrationEffectsOptions {
   setIsPreviewMode: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+/**
+ * Describes the props for the dashboard router component.
+ */
 interface DashboardRouterProps {
   hasPreviewQuery: boolean;
   initialAutoLoginPath?: string;
@@ -63,6 +75,9 @@ interface DashboardRouterProps {
   initialPreviewMode: boolean;
   initialSession?: AuthSession;
 }
+/**
+ * Describes the options for dashboard router session effect.
+ */
 interface DashboardRouterSessionEffectOptions {
   hasHydratedClientState: boolean;
   hasPreviewQuery: boolean;
@@ -76,6 +91,9 @@ interface DashboardRouterSessionEffectOptions {
   shouldAutoLogin: boolean;
 }
 
+/**
+ * Describes the options for dashboard router state.
+ */
 interface DashboardRouterStateOptions {
   handleEnterPreview: () => void;
   routerDerivedState: ReturnType<typeof resolveDashboardRouterDerivedState>;

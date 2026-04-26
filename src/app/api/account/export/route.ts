@@ -11,6 +11,9 @@ import { exportAccountData, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Describes the account export route deps.
+ */
 interface AccountExportRouteDeps {
   exportAccountDataFn?: typeof exportAccountData;
   getDbFn?: () => Pick<ReturnType<typeof getDb>, "select">;

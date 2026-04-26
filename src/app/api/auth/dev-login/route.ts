@@ -10,7 +10,7 @@ import {
   getDevAutoLoginCredentials,
   setSessionCookie,
 } from "@/lib/auth";
-import { logAndRespondError } from "@/lib/server";
+import { recordFatalServerError } from "@/lib/server";
 
 const DEFAULT_RETURN_PATH = "/dashboard";
 
@@ -35,20 +35,16 @@ export async function GET(request: NextRequest) {
     );
 
     if (!result.ok) {
-      const warn =
-        typeof logger.warn === "function"
-          ? logger.warn.bind(logger)
-          : undefined;
-      warn?.("Development auto-login failed", { email: credentials.email });
+      logger.warn("Development auto-login failed", {
+        email: credentials.email,
+      });
 
       return NextResponse.redirect(
         new URL(buildDevAutoLoginFailurePath(returnPath), requestOrigin),
       );
     }
 
-    const info =
-      typeof logger.info === "function" ? logger.info.bind(logger) : undefined;
-    info?.("Development auto-login succeeded", {
+    logger.info("Development auto-login succeeded", {
       email: result.email,
       userId: result.userId,
     });
@@ -58,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     return response;
   } catch (error) {
-    return logAndRespondError("Development auto-login error", error);
+    return redirectToServerErrorPage(request, error);
   }
 }
 
@@ -80,6 +76,35 @@ function getRequestOrigin(request: NextRequest): URL {
     forwardedProtocol ?? request.nextUrl.protocol.replace(/:$/u, "");
 
   return new URL(`${protocol}://${host}`);
+}
+
+/**
+ * Log and redirect a fatal development auto-login exception to the HTML error
+ * page.
+ *
+ * The route is a browser navigation endpoint, so returning JSON would surface a
+ * raw 500 payload to the user. The error is still captured as a real `Error`
+ * in the process-local registry and is emitted again by `/error` when that page
+ * renders, giving the backend console the actual stack under the same
+ * correlation ID.
+ *
+ * @param request - The request that failed during development auto-login.
+ * @param error - The thrown value that caused the fatal route failure.
+ * @returns A redirect response targeting `/error` with a server correlation ID.
+ */
+function redirectToServerErrorPage(
+  request: NextRequest,
+  error: unknown,
+): NextResponse {
+  const fatalError = recordFatalServerError("api/auth/dev-login", error);
+  logger.error("Development auto-login error", {
+    correlationId: fatalError.correlationId,
+    error: fatalError.error,
+  });
+
+  const errorUrl = new URL("/error", request.nextUrl);
+  errorUrl.searchParams.set("cid", fatalError.correlationId);
+  return NextResponse.redirect(errorUrl);
 }
 
 /**

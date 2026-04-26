@@ -2,7 +2,9 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import {
   type ArticleFilter,
+  type ArticleSortOrder,
   filterArticlesByState,
+  sortArticlesByOrder,
 } from "@/app/dashboard/dashboard-services/article";
 import { buildDisplayCategories } from "@/app/dashboard/dashboard-services/category";
 import {
@@ -13,8 +15,12 @@ import {
 const articleContentSearchTextCache = new WeakMap<Article, string>();
 const articleTitleSearchTextCache = new WeakMap<Article, string>();
 
+/**
+ * Describes the dashboard view model input.
+ */
 interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   categories: CategoryTreeNode[];
   collapsingArticleKeys: string[];
   customCategoryLabels: string[];
@@ -24,6 +30,7 @@ interface DashboardViewModelInput {
   searchTerm: string;
   selectedCategory: string;
   useLocalSearch: boolean;
+  usePlaceholderData: boolean;
 }
 
 /**
@@ -34,6 +41,7 @@ interface DashboardViewModelInput {
 export function buildDashboardViewModel(options: DashboardViewModelInput) {
   const {
     articleFilter,
+    articleSortOrder,
     categories,
     collapsingArticleKeys,
     customCategoryLabels,
@@ -51,9 +59,10 @@ export function buildDashboardViewModel(options: DashboardViewModelInput) {
     collapsingArticleKeys,
   );
 
-  const filteredFeed = useLocalSearch
+  const searchedFeed = useLocalSearch
     ? filterArticlesBySearchTerm(feedByState, searchTerm)
     : feedByState;
+  const filteredFeed = sortArticlesByOrder(searchedFeed, articleSortOrder);
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 

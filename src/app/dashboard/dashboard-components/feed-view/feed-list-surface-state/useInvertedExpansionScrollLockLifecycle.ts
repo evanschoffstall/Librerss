@@ -23,6 +23,9 @@ import {
   type PrimedUnreadRemovalState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for expanded article scroll lock lifecycle.
+ */
 interface ExpandedArticleScrollLockLifecycleOptions {
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
   expandedArticleKey: null | string;
@@ -32,6 +35,9 @@ interface ExpandedArticleScrollLockLifecycleOptions {
   previousExpandedArticleKeyRef: React.RefObject<null | string>;
   startInvertedExpansionScrollLock: InvertedExpansionScrollLockStarter;
 }
+/**
+ * Describes the options for inverted expansion scroll lock lifecycle.
+ */
 interface InvertedExpansionScrollLockLifecycleOptions {
   articleFilter: string;
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
@@ -51,6 +57,9 @@ interface InvertedExpansionScrollLockLifecycleOptions {
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * Describes the options for inverted expansion scroll lock runtime.
+ */
 interface InvertedExpansionScrollLockRuntimeOptions {
   articleFilter: string;
   captureInvertedExpansionViewportSnapshot: InvertedExpansionViewportSnapshotCapture;
@@ -68,11 +77,17 @@ interface InvertedExpansionScrollLockRuntimeOptions {
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * Describes the options for inverted expansion scroll lock state.
+ */
 interface InvertedExpansionScrollLockStateOptions {
   expandedArticleKey: null | string;
   isInvertedScroll: boolean;
   scrollViewport: HTMLElement | null;
 }
+/**
+ * Describes the options for prepare inverted unread removal scroll lock.
+ */
 interface PrepareInvertedUnreadRemovalScrollLockOptions {
   captureInvertedExpansionViewportSnapshot: (
     articleKey: string,
@@ -88,6 +103,9 @@ interface PrepareInvertedUnreadRemovalScrollLockOptions {
   ) => void;
 }
 
+/**
+ * Describes the options for unread removal scroll lock lifecycle.
+ */
 interface UnreadRemovalScrollLockLifecycleOptions {
   articleFilter: string;
   collapsingArticles: Readonly<CollapsingArticles>;

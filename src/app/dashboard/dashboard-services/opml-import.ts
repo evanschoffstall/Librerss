@@ -14,14 +14,23 @@ import {
   type OpmlFeedImportEntry,
 } from "@/lib/utils";
 
+/**
+ * Defines the category label list setter type.
+ */
 type CategoryLabelListSetter = React.Dispatch<React.SetStateAction<string[]>>;
 
+/**
+ * Describes the options for collect imported feed results.
+ */
 interface CollectImportedFeedResultsOptions {
   importedCategoryLabels: Set<string>;
   importResults: PromiseSettledResult<{ category: string; url: string }>[];
   successfulUrls: string[];
 }
 
+/**
+ * Describes the options for import opml feeds.
+ */
 interface ImportOpmlFeedsOptions {
   categories: CategoryTreeNode[];
   entries: OpmlFeedImportEntry[];
@@ -31,6 +40,9 @@ interface ImportOpmlFeedsOptions {
   setCustomCategoryLabels: CategoryLabelListSetter;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
+/**
+ * Describes the options for refresh imported selection.
+ */
 interface RefreshImportedSelectionOptions {
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   nextCategories: CategoryTreeNode[];

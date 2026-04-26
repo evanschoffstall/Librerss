@@ -4,10 +4,16 @@ import { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "@/app/dashboard/shared";
 /** Shared inner surface spacing for feed-linked dashboard content areas. */
 export const DASHBOARD_FEED_SURFACE_CLASS_NAME = `${DASHBOARD_FEED_WIDTH_CLASS_NAME} min-w-0 px-2 lg:px-4`;
 
+/**
+ * Describes the props for the dashboard feed viewport component.
+ */
 interface DashboardFeedViewportProps {
   children: React.ReactNode;
 }
 
+/**
+ * Describes the props for the dashboard scaffold component.
+ */
 interface DashboardScaffoldProps {
   feed: React.ReactNode;
   filterBar: React.ReactNode;

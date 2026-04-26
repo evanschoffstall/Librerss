@@ -114,6 +114,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -222,6 +223,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -413,6 +415,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -528,6 +531,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -621,6 +625,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -645,6 +650,328 @@ describe("useFeedLoader", () => {
         expect(feedState.length).toBeGreaterThan(0);
         expect(feedState[0]?.title).toBe(existingArticle.title);
       });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
+  test("isBackgroundLoading is true during a keepExistingFeed fetch and false otherwise", async () => {
+    // Verifies the flag that the feed list uses to show skeletons instead of
+    // the empty state when a background search fetch is in flight.
+    const feedUrl = "https://example.com/background-fetch.xml";
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const backgroundArticle: Article = {
+      content: "Background article body",
+      feedId: 55,
+      feedName: "Background Feed",
+      feedUrl,
+      id: 801,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-05-01T10:00:00.000Z"),
+      link: "https://example.com/articles/background",
+      publicationDate: new Date("2026-05-01T09:59:00.000Z"),
+      title: "Background article",
+    };
+
+    let resolveBackgroundFetch!: () => void;
+    const backgroundFetchReady = new Promise<void>((resolve) => {
+      resolveBackgroundFetch = resolve;
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (_urls: string[]) => {
+      // Signal that the fetch is in progress, then wait for the test to
+      // unblock us so we can observe isBackgroundLoading mid-flight.
+      resolveBackgroundFetch();
+      await backgroundFetchReady;
+      return [
+        {
+          articles: [backgroundArticle],
+          lastFetchedAt: new Date("2026-05-01T10:01:00.000Z"),
+          ok: true,
+          url: feedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      // Initially both flags are false.
+      expect(result.current.isBackgroundLoading).toBe(false);
+      expect(result.current.loading).toBe(false);
+
+      // Start a background (keepExistingFeed) fetch and wait until the mock is
+      // inside the fetch so isBackgroundLoading has been set.
+      let fetchDone = false;
+      act(() => {
+        result.current
+          .fetchFeed(feedUrl, {
+            keepExistingFeed: true,
+            requestSource: "search-change",
+          })
+          .then(() => {
+            fetchDone = true;
+          });
+      });
+
+      await waitFor(() => {
+        // isBackgroundLoading must be raised; the main loading flag must stay
+        // false so no full-shell animation triggers.
+        expect(result.current.isBackgroundLoading).toBe(true);
+        expect(result.current.loading).toBe(false);
+      });
+
+      // Let the mock resolve.
+      resolveBackgroundFetch();
+
+      await waitFor(() => {
+        expect(fetchDone).toBe(true);
+      });
+
+      // After completion both flags must be cleared.
+      await waitFor(() => {
+        expect(result.current.isBackgroundLoading).toBe(false);
+        expect(result.current.loading).toBe(false);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
+  test("isBackgroundLoading is false and loading is true during a foreground fetch", async () => {
+    // Confirms that a normal (non-background) fetch raises `loading` and keeps
+    // `isBackgroundLoading` false throughout.
+    const feedUrl = "https://example.com/foreground-fetch.xml";
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+
+    // Two separate signals: one that fires when the mock has started (so the
+    // test can observe loading: true), and one that the test triggers to allow
+    // the mock to complete.
+    let resolveFetchStarted!: () => void;
+    const fetchStartedPromise = new Promise<void>((resolve) => {
+      resolveFetchStarted = resolve;
+    });
+    let resolveFetchProceed!: () => void;
+    const fetchProceedPromise = new Promise<void>((resolve) => {
+      resolveFetchProceed = resolve;
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (_urls: string[]) => {
+      // Signal that the fetch is underway, then wait for the test to allow
+      // completion so we can observe loading mid-flight.
+      resolveFetchStarted();
+      await fetchProceedPromise;
+      return [
+        {
+          articles: [],
+          lastFetchedAt: new Date("2026-05-01T11:00:00.000Z"),
+          ok: true,
+          url: feedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      let fetchDone = false;
+      act(() => {
+        result.current
+          .fetchFeed(feedUrl, {
+            forceRefresh: true,
+            requestSource: "manual-refresh",
+          })
+          .then(() => {
+            fetchDone = true;
+          });
+      });
+
+      // Wait until the mock signals it has begun executing.
+      await fetchStartedPromise;
+
+      // For a foreground fetch: loading should be true and isBackgroundLoading
+      // must remain false.
+      await waitFor(() => {
+        expect(result.current.loading).toBe(true);
+        expect(result.current.isBackgroundLoading).toBe(false);
+      });
+
+      // Let the mock complete.
+      resolveFetchProceed();
+
+      await waitFor(() => {
+        expect(fetchDone).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false);
+        expect(result.current.isBackgroundLoading).toBe(false);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
+  test("cancelPendingRequest clears isBackgroundLoading", async () => {
+    const feedUrl = "https://example.com/cancel-background.xml";
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+
+    let resolveCancel!: () => void;
+    const cancelUnblock = new Promise<void>((resolve) => {
+      resolveCancel = resolve;
+    });
+    let fetchStarted = false;
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (_urls: string[]) => {
+      fetchStarted = true;
+      resolveCancel();
+      await cancelUnblock;
+      return [
+        {
+          articles: [],
+          lastFetchedAt: new Date("2026-05-01T12:00:00.000Z"),
+          ok: true,
+          url: feedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      act(() => {
+        result.current.fetchFeed(feedUrl, {
+          keepExistingFeed: true,
+          requestSource: "search-change",
+        });
+      });
+
+      // Wait until the mock has set the flag.
+      await waitFor(() => {
+        expect(fetchStarted).toBe(true);
+        expect(result.current.isBackgroundLoading).toBe(true);
+      });
+
+      // Cancel the in-flight request; the flag must drop immediately.
+      act(() => {
+        result.current.cancelPendingRequest();
+      });
+
+      await waitFor(() => {
+        expect(result.current.isBackgroundLoading).toBe(false);
+      });
+
+      // Unblock the mock so the test can clean up.
+      resolveCancel();
     } finally {
       queryClient.clear();
     }
@@ -1416,7 +1743,7 @@ describe("useArticleHydration", () => {
   });
 
   test("hydrateArticleContent loads stored article content when extraction is disabled", async () => {
-    const article = createMockArticle();
+    const article = createMockArticle({ content: "" });
     let feedState = [article];
     const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
       feedState = typeof updater === "function" ? updater(feedState) : updater;
@@ -1444,6 +1771,7 @@ describe("useArticleHydration", () => {
 
   test("hydrateArticleContent keeps placeholder snapshot URLs on the extract path", async () => {
     const article = createMockArticle({
+      content: "",
       feedUrl: "https://www.usgs.gov/news/news-releases",
       link: "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
     });

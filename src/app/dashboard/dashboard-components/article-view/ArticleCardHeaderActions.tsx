@@ -22,11 +22,17 @@ import {
 
 const ICON_SPRING = { damping: 22, stiffness: 320, type: "spring" as const };
 
+/**
+ * Describes the props for the article action control component.
+ */
 export interface ArticleActionControlProps {
   onPointerDown: (event: React.SyntheticEvent) => void;
   onPointerUp: (event: React.SyntheticEvent) => void;
 }
 
+/**
+ * Describes the props for the article header actions component.
+ */
 export interface ArticleHeaderActionsProps {
   article: Article;
   articleActionControlProps: ArticleActionControlProps;
@@ -49,6 +55,9 @@ export interface ArticleHeaderActionsProps {
   visuallyExpanded: boolean;
 }
 
+/**
+ * Describes the props for the article share menu link component.
+ */
 interface ArticleShareMenuLinkProps {
   href: string;
   icon?: React.ReactNode;

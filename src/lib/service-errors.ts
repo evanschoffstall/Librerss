@@ -1,3 +1,6 @@
+/**
+ * Implements the server service error.
+ */
 export class ServerServiceError extends Error {
   /**
    * Creates a service error with HTTP status metadata for route handlers.

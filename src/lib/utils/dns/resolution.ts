@@ -1,17 +1,29 @@
+/**
+ * Describes the dns cache entry.
+ */
 export interface DnsCacheEntry {
   blocked: boolean;
   expiresAt: number;
 }
 
+/**
+ * Defines the dns lookup fn type.
+ */
 export type DnsLookupFn = (
   hostname: string,
   options: { all: true; verbatim: true },
 ) => Promise<DnsLookupRecord[]>;
 
+/**
+ * Describes the dns lookup record.
+ */
 export interface DnsLookupRecord {
   address: string;
 }
 
+/**
+ * Describes the dns resolve deps.
+ */
 export interface DnsResolveDeps {
   clearTimeoutFn: typeof clearTimeout;
   isBlockedResolvedAddressFn: (address: string) => boolean;

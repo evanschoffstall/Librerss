@@ -13,6 +13,9 @@ const SIDEBAR_SECTION_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as const,
 };
 
+/**
+ * Describes the props for the dashboard sidebar content component.
+ */
 interface DashboardSidebarContentProps {
   isCategoriesLoading: boolean;
   isSidebarVisible: boolean;
@@ -25,11 +28,17 @@ interface DashboardSidebarContentProps {
   sidebarCategories: CategoryTreeNode[];
 }
 
+/**
+ * Describes the sidebar skeleton group descriptor.
+ */
 interface SidebarSkeletonGroupDescriptor {
   feedRows: SidebarSkeletonRowDescriptor[];
   labelWidth: string;
 }
 
+/**
+ * Describes the sidebar skeleton row descriptor.
+ */
 interface SidebarSkeletonRowDescriptor {
   hostWidth: string;
   isActive: boolean;
@@ -60,6 +69,9 @@ const SIDEBAR_SKELETON_GROUPS: SidebarSkeletonGroupDescriptor[] = [
   },
 ];
 
+/**
+ * Describes the props for the sidebar feed row skeleton component.
+ */
 interface SidebarFeedRowSkeletonProps {
   descriptor: SidebarSkeletonRowDescriptor;
 }

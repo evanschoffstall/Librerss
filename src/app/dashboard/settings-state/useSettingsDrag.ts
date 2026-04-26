@@ -19,8 +19,14 @@ const CATEGORY_DRAG_DATA_KEY = "application/x-librerss-category-label";
 const hasDragType = (event: React.DragEvent<HTMLElement>, dragType: string) =>
   Array.from(event.dataTransfer.types).includes(dragType);
 
+/**
+ * Defines the use settings drag return type.
+ */
 export type UseSettingsDragReturn = ReturnType<typeof useSettingsDrag>;
 
+/**
+ * Describes the options for use settings drag.
+ */
 interface UseSettingsDragOptions {
   onDropCategory: (label: string, targetIndex: number) => Promise<void>;
   onDropFeed: (

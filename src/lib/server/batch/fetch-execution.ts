@@ -1,4 +1,4 @@
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 import type { FeedUpstreamTransport } from "@/lib/core/feed-fetcher-batch";
 import type { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 
@@ -6,9 +6,13 @@ import type { BatchUrlDescriptor } from "./endpoint";
 
 import { buildBatchResultItem } from "./result-item";
 
+/**
+ * Describes the options for batch fetch request options.
+ */
 interface BatchFetchRequestOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
   knownLastFetchedAtByUrl: Map<string, Date>;
@@ -18,6 +22,9 @@ interface BatchFetchRequestOptionsOptions {
   skipRefresh: boolean;
 }
 
+/**
+ * Describes the options for batch fetch results.
+ */
 interface BatchFetchResultsOptions {
   requestUrls: BatchUrlDescriptor[];
   response: Awaited<ReturnType<typeof fetchAndCacheFeedArticlesBatch>>;
@@ -33,6 +40,7 @@ export function buildBatchFetchRequestOptions(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     ...(options.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
     forceRefresh: options.forceRefresh,
     knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,

@@ -17,6 +17,9 @@ import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/dashboard-
 import { DashboardSettingsModal } from "@/app/dashboard/dashboard-view/settings-modal";
 import { useLocalStorage } from "@/lib/hooks";
 
+/**
+ * Describes the props for the dashboard view component.
+ */
 type DashboardViewProps = DashboardControllerProps;
 
 /**
@@ -61,13 +64,22 @@ export const DashboardView = (props: DashboardViewProps) => {
     </>
   );
 };
+/**
+ * Describes the props for the dashboard feed section component.
+ */
 interface DashboardFeedSectionProps {
   feedList: ReturnType<typeof useDashboardController>["feedList"];
 }
 
+/**
+ * Describes the props for the dashboard filter section component.
+ */
 interface DashboardFilterSectionProps {
   filterBar: ReturnType<typeof useDashboardController>["filterBar"];
 }
+/**
+ * Describes the props for the dashboard shell view component.
+ */
 interface DashboardShellViewProps {
   feedList: ReturnType<typeof useDashboardController>["feedList"];
   filterBar: ReturnType<typeof useDashboardController>["filterBar"];
@@ -75,9 +87,15 @@ interface DashboardShellViewProps {
   sidebar: ReturnType<typeof useDashboardController>["sidebar"];
 }
 
+/**
+ * Describes the props for the dashboard sidebar section component.
+ */
 interface DashboardSidebarSectionProps {
   sidebar: ReturnType<typeof useDashboardController>["sidebar"];
 }
+/**
+ * Describes the props for the dashboard sidebar sheet component.
+ */
 interface DashboardSidebarSheetProps {
   sidebar: ReturnType<typeof useDashboardController>["sidebar"];
 }
@@ -108,6 +126,7 @@ function DashboardFeedSection(props: DashboardFeedSectionProps) {
         isInitialLoading={feedList.isInitialLoading}
         isLoadingMore={feedList.isLoadingMore}
         isRefreshing={feedList.isRefreshing}
+        isSearchFetching={feedList.isSearchFetching}
         loadingMoreArticleCount={feedList.loadingMoreArticleCount}
         onEnteringDone={feedList.onArticleEnteringDone}
         onExpandedSwipeRead={feedList.onArticleExpandedSwipeRead}
@@ -135,11 +154,13 @@ function DashboardFilterSection(props: DashboardFilterSectionProps) {
   return (
     <DashboardFilterBar
       articleFilter={filterBar.articleFilter}
+      articleSortOrder={filterBar.articleSortOrder}
       isSearchPending={filterBar.isSearchPending}
       isShellLoading={filterBar.isShellLoading}
       lastRefreshLabel={filterBar.lastRefreshLabel}
       loading={filterBar.loading}
       onArticleFilterChange={filterBar.setArticleFilter}
+      onArticleSortOrderChange={filterBar.setArticleSortOrder}
     />
   );
 }

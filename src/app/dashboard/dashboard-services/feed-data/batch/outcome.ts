@@ -8,6 +8,9 @@ import {
   mapBatchResultsToArticles,
 } from "@/app/dashboard/dashboard-services/feed-data/batch";
 
+/**
+ * Describes the feed batch outcome.
+ */
 interface FeedBatchOutcome {
   articles: Article[];
   failedFeeds: BatchFeedResponseItem[];

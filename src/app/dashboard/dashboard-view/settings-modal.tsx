@@ -4,7 +4,13 @@ import type { useDashboardController } from "@/app/dashboard/dashboard-hooks/das
 
 import { SettingsPanel } from "@/app/dashboard/dashboard-components/settings-dialog";
 
+/**
+ * Defines the dashboard settings type.
+ */
 type DashboardSettings = ReturnType<typeof useDashboardController>["settings"];
+/**
+ * Describes the props for the dashboard settings modal component.
+ */
 interface DashboardSettingsModalProps {
   settings: DashboardSettings;
 }

@@ -2,6 +2,9 @@ import { type LucideIcon } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
 
+/**
+ * Describes the props for the dashboard toolbar action button component.
+ */
 interface DashboardToolbarActionButtonProps {
   ariaLabel: string;
   className?: string;
@@ -10,6 +13,9 @@ interface DashboardToolbarActionButtonProps {
   onClick: () => void;
 }
 
+/**
+ * Describes the props for the dashboard toolbar action icon component.
+ */
 interface DashboardToolbarActionIconProps {
   icon: LucideIcon;
   isPending: boolean;

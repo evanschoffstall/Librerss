@@ -16,6 +16,9 @@ import { getDb, isUniqueConstraintError, users } from "@/lib/db";
 import { serverApi } from "@/lib/server";
 import { isStrongPassword, isValidEmail } from "@/lib/utils";
 
+/**
+ * Describes the resolved signup route deps.
+ */
 interface ResolvedSignupRouteDeps {
   appLogger: Pick<typeof logger, "error" | "info" | "warn">;
   createSessionFn: typeof createSession;
@@ -31,14 +34,23 @@ interface ResolvedSignupRouteDeps {
   setSessionCookieFn: typeof setSessionCookie;
 }
 
+/**
+ * Defines the signup DB type.
+ */
 type SignupDb = Pick<ReturnType<typeof getDb>, "insert" | "select">;
 
+/**
+ * Describes the signup payload.
+ */
 interface SignupPayload {
   acceptedLegalVersion: string;
   email: string;
   password: string;
 }
 
+/**
+ * Describes the signup route deps.
+ */
 interface SignupRouteDeps {
   createSessionFn?: typeof createSession;
   getDbFn?: () => unknown;

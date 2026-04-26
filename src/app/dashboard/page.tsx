@@ -23,6 +23,9 @@ import {
 } from "@/lib/auth";
 import { RUNTIME_FLAGS } from "@/lib/core";
 
+/**
+ * Describes the props for the dashboard page component.
+ */
 interface DashboardPageProps {
   searchParams: Promise<{
     devLogin?: string | string[];

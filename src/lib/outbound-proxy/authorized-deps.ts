@@ -9,6 +9,9 @@ import { resolvesToBlockedAddress } from "./dns-guard";
 import { getProxyRoutingCheck, type ProxyRoutingCheckResult } from "./service";
 import { detectProxyProtocol, probeProxy } from "./transport";
 
+/**
+ * Describes the authorized proxy dependencies.
+ */
 export interface AuthorizedProxyDependencies {
   detect: (host: string, port: number) => Promise<"http" | "socks5">;
   dnsCheck: (host: string) => Promise<boolean>;
@@ -19,6 +22,9 @@ export interface AuthorizedProxyDependencies {
   ) => Promise<Response | serverApi.AuthenticatedUser>;
 }
 
+/**
+ * Defines the proxy routing check fn type.
+ */
 type ProxyRoutingCheckFn = (options: {
   allowInsecureTls: boolean;
   proxyUrl: string;

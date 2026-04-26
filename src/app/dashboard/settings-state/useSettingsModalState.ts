@@ -6,8 +6,14 @@ import type { CategoryTreeNode } from "@/lib/core";
 import { useSettingsCategoryState } from "@/app/dashboard/settings-state/useSettingsCategoryState";
 import { useSettingsFeedState } from "@/app/dashboard/settings-state/useSettingsFeedState";
 
+/**
+ * Describes the settings modal state.
+ */
 export type SettingsModalState = ReturnType<typeof useSettingsModalState>;
 
+/**
+ * Describes the options for use settings modal state.
+ */
 interface UseSettingsModalStateOptions extends SettingsFeedStateOptions {
   categories: CategoryTreeNode[];
   onAddCategory: (name: string) => boolean;

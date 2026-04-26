@@ -1,5 +1,6 @@
 export { LegalDocumentPage } from "./LegalDocumentPage";
 export type { LegalDocumentPageProps, LegalSection } from "./LegalDocumentPage";
+export { ServerError500Page } from "./ServerError500Page";
 export { StatusPage } from "./StatusPage";
 export {
   getLegalDeploymentProfile,

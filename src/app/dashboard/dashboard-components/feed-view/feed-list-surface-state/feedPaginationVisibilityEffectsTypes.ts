@@ -1,11 +1,17 @@
 import type { PaginationBoundaryUserIntentOptions } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 import type { PendingServerRevealLifecycleOptions } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/pendingServerReveal";
 
+/**
+ * Describes the options for collapsing articles ref sync.
+ */
 export interface CollapsingArticlesRefSyncOptions {
   hasCollapsingArticles: boolean;
   hasCollapsingArticlesRef: { current: boolean };
 }
 
+/**
+ * Describes the options for feed pagination loading more reveal effect.
+ */
 export type FeedPaginationLoadingMoreRevealEffectOptions =
   PendingServerRevealLifecycleOptions & {
     canLoadMoreFromServer: boolean;
@@ -15,6 +21,9 @@ export type FeedPaginationLoadingMoreRevealEffectOptions =
     visibleArticleCount: number;
   };
 
+/**
+ * Describes the options for feed pagination query reset effect.
+ */
 export interface FeedPaginationQueryResetEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -26,6 +35,9 @@ export interface FeedPaginationQueryResetEffectOptions {
   suppressNextRefreshViewportRefillRef: { current: boolean };
 }
 
+/**
+ * Describes the options for feed pagination refresh reset effect.
+ */
 export interface FeedPaginationRefreshResetEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -41,6 +53,9 @@ export interface FeedPaginationRefreshResetEffectOptions {
   suppressNextRefreshViewportRefillRef: { current: boolean };
 }
 
+/**
+ * Describes the options for feed pagination reveal count effect.
+ */
 export type FeedPaginationRevealCountEffectOptions =
   PendingServerRevealLifecycleOptions & {
     commitVisibleArticleCount: (nextVisibleCount: number) => void;
@@ -51,6 +66,9 @@ export type FeedPaginationRevealCountEffectOptions =
     visibleArticleCountRef: { current: number };
   };
 
+/**
+ * Describes the options for initial feed pagination auto fill effect.
+ */
 export interface InitialFeedPaginationAutoFillEffectOptions {
   filteredFeedLength: number;
   isInitialLoading: boolean;
@@ -64,17 +82,29 @@ export interface InitialFeedPaginationAutoFillEffectOptions {
   visibleArticleCount: number;
 }
 
+/**
+ * Describes the options for mounted flag cleanup effect.
+ */
 export interface MountedFlagCleanupEffectOptions {
   isMountedRef: { current: boolean };
 }
 
+/**
+ * Describes the nullable number ref.
+ */
 export interface NullableNumberRef {
   current: null | number;
 }
 
+/**
+ * Describes the options for rearm pagination boundary from user intent.
+ */
 export type RearmPaginationBoundaryFromUserIntentOptions =
   PaginationBoundaryUserIntentOptions;
 
+/**
+ * Describes the options for resolved standard viewport reveal effect.
+ */
 export interface ResolvedStandardViewportRevealEffectOptions {
   filteredFeedLength: number;
   hasResolvedStandardViewportRevealRef: { current: boolean };
@@ -85,10 +115,16 @@ export interface ResolvedStandardViewportRevealEffectOptions {
   ) => void;
 }
 
+/**
+ * Describes the timeout handle ref.
+ */
 export interface TimeoutHandleRef {
   current: null | ReturnType<typeof setTimeout>;
 }
 
+/**
+ * Describes the options for visible article count ref sync.
+ */
 export interface VisibleArticleCountRefSyncOptions {
   visibleArticleCount: number;
   visibleArticleCountRef: { current: number };

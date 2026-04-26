@@ -11,6 +11,9 @@ import {
   type UpstreamRefreshResult,
 } from "./refresher";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
 /**

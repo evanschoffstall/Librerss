@@ -57,6 +57,9 @@ const PYTHON_PARENT_DEATHSIG_LAUNCHER = [
   "os.execv(sys.argv[1], sys.argv[1:])",
 ].join("\n");
 
+/**
+ * Describes the dev server handle.
+ */
 interface DevServerHandle {
   baseURL: string;
   getRecentOutput: () => string;

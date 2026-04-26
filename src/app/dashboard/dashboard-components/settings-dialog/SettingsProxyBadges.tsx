@@ -16,14 +16,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+/**
+ * Describes the props for the compatibility result badge component.
+ */
 interface CompatibilityResultBadgeProps {
   result: CompatibilityResult;
 }
 
+/**
+ * Describes the props for the proxy routing badge component.
+ */
 interface ProxyRoutingBadgeProps {
   routingCheck?: null | ProxyRoutingCheck;
   status?: Exclude<ProxyUIStatus, "loading">;
 }
+/**
+ * Describes the props for the status badge component.
+ */
 interface StatusBadgeProps {
   routingCheck?: null | ProxyRoutingCheck;
   status: Exclude<ProxyUIStatus, "loading">;

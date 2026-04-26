@@ -22,6 +22,9 @@ import {
   normalizeCategory,
 } from "@/lib/utils";
 
+/**
+ * Describes the options for add feed source and refresh.
+ */
 interface AddFeedSourceAndRefreshOptions {
   category: string;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
@@ -31,6 +34,9 @@ interface AddFeedSourceAndRefreshOptions {
   url: string;
 }
 
+/**
+ * Describes the options for apply post enabled selection.
+ */
 interface ApplyPostEnabledSelectionOptions {
   fetchAllFeeds: (
     categories?: CategoryTreeNode[],
@@ -41,6 +47,9 @@ interface ApplyPostEnabledSelectionOptions {
   nextSelection: ReturnType<typeof resolvePostEnabledToggleSelection>;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
+/**
+ * Describes the options for apply post removal selection.
+ */
 interface ApplyPostRemovalSelectionOptions {
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
   fetchFeed: (url: string) => Promise<void>;
@@ -49,12 +58,18 @@ interface ApplyPostRemovalSelectionOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the options for feed settings and refresh.
+ */
 interface FeedSettingsAndRefreshOptions {
   categories: CategoryTreeNode[];
   key: string;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
 }
+/**
+ * Describes the options for move feed by drop and persist.
+ */
 interface MoveFeedByDropAndPersistOptions {
   categories: CategoryTreeNode[];
   ensureCategoryLabelExists: (label: string) => void;
@@ -65,12 +80,18 @@ interface MoveFeedByDropAndPersistOptions {
   targetIndex: number;
 }
 
+/**
+ * Describes the options for refresh added feed selection.
+ */
 interface RefreshAddedFeedSelectionOptions {
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   nextCategories: CategoryTreeNode[];
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   url: string;
 }
+/**
+ * Describes the options for remove feed source and refresh.
+ */
 interface RemoveFeedSourceAndRefreshOptions {
   categories: CategoryTreeNode[];
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
@@ -82,6 +103,9 @@ interface RemoveFeedSourceAndRefreshOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the options for rename feed source and refresh.
+ */
 interface RenameFeedSourceAndRefreshOptions {
   categories: CategoryTreeNode[];
   key: string;
@@ -90,6 +114,9 @@ interface RenameFeedSourceAndRefreshOptions {
   nextUrl: string;
 }
 
+/**
+ * Describes the options for set feed source enabled and refresh.
+ */
 interface SetFeedSourceEnabledAndRefreshOptions {
   categories: CategoryTreeNode[];
   enabled: boolean;

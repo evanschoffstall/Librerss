@@ -7,6 +7,9 @@ import {
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
+/**
+ * Describes the options for assert successful HTTP cloak response.
+ */
 interface AssertSuccessfulHttpCloakResponseOptions {
   allowInsecureTls: boolean;
   decodedBody: string;
@@ -15,10 +18,16 @@ interface AssertSuccessfulHttpCloakResponseOptions {
   response: Awaited<ReturnType<typeof requestWithHttpCloakValidatedRedirects>>;
 }
 
+/**
+ * Describes the HTTP cloak fetch deps.
+ */
 interface HttpCloakFetchDeps {
   requestFn?: ValidatedHttpCloakRequestFn;
 }
 
+/**
+ * Describes the options for HTTP cloak fetch.
+ */
 interface HttpCloakFetchOptions {
   allowInsecureTls?: boolean;
   proxyUrl?: string;

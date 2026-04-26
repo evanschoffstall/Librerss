@@ -10,12 +10,18 @@ import {
   resolveInvertedExpansionLockViewport,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for expansion lock release deadline.
+ */
 interface ExpansionLockReleaseDeadlineOptions {
   lockState: InvertedExpansionScrollLockState;
   releaseInvertedExpansionScrollLock: () => void;
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * Describes the options for expansion lock sync.
+ */
 interface ExpansionLockSyncOptions {
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>;
   lockState: InvertedExpansionScrollLockState;
@@ -23,18 +29,27 @@ interface ExpansionLockSyncOptions {
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * Describes the options for release lock.
+ */
 interface ReleaseLockOptions {
   expandedArticleKeyRef: React.RefObject<null | string>;
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>;
   isInvertedScrollRef: React.RefObject<boolean>;
 }
 
+/**
+ * Describes the options for start lock.
+ */
 interface StartLockOptions {
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>;
   scrollViewport: HTMLElement | null;
   syncInvertedExpansionScrollLock: () => void;
 }
 
+/**
+ * Describes the options for use inverted expansion lock machine.
+ */
 interface UseInvertedExpansionLockMachineOptions {
   expandedArticleKeyRef: React.RefObject<null | string>;
   isInvertedScrollRef: React.RefObject<boolean>;

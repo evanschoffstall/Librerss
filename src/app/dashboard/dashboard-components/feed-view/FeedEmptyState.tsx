@@ -2,6 +2,9 @@ import { CheckCheck, Rss, SearchX, Sparkles } from "lucide-react";
 
 import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
 
+/**
+ * Describes the props for the feed empty state component.
+ */
 interface FeedEmptyStateProps {
   articleFilter: ArticleFilter;
   hasConfiguredFeeds?: boolean;

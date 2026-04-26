@@ -165,6 +165,7 @@ describe("dashboard structure services", () => {
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "unread",
+      articleSortOrder: "newest",
       categories,
       collapsingArticleKeys: [],
       customCategoryLabels: ["Design"],
@@ -174,6 +175,7 @@ describe("dashboard structure services", () => {
       searchTerm: "alpha",
       selectedCategory: "feed-2",
       useLocalSearch: true,
+      usePlaceholderData: false,
     });
 
     expect(viewModel.filteredFeed).toEqual([unreadArticle]);

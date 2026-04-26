@@ -2,16 +2,25 @@ import { NextResponse } from "next/server";
 
 import { isLikelyIpAddress } from "@/lib/rate-limit/ip-address";
 
+/**
+ * Describes the rate limit configuration.
+ */
 interface RateLimitConfig {
   maxAttempts: number;
   windowMs: number;
 }
 
+/**
+ * Describes the rate limit entry.
+ */
 interface RateLimitEntry {
   count: number;
   resetAt: number;
 }
 
+/**
+ * Describes the trusted proxy state.
+ */
 interface TrustedProxyState {
   shouldReturnUnknown: boolean;
   trustedProxies: number;
@@ -27,7 +36,13 @@ const MAX_RATE_LIMIT_ENTRIES = 100000;
 export class RateLimiter {
   /** Cached once per instance so env is not re-read on every request. */
   private _trustedProxyCount: number | undefined;
+  /**
+   * Stores the cleanup timer.
+   */
   private readonly cleanupTimer: ReturnType<typeof setInterval>;
+  /**
+   * Stores the store.
+   */
   private store = new Map<string, RateLimitEntry>();
 
   // Clean up expired entries every 5 minutes

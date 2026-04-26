@@ -19,6 +19,9 @@ const ELASTIC_DAMPING = 0.45;
 export const SWIPE_RELEASE_MS = 300;
 export const SWIPE_COMMIT_SLIDE_MS = 180;
 
+/**
+ * Describes the swipe gesture context.
+ */
 export interface SwipeGestureContext {
   activePointerIdRef: React.RefObject<null | number>;
   committedRef: React.RefObject<boolean>;
@@ -36,8 +39,14 @@ export interface SwipeGestureContext {
   velocityTrackRef: React.RefObject<{ t: number; x: number }[]>;
 }
 
+/**
+ * Defines the swipe phase type.
+ */
 export type SwipePhase = "committing" | "idle" | "releasing" | "swiping";
 
+/**
+ * Describes the swipe state.
+ */
 export interface SwipeState {
   committed: boolean;
   offsetX: number;
@@ -45,6 +54,9 @@ export interface SwipeState {
   progress: number;
 }
 
+/**
+ * Describes the swipe pointer capture controls.
+ */
 interface SwipePointerCaptureControls {
   setTouchActionNone: () => void;
   trySetPointerCapture: (pointerId: number) => void;

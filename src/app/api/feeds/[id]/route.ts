@@ -2,6 +2,9 @@ import type { NextRequest } from "next/server";
 
 import * as feedsRoute from "@/app/api/feeds";
 
+/**
+ * Describes the route context.
+ */
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

@@ -29,6 +29,9 @@ const COLLAPSED_HEADER_STYLE = {
   WebkitUserSelect: "none",
 } as const;
 
+/**
+ * Describes the props for the article card header component.
+ */
 interface ArticleCardHeaderProps extends ArticleHeaderActionsProps {
   collapsedTitleClassName: string;
   faviconCacheKey: string;
@@ -43,10 +46,16 @@ interface ArticleCardHeaderProps extends ArticleHeaderActionsProps {
   showFavicon: boolean;
 }
 
+/**
+ * Describes the props for the article header date component.
+ */
 interface ArticleHeaderDateProps {
   publicationDate: Date | string;
 }
 
+/**
+ * Describes the props for the article header source component.
+ */
 type ArticleHeaderSourceProps = Pick<
   ArticleCardHeaderProps,
   | "article"

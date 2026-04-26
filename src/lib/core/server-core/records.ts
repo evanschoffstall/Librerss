@@ -1,12 +1,24 @@
 import { and, desc, eq } from "drizzle-orm";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
 export { withNormalizedArticleContent } from "@/lib/core";
 
+/**
+ * Defines the feed sources table type.
+ */
 type FeedSourcesTable = DbMod["feedSources"];
+/**
+ * Defines the feeds table type.
+ */
 type FeedsTable = DbMod["feeds"];
 
+/**
+ * Describes the user owned article.
+ */
 interface UserOwnedArticle {
   content: null | string;
   feedId: number;

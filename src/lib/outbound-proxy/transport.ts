@@ -12,6 +12,9 @@ import {
 
 import { resolvesToBlockedAddress } from "./dns-guard";
 
+/**
+ * Defines the proxy status type.
+ */
 export type ProxyStatus = "checking" | "reachable" | "unreachable";
 
 export const MAX_PROXY_URL_LENGTH = 2048;
@@ -24,6 +27,9 @@ const VALID_PROTOCOLS = new Set(["http:", "https:", ...SOCKS_PROTOCOLS]);
 const BARE_HOST_PORT_RE = /^[\w.-]+:\d{1,5}$/;
 const PROBE_TIMEOUT_MS = 4000;
 
+/**
+ * Describes the options for ensure proxy host allowed.
+ */
 interface EnsureProxyHostAllowedOptions {
   dnsCheckFn?: (host: string) => Promise<boolean>;
   host: string;
@@ -31,6 +37,9 @@ interface EnsureProxyHostAllowedOptions {
   scope: "SOCKS" | null;
 }
 
+/**
+ * Describes the proxy probe target.
+ */
 interface ProxyProbeTarget {
   host: string;
   port: number;

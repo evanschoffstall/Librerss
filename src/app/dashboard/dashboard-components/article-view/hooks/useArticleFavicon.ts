@@ -7,6 +7,9 @@ import {
   getMergedFaviconCandidates,
 } from "@/app/dashboard/dashboard-services/favicon";
 
+/**
+ * Describes the options for use article favicon.
+ */
 interface UseArticleFaviconOptions {
   fallbackUrl?: string;
   primaryUrl?: string;

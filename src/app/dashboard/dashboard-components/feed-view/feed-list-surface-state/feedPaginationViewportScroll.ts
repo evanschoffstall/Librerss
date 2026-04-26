@@ -5,6 +5,9 @@ import {
   shouldAbortPaginationBoundaryRearm,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 
+/**
+ * Describes the options for viewport scroll binding.
+ */
 export interface ViewportScrollBindingOptions extends ViewportScrollSharedOptions {
   hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
   hasPendingServerRevealRef: { current: boolean };
@@ -16,12 +19,18 @@ export interface ViewportScrollBindingOptions extends ViewportScrollSharedOption
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for viewport scroll handler.
+ */
 interface ViewportScrollHandlerOptions extends ViewportScrollSharedOptions {
   rearmInvertedBoundaryFromScrollPosition: () => void;
   rearmStandardBoundaryFromScrollPosition: () => void;
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the options for viewport scroll shared.
+ */
 interface ViewportScrollSharedOptions {
   capturePendingInvertedPaginationAnchorSnapshot: () => void;
   clearInitialNormalScrollLock: () => void;

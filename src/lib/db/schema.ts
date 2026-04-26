@@ -11,7 +11,13 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 
+/**
+ * Defines the composite index columns type.
+ */
 type CompositeIndexColumns = Parameters<ReturnType<typeof index>["on"]>;
+/**
+ * Defines the user scoped index spec type.
+ */
 type UserScopedIndexSpec = readonly [
   key: string,
   name: string,

@@ -4,6 +4,9 @@ import { LoginFieldError } from "@/app/dashboard/dashboard-components/login/Logi
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+/**
+ * Describes the props for the login input field component.
+ */
 interface LoginInputFieldProps {
   error?: string;
   fieldId: string;

@@ -7,11 +7,17 @@ import { getArticleById, serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Describes the article by ID route deps.
+ */
 interface ArticleByIdRouteDeps {
   logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
   requireAuthenticatedUserFn?: typeof serverApi.requireAuthenticatedUser;
 }
 
+/**
+ * Describes the route context.
+ */
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

@@ -8,6 +8,7 @@ import type {
   ArticleFilter,
   BackgroundMode,
 } from "@/app/dashboard/dashboard-services";
+import type { ArticleSortOrder } from "@/app/dashboard/dashboard-services/article";
 import type { buildDashboardSidebarContentProps } from "@/app/dashboard/dashboard-services/dashboard-state";
 import type {
   ArticleViewportSnapshot,
@@ -19,6 +20,9 @@ import { type useDashboardCategoryTree } from "@/app/dashboard/dashboard-hooks";
 import { getAllFeedNodes } from "@/app/dashboard/dashboard-services/category-tree";
 import { buildDashboardControllerState } from "@/app/dashboard/dashboard-services/dashboard-state";
 
+/**
+ * Describes the options for use dashboard controller view state.
+ */
 export interface UseDashboardControllerViewStateOptions {
   animatingInArticleKeys: ReadonlySet<string>;
   articleCallbacks: {
@@ -31,6 +35,8 @@ export interface UseDashboardControllerViewStateOptions {
     onArticleToggleStarred: (article: Article) => void;
   };
   articleFilter: ArticleFilter;
+  /** Current display sort order (newest-first or oldest-first). */
+  articleSortOrder: ArticleSortOrder;
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
@@ -56,6 +62,12 @@ export interface UseDashboardControllerViewStateOptions {
   isFeedListRefreshing: boolean;
   isLoadingMoreArticles: boolean;
   isMobileSidebarOpen: boolean;
+  /**
+   * `true` while a background search fetch is in flight.  Passed to the feed
+   * list so it can show article-shell skeletons when the locally-filtered
+   * window is empty but the server may still return results.
+   */
+  isSearchFetching: boolean;
   isSearchPending: boolean;
   isShellLoading: boolean;
   isSidebarVisible: boolean;
@@ -68,6 +80,8 @@ export interface UseDashboardControllerViewStateOptions {
   searchTerm: string;
   selectedCategory: string;
   setArticleFilter: (value: ArticleFilter) => void;
+  /** Callback to update the user's preferred article sort order. */
+  setArticleSortOrder: (value: ArticleSortOrder) => void;
   setArticlesPerPage: (value: number) => void;
   setAutoRefreshIntervalMinutes: (value: React.SetStateAction<number>) => void;
   setIsMobileSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -167,6 +181,8 @@ function buildDashboardFeedListState(
     isInitialLoading: options.isShellLoading,
     isLoadingMore: options.isLoadingMoreArticles,
     isRefreshing: options.isFeedListRefreshing,
+    /** Mirrors `isBackgroundLoading` from the feed loader — true while a background search fetch is in flight. */
+    isSearchFetching: options.isSearchFetching,
     loadingMoreArticleCount: options.pendingLoadMoreArticleCount,
     onArticleEnteringDone: options.handleArticleEnteringDone,
     onArticleExpandedSwipeRead:
@@ -196,6 +212,7 @@ function buildDashboardFilterBarState(
 ) {
   return {
     articleFilter: options.articleFilter,
+    articleSortOrder: options.articleSortOrder,
     // isSearchPending lets the filter bar timestamp area show a skeleton
     // during the typing/search-resolution window without touching isShellLoading.
     isSearchPending: options.isSearchPending,
@@ -203,6 +220,7 @@ function buildDashboardFilterBarState(
     lastRefreshLabel: options.lastRefreshLabel,
     loading: options.loading || options.isAutoRefreshing,
     setArticleFilter: options.setArticleFilter,
+    setArticleSortOrder: options.setArticleSortOrder,
   };
 }
 

@@ -6,6 +6,9 @@ import {
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
+/**
+ * Describes the options for use inverted expansion scroll lock read events.
+ */
 interface UseInvertedExpansionScrollLockReadEventsOptions {
   articleFilter: string;
   isInvertedScrollRef: React.RefObject<boolean>;

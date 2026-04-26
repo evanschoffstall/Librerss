@@ -1,5 +1,8 @@
 import { useLayoutEffect, useRef } from "react";
 
+/**
+ * Describes the options for cached reveal completion.
+ */
 export interface CachedRevealCompletionOptions {
   isCachedPageRevealing: boolean;
   isInvertedLoadBoundaryArmedRef: { current: boolean };

@@ -18,6 +18,9 @@ import {
 import { ArticleService } from "@/lib/api";
 import { READING_LIST_STREAM } from "@/lib/core";
 
+/**
+ * Describes the options for dashboard action refs.
+ */
 interface DashboardActionRefsOptions {
   onMarkAllReadLocally: (() => void) | undefined;
   onMarkViewportRead: () => Promise<void>;
@@ -26,6 +29,9 @@ interface DashboardActionRefsOptions {
   onRefresh: (options?: DashboardRefreshEventDetail) => Promise<void>;
 }
 
+/**
+ * Describes the options for dashboard mark all read command.
+ */
 interface DashboardMarkAllReadCommandOptions {
   markAllRead?: (stream: string) => Promise<unknown>;
   onMarkAllReadLocally?: () => void;
@@ -36,6 +42,9 @@ interface DashboardMarkAllReadCommandOptions {
   usePlaceholderData: boolean;
 }
 
+/**
+ * Describes the options for dashboard mark all read event.
+ */
 interface DashboardMarkAllReadEventOptions {
   onMarkAllReadLocallyRef: React.RefObject<(() => void) | undefined>;
   onRefreshRef: React.RefObject<
@@ -47,15 +56,24 @@ interface DashboardMarkAllReadEventOptions {
   usePlaceholderDataRef: React.RefObject<boolean>;
 }
 
+/**
+ * Describes the options for dashboard open panel events.
+ */
 interface DashboardOpenPanelEventsOptions {
   onOpenFeedsSidebarRef: React.RefObject<() => void>;
   onOpenSettingsRef: React.RefObject<() => void>;
 }
 
+/**
+ * Describes the dashboard refresh event detail.
+ */
 interface DashboardRefreshEventDetail {
   forceResolveUpstream?: boolean;
 }
 
+/**
+ * Describes the options for dashboard refresh events.
+ */
 interface DashboardRefreshEventsOptions {
   onMarkViewportReadRef: React.RefObject<() => Promise<void>>;
   onRefreshRef: React.RefObject<
@@ -63,18 +81,27 @@ interface DashboardRefreshEventsOptions {
   >;
 }
 
+/**
+ * Describes the options for dashboard search event.
+ */
 interface DashboardSearchEventOptions {
   onSearchChangeRef: React.RefObject<(term: string) => void>;
   pendingSearchTermRef: React.RefObject<string>;
   searchFrameRef: React.RefObject<null | number>;
 }
 
+/**
+ * Describes the options for dashboard selection refs.
+ */
 interface DashboardSelectionRefsOptions {
   selectedCategory: string;
   selectedCategoryNode: CategoryTreeNode | undefined;
   selectedFeedUrl: string | undefined;
   usePlaceholderData: boolean;
 }
+/**
+ * Describes the options for use dashboard events.
+ */
 interface UseDashboardEventsOptions {
   onMarkAllReadLocally?: () => void;
   onMarkViewportRead: () => Promise<void>;

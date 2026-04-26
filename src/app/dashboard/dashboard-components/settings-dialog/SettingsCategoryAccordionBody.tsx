@@ -12,6 +12,9 @@ import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+/**
+ * Describes the props for the settings category accordion body component.
+ */
 export interface SettingsCategoryAccordionBodyProps
   extends SettingsCategoryDraftFeedProps, SharedFeedRowProps {
   categoryFeeds: CategoryTreeNode[];
@@ -19,18 +22,27 @@ export interface SettingsCategoryAccordionBodyProps
   isAddingFeed: boolean;
 }
 
+/**
+ * Describes the props for the category add feed actions component.
+ */
 interface CategoryAddFeedActionsProps {
   canAddFeed: boolean;
   isSavingFeed: boolean;
   onCancelAddFeed: () => void;
   onSubmit: () => void;
 }
+/**
+ * Describes the options for category feed URL key down handler.
+ */
 interface CategoryFeedUrlKeyDownHandlerOptions {
   canAddFeed: boolean;
   handleAddFeed: () => void;
   onCancelAddFeed: () => void;
 }
 
+/**
+ * Describes the props for the empty category feed drop zone component.
+ */
 interface EmptyCategoryFeedDropZoneProps {
   categoryLabel: string;
   draggingFeedKey: null | string;

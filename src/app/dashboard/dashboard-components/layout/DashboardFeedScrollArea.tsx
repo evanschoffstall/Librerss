@@ -4,10 +4,16 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Describes the props for the dashboard feed scroll area component.
+ */
 interface DashboardFeedScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
   viewportClassName?: string;
 }
 
+/**
+ * Describes the feed scrollbar metrics.
+ */
 interface FeedScrollbarMetrics {
   isVisible: boolean;
   thumbHeight: number;

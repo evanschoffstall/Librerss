@@ -11,6 +11,9 @@ import { isApiError } from "@/lib/api/http";
 import { getPlaceholderSnapshotPathByArticleUrl } from "@/lib/core";
 import { isValidUrl } from "@/lib/utils";
 
+/**
+ * Describes the article hydration state.
+ */
 export interface ArticleHydrationState {
   articleHydrationInFlightRef: React.RefObject<Map<string, number>>;
   hydratedArticleLinks: Record<string, boolean>;
@@ -24,6 +27,9 @@ export interface ArticleHydrationState {
   >;
 }
 
+/**
+ * Describes the options for finish article hydration.
+ */
 interface FinishArticleHydrationOptions {
   articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
   hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
@@ -31,6 +37,9 @@ interface FinishArticleHydrationOptions {
   setHydratingArticleLinks: ArticleHydrationState["setHydratingArticleLinks"];
 }
 
+/**
+ * Describes the options for load hydrated article content.
+ */
 interface LoadHydratedArticleContentOptions {
   abortController: AbortController;
   article: Article;
@@ -38,6 +47,9 @@ interface LoadHydratedArticleContentOptions {
   distillStrategy: UseArticleHydrationOptions["distillStrategy"];
 }
 
+/**
+ * Describes the options for prepare article hydration.
+ */
 interface PrepareArticleHydrationOptions {
   article: Article;
   forceHydration: boolean;
@@ -45,6 +57,9 @@ interface PrepareArticleHydrationOptions {
   hydrationState: ArticleHydrationState;
 }
 
+/**
+ * Describes the options for should hydrate article.
+ */
 interface ShouldHydrateArticleOptions {
   article: Article;
   forceHydration: boolean;
@@ -52,6 +67,9 @@ interface ShouldHydrateArticleOptions {
   inFlightCount: number;
   link: string;
 }
+/**
+ * Describes the options for start article hydration.
+ */
 interface StartArticleHydrationOptions {
   articleHydrationInFlightRef: ArticleHydrationState["articleHydrationInFlightRef"];
   hydrationAbortRef: ArticleHydrationState["hydrationAbortRef"];
@@ -183,9 +201,13 @@ export function markHydratedArticleLink(
   }
 }
 /**
- * Process the prepare article hydration.
- * @param options - The options used to process the prepare article hydration.
- * @returns The prepare article hydration.
+ * Resolve whether an article expansion should enter the client hydration
+ * lifecycle. Extraction-disabled feeds that already shipped a feed-provided
+ * body should keep that authoritative content instead of replacing it with a
+ * temporary loading state. When the body is still absent, the hook may use
+ * either the stored-content path or the placeholder-snapshot extract path.
+ * @param options - Hydration inputs for the article and feed settings lookup.
+ * @returns The request metadata when hydration should run, otherwise null.
  */
 export function prepareArticleHydration(
   options: PrepareArticleHydrationOptions,
@@ -196,6 +218,10 @@ export function prepareArticleHydration(
   const feedUrl =
     typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
   const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
+  if (settings?.extractionDisabled === true && article.content.trim()) {
+    return null;
+  }
+
   const placeholderSnapshotPath = getPlaceholderSnapshotPathByArticleUrl(link);
   const shouldLoadStoredContent =
     settings?.extractionDisabled === true && placeholderSnapshotPath === null;

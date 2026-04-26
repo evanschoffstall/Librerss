@@ -20,12 +20,18 @@ import {
   updateBackgroundStar as updateSceneBackgroundStar,
 } from "@/app/dashboard/dashboard-components/BackgroundStars.scene";
 
+/**
+ * Describes the options for background star canvas.
+ */
 interface BackgroundStarCanvasOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   contextRef: React.RefObject<CanvasRenderingContext2D | null>;
   initStars: () => void;
 }
 
+/**
+ * Describes the options for background star canvas setup.
+ */
 interface BackgroundStarCanvasSetupOptions {
   buildStar: () => Star;
   canvasContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -35,12 +41,18 @@ interface BackgroundStarCanvasSetupOptions {
   quantity: number;
   starsRef: React.RefObject<Star[]>;
 }
+/**
+ * Describes the options for background star pointer handler.
+ */
 interface BackgroundStarPointerHandlerOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   canvasSize: React.RefObject<{ h: number; w: number }>;
   mouseRef: React.RefObject<{ x: number; y: number }>;
 }
 
+/**
+ * Describes the options for background star renderer.
+ */
 interface BackgroundStarRendererOptions {
   canvasSize: React.RefObject<{ h: number; w: number }>;
   contextRef: React.RefObject<CanvasRenderingContext2D | null>;
@@ -50,6 +62,9 @@ interface BackgroundStarRendererOptions {
   starsRef: React.RefObject<Star[]>;
   staticity: number;
 }
+/**
+ * Describes the options for background stars frame.
+ */
 interface BackgroundStarsFrameOptions {
   canvasSize: React.RefObject<{ h: number; w: number }>;
   contextRef: React.RefObject<CanvasRenderingContext2D | null>;
@@ -61,22 +76,34 @@ interface BackgroundStarsFrameOptions {
   staticity: number;
 }
 
+/**
+ * Describes the options for background stars.
+ */
 interface BackgroundStarsOptions {
   contextRef: React.RefObject<CanvasRenderingContext2D | null>;
   height: number;
   stars: Star[];
   width: number;
 }
+/**
+ * Describes the options for build background star.
+ */
 interface BuildBackgroundStarOptions {
   canvasSize: React.RefObject<{ h: number; w: number }>;
   color: "dark" | "light";
 }
 
+/**
+ * Describes the options for rescale background star positions.
+ */
 interface RescaleBackgroundStarPositionsOptions {
   canvasSize: React.RefObject<{ h: number; w: number }>;
   resizeCanvas: () => void;
   starsRef: React.RefObject<Star[]>;
 }
+/**
+ * Describes the options for resize background star canvas.
+ */
 interface ResizeBackgroundStarCanvasOptions {
   canvasContainerRef: React.RefObject<HTMLDivElement | null>;
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -84,6 +111,9 @@ interface ResizeBackgroundStarCanvasOptions {
   contextRef: React.RefObject<CanvasRenderingContext2D | null>;
 }
 
+/**
+ * Describes the props for the stars component.
+ */
 interface StarsProps {
   className?: string;
   color?: "dark" | "light";

@@ -11,17 +11,26 @@ import {
 } from "@/app/dashboard/settings-state/useSettingsDrag";
 import { isSameCategoryLabel } from "@/lib/utils";
 
+/**
+ * Describes the options for run with transient feed flag.
+ */
 interface RunWithTransientFeedFlagOptions<TResult> {
   run: () => Promise<TResult>;
   setValue: (value: boolean) => void;
 }
 
+/**
+ * Describes the options for run with transient feed key.
+ */
 interface RunWithTransientFeedKeyOptions<TResult> {
   key: string;
   run: () => Promise<TResult>;
   setKey: (key: null | string) => void;
 }
 
+/**
+ * Describes the options for settings feed editor actions.
+ */
 interface SettingsFeedEditorActionsOptions {
   onAddFeed: UseSettingsFeedEditorStateOptions["onAddFeed"];
   onRemoveFeed: UseSettingsFeedEditorStateOptions["onRemoveFeed"];
@@ -30,6 +39,9 @@ interface SettingsFeedEditorActionsOptions {
   onUpdateFeedSettings: UseSettingsFeedEditorStateOptions["onUpdateFeedSettings"];
   state: ReturnType<typeof useSettingsFeedEditorLocalState>;
 }
+/**
+ * Describes the props for the settings shared feed row component.
+ */
 interface SettingsSharedFeedRowProps {
   deletingKey: null | string;
   draggingFeedKey: UseSettingsDragReturn["draggingFeedKey"];
@@ -57,6 +69,9 @@ interface SettingsSharedFeedRowProps {
   updatingSettingsKey: null | string;
 }
 
+/**
+ * Describes the options for shared feed row props.
+ */
 interface SharedFeedRowPropsOptions {
   actions: ReturnType<typeof useSettingsFeedEditorActions>;
   drag: ReturnType<typeof useSettingsDrag>;
@@ -64,6 +79,9 @@ interface SharedFeedRowPropsOptions {
   state: ReturnType<typeof useSettingsFeedEditorLocalState>;
 }
 
+/**
+ * Describes the options for use settings feed editor state.
+ */
 type UseSettingsFeedEditorStateOptions = Omit<
   SettingsFeedStateOptions,
   "onImportOpml"

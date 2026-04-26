@@ -20,6 +20,9 @@ interface LegalDeploymentProfile {
   profile: LegalProfile;
 }
 
+/**
+ * Defines the legal profile type.
+ */
 type LegalProfile = (typeof LEGAL_PROFILES)[number];
 
 /**

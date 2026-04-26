@@ -2,6 +2,9 @@ import { sql } from "drizzle-orm";
 
 import { logger } from "@/lib";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
 // ── ArticleStatus table availability ──────────────────────────────────────────
@@ -9,11 +12,17 @@ type DbMod = typeof import("@/lib/db");
 let articleStatusesTableState: "available" | "missing" | "unknown" = "unknown";
 let warnedMissingArticleStatusesTable = false;
 
+/**
+ * Describes the article status deps.
+ */
 interface ArticleStatusDeps {
   db?: ReturnType<DbMod["getDb"]>;
   warn?: (message: string) => void;
 }
 
+/**
+ * Describes the upsert article statuses changes.
+ */
 interface UpsertArticleStatusesChanges {
   isRead?: boolean;
   isStarred?: boolean;

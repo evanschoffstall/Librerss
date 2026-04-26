@@ -5,11 +5,17 @@ import {
   SKELETON_MIN_VISIBLE_MS,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the options for handle feed pagination reveal count transition.
+ */
 export interface HandleFeedPaginationRevealCountTransitionOptions extends SchedulePendingServerRevealCompletionOptions {
   isLoadingMore: boolean;
   previousFilteredFeedLengthRef: { current: number };
 }
 
+/**
+ * Describes the options for pending server reveal lifecycle.
+ */
 export interface PendingServerRevealLifecycleOptions {
   hasPendingServerRevealRef: { current: boolean };
   hasResolvedStandardViewportRevealRef: { current: boolean };
@@ -21,6 +27,9 @@ export interface PendingServerRevealLifecycleOptions {
   startServerLoadRearmCooldown: () => void;
 }
 
+/**
+ * Describes the options for schedule pending server reveal completion.
+ */
 export interface SchedulePendingServerRevealCompletionOptions extends PendingServerRevealLifecycleOptions {
   commitVisibleArticleCount: (nextVisibleCount: number) => void;
   filteredFeedLength: number;
@@ -31,14 +40,23 @@ export interface SchedulePendingServerRevealCompletionOptions extends PendingSer
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the pending server reveal count ref.
+ */
 interface PendingServerRevealCountRef {
   current: null | number;
 }
 
+/**
+ * Describes the pending server reveal frame ref.
+ */
 interface PendingServerRevealFrameRef {
   current: null | number;
 }
 
+/**
+ * Describes the pending server reveal timeout ref.
+ */
 interface PendingServerRevealTimeoutRef {
   current: null | ReturnType<typeof setTimeout>;
 }

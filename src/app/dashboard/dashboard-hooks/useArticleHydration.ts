@@ -18,21 +18,33 @@ import {
   toastHydrationFailure,
 } from "@/app/dashboard/dashboard-hooks/useArticleHydration.lifecycle";
 
+/**
+ * Describes the hydration failure payload.
+ */
 export interface HydrationFailurePayload {
   error?: unknown;
   reason?: unknown;
 }
 
+/**
+ * Describes the options for use article hydration.
+ */
 export interface UseArticleHydrationOptions {
   distillStrategy?: string;
   getFeedSettings?: (feedUrl: string) => FeedExtractionSettings | undefined;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
 }
 
+/**
+ * Describes the options for hydrate article content.
+ */
 interface HydrateArticleContentOptions {
   force?: boolean;
 }
 
+/**
+ * Describes the hydrate article content options2.
+ */
 interface HydrateArticleContentOptions2 {
   distillStrategy: UseArticleHydrationOptions["distillStrategy"];
   getFeedSettings: UseArticleHydrationOptions["getFeedSettings"];

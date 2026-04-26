@@ -87,7 +87,9 @@ async function loadFeedListWithLibOverrides(
   overrides: Partial<typeof import("@/lib")> = {},
 ) {
   hooksImportVersion += 1;
-  const realHooksModule = await import(`@/lib/hooks?test=${hooksImportVersion}`);
+  const realHooksModule = await import(
+    `@/lib/hooks?test=${hooksImportVersion}`
+  );
   libImportVersion += 1;
   const realLibModule = await import(`@/lib?test=${libImportVersion}`);
   mock.module("@/lib/hooks", () => ({
@@ -532,6 +534,41 @@ describe("FeedList", () => {
       container.querySelector("[data-dashboard-feed-list-skeleton='true']"),
     ).toBeNull();
     expect(feedFrame?.getAttribute("style") ?? "").not.toContain("opacity: 0");
+  });
+
+  test("shows article skeletons instead of the up-to-date empty state during an empty refresh", async () => {
+    const { container, queryByText } = renderFeedList(
+      <div data-radix-scroll-area-viewport="">
+        <FeedList
+          articleFilter="unread"
+          articlesPerPage={4}
+          expandedArticleKey={null}
+          feedViewKey="system-all-feeds:unread"
+          filteredFeed={[]}
+          hydratedArticleLinks={{}}
+          hydratingArticleLinks={{}}
+          isInitialLoading={false}
+          isRefreshing
+          onExpandedSwipeRead={() => {}}
+          onToggle={() => {}}
+          onToggleRead={() => {}}
+          onToggleStarred={() => {}}
+          searchTerm=""
+          showFavicons={false}
+          updatingArticleState={{}}
+        />
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector("[data-dashboard-feed-list-skeleton='true']"),
+      ).toBeTruthy();
+      expect(
+        container.querySelector("[data-feed-empty-state='true']"),
+      ).toBeNull();
+      expect(queryByText("You're up to date")).toBeNull();
+    });
   });
 
   test("does not prefetch another server page during idle auto-fill before any scroll intent", async () => {

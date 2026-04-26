@@ -20,15 +20,24 @@ const globalForDb = globalThis as unknown as {
   pool?: DatabasePool;
 };
 
+/**
+ * Describes the connectivity check pool.
+ */
 interface ConnectivityCheckPool {
   query(queryText: string): Promise<unknown>;
 }
 
+/**
+ * Describes the DB dependencies.
+ */
 interface DbDependencies {
   createDatabaseProvider: () => DatabaseProviderResult;
   warn: DbWarnFn;
 }
 
+/**
+ * Defines the DB warn fn type.
+ */
 type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
 
 const defaultDbDependencies: DbDependencies = {

@@ -8,7 +8,9 @@ import {
 } from "@/app/dashboard/dashboard-components/layout";
 import {
   ARTICLE_FILTER_OPTIONS,
+  ARTICLE_SORT_ORDER_OPTIONS,
   type ArticleFilter,
+  type ArticleSortOrder,
 } from "@/app/dashboard/dashboard-services/article";
 
 describe("DashboardFilterBar", () => {
@@ -30,7 +32,7 @@ describe("DashboardFilterBar", () => {
       container.querySelectorAll(
         '[data-dashboard-filter-bar-chip-skeleton="true"]',
       ),
-    ).toHaveLength(4);
+    ).toHaveLength(5);
     expect(queryByRole("button", { name: "unread" })).toBeNull();
   });
 
@@ -232,7 +234,9 @@ describe("DashboardFilterBar", () => {
       />,
     );
 
-    expect(getAllByRole("button")).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
+    expect(getAllByRole("button")).toHaveLength(
+      ARTICLE_FILTER_OPTIONS.length + 1,
+    );
   });
 
   test("shows the Motion spinner when both loading and isSearchPending are true", () => {
@@ -324,12 +328,17 @@ describe("DashboardFilterBar", () => {
     );
 
     const filterButtons = getAllByRole("button");
-    const filterButtonNames = filterButtons.map((button) =>
+
+    const filterChipButtons = filterButtons.slice(
+      0,
+      ARTICLE_FILTER_OPTIONS.length,
+    );
+    const filterChipNames = filterChipButtons.map((button) =>
       button.textContent?.trim(),
     );
 
-    expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length);
-    expect(filterButtonNames).toEqual(
+    expect(filterButtons).toHaveLength(ARTICLE_FILTER_OPTIONS.length + 1);
+    expect(filterChipNames).toEqual(
       ARTICLE_FILTER_OPTIONS.map((value: ArticleFilter) => value),
     );
   });
@@ -351,5 +360,95 @@ describe("DashboardFilterBar", () => {
     fireEvent.click(getByRole("button", { name: "starred" }));
 
     expect(calls).toEqual(["starred"]);
+  });
+
+  test("renders a sort-order toggle that defaults to newest with the descending icon", () => {
+    const { container, getByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const sortToggle = getByRole("button", {
+      name: /sort by date/i,
+    });
+
+    expect(
+      sortToggle.getAttribute("data-dashboard-filter-bar-sort-order"),
+    ).toBe("newest");
+    expect(sortToggle.getAttribute("aria-pressed")).toBe("false");
+    expect(sortToggle.textContent?.trim()).toBe("Newest");
+    expect(
+      container.querySelector(".lucide-arrow-down-narrow-wide"),
+    ).toBeTruthy();
+  });
+
+  test("renders the oldest-first state with the ascending icon and pressed aria state", () => {
+    const { container, getByRole } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        articleSortOrder="oldest"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+        onArticleSortOrderChange={() => {}}
+      />,
+    );
+
+    const sortToggle = getByRole("button", {
+      name: /sort by date/i,
+    });
+
+    expect(
+      sortToggle.getAttribute("data-dashboard-filter-bar-sort-order"),
+    ).toBe("oldest");
+    expect(sortToggle.getAttribute("aria-pressed")).toBe("true");
+    expect(sortToggle.textContent?.trim()).toBe("Oldest");
+    expect(
+      container.querySelector(".lucide-arrow-up-narrow-wide"),
+    ).toBeTruthy();
+  });
+
+  test("cycles the sort order callback through every option in order on each click", () => {
+    const calls: ArticleSortOrder[] = [];
+    let current: ArticleSortOrder = "newest";
+    const handleChange = (value: ArticleSortOrder) => {
+      calls.push(value);
+      current = value;
+    };
+
+    const { getByRole, rerender } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        articleSortOrder={current}
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+        onArticleSortOrderChange={handleChange}
+      />,
+    );
+
+    for (const _option of ARTICLE_SORT_ORDER_OPTIONS) {
+      fireEvent.click(getByRole("button", { name: /sort by date/i }));
+      rerender(
+        <DashboardFilterBar
+          articleFilter="unread"
+          articleSortOrder={current}
+          lastRefreshLabel="just now"
+          loading={false}
+          onArticleFilterChange={() => {}}
+          onArticleSortOrderChange={handleChange}
+        />,
+      );
+    }
+
+    const expected: ArticleSortOrder[] = [
+      ...ARTICLE_SORT_ORDER_OPTIONS.slice(1),
+      ARTICLE_SORT_ORDER_OPTIONS[0],
+    ];
+    expect(calls).toEqual(expected);
   });
 });

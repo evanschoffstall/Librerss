@@ -332,9 +332,12 @@ describe("Feed Fetcher - Batch Operations", () => {
     expect(getCachedBatch).toHaveBeenCalledWith(
       1,
       ["https://example.com/feed"],
-      "all",
-      24,
-      undefined,
+      {
+        articleFilter: "all",
+        articleLimit: 24,
+        articleSortOrder: "newest",
+        searchTerm: undefined,
+      },
     );
   });
 
@@ -418,14 +421,12 @@ describe("Feed Fetcher - Batch Operations", () => {
     );
 
     expect(result.unchangedUrls.size).toBe(0);
-    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
-      mockDb,
-      1,
-      [1],
-      "all",
-      24,
-      undefined,
-    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [1], {
+      articleFilter: "all",
+      articleLimit: 24,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
   });
 
   test("fetchAndCacheFeedArticlesBatch queries only feeds whose timestamps changed", async () => {
@@ -478,14 +479,12 @@ describe("Feed Fetcher - Batch Operations", () => {
       },
     );
 
-    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
-      mockDb,
-      1,
-      [2],
-      "all",
-      500,
-      undefined,
-    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [2], {
+      articleFilter: "all",
+      articleLimit: 500,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
   });
 
   test("fetchAndCacheFeedArticlesBatch forwards an explicit article limit to the ranked query", async () => {
@@ -525,14 +524,12 @@ describe("Feed Fetcher - Batch Operations", () => {
       },
     );
 
-    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
-      mockDb,
-      1,
-      [1],
-      "all",
-      12,
-      undefined,
-    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [1], {
+      articleFilter: "all",
+      articleLimit: 12,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
   });
 
   test("fetchAndCacheFeedArticlesBatch keys cache and ranked queries by searchTerm", async () => {
@@ -572,18 +569,19 @@ describe("Feed Fetcher - Batch Operations", () => {
     expect(getCachedBatch).toHaveBeenCalledWith(
       1,
       ["https://example.com/feed-a"],
-      "all",
-      500,
-      "mars",
+      {
+        articleFilter: "all",
+        articleLimit: 500,
+        articleSortOrder: "newest",
+        searchTerm: "mars",
+      },
     );
-    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(
-      mockDb,
-      1,
-      [1],
-      "all",
-      500,
-      "mars",
-    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [1], {
+      articleFilter: "all",
+      articleLimit: 500,
+      articleSortOrder: "newest",
+      searchTerm: "mars",
+    });
   });
 
   test("fetchAndCacheFeedArticlesBatch handles feeds without records", async () => {

@@ -1,5 +1,8 @@
 const STANDARD_VIEWPORT_REFILL_SHRINK_THRESHOLD_PX = 1;
 
+/**
+ * Describes the options for finish standard viewport refill.
+ */
 export interface FinishStandardViewportRefillOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -10,6 +13,9 @@ export interface FinishStandardViewportRefillOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the options for standard viewport refill state.
+ */
 export interface StandardViewportRefillStateOptions {
   effectiveListHeight: number;
   hasUserScrolled: boolean;
@@ -18,6 +24,9 @@ export interface StandardViewportRefillStateOptions {
   lastAutoFillListHeightRef: NullableNumberRef;
 }
 
+/**
+ * Describes the options for standard viewport refill target.
+ */
 export interface StandardViewportRefillTargetOptions {
   articlesPerPage: number;
   hasUserScrolled: boolean;
@@ -25,6 +34,9 @@ export interface StandardViewportRefillTargetOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the options for activate standard viewport refill.
+ */
 interface ActivateStandardViewportRefillOptions {
   articleFilter: string;
   articlesPerPage: number;
@@ -36,15 +48,24 @@ interface ActivateStandardViewportRefillOptions {
   visibleArticleCountRef: { current: number };
 }
 
+/**
+ * Describes the boolean ref.
+ */
 interface BooleanRef {
   current: boolean;
 }
 
+/**
+ * Describes the list height shrink state.
+ */
 interface ListHeightShrinkState {
   effectiveListHeight: number;
   lastAutoFillListHeightRef: NullableNumberRef;
 }
 
+/**
+ * Describes the nullable number ref.
+ */
 interface NullableNumberRef {
   current: null | number;
 }

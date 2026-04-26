@@ -78,7 +78,7 @@ describe("DashboardShellSkeleton", () => {
       container.querySelectorAll(
         '[data-dashboard-filter-bar-chip-skeleton="true"]',
       ),
-    ).toHaveLength(4);
+    ).toHaveLength(5);
     expect(
       container.querySelectorAll('[data-dashboard-article-skeleton="true"]'),
     ).toHaveLength(5);

@@ -7,6 +7,9 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 
 import { type FeedRecord } from "./refresher";
 
+/**
+ * Defines the DB mod type.
+ */
 type DbMod = typeof import("@/lib/db");
 
 export {

@@ -26,6 +26,9 @@ import {
   replaceCategoryLabel,
 } from "@/lib/utils";
 
+/**
+ * Describes the options for add category label.
+ */
 interface AddCategoryLabelOptions {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
@@ -33,11 +36,17 @@ interface AddCategoryLabelOptions {
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * Describes the category label collection setters.
+ */
 interface CategoryLabelCollectionSetters {
   setCustomCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
   setOrderedCategoryLabels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+/**
+ * Describes the category removal state setters.
+ */
 interface CategoryRemovalStateSetters extends CategoryLabelCollectionSetters {
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   setPendingCategoryRemovalLabel: React.Dispatch<
@@ -45,11 +54,17 @@ interface CategoryRemovalStateSetters extends CategoryLabelCollectionSetters {
   >;
 }
 
+/**
+ * Describes the options for category rename context.
+ */
 interface CategoryRenameContextOptions {
   categories: CategoryTreeNode[];
   normalizedCurrent: string;
   selectedCategory: string;
 }
+/**
+ * Describes the options for commit category rename.
+ */
 interface CommitCategoryRenameOptions {
   categories: CategoryTreeNode[];
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
@@ -61,6 +76,9 @@ interface CommitCategoryRenameOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the options for remove category and refresh.
+ */
 interface RemoveCategoryAndRefreshOptions extends CategoryRemovalStateSetters {
   categories: CategoryTreeNode[];
   customCategoryLabels: string[];
@@ -72,6 +90,9 @@ interface RemoveCategoryAndRefreshOptions extends CategoryRemovalStateSetters {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the options for rename category and refresh.
+ */
 interface RenameCategoryAndRefreshOptions {
   categories: CategoryTreeNode[];
   currentLabel: string;
@@ -84,6 +105,9 @@ interface RenameCategoryAndRefreshOptions {
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
 
+/**
+ * Describes the options for validate category rename.
+ */
 interface ValidateCategoryRenameOptions {
   categories: CategoryTreeNode[];
   currentLabel: string;

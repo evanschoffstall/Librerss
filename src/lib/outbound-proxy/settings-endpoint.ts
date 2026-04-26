@@ -32,6 +32,9 @@ import {
 import { type ProxyRoutingCheckResult } from "./service";
 import { normalizeProxyUrl, type ProxyStatus } from "./transport";
 
+/**
+ * Describes the authorized proxy request.
+ */
 interface AuthorizedProxyRequest {
   auth: serverApi.AuthenticatedUser;
   detect: (host: string, port: number) => Promise<"http" | "socks5">;
@@ -40,12 +43,18 @@ interface AuthorizedProxyRequest {
   probe: (url: string) => Promise<boolean>;
 }
 
+/**
+ * Describes the options for persist authorized proxy submission.
+ */
 interface PersistAuthorizedProxySubmissionOptions {
   auth: serverApi.AuthenticatedUser;
   proxyUrl: null | string;
   submission: NormalizedProxySubmission;
 }
 
+/**
+ * Describes the options for persisted proxy probe response.
+ */
 interface PersistedProxyProbeResponseOptions {
   authorized: AuthorizedProxyRequest;
   persistedProxy: PersistedProxyRow;
@@ -53,12 +62,18 @@ interface PersistedProxyProbeResponseOptions {
   proxyUrl: string;
 }
 
+/**
+ * Describes the persist proxy settings values.
+ */
 interface PersistProxySettingsValues {
   allowInsecureTls?: boolean;
   proxyPassword?: null | string;
   proxyUrl: null | string;
   proxyUsername?: null | string;
 }
+/**
+ * Describes the options for probe and respond.
+ */
 interface ProbeAndRespondOptions {
   allowInsecureTls?: boolean;
   getProxyRoutingCheckFn: ProxyRoutingCheckFn;
@@ -69,10 +84,16 @@ interface ProbeAndRespondOptions {
   proxyUsername?: null | string;
 }
 
+/**
+ * Defines the proxy routing check fn type.
+ */
 type ProxyRoutingCheckFn = (options: {
   allowInsecureTls: boolean;
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
+/**
+ * Describes the options for respond with saved password read error.
+ */
 interface RespondWithSavedPasswordReadErrorOptions {
   allowInsecureTls: boolean;
   hasProxyPassword: boolean;
@@ -80,6 +101,9 @@ interface RespondWithSavedPasswordReadErrorOptions {
   proxyUsername: null | string;
 }
 
+/**
+ * Describes the options for response proxy password.
+ */
 interface ResponseProxyPasswordOptions {
   effectiveProxyPassword: null | string | undefined;
   persistedProxyPassword: null | string;

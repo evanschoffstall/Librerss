@@ -38,6 +38,9 @@ const SETTINGS_SURFACE_TITLE = "Reader Settings";
 const SETTINGS_SURFACE_DESCRIPTION =
   "Manage categories, feeds, ordering, and runtime behavior.";
 
+/**
+ * Describes the options for settings panel shell.
+ */
 interface SettingsPanelShellOptions {
   activeTab: SettingsTabValue;
   handleOpenChange: (open: boolean) => void;
@@ -61,6 +64,9 @@ const SETTINGS_TABS = [
   { icon: Shield, label: "Account", value: "account" },
 ] as const;
 
+/**
+ * Describes the props for the settings panel component.
+ */
 export interface SettingsPanelProps extends SettingsDisplaySectionProps {
   categories: CategoryTreeNode[];
   isPreviewMode?: boolean;
@@ -87,12 +93,18 @@ export interface SettingsPanelProps extends SettingsDisplaySectionProps {
   selectedCategory: string;
 }
 
+/**
+ * Defines the settings tab value type.
+ */
 type SettingsTabValue = (typeof SETTINGS_TABS)[number]["value"];
 
 const SETTINGS_TAB_VALUES = new Set<SettingsTabValue>(
   SETTINGS_TABS.map((tab) => tab.value),
 );
 
+/**
+ * Describes the options for settings tab triggers.
+ */
 interface SettingsTabTriggersOptions {
   isPreviewMode: boolean;
   mobile?: boolean;

@@ -13,6 +13,9 @@ import {
   resolveCollapseRestoreViewport,
 } from "@/app/dashboard/dashboard-hooks/articleCollapseViewport";
 
+/**
+ * Describes the options for collapse scroll restore runtime.
+ */
 interface CollapseScrollRestoreRuntimeOptions {
   articleKey: string;
   clearPreExpandSnapshot: (
@@ -24,6 +27,9 @@ interface CollapseScrollRestoreRuntimeOptions {
   snapshot: ArticleViewportSnapshot;
 }
 
+/**
+ * Describes the options for collapse viewport sync.
+ */
 interface CollapseViewportSyncOptions {
   adoptViewport: (nextViewport: HTMLElement) => void;
   articleKey: string;

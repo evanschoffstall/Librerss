@@ -20,6 +20,9 @@ export const DASHBOARD_ARTICLE_FILTER_STORAGE_KEY = "librerss:articleFilter";
 /** Persist the configured dashboard page size across reloads and reset. */
 export const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY =
   "librerss:articlesPerPage";
+/** Persist the user's preferred article sort order (newest/oldest) across reloads. */
+export const DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY =
+  "librerss:articleSortOrder";
 export const MOBILE_INVERTED_SCROLL_STORAGE_KEY =
   "librerss:mobileInvertedScroll";
 export {
@@ -62,4 +65,7 @@ export const INITIAL_CATEGORIES: CategoryTreeNode[] = [
   },
 ];
 
+/**
+ * Defines the background mode type.
+ */
 export type BackgroundMode = "none" | "particles" | "stars";

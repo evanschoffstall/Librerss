@@ -14,6 +14,9 @@ import {
   getViewportOffsetTop,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 
+/**
+ * Describes the inverted pagination anchor state.
+ */
 export interface InvertedPaginationAnchorState {
   anchorArticleKey: null | string;
   anchorViewportOffsetTop: number;
@@ -22,6 +25,9 @@ export interface InvertedPaginationAnchorState {
   releaseAt: number;
 }
 
+/**
+ * Describes the pending inverted pagination anchor snapshot.
+ */
 interface PendingInvertedPaginationAnchorSnapshot {
   anchorArticleKey: null | string;
   anchorViewportOffsetTop: number;
@@ -31,6 +37,9 @@ interface PendingInvertedPaginationAnchorSnapshot {
 
 const INVERTED_PAGINATION_ANCHOR_SYNC_WINDOW_MS = 1_500;
 
+/**
+ * Describes the options for capture pending inverted pagination anchor snapshot.
+ */
 interface CapturePendingInvertedPaginationAnchorSnapshotOptions {
   isInvertedScroll: boolean;
   lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
@@ -38,6 +47,9 @@ interface CapturePendingInvertedPaginationAnchorSnapshotOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for inverted pagination anchor boundary callbacks.
+ */
 interface InvertedPaginationAnchorBoundaryCallbacksOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
@@ -49,12 +61,18 @@ interface InvertedPaginationAnchorBoundaryCallbacksOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for inverted pagination anchor scroll callbacks.
+ */
 interface InvertedPaginationAnchorScrollCallbacksOptions extends InvertedPaginationAnchorSnapshotOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
   invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;
 }
+/**
+ * Describes the options for inverted pagination anchor snapshot.
+ */
 interface InvertedPaginationAnchorSnapshotOptions {
   isInvertedScroll: boolean;
   lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
@@ -64,6 +82,9 @@ interface InvertedPaginationAnchorSnapshotOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for inverted pagination anchor sync.
+ */
 interface InvertedPaginationAnchorSyncOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
@@ -72,16 +93,25 @@ interface InvertedPaginationAnchorSyncOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for prime inverted pagination anchor.
+ */
 interface PrimeInvertedPaginationAnchorOptions extends InvertedPaginationAnchorSnapshotOptions {
   invertedPaginationAnchorRef: React.RefObject<InvertedPaginationAnchorState | null>;
   syncInvertedPaginationAnchor: () => number | undefined;
 }
+/**
+ * Describes the options for selected anchor snapshot.
+ */
 interface SelectedAnchorSnapshotOptions {
   lastInvertedAwayBoundarySnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
   pendingInvertedPaginationAnchorSnapshotRef: React.RefObject<null | PendingInvertedPaginationAnchorSnapshot>;
   scrollViewport: HTMLElement;
 }
 
+/**
+ * Describes the options for sync pagination anchor.
+ */
 interface SyncPaginationAnchorOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   invertedPaginationAnchorFrameRef: React.RefObject<null | number>;
@@ -90,6 +120,9 @@ interface SyncPaginationAnchorOptions {
   scrollViewport: HTMLElement | null;
 }
 
+/**
+ * Describes the options for use inverted pagination anchor.
+ */
 interface UseInvertedPaginationAnchorOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   isInvertedLoadBoundaryArmedRef: React.RefObject<boolean>;

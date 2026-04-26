@@ -2,6 +2,9 @@ import type { FeedCategoryButtonProps } from "@/app/dashboard/dashboard-componen
 
 import { FeedCategoryButton } from "@/app/dashboard/dashboard-components";
 
+/**
+ * Describes the props for the sidebar feed category component.
+ */
 type SidebarFeedCategoryProps = Omit<
   FeedCategoryButtonProps,
   "fallbackIconClassName"

@@ -2,6 +2,9 @@ import { useCallback, useMemo } from "react";
 
 import { resetPaginationRuntimeState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationBoundaryState";
 
+/**
+ * Describes the options for reset pagination state.
+ */
 export interface ResetPaginationStateOptions {
   articlesPerPage: number;
   cancelCachedPageReveal: () => void;

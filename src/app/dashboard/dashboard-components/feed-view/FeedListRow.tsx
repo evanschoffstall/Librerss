@@ -15,6 +15,9 @@ import { getArticleRemovalAnimationDuration } from "@/app/dashboard/display-type
  * - "done": settled; inline override styles cleared; onEnteringDone fired.
  */
 type EnterPhase = "animating" | "done" | "initial" | "none";
+/**
+ * Defines the feed row release phase type.
+ */
 type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
 
 /** Duration of the height-expansion part of the entrance animation (ms). */

@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { serverApi } from "@/lib/server";
 
+/**
+ * Describes the route context.
+ */
 interface RouteContext {
   params: Promise<{ id: string }>;
 }

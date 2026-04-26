@@ -1,10 +1,16 @@
 import type { Article } from "@/lib/core";
 
+/**
+ * Defines the article removal animation mode type.
+ */
 export type ArticleRemovalAnimationMode =
   | "collapse"
   | "de-expanding"
   | "swipe-read";
 
+/**
+ * Describes the article viewport snapshot.
+ */
 export interface ArticleViewportSnapshot {
   articleBottomOffsetTop: number;
   articleHeaderViewportOffsetTop: number;
@@ -14,15 +20,24 @@ export interface ArticleViewportSnapshot {
   viewportScrollTop: number;
 }
 
+/**
+ * Defines the collapsing articles type.
+ */
 export type CollapsingArticles = Partial<
   Record<string, CollapsingArticleState>
 >;
 
+/**
+ * Describes the feed extraction settings.
+ */
 export interface FeedExtractionSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;
 }
 
+/**
+ * Describes the collapsing article state.
+ */
 interface CollapsingArticleState {
   article: Article;
   index: number;

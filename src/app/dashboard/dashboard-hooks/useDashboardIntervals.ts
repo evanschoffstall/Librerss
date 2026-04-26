@@ -27,6 +27,9 @@ const STALE_TAB_RESUME_DELAY_MS = 4_000;
  */
 export const STALE_TAB_THRESHOLD_MS = 30_000;
 
+/**
+ * Describes the options for use dashboard intervals.
+ */
 interface UseDashboardIntervalsOptions {
   autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;

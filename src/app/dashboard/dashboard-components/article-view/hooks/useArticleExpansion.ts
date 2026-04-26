@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+/**
+ * Defines the expansion phase type.
+ */
 type ExpansionPhase =
   | "collapsed"
   | "collapsing"

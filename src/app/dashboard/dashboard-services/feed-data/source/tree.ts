@@ -6,6 +6,9 @@ import {
 } from "@/app/dashboard/dashboard-services/category-tree";
 import { FeedService } from "@/lib/api";
 
+/**
+ * Describes the feed source tree dependencies.
+ */
 interface FeedSourceTreeDependencies {
   buildCategoriesFromSources: (sources: FeedSource[]) => CategoryTreeNode[];
   buildDefaultCategories: (usePlaceholderData: boolean) => CategoryTreeNode[];

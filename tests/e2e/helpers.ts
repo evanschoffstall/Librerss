@@ -289,7 +289,8 @@ export async function installDeterministicArticleExtractRoute(page: Page) {
     const requestBody = route.request().postDataJSON() as {
       url?: string;
     };
-    const articleUrl = typeof requestBody.url === "string" ? requestBody.url : "";
+    const articleUrl =
+      typeof requestBody.url === "string" ? requestBody.url : "";
 
     await route.fulfill({
       body: JSON.stringify({
@@ -514,7 +515,9 @@ export async function readLoadMoreSkeletonState(page: Page) {
       }
     }
 
-    throw new Error("Expected the active feed surface to expose its skeleton state.");
+    throw new Error(
+      "Expected the active feed surface to expose its skeleton state.",
+    );
   });
 }
 

@@ -24,6 +24,9 @@ export {
 
 const RESTORE_WINDOW_MS = 3000;
 
+/**
+ * Describes the options for observe viewport restore.
+ */
 interface ObserveViewportRestoreOptions {
   refs: ViewportRestoreRefs;
   restore: () => void;

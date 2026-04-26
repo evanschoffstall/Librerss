@@ -3,12 +3,18 @@ import type { CategoryTreeNode } from "@/lib/core";
 import { restoreSelectedCategoryFromSourceUrl } from "@/app/dashboard/dashboard-services/category";
 import { getFeedUrlBySelectedKey } from "@/app/dashboard/dashboard-services/category-tree";
 
+/**
+ * Describes the options for ensure categories loaded for selection restore.
+ */
 interface EnsureCategoriesLoadedForSelectionRestoreOptions {
   categoriesWereReloaded: boolean;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   refreshedCategories: CategoryTreeNode[];
 }
 
+/**
+ * Describes the options for restore category selection after refresh.
+ */
 interface RestoreCategorySelectionAfterRefreshOptions {
   categories: CategoryTreeNode[];
   refreshedCategories: CategoryTreeNode[];

@@ -1,5 +1,8 @@
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+/**
+ * Describes the props for the login card header component.
+ */
 interface LoginCardHeaderProps {
   mode: "login" | "signup";
 }

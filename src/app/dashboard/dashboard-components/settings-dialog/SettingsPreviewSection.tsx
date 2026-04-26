@@ -2,6 +2,9 @@ import type { ReactNode } from "react";
 
 const DEMO_OVERLAY_LABEL = "Not available in demo mode";
 
+/**
+ * Describes the props for the settings preview section component.
+ */
 interface SettingsPreviewSectionProps {
   children: ReactNode;
   isPreviewMode?: boolean;
