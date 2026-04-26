@@ -87,7 +87,9 @@ async function loadFeedListWithLibOverrides(
   overrides: Partial<typeof import("@/lib")> = {},
 ) {
   hooksImportVersion += 1;
-  const realHooksModule = await import(`@/lib/hooks?test=${hooksImportVersion}`);
+  const realHooksModule = await import(
+    `@/lib/hooks?test=${hooksImportVersion}`
+  );
   libImportVersion += 1;
   const realLibModule = await import(`@/lib?test=${libImportVersion}`);
   mock.module("@/lib/hooks", () => ({
