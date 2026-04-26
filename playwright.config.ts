@@ -17,6 +17,7 @@ const outputDir =
   process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results/playwright";
 const workerOverride = process.env.PLAYWRIGHT_WORKERS?.trim();
 const consoleReporter = process.env.CI ? "dot" : "line";
+const LOCAL_PLAYWRIGHT_WORKER_CAP = 8;
 const reporter: ReporterDescription[] = [
   [consoleReporter],
   ["html", { open: "never", outputFolder: htmlReportDir }],
@@ -61,11 +62,11 @@ function countPlaywrightEntrypoints(): number {
  * Resolves the Playwright worker count for the current run context.
  *
  * - CI: 2 workers (conservative for shared infra).
- * - Local coverage run: capped at 4 so the cold-started dev server stays
- *   stable under concurrent load while Istanbul instrumentation is active.
- * - Local non-coverage: one worker per entrypoint file so every test file
- *   can start immediately, giving maximum file-level parallelism regardless
- *   of how many logical CPUs the machine exposes.
+ * - Local coverage run: capped so the instrumented dev server stays stable
+ *   under concurrent load.
+ * - Local non-coverage: capped at a measured stable ceiling. The dashboard
+ *   pagination suites are intentionally heavy and can overload a single
+ *   Turbopack dev server when every logical CPU starts a page at once.
  * @returns The Playwright worker count or a percent-string worker override for the current run.
  */
 function resolveWorkerCount(): number | string {
@@ -82,10 +83,23 @@ function resolveWorkerCount(): number | string {
   const detectedWorkerCount = availableParallelism();
 
   if (isCoverageRun) {
-    return Math.max(2, Math.ceil(detectedWorkerCount * 0.75));
+    return Math.max(
+      2,
+      Math.min(
+        LOCAL_PLAYWRIGHT_WORKER_CAP,
+        Math.ceil(detectedWorkerCount * 0.75),
+      ),
+    );
   }
 
-  return Math.max(2, detectedWorkerCount, countPlaywrightEntrypoints());
+  return Math.max(
+    2,
+    Math.min(
+      LOCAL_PLAYWRIGHT_WORKER_CAP,
+      detectedWorkerCount,
+      countPlaywrightEntrypoints(),
+    ),
+  );
 }
 
 /**
