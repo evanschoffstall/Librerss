@@ -77,12 +77,37 @@ export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
 
   return {
     articles: Array.isArray(candidate.articles)
-      ? (candidate.articles as Article[])
+      ? candidate.articles.map((article) => normalizeArticleResponse(article))
       : [],
     ok: Boolean(candidate.ok),
     ...(candidate.unchanged === true ? { unchanged: true } : {}),
     url: typeof candidate.url === "string" ? candidate.url : "",
     ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),
     ...(parsedLastFetchedAt ? { lastFetchedAt: parsedLastFetchedAt } : {}),
+  };
+}
+
+/**
+ * Normalize article fields that lose their runtime type while crossing the JSON
+ * boundary. Keeping the response object close to the `Article` contract avoids
+ * every dashboard consumer having to defensively parse timestamps on read.
+ * @param article - The raw article payload from the batch response.
+ * @returns The article with parseable timestamp fields restored to `Date` objects.
+ */
+function normalizeArticleResponse(article: unknown): Article {
+  if (!article || typeof article !== "object") {
+    return article as Article;
+  }
+
+  const articleRecord = article as Article & Record<string, unknown>;
+  const parsedLastChecked = parseDateOrNull(articleRecord.lastChecked);
+  const parsedPublicationDate = parseDateOrNull(articleRecord.publicationDate);
+
+  return {
+    ...articleRecord,
+    ...(parsedLastChecked ? { lastChecked: parsedLastChecked } : {}),
+    ...(parsedPublicationDate
+      ? { publicationDate: parsedPublicationDate }
+      : {}),
   };
 }
