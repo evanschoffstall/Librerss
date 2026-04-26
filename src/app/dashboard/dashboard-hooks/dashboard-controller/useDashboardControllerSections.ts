@@ -242,6 +242,7 @@ export function useDashboardViewModelState(
         // Deferred filter caused a visible lag and a stale-filter window where
         // newly arrived server data would be filtered by the OLD value.
         articleFilter: dashboardState.articleFilter,
+        articleSortOrder: dashboardState.articleSortOrder,
         categories: dashboardState.categories,
         collapsingArticleKeys: Object.keys(collapsedArticles),
         customCategoryLabels: categoryTree.customCategoryLabels,
@@ -289,6 +290,7 @@ function buildDashboardFeedLoaderOptions(
     options;
   return {
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     categoriesRef: dashboardState.categoriesRef,
     feedRef: dashboardState.feedRef,
     onFeedBatchLoaded: refreshState.setLastRefreshedAt,

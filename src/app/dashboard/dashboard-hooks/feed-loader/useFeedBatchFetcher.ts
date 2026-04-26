@@ -5,7 +5,12 @@ import { type RefObject, useCallback } from "react";
 
 import type { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
 import type { useFeedBatchRequestState } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchRequestState";
-import type { Article, ArticleFilter, CategoryTreeNode } from "@/lib/core";
+import type {
+  Article,
+  ArticleFilter,
+  ArticleSortOrder,
+  CategoryTreeNode,
+} from "@/lib/core";
 
 import {
   clearStaleFeedBeforeRefresh,
@@ -34,6 +39,7 @@ type FeedBatchFetcherHookOptions = Omit<
 
 interface FeedBatchRequestExecutionOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   feedRef: RefObject<Article[]>;
   lastFetchedAtByUrlRef: RefObject<Map<string, Date>>;
   loadBatchResults: ReturnType<typeof useFeedBatchQuery>["loadBatchResults"];
@@ -96,6 +102,7 @@ interface PreparedFeedBatchRequestOptions {
 }
 interface PrepareFeedBatchExecutionOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   logRefreshDiagnostics: (
     event: string,
     details: Record<string, unknown>,
@@ -128,6 +135,7 @@ interface RestorePreparedFeedBatchSnapshotOnErrorOptions {
 export function useFeedBatchFetcher(options: FeedBatchFetcherHookOptions) {
   const {
     articleFilter,
+    articleSortOrder,
     feedRef,
     lastFetchedAtByUrlRef,
     loadBatchResults,
@@ -145,6 +153,7 @@ export function useFeedBatchFetcher(options: FeedBatchFetcherHookOptions) {
     async (sources: FeedBatchSource[], options?: FeedFetchOptions) =>
       runFeedBatchRequest({
         articleFilter,
+        articleSortOrder,
         feedRef,
         lastFetchedAtByUrlRef,
         loadBatchResults,
@@ -162,6 +171,7 @@ export function useFeedBatchFetcher(options: FeedBatchFetcherHookOptions) {
       }),
     [
       articleFilter,
+      articleSortOrder,
       feedRef,
       lastFetchedAtByUrlRef,
       loadBatchResults,
@@ -350,6 +360,7 @@ function prepareFeedBatchExecution(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     logRefreshDiagnostics,
     options: requestOptions,
     queryClient,
@@ -361,6 +372,7 @@ function prepareFeedBatchExecution(
   } = executionOptions;
   const context = prepareFeedBatchRequestContext({
     articleFilter,
+    articleSortOrder,
     options: requestOptions,
     queryClient,
     requestHelpers,
@@ -429,6 +441,7 @@ async function runFeedBatchRequest(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     feedRef,
     lastFetchedAtByUrlRef,
     loadBatchResults,
@@ -453,6 +466,7 @@ async function runFeedBatchRequest(
 
   const context = prepareFeedBatchExecution({
     articleFilter,
+    articleSortOrder,
     logRefreshDiagnostics,
     options: requestOptions,
     queryClient,

@@ -1,19 +1,29 @@
 "use client";
 
-import { RefreshCw } from "lucide-react";
+import {
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
+  RefreshCw,
+} from "lucide-react";
 import { memo } from "react";
 
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import {
   ARTICLE_FILTER_OPTIONS,
+  ARTICLE_SORT_ORDER_OPTIONS,
   type ArticleFilter,
+  type ArticleSortOrder,
 } from "@/app/dashboard/dashboard-services/article";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
 
-const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14"];
+/**
+ * Skeleton widths for the filter chip placeholders (4 filter chips + 1 sort
+ * order chip). Each value is a Tailwind width class.
+ */
+const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14", "w-16"];
 
 interface DashboardFilterBarFrameProps {
   children: React.ReactNode;
@@ -23,12 +33,17 @@ interface DashboardFilterBarFrameProps {
 /** Presentation props for the dashboard filter bar controls and refresh status. */
 interface DashboardFilterBarProps {
   articleFilter: ArticleFilter;
+  /** Current display sort order; defaults to `"newest"` when omitted. */
+  articleSortOrder?: ArticleSortOrder;
   isSearchPending?: boolean;
   isShellLoading?: boolean;
   lastRefreshLabel: string;
   loading: boolean;
   onArticleFilterChange: (value: ArticleFilter) => void;
+  /** Callback invoked when the user toggles the sort order. */
+  onArticleSortOrderChange?: (value: ArticleSortOrder) => void;
 }
+
 /**
  * Render the dashboard filter bar skeleton component.
  * @returns The rendered dashboard filter bar skeleton component.
@@ -110,6 +125,26 @@ function DashboardFilterBarFrame(props: DashboardFilterBarFrameProps) {
   );
 }
 
+/**
+ * Return the next sort order toggled from the current one: `"newest"` ↔
+ * `"oldest"`. Cycles through all values in {@link ARTICLE_SORT_ORDER_OPTIONS}
+ * so future additions to the constant are handled automatically.
+ * @param current - The current sort order.
+ * @returns The next sort order in the cycle.
+ */
+function getNextSortOrder(current: ArticleSortOrder): ArticleSortOrder {
+  const index = ARTICLE_SORT_ORDER_OPTIONS.indexOf(current);
+  return ARTICLE_SORT_ORDER_OPTIONS[
+    (index + 1) % ARTICLE_SORT_ORDER_OPTIONS.length
+  ];
+}
+
+/** Maps each sort order to a human-readable label shown on the toggle button. */
+const SORT_ORDER_LABEL: Record<ArticleSortOrder, string> = {
+  newest: "Newest",
+  oldest: "Oldest",
+};
+
 /** Renders the quick article filter strip and refresh status indicator. */
 export const DashboardFilterBar = memo(
   /**
@@ -120,11 +155,13 @@ export const DashboardFilterBar = memo(
   function DashboardFilterBar(props: DashboardFilterBarProps) {
     const {
       articleFilter,
+      articleSortOrder = "newest",
       isSearchPending = false,
       isShellLoading = false,
       lastRefreshLabel,
       loading,
       onArticleFilterChange,
+      onArticleSortOrderChange,
     } = props;
     if (isShellLoading) {
       return <DashboardFilterBarSkeleton />;
@@ -132,6 +169,8 @@ export const DashboardFilterBar = memo(
 
     /** Show the spinner/skeleton while loading OR while a search is pending. */
     const showLoadingIndicator = loading || isSearchPending;
+    const isOldestFirst = articleSortOrder === "oldest";
+    const SortIcon = isOldestFirst ? ArrowUpNarrowWide : ArrowDownNarrowWide;
 
     return (
       <DashboardFilterBarFrame>
@@ -186,6 +225,34 @@ export const DashboardFilterBar = memo(
                       {value}
                     </button>
                   ))}
+
+                  {/* Sort order toggle — separated from filter chips by a thin
+                      divider so it is visually distinct but spatially close. */}
+                  <span
+                    aria-hidden="true"
+                    className="h-3.5 w-px shrink-0 bg-border/50"
+                  />
+                  <button
+                    aria-label={`Sort by date: ${SORT_ORDER_LABEL[articleSortOrder]}`}
+                    aria-pressed={isOldestFirst}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors",
+                      isOldestFirst
+                        ? "bg-muted font-semibold text-foreground ring-1 ring-border/40 ring-inset"
+                        : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground",
+                    )}
+                    data-dashboard-filter-bar-sort-order={articleSortOrder}
+                    onClick={() => {
+                      onArticleSortOrderChange?.(
+                        getNextSortOrder(articleSortOrder),
+                      );
+                    }}
+                    title={`Toggle sort order (currently: ${SORT_ORDER_LABEL[articleSortOrder]})`}
+                    type="button"
+                  >
+                    <SortIcon className="size-3 shrink-0" />
+                    <span>{SORT_ORDER_LABEL[articleSortOrder]}</span>
+                  </button>
 
                   <span
                     aria-live="polite"

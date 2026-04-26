@@ -2,7 +2,9 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import {
   type ArticleFilter,
+  type ArticleSortOrder,
   filterArticlesByState,
+  sortArticlesByOrder,
 } from "@/app/dashboard/dashboard-services/article";
 import { buildDisplayCategories } from "@/app/dashboard/dashboard-services/category";
 import {
@@ -15,6 +17,7 @@ const articleTitleSearchTextCache = new WeakMap<Article, string>();
 
 interface DashboardViewModelInput {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   categories: CategoryTreeNode[];
   collapsingArticleKeys: string[];
   customCategoryLabels: string[];
@@ -24,6 +27,7 @@ interface DashboardViewModelInput {
   searchTerm: string;
   selectedCategory: string;
   useLocalSearch: boolean;
+  usePlaceholderData: boolean;
 }
 
 /**
@@ -34,6 +38,7 @@ interface DashboardViewModelInput {
 export function buildDashboardViewModel(options: DashboardViewModelInput) {
   const {
     articleFilter,
+    articleSortOrder,
     categories,
     collapsingArticleKeys,
     customCategoryLabels,
@@ -43,6 +48,7 @@ export function buildDashboardViewModel(options: DashboardViewModelInput) {
     searchTerm,
     selectedCategory,
     useLocalSearch,
+    usePlaceholderData,
   } = options;
   const feedByState = filterArticlesByState(
     feed,
@@ -51,9 +57,17 @@ export function buildDashboardViewModel(options: DashboardViewModelInput) {
     collapsingArticleKeys,
   );
 
-  const filteredFeed = useLocalSearch
+  const searchedFeed = useLocalSearch
     ? filterArticlesBySearchTerm(feedByState, searchTerm)
     : feedByState;
+  // Production data keeps sort ownership on the server-side article-window
+  // query so the React Query cache and visible order remain authoritative.
+  // Placeholder mode skips that refetch path, so the view model must apply the
+  // user's display preference locally to keep explore-mode behavior aligned
+  // with the toolbar toggle.
+  const filteredFeed = usePlaceholderData
+    ? sortArticlesByOrder(searchedFeed, articleSortOrder)
+    : searchedFeed;
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 

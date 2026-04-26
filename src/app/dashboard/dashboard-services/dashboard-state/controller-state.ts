@@ -6,7 +6,10 @@ import type {
 } from "@/app/dashboard/display-types";
 import type { Article, CategoryTreeNode } from "@/lib/core";
 
-import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
+import {
+  type ArticleFilter,
+  type ArticleSortOrder,
+} from "@/app/dashboard/dashboard-services/article";
 import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
 interface DashboardControllerState<CategoryTreeController, SidebarScrollRef> {
@@ -54,11 +57,15 @@ interface DashboardFeedListState {
 
 interface DashboardFilterBarState {
   articleFilter: ArticleFilter;
+  /** Current display sort order: newest-first (default) or oldest-first. */
+  articleSortOrder: ArticleSortOrder;
   isSearchPending: boolean;
   isShellLoading: boolean;
   lastRefreshLabel: string;
   loading: boolean;
   setArticleFilter: (value: ArticleFilter) => void;
+  /** Callback to update the user's preferred article sort order. */
+  setArticleSortOrder: (value: ArticleSortOrder) => void;
 }
 
 interface DashboardSettingsState<CategoryTreeController> {

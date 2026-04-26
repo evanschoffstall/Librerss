@@ -7,7 +7,12 @@ import {
   jsonErrorWithReason,
   parseJsonObjectBodyOrResponse,
 } from "@/lib/api/http";
-import { type ArticleFilter, isArticleFilter } from "@/lib/core";
+import {
+  type ArticleFilter,
+  type ArticleSortOrder,
+  isArticleFilter,
+  isArticleSortOrder,
+} from "@/lib/core";
 import { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 import { getDb } from "@/lib/db";
 import { resolveUserProxy } from "@/lib/outbound-proxy";
@@ -23,6 +28,7 @@ import {
   createBatchSuccessResponse,
   ensureBatchUrlCount,
   logBatchRequestReceivedWhenEnabled,
+  parseBatchSearchTerm,
   resolveNormalizedBatchUrls,
   serverApi,
   validateBatchRequestState,
@@ -103,6 +109,7 @@ interface BatchRequestUrlsOptions {
 interface BatchSuccessResponseOptionsOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   batchFetchResult: BatchFetchExecutionResult;
   diagnosticsEnabled: boolean;
   forceRefresh: boolean;
@@ -120,6 +127,7 @@ interface BatchSuccessResponseOptionsOptions {
 interface ExecuteBatchFetchOptions {
   articleFilter: ArticleFilter;
   articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
   deps: BatchRouteDeps;
   forceRefresh: boolean;
   forceResolveUpstream: boolean;
@@ -190,6 +198,7 @@ function buildBatchSuccessResponseOptions(
   return {
     articleFilter: options.articleFilter,
     articleLimit: options.articleLimit,
+    articleSortOrder: options.articleSortOrder,
     cachedCount: options.batchFetchResult.cachedCount,
     cooldownLimitedCount: options.batchFetchResult.cooldownLimitedCount,
     diagnosticsEnabled: options.diagnosticsEnabled,
@@ -226,6 +235,7 @@ async function executeBatchFetch(
     buildBatchFetchRequestOptions({
       articleFilter: options.articleFilter,
       articleLimit: options.articleLimit,
+      articleSortOrder: options.articleSortOrder,
       forceRefresh: options.forceRefresh,
       forceResolveUpstream: options.forceResolveUpstream,
       knownLastFetchedAtByUrl: options.knownLastFetchedAtByUrl,
@@ -269,6 +279,7 @@ async function handleResolvedBatchPostRequest(
   const {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceRefresh,
     forceResolveUpstream,
     knownLastFetchedAtByUrl,
@@ -290,6 +301,7 @@ async function handleResolvedBatchPostRequest(
   const batchFetchResult = await executeBatchFetch({
     articleFilter,
     articleLimit,
+    articleSortOrder,
     deps: options.deps,
     forceRefresh,
     forceResolveUpstream,
@@ -306,6 +318,7 @@ async function handleResolvedBatchPostRequest(
     buildBatchSuccessResponseOptions({
       articleFilter,
       articleLimit,
+      articleSortOrder,
       batchFetchResult,
       diagnosticsEnabled: options.diagnosticsEnabled,
       forceRefresh,
@@ -362,6 +375,31 @@ function parseArticleLimit(value: unknown): number | Response | undefined {
   }
 
   return Math.min(value, CONFIG.MAX_ALL_ARTICLES_LIMIT);
+}
+
+/**
+ * Parse the article sort order. Defaults to `"newest"` when omitted so the
+ * server-side `ORDER BY` mirrors the historical descending publication date
+ * behavior.
+ * @param value - The raw value to validate.
+ * @returns The normalized {@link ArticleSortOrder} or a 400 error response
+ *   when the supplied value is not a recognized sort order.
+ */
+function parseArticleSortOrder(value: unknown): ArticleSortOrder | Response {
+  if (value === undefined) {
+    return "newest";
+  }
+
+  if (!isArticleSortOrder(value)) {
+    return NextResponse.json(
+      {
+        error: "articleSortOrder must be one of newest or oldest",
+      },
+      { status: 400 },
+    );
+  }
+
+  return value;
 } /**
  * Parse the force resolve upstream.
  * @param value - The value.
@@ -427,40 +465,6 @@ function parseKnownLastFetchedAtByUrl(
       (entry): entry is readonly [string, Date] => entry !== null,
     ),
   );
-} /**
- * Parse the search term.
- * @param value - The value.
- * @returns The search term.
- */
-function parseSearchTerm(value: unknown): Response | string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "string") {
-    return NextResponse.json(
-      {
-        error: "searchTerm must be a string when provided",
-      },
-      { status: 400 },
-    );
-  }
-
-  const normalizedValue = value.trim();
-  if (normalizedValue.length === 0) {
-    return undefined;
-  }
-
-  if (normalizedValue.length > CONFIG.MAX_ARTICLE_TITLE_LENGTH) {
-    return NextResponse.json(
-      {
-        error: `searchTerm must be at most ${CONFIG.MAX_ARTICLE_TITLE_LENGTH} characters`,
-      },
-      { status: 400 },
-    );
-  }
-
-  return normalizedValue;
 }
 
 /**
@@ -474,6 +478,7 @@ function resolveBatchExecutionPreflight(
   const {
     articleFilter,
     articleLimit,
+    articleSortOrder,
     forceRefresh,
     forceResolveUpstream,
     requestSource,
@@ -486,6 +491,7 @@ function resolveBatchExecutionPreflight(
   logBatchRequestReceivedWhenEnabled({
     articleFilter,
     articleLimit,
+    articleSortOrder,
     diagnosticsEnabled: options.diagnosticsEnabled,
     forceRefresh,
     forceResolveUpstream,
@@ -607,9 +613,10 @@ async function resolveBatchRequestStateForPost(
     normalizeDistinctUrlList,
     parseArticleFilter,
     parseArticleLimit,
+    parseArticleSortOrder,
     parseForceResolveUpstream,
     parseKnownLastFetchedAtByUrl,
-    parseSearchTerm,
+    parseSearchTerm: parseBatchSearchTerm,
   });
 
   return requestState instanceof Response

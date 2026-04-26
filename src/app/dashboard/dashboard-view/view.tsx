@@ -135,11 +135,13 @@ function DashboardFilterSection(props: DashboardFilterSectionProps) {
   return (
     <DashboardFilterBar
       articleFilter={filterBar.articleFilter}
+      articleSortOrder={filterBar.articleSortOrder}
       isSearchPending={filterBar.isSearchPending}
       isShellLoading={filterBar.isShellLoading}
       lastRefreshLabel={filterBar.lastRefreshLabel}
       loading={filterBar.loading}
       onArticleFilterChange={filterBar.setArticleFilter}
+      onArticleSortOrderChange={filterBar.setArticleSortOrder}
     />
   );
 }

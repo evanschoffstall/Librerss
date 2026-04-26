@@ -114,6 +114,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -222,6 +223,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -413,6 +415,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -528,6 +531,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),
@@ -621,6 +625,7 @@ describe("useFeedLoader", () => {
         () =>
           useFeedLoader({
             articleFilter: "all",
+            articleSortOrder: "newest",
             categoriesRef,
             feedRef,
             setCategories: mock(() => {}),

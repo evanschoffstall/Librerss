@@ -4,7 +4,7 @@ import type { QueryClient } from "@tanstack/react-query";
 
 import type { useFeedBatchQuery } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchQuery";
 import type { useFeedBatchRequestState } from "@/app/dashboard/dashboard-hooks/feed-loader/useFeedBatchRequestState";
-import type { ArticleFilter } from "@/lib/core";
+import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { getFeedBatchQueryKey } from "@/app/dashboard/dashboard-services";
 import {
@@ -19,6 +19,7 @@ import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/select
 
 export interface FeedBatchRequestContext {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   batchQueryStaleTime: number;
   isBackground: boolean;
   keepExistingFeed: boolean;
@@ -37,6 +38,7 @@ export interface FeedBatchRequestHelpers {
     normalizedSources: FeedBatchSource[],
     articleLimit?: FeedFetchOptions["articleLimit"],
     searchTerm?: FeedFetchOptions["searchTerm"],
+    articleSortOrder?: FeedFetchOptions["articleSortOrder"],
   ) => string;
   getKnownLastFetchedAtByUrl: (
     normalizedSources: FeedBatchSource[],
@@ -46,6 +48,7 @@ export interface FeedBatchRequestHelpers {
 
 interface FeedBatchRequestQueryStateOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   keepExistingFeed: boolean;
   normalizedSources: FeedBatchSource[];
   options?: FeedFetchOptions;
@@ -54,6 +57,7 @@ interface FeedBatchRequestQueryStateOptions {
 
 interface PrepareFeedBatchRequestContextOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   options?: FeedFetchOptions;
   queryClient: QueryClient;
   requestHelpers: FeedBatchRequestHelpers;
@@ -150,6 +154,7 @@ export async function loadFeedBatchResultsOrReturnNull(
       ...context.options,
       articleFilter: context.articleFilter,
       articleLimit: context.options?.articleLimit,
+      articleSortOrder: context.articleSortOrder,
       knownLastFetchedAtByUrl: context.knownLastFetchedAtByUrl,
       searchTerm: context.options?.searchTerm,
     },
@@ -233,6 +238,7 @@ export function prepareFeedBatchRequestContext(
 ): FeedBatchRequestContext | null {
   const {
     articleFilter,
+    articleSortOrder,
     options: requestOptions,
     queryClient: _queryClient,
     requestHelpers,
@@ -250,6 +256,7 @@ export function prepareFeedBatchRequestContext(
   const normalizedSources = normalizeFeedBatchSources(sources);
   const queryState = buildFeedBatchRequestQueryState({
     articleFilter,
+    articleSortOrder,
     keepExistingFeed,
     normalizedSources,
     options: requestOptions,
@@ -264,6 +271,7 @@ export function prepareFeedBatchRequestContext(
 
   return {
     articleFilter,
+    articleSortOrder,
     batchQueryStaleTime: resolveFeedBatchStaleTime(requestOptions),
     isBackground,
     keepExistingFeed,
@@ -290,6 +298,7 @@ function buildFeedBatchRequestQueryState(
     options.normalizedSources,
     options.options?.articleLimit,
     options.options?.searchTerm,
+    options.articleSortOrder,
   );
   const knownLastFetchedAtByUrl =
     options.requestHelpers.getKnownLastFetchedAtByUrl(
@@ -302,6 +311,7 @@ function buildFeedBatchRequestQueryState(
     queryKey: getFeedBatchQueryKey(requestSignature, {
       articleFilter: options.articleFilter,
       articleLimit: options.options?.articleLimit,
+      articleSortOrder: options.articleSortOrder,
       knownLastFetchedAtByUrl,
       searchTerm: options.options?.searchTerm,
       skipRefresh: options.options?.skipRefresh,

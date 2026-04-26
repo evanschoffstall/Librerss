@@ -84,6 +84,7 @@ export function useDashboardRuntimeState(
   });
   const runtime = useDashboardControllerRuntime({
     appliedBatchArticleFilterRef,
+    appliedBatchArticleSortOrderRef,
     appliedBatchSearchTermRef,
     ...buildDashboardRuntimeDataState({
       articleActions,
@@ -127,6 +128,7 @@ function buildDashboardRuntimeDataState(
   } = options;
   return {
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     articleWindowLimit: articleWindowState.articleWindowLimit,
     autoRefreshIntervalMinutes: dashboardState.autoRefreshIntervalMinutes,
     feed: dashboardState.feed,

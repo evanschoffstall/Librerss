@@ -1,10 +1,12 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import {
+  ARTICLE_SORT_ORDER_OPTIONS,
   filterArticlesByState,
   resolveArticleWindowAvailability,
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
+  sortArticlesByOrder,
 } from "@/app/dashboard/dashboard-services/article";
 import {
   dedupeAndSortArticles,
@@ -25,6 +27,7 @@ import {
   formatFeedFailureLabel,
   resolveFeedBatchResults,
 } from "@/app/dashboard/dashboard-services/feed-data";
+import { isArticleSortOrder } from "@/lib/core";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 
@@ -355,6 +358,7 @@ describe("dashboard pure service coverage", () => {
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "all",
+      articleSortOrder: "newest",
       categories,
       collapsingArticleKeys: [],
       customCategoryLabels: ["Custom"],
@@ -364,6 +368,7 @@ describe("dashboard pure service coverage", () => {
       searchTerm: "needle",
       selectedCategory: "feed-2",
       useLocalSearch: true,
+      usePlaceholderData: false,
     });
 
     expect(viewModel.filteredFeed.map((article) => article.link)).toEqual([
@@ -397,6 +402,7 @@ describe("dashboard pure service coverage", () => {
 
     const viewModel = buildDashboardViewModel({
       articleFilter: "all",
+      articleSortOrder: "newest",
       categories,
       collapsingArticleKeys: [],
       customCategoryLabels: [],
@@ -406,6 +412,7 @@ describe("dashboard pure service coverage", () => {
       searchTerm: "needle",
       selectedCategory: "feed-1",
       useLocalSearch: false,
+      usePlaceholderData: false,
     });
 
     expect(viewModel.filteredFeed).toEqual(articles);
@@ -563,5 +570,121 @@ describe("dashboard pure service coverage", () => {
     ).toBe(batchResults);
 
     expect(fetchFeedsBatch).toHaveBeenCalled();
+  });
+});
+
+describe("article sort order utilities and view-model integration", () => {
+  test("ARTICLE_SORT_ORDER_OPTIONS exposes newest first then oldest", () => {
+    expect(ARTICLE_SORT_ORDER_OPTIONS).toEqual(["newest", "oldest"]);
+  });
+
+  test("isArticleSortOrder accepts known orders and rejects everything else", () => {
+    expect(isArticleSortOrder("newest")).toBe(true);
+    expect(isArticleSortOrder("oldest")).toBe(true);
+    expect(isArticleSortOrder("NEWEST")).toBe(false);
+    expect(isArticleSortOrder("")).toBe(false);
+    expect(isArticleSortOrder(null)).toBe(false);
+    expect(isArticleSortOrder(undefined)).toBe(false);
+    expect(isArticleSortOrder(0)).toBe(false);
+    expect(isArticleSortOrder({})).toBe(false);
+  });
+
+  test("sortArticlesByOrder leaves the array untouched and reference-equal for newest", () => {
+    const articles = [
+      buildFeedListArticle({ id: 1, title: "A" }),
+      buildFeedListArticle({ id: 2, title: "B" }),
+      buildFeedListArticle({ id: 3, title: "C" }),
+    ];
+
+    const result = sortArticlesByOrder(articles, "newest");
+
+    expect(result).toBe(articles);
+    expect(result.map((article) => article.id)).toEqual([1, 2, 3]);
+  });
+
+  test("sortArticlesByOrder returns a reversed copy for oldest without mutating input", () => {
+    const articles = [
+      buildFeedListArticle({ id: 1, title: "A" }),
+      buildFeedListArticle({ id: 2, title: "B" }),
+      buildFeedListArticle({ id: 3, title: "C" }),
+    ];
+
+    const result = sortArticlesByOrder(articles, "oldest");
+
+    expect(result).not.toBe(articles);
+    expect(result.map((article) => article.id)).toEqual([3, 2, 1]);
+    expect(articles.map((article) => article.id)).toEqual([1, 2, 3]);
+  });
+
+  test("sortArticlesByOrder handles empty input for both sort orders", () => {
+    expect(sortArticlesByOrder([], "newest")).toEqual([]);
+    expect(sortArticlesByOrder([], "oldest")).toEqual([]);
+  });
+
+  test("buildDashboardViewModel preserves feed order as returned from the server (DB owns sort)", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({ id: 10, link: "https://example.com/a" }),
+      buildFeedListArticle({ id: 11, link: "https://example.com/b" }),
+      buildFeedListArticle({ id: 12, link: "https://example.com/c" }),
+    ];
+
+    // Both sort orders should preserve the server-side order because
+    // the DB `ORDER BY` clause is the sole authority over article ordering.
+    // The view-model must not re-sort the feed on the client.
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "",
+      selectedCategory: "feed-1",
+      useLocalSearch: true,
+      usePlaceholderData: false,
+    });
+
+    expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
+      10, 11, 12,
+    ]);
+  });
+
+  test("buildDashboardViewModel applies the selected sort order locally in placeholder mode", () => {
+    const categories = [
+      createCategory("Tech", [
+        createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
+      ]),
+    ];
+    const articles = [
+      buildFeedListArticle({ id: 10, link: "https://example.com/a" }),
+      buildFeedListArticle({ id: 11, link: "https://example.com/b" }),
+      buildFeedListArticle({ id: 12, link: "https://example.com/c" }),
+    ];
+
+    const viewModel = buildDashboardViewModel({
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      categories,
+      collapsingArticleKeys: [],
+      customCategoryLabels: [],
+      expandedArticleKey: null,
+      feed: articles,
+      orderedCategoryLabels: ["Tech"],
+      searchTerm: "",
+      selectedCategory: "feed-1",
+      useLocalSearch: true,
+      usePlaceholderData: true,
+    });
+
+    expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
+      12, 11, 10,
+    ]);
   });
 });

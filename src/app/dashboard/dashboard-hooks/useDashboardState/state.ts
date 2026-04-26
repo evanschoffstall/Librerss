@@ -12,12 +12,16 @@ import type { Article } from "@/lib/core";
 
 import {
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+  DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
 } from "@/app/dashboard/dashboard-services";
-import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
+import {
+  type ArticleFilter,
+  type ArticleSortOrder,
+} from "@/app/dashboard/dashboard-services/article";
 import {
   ALL_FEEDS_NODE_KEY,
   INITIAL_CATEGORIES,
@@ -108,6 +112,11 @@ function useDashboardPersistedPreferences() {
     DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
     "unread",
   );
+  const [articleSortOrder, setArticleSortOrder] =
+    useLocalStorage<ArticleSortOrder>(
+      DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY,
+      "newest",
+    );
   const [showFavicons, setShowFavicons] = useState(true);
   const [articlesPerPage, setArticlesPerPage] = useLocalStorage(
     DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
@@ -116,12 +125,14 @@ function useDashboardPersistedPreferences() {
 
   return {
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     expandedArticleKey,
     isMobileSidebarOpen,
     searchTerm,
     selectedCategory,
     setArticleFilter,
+    setArticleSortOrder,
     setArticlesPerPage,
     setExpandedArticleKey,
     setIsMobileSidebarOpen,

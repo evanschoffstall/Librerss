@@ -22,7 +22,7 @@ import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-c
 import { refreshCurrentSelection } from "@/app/dashboard/dashboard-services/selection";
 
 type DashboardArticleFilter = "all" | "read" | "starred" | "unread";
-
+type DashboardArticleSortOrder = "newest" | "oldest";
 interface DashboardAutoRefreshOptions {
   autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;
@@ -32,13 +32,34 @@ interface DashboardAutoRefreshOptions {
   >["setRelativeRefreshTick"];
 }
 
+interface DashboardSelectionRefreshOptions<TValue> {
+  appliedValueRef: React.RefObject<TValue>;
+  articleWindowLimit: DashboardHandlersOptions["articleLimit"];
+  currentValue: TValue;
+  fetchAllFeeds: UseDashboardControllerRuntimeOptions["fetchAllFeeds"];
+  fetchCategoryFeeds: UseDashboardControllerRuntimeOptions["fetchCategoryFeeds"];
+  fetchFeed: UseDashboardControllerRuntimeOptions["fetchFeed"];
+  hasInitializedDashboardRef: UseDashboardControllerRuntimeOptions["hasInitializedDashboardRef"];
+  requestSource: DashboardSelectionRefreshRequestSource;
+  selectedCategory: UseDashboardControllerRuntimeOptions["selectedCategory"];
+  selectedCategoryNode: UseDashboardControllerRuntimeOptions["selectedCategoryNode"];
+  selectedFeedUrl: UseDashboardControllerRuntimeOptions["selectedFeedUrl"];
+  usePlaceholderData: boolean;
+}
+
+type DashboardSelectionRefreshRequestSource =
+  | "article-filter-change"
+  | "article-sort-order-change";
+
 type UseDashboardControllerRuntimeOptions = Omit<
   DashboardControllerRuntimeStateOptions,
   "articleLimit" | "initialArticleLimit" | "onTimeout"
 > & {
   appliedBatchArticleFilterRef: React.RefObject<DashboardArticleFilter>;
+  appliedBatchArticleSortOrderRef: React.RefObject<DashboardArticleSortOrder>;
   appliedBatchSearchTermRef: React.RefObject<string>;
   articleFilter: DashboardArticleFilter;
+  articleSortOrder: DashboardArticleSortOrder;
   articleWindowLimit: DashboardHandlersOptions["articleLimit"];
   autoRefreshIntervalMinutes: number;
   cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
@@ -88,6 +109,7 @@ export function useDashboardControllerRuntime(
   );
 
   useDashboardArticleFilterRefresh(options);
+  useDashboardArticleSortOrderRefresh(options);
   useDashboardSearchRefresh(options);
 
   const isAutoRefreshing = useDashboardAutoRefresh({
@@ -160,6 +182,38 @@ function createDashboardControllerRuntimeStateOptions(
     timeoutMs: options.timeoutMs,
   } satisfies Parameters<typeof useDashboardControllerRuntimeState>[0];
 }
+
+/**
+ * Run a selection refresh while advertising toolbar-scoped pending state.
+ * @param options - The current selection refresh inputs.
+ * @returns A promise that settles after the refresh end event is dispatched.
+ */
+async function runDashboardSelectionRefresh(
+  options: Omit<
+    DashboardSelectionRefreshOptions<unknown>,
+    "appliedValueRef" | "currentValue"
+  >,
+) {
+  window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+
+  try {
+    await refreshCurrentSelection({
+      articleLimit: options.articleWindowLimit,
+      fetchAllFeeds: options.fetchAllFeeds,
+      fetchCategoryFeeds: options.fetchCategoryFeeds,
+      fetchFeed: options.fetchFeed,
+      keepExistingFeed: false,
+      requestSource: options.requestSource,
+      selectedCategory: options.selectedCategory,
+      selectedCategoryNode: options.selectedCategoryNode,
+      selectedFeedUrl: options.selectedFeedUrl,
+      skipRefresh: true,
+    });
+  } finally {
+    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
+  }
+}
+
 /**
  * Manage the dashboard article filter refresh.
  * @param options - The options used to manage the dashboard article filter refresh.
@@ -180,48 +234,56 @@ function useDashboardArticleFilterRefresh(
     | "usePlaceholderData"
   >,
 ) {
-  useEffect(() => {
-    if (!options.hasInitializedDashboardRef.current) {
-      options.appliedBatchArticleFilterRef.current = options.articleFilter;
-      return;
-    }
-
-    if (
-      options.appliedBatchArticleFilterRef.current === options.articleFilter
-    ) {
-      return;
-    }
-
-    options.appliedBatchArticleFilterRef.current = options.articleFilter;
-
-    if (options.usePlaceholderData) {
-      return;
-    }
-
-    // Announce the filter-change fetch so the toolbar action buttons (refresh,
-    // mark-all-read, visible) enter their pending state and the filter-bar
-    // timestamp shows a spinner. Only these targeted elements respond to
-    // REFRESH_START/END — the filter tokens and feed list are unaffected.
-    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
-    void refreshCurrentSelection({
-      articleLimit: options.articleWindowLimit,
-      fetchAllFeeds: options.fetchAllFeeds,
-      fetchCategoryFeeds: options.fetchCategoryFeeds,
-      fetchFeed: options.fetchFeed,
-      keepExistingFeed: false,
-      requestSource: "article-filter-change",
-      selectedCategory: options.selectedCategory,
-      selectedCategoryNode: options.selectedCategoryNode,
-      selectedFeedUrl: options.selectedFeedUrl,
-      skipRefresh: true,
-    })
-      .then(() => {
-        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
-      })
-      .catch(() => {
-        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
-      });
-  }, [options]);
+  useDashboardSelectionRefreshOnChange({
+    appliedValueRef: options.appliedBatchArticleFilterRef,
+    articleWindowLimit: options.articleWindowLimit,
+    currentValue: options.articleFilter,
+    fetchAllFeeds: options.fetchAllFeeds,
+    fetchCategoryFeeds: options.fetchCategoryFeeds,
+    fetchFeed: options.fetchFeed,
+    hasInitializedDashboardRef: options.hasInitializedDashboardRef,
+    requestSource: "article-filter-change",
+    selectedCategory: options.selectedCategory,
+    selectedCategoryNode: options.selectedCategoryNode,
+    selectedFeedUrl: options.selectedFeedUrl,
+    usePlaceholderData: options.usePlaceholderData,
+  });
+}
+/**
+ * Trigger a server-side refetch when the article sort order changes so the
+ * database query order mirrors the user's preference.
+ * @param options - The options used to manage the dashboard article sort order refresh.
+ */
+function useDashboardArticleSortOrderRefresh(
+  options: Pick<
+    UseDashboardControllerRuntimeOptions,
+    | "appliedBatchArticleSortOrderRef"
+    | "articleSortOrder"
+    | "articleWindowLimit"
+    | "fetchAllFeeds"
+    | "fetchCategoryFeeds"
+    | "fetchFeed"
+    | "hasInitializedDashboardRef"
+    | "selectedCategory"
+    | "selectedCategoryNode"
+    | "selectedFeedUrl"
+    | "usePlaceholderData"
+  >,
+) {
+  useDashboardSelectionRefreshOnChange({
+    appliedValueRef: options.appliedBatchArticleSortOrderRef,
+    articleWindowLimit: options.articleWindowLimit,
+    currentValue: options.articleSortOrder,
+    fetchAllFeeds: options.fetchAllFeeds,
+    fetchCategoryFeeds: options.fetchCategoryFeeds,
+    fetchFeed: options.fetchFeed,
+    hasInitializedDashboardRef: options.hasInitializedDashboardRef,
+    requestSource: "article-sort-order-change",
+    selectedCategory: options.selectedCategory,
+    selectedCategoryNode: options.selectedCategoryNode,
+    selectedFeedUrl: options.selectedFeedUrl,
+    usePlaceholderData: options.usePlaceholderData,
+  });
 }
 
 /**
@@ -263,6 +325,44 @@ function useDashboardAutoRefresh(options: DashboardAutoRefreshOptions) {
   });
 
   return isAutoRefreshing;
+}
+
+/**
+ * Refresh the current selection whenever a server-owned selection input changes.
+ * @param options - The tracked selection value and refresh dependencies.
+ */
+function useDashboardSelectionRefreshOnChange<TValue>(
+  options: DashboardSelectionRefreshOptions<TValue>,
+) {
+  useEffect(() => {
+    if (!options.hasInitializedDashboardRef.current) {
+      options.appliedValueRef.current = options.currentValue;
+      return;
+    }
+
+    if (options.appliedValueRef.current === options.currentValue) {
+      return;
+    }
+
+    options.appliedValueRef.current = options.currentValue;
+
+    if (options.usePlaceholderData) {
+      return;
+    }
+
+    void runDashboardSelectionRefresh({
+      articleWindowLimit: options.articleWindowLimit,
+      fetchAllFeeds: options.fetchAllFeeds,
+      fetchCategoryFeeds: options.fetchCategoryFeeds,
+      fetchFeed: options.fetchFeed,
+      hasInitializedDashboardRef: options.hasInitializedDashboardRef,
+      requestSource: options.requestSource,
+      selectedCategory: options.selectedCategory,
+      selectedCategoryNode: options.selectedCategoryNode,
+      selectedFeedUrl: options.selectedFeedUrl,
+      usePlaceholderData: options.usePlaceholderData,
+    });
+  }, [options]);
 }
 
 /**

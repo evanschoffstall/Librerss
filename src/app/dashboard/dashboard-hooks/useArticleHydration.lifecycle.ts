@@ -183,9 +183,13 @@ export function markHydratedArticleLink(
   }
 }
 /**
- * Process the prepare article hydration.
- * @param options - The options used to process the prepare article hydration.
- * @returns The prepare article hydration.
+ * Resolve whether an article expansion should enter the client hydration
+ * lifecycle. Extraction-disabled feeds that already shipped a feed-provided
+ * body should keep that authoritative content instead of replacing it with a
+ * temporary loading state. When the body is still absent, the hook may use
+ * either the stored-content path or the placeholder-snapshot extract path.
+ * @param options - Hydration inputs for the article and feed settings lookup.
+ * @returns The request metadata when hydration should run, otherwise null.
  */
 export function prepareArticleHydration(
   options: PrepareArticleHydrationOptions,
@@ -196,6 +200,10 @@ export function prepareArticleHydration(
   const feedUrl =
     typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
   const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
+  if (settings?.extractionDisabled === true && article.content.trim()) {
+    return null;
+  }
+
   const placeholderSnapshotPath = getPlaceholderSnapshotPathByArticleUrl(link);
   const shouldLoadStoredContent =
     settings?.extractionDisabled === true && placeholderSnapshotPath === null;

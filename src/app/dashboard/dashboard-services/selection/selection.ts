@@ -1,4 +1,8 @@
-import type { ArticleFilter, CategoryTreeNode } from "@/lib/core";
+import type {
+  ArticleFilter,
+  ArticleSortOrder,
+  CategoryTreeNode,
+} from "@/lib/core";
 
 import { findFeedNodeByKey } from "@/app/dashboard/dashboard-services/category-tree";
 import {
@@ -9,6 +13,7 @@ import {
 export interface FeedFetchOptions {
   articleFilter?: ArticleFilter;
   articleLimit?: number;
+  articleSortOrder?: ArticleSortOrder;
   forceRefresh?: boolean;
   forceResolveUpstream?: boolean;
   keepExistingFeed?: boolean;
@@ -32,6 +37,7 @@ export interface FeedSelectionFetchers {
 
 type FeedRequestSource =
   | "article-filter-change"
+  | "article-sort-order-change"
   | "auto-refresh"
   | "dashboard-initial-cache"
   | "feed-added"

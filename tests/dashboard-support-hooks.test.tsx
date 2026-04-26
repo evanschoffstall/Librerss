@@ -69,11 +69,13 @@ describe("dashboard support hooks", () => {
       },
       filterBar: {
         articleFilter: "all",
+        articleSortOrder: "newest",
         isSearchPending: false,
         isShellLoading: false,
         lastRefreshLabel: "never",
         loading: false,
         setArticleFilter: mock(() => {}),
+        setArticleSortOrder: mock(() => {}),
       },
       settings: {
         articlesPerPage: 12,
