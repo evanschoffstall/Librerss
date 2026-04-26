@@ -657,8 +657,6 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
 }
 
 test.describe("dashboard mobile inverted scroll", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("keeps inverted scroll off by default on mobile and anchors the feed at the top", async ({
     page,
   }) => {

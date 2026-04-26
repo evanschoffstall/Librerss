@@ -79,8 +79,6 @@ async function selectPreviewSource(
 }
 
 test.describe("dashboard preview mode", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("opens the mobile actions popup from the three-dots toolbar button", async ({
     page,
   }) => {

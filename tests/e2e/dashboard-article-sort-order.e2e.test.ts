@@ -4,8 +4,6 @@ import { expect, test } from "./test";
 const SORT_TOGGLE_NAME = /sort by date/i;
 
 test.describe("dashboard article sort order", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("defaults to newest-first and renders the sort toggle in the filter bar", async ({
     page,
   }) => {

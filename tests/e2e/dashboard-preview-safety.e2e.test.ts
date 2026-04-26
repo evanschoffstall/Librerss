@@ -54,8 +54,6 @@ async function readMaybeFeedViewportMetrics(page: Page) {
 }
 
 test.describe("dashboard preview safety", () => {
-  test.describe.configure({ mode: "serial" });
-
   test.beforeEach(async ({ page }) => {
     await installDeterministicFeedBatchRoute(page);
   });

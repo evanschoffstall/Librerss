@@ -101,13 +101,10 @@ async function readInvertedScrollAttribute(page: Page) {
 /** Rearms the inverted mobile pagination boundary after refresh. */
 async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
   await scrollFeedViewportToTop(page);
-  await page.waitForTimeout(250);
   await wheelActiveFeedViewport(page, -700);
 }
 
 test.describe("dashboard mobile feed pagination", () => {
-  test.describe.configure({ mode: "serial" });
-
   for (const viewportCase of MOBILE_VIEWPORT_CASES) {
     test(`keeps one configured page visible and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
       page,
