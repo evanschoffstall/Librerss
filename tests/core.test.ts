@@ -1577,6 +1577,7 @@ describe("mark-stream-read", () => {
     const chain: any = {
       innerJoin: mock(() => chain),
       limit: mock(async () => rows),
+      orderBy: mock(() => chain),
       where: mock(() => chain),
     };
     const db = {
@@ -1609,6 +1610,7 @@ describe("mark-stream-read", () => {
     const chain: any = {
       innerJoin: mock(() => chain),
       limit: mock(async () => starredRows),
+      orderBy: mock(() => chain),
       where: mock(() => chain),
     };
     const db = {
@@ -1631,8 +1633,110 @@ describe("mark-stream-read", () => {
       db: dbNoQuery as any,
       upsertArticleStatusesFn: upsert as any,
     });
-    expect(upsert).toHaveBeenCalledWith(9, [], { isRead: true });
+    // When useArticleStatuses=false the starred branch returns [] immediately,
+    // so the cursor loop breaks before calling upsert — no DB query is made.
     expect(dbNoQuery.select).toHaveBeenCalledTimes(0);
+  });
+
+  test("markStreamAsRead commits each page independently when stream spans multiple batches", async () => {
+    const { markStreamAsRead } = await import("@/lib/core/server");
+
+    // First batch is full (MARK_ALL_READ_BATCH_SIZE = 500), which causes the
+    // cursor loop to advance to the next page. The second batch is partial,
+    // signalling natural end-of-stream and stopping iteration.
+    const batchSize = 500;
+    const firstBatch = Array.from({ length: batchSize }, (_, i) => ({
+      articleId: i + 1,
+    }));
+    const secondBatch = [
+      { articleId: batchSize + 1 },
+      { articleId: batchSize + 2 },
+    ];
+
+    let queryCall = 0;
+    const chain: any = {
+      innerJoin: () => chain,
+      limit: async () => {
+        queryCall += 1;
+        if (queryCall === 1) return firstBatch;
+        if (queryCall === 2) return secondBatch;
+        return [];
+      },
+      orderBy: () => chain,
+      where: () => chain,
+    };
+
+    const db = { select: () => ({ from: () => chain }) };
+    const upsert = mock(async () => {});
+
+    await markStreamAsRead(3, "user/-/state/com.google/reading-list", {
+      canUseArticleStatusesTableFn: async () => false,
+      db: db as any,
+      upsertArticleStatusesFn: upsert as any,
+    });
+
+    // Two independent commits — one per batch — preserve partial progress.
+    expect(upsert).toHaveBeenCalledTimes(2);
+    const calls = upsert.mock.calls as unknown as [
+      number,
+      number[],
+      { isRead: boolean },
+    ][];
+    expect(calls[0]).toEqual([
+      3,
+      firstBatch.map((r) => r.articleId),
+      { isRead: true },
+    ]);
+    expect(calls[1]).toEqual([
+      3,
+      [batchSize + 1, batchSize + 2],
+      { isRead: true },
+    ]);
+  });
+
+  test("markStreamAsRead stops at hard limit and emits a warning", async () => {
+    const { markStreamAsRead } = await import("@/lib/core/server");
+    const { logger } = await import("@/lib/logger");
+
+    // Always return a full batch so natural end-of-stream never fires — the
+    // hard limit (MARK_ALL_READ_HARD_LIMIT = 10 000) is the only stop condition.
+    const batchSize = 500;
+    const hardLimit = 10_000;
+
+    let queryCall = 0;
+    const chain: any = {
+      innerJoin: () => chain,
+      limit: async () => {
+        queryCall += 1;
+        return Array.from({ length: batchSize }, (_, i) => ({
+          articleId: (queryCall - 1) * batchSize + i + 1,
+        }));
+      },
+      orderBy: () => chain,
+      where: () => chain,
+    };
+
+    const db = { select: () => ({ from: () => chain }) };
+    const upsert = mock(async () => {});
+    const originalWarn = logger.warn;
+    const warnFn = mock(() => undefined);
+    logger.warn = warnFn;
+
+    try {
+      await markStreamAsRead(4, "user/-/state/com.google/reading-list", {
+        canUseArticleStatusesTableFn: async () => false,
+        db: db as any,
+        upsertArticleStatusesFn: upsert as any,
+      });
+    } finally {
+      logger.warn = originalWarn;
+    }
+
+    expect(upsert).toHaveBeenCalledTimes(hardLimit / batchSize);
+    expect(warnFn).toHaveBeenCalledTimes(1);
+    expect(
+      String((warnFn.mock.calls as unknown as [string][])[0]?.[0]),
+    ).toContain("hard limit");
   });
 });
 
@@ -1643,6 +1747,7 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
     const chain: any = {};
     chain.from = () => chain;
     chain.innerJoin = () => chain;
+    chain.orderBy = () => chain;
     chain.where = () => chain;
     chain.limit = async () => rows;
     return { select: () => chain };
@@ -1667,7 +1772,9 @@ describe("core/mark-stream-read – STARRED and label branches", () => {
       db: buildMockDbChain(),
       upsertArticleStatusesFn: upsertFn,
     });
-    expect(upsertFn).toHaveBeenCalledWith(1, [], { isRead: true });
+    // Starred stream with useArticleStatuses=false returns [] immediately;
+    // the cursor loop breaks before calling upsert.
+    expect(upsertFn).not.toHaveBeenCalled();
   });
 
   test("user label stream runs category join query", async () => {
