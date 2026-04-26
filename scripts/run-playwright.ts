@@ -1,7 +1,16 @@
 import { type ChildProcess, spawn } from "node:child_process";
 import { rmSync } from "node:fs";
-import { access, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  access,
+  copyFile,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { createServer } from "node:net";
+import { availableParallelism } from "node:os";
 import { join } from "node:path";
 
 import {
@@ -12,6 +21,8 @@ import {
 
 const PLAYWRIGHT_COVERAGE_ENABLED =
   process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
+const PLAYWRIGHT_COVERAGE_FILE_PREFIX =
+  process.env.PLAYWRIGHT_COVERAGE_FILE_PREFIX?.trim() ?? "";
 const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_OUTPUT_DIR ?? "coverage/playwright-raw";
 const PLAYWRIGHT_HOST = DEFAULT_PLAYWRIGHT_HOST;
@@ -44,6 +55,20 @@ const PLAYWRIGHT_PREWARM_PATHS = [
   "/api/feeds/category-order",
 ] as const;
 const PLAYWRIGHT_TSCONFIG_PREFIX = "tsconfig.playwright";
+const PLAYWRIGHT_RUN_ID_OVERRIDE = process.env.PLAYWRIGHT_RUN_ID?.trim();
+const PLAYWRIGHT_SHARD_COUNT = Number.parseInt(
+  process.env.PLAYWRIGHT_SHARD_COUNT ?? "1",
+  10,
+);
+const PLAYWRIGHT_INTERNAL_SHARD = process.env.PLAYWRIGHT_INTERNAL_SHARD?.trim();
+const PLAYWRIGHT_SKIP_COVERAGE_GENERATION =
+  process.env.PLAYWRIGHT_SKIP_COVERAGE_GENERATION === "1";
+const PLAYWRIGHT_PRESERVE_RAW_COVERAGE =
+  process.env.PLAYWRIGHT_PRESERVE_RAW_COVERAGE === "1";
+const PLAYWRIGHT_CHILD_PORT_STRIDE = Number.parseInt(
+  process.env.PLAYWRIGHT_CHILD_PORT_STRIDE ?? "1000",
+  10,
+);
 const PYTHON_PARENT_DEATHSIG_LAUNCHER = [
   "import ctypes",
   "import os",
@@ -66,6 +91,14 @@ interface DevServerHandle {
   port: number;
   process: ChildProcess;
   startForwarding: () => void;
+}
+
+/**
+ * Describes the sharded child execution settings.
+ */
+interface ShardRunSettings {
+  runId: string;
+  shard: string;
 }
 
 /**
@@ -143,6 +176,10 @@ function createOutputMirror(child: ChildProcess) {
  * @returns The playwright run id.
  */
 function createPlaywrightRunId() {
+  if (PLAYWRIGHT_RUN_ID_OVERRIDE) {
+    return PLAYWRIGHT_RUN_ID_OVERRIDE;
+  }
+
   return `${Date.now()}-${process.pid}`;
 }
 
@@ -161,6 +198,22 @@ async function createPlaywrightTsconfig(runId: string) {
   );
 
   return tsconfigPath;
+}
+
+/**
+ * Builds deterministic shard settings for internal child executions.
+ * @param parentRunId - Base run id for the coordinator run.
+ * @returns Child shard descriptors.
+ */
+function createShardRunSettings(parentRunId: string): ShardRunSettings[] {
+  return Array.from({ length: PLAYWRIGHT_SHARD_COUNT }, (_, index) => {
+    const shardNumber = index + 1;
+
+    return {
+      runId: `${parentRunId}-shard-${shardNumber}`,
+      shard: `${shardNumber}/${PLAYWRIGHT_SHARD_COUNT}`,
+    };
+  });
 }
 
 /**
@@ -241,11 +294,43 @@ function isPortUnavailableOutput(output: string) {
 }
 
 /**
+ * Recursively lists every file inside the requested directory.
+ * @param directoryPath - Directory to scan.
+ * @returns Absolute file paths for every nested file.
+ */
+async function listDirectoryFiles(directoryPath: string): Promise<string[]> {
+  const entries = await readdir(directoryPath, { withFileTypes: true });
+  const nestedFileSets = await Promise.all(
+    entries.map(async (entry) => {
+      const entryPath = join(directoryPath, entry.name);
+
+      if (entry.isDirectory()) {
+        return await listDirectoryFiles(entryPath);
+      }
+
+      return [entryPath];
+    }),
+  );
+
+  return nestedFileSets.flat();
+}
+
+/**
  * Process the main.
  */
 async function main() {
   const forwardedArguments = process.argv.slice(2);
   const runId = createPlaywrightRunId();
+
+  if (
+    PLAYWRIGHT_SHARD_COUNT > 1 &&
+    !PLAYWRIGHT_INTERNAL_SHARD &&
+    !forwardedArguments.some((argument) => argument.startsWith("--shard="))
+  ) {
+    process.exit(await runPlaywrightShards(forwardedArguments, runId));
+    return;
+  }
+
   const rawCoverageOutputDir = PLAYWRIGHT_COVERAGE_ENABLED
     ? `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${runId}`
     : PLAYWRIGHT_COVERAGE_OUTPUT_DIR;
@@ -260,7 +345,9 @@ async function main() {
   const temporaryPaths = [
     distDir,
     tsconfigPath,
-    ...(PLAYWRIGHT_COVERAGE_ENABLED ? [rawCoverageOutputDir] : []),
+    ...(PLAYWRIGHT_COVERAGE_ENABLED && !PLAYWRIGHT_PRESERVE_RAW_COVERAGE
+      ? [rawCoverageOutputDir]
+      : []),
   ];
 
   /**
@@ -400,7 +487,8 @@ async function main() {
       return;
     }
 
-    const coverageExitCode = PLAYWRIGHT_COVERAGE_ENABLED
+    const coverageExitCode =
+      PLAYWRIGHT_COVERAGE_ENABLED && !PLAYWRIGHT_SKIP_COVERAGE_GENERATION
       ? await generatePlaywrightCoverageReport(rawCoverageOutputDir)
       : 0;
     const exitCode = code === 0 ? coverageExitCode : (code ?? 1);
@@ -409,6 +497,42 @@ async function main() {
   } catch (error) {
     console.error(error);
     await exitWithCleanup(1);
+  }
+}
+
+/**
+ * Copies per-shard raw coverage files into one merged directory for the final
+ * coverage report generation pass.
+ * @param shardRunSettings - Child shard settings used during execution.
+ * @param mergedRawCoverageDir - Destination merged raw coverage directory.
+ */
+async function mergeShardRawCoverage(
+  shardRunSettings: ShardRunSettings[],
+  mergedRawCoverageDir: string,
+) {
+  await removePlaywrightRuntimeDirectory(mergedRawCoverageDir);
+  await mkdir(join(process.cwd(), mergedRawCoverageDir), { recursive: true });
+
+  for (const shardSetting of shardRunSettings) {
+    const shardRawCoverageDir = `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${shardSetting.runId}`;
+    const shardRawCoveragePath = join(process.cwd(), shardRawCoverageDir);
+
+    try {
+      await access(shardRawCoveragePath);
+    } catch {
+      continue;
+    }
+
+    const shardFiles = (await listDirectoryFiles(shardRawCoveragePath)).filter(
+      (filePath) => filePath.endsWith(".json"),
+    );
+
+    for (const shardFile of shardFiles) {
+      const targetFileName = `${shardSetting.runId}-${shardFile
+        .split("/")
+        .at(-1)}`;
+      await copyFile(shardFile, join(process.cwd(), mergedRawCoverageDir, targetFileName));
+    }
   }
 }
 
@@ -441,6 +565,105 @@ async function removePlaywrightRuntimeDirectory(directoryName: string) {
     force: true,
     recursive: true,
   });
+}
+
+/**
+ * Computes the per-shard worker budget so concurrent shard runners do not
+ * oversubscribe the local machine.
+ * @returns Worker count to inject into each internal shard run.
+ */
+function resolveShardWorkerBudget() {
+  const configuredWorkers = process.env.PLAYWRIGHT_WORKERS?.trim();
+
+  if (configuredWorkers && /^\d+$/u.test(configuredWorkers)) {
+    return Math.max(
+      1,
+      Math.floor(Number.parseInt(configuredWorkers, 10) / PLAYWRIGHT_SHARD_COUNT),
+    );
+  }
+
+  const localWorkerCap = Math.min(10, availableParallelism());
+
+  return Math.max(1, Math.floor(localWorkerCap / PLAYWRIGHT_SHARD_COUNT));
+}
+
+/**
+ * Launches N internal shard child processes in parallel, each with its own
+ * cold Playwright server lifecycle.
+ * @param forwardedArguments - CLI args originally passed to this script.
+ * @param parentRunId - Coordinator run id used to derive child run ids.
+ * @returns Exit code representing the aggregate shard execution outcome.
+ */
+async function runPlaywrightShards(
+  forwardedArguments: string[],
+  parentRunId: string,
+) {
+  const shardRunSettings = createShardRunSettings(parentRunId);
+  const shardWorkerBudget = resolveShardWorkerBudget();
+  const bunExecutablePath = Bun.which("bun") ?? "bun";
+  const childProcesses: ChildProcess[] = [];
+
+  for (const [index, shardSetting] of shardRunSettings.entries()) {
+    const shardPortStart = PLAYWRIGHT_PORT_START + index * PLAYWRIGHT_CHILD_PORT_STRIDE;
+    const shardCommandArgs = [
+      "scripts/run-playwright.ts",
+      ...forwardedArguments,
+      `--shard=${shardSetting.shard}`,
+    ];
+    const child = spawn(bunExecutablePath, shardCommandArgs, {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PLAYWRIGHT_COVERAGE_FILE_PREFIX: `${PLAYWRIGHT_COVERAGE_FILE_PREFIX}${PLAYWRIGHT_COVERAGE_FILE_PREFIX ? "-" : ""}${shardSetting.runId}`,
+        PLAYWRIGHT_INTERNAL_SHARD: shardSetting.shard,
+        PLAYWRIGHT_PORT_START: String(shardPortStart),
+        PLAYWRIGHT_PRESERVE_RAW_COVERAGE: PLAYWRIGHT_COVERAGE_ENABLED
+          ? "1"
+          : "0",
+        PLAYWRIGHT_RUN_ID: shardSetting.runId,
+        PLAYWRIGHT_SHARD_COUNT: "1",
+        PLAYWRIGHT_SKIP_COVERAGE_GENERATION: PLAYWRIGHT_COVERAGE_ENABLED
+          ? "1"
+          : "0",
+        PLAYWRIGHT_WORKERS: String(shardWorkerBudget),
+      },
+      stdio: "inherit",
+    });
+
+    childProcesses.push(child);
+  }
+
+  const shardResults = await Promise.all(childProcesses.map(waitForChildExit));
+  const failedShard = shardResults.find(
+    (result) => result.signal !== null || (result.code ?? 1) !== 0,
+  );
+
+  if (failedShard) {
+    return 1;
+  }
+
+  if (PLAYWRIGHT_COVERAGE_ENABLED) {
+    const mergedRawCoverageDir = `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${parentRunId}`;
+
+    await mergeShardRawCoverage(shardRunSettings, mergedRawCoverageDir);
+
+    const coverageExitCode = await generatePlaywrightCoverageReport(
+      mergedRawCoverageDir,
+    );
+
+    await Promise.allSettled(
+      shardRunSettings.map((shardSetting) =>
+        removePlaywrightRuntimeDirectory(
+          `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${shardSetting.runId}`,
+        ),
+      ),
+    );
+    await removePlaywrightRuntimeDirectory(mergedRawCoverageDir);
+
+    return coverageExitCode;
+  }
+
+  return 0;
 }
 
 /**

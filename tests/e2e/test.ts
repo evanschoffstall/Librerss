@@ -12,6 +12,8 @@ const PLAYWRIGHT_COVERAGE_ENABLED =
   process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const PLAYWRIGHT_COVERAGE_OUTPUT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_OUTPUT_DIR ?? "coverage/playwright-raw";
+const PLAYWRIGHT_COVERAGE_FILE_PREFIX =
+  process.env.PLAYWRIGHT_COVERAGE_FILE_PREFIX?.trim() ?? "";
 
 /** Builds a stable, filesystem-safe name for persisted per-test coverage payloads. */
 function createCoverageFileName(testInfo: TestInfo) {
@@ -25,8 +27,13 @@ function createCoverageFileName(testInfo: TestInfo) {
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/^-+|-+$/gu, "")
     .slice(0, 80);
+  const baseFileName = `${testInfo.workerIndex}-${testInfo.retry}-${sanitizedTitle || "test"}-${titleHash}.json`;
 
-  return `${testInfo.workerIndex}-${testInfo.retry}-${sanitizedTitle || "test"}-${titleHash}.json`;
+  if (!PLAYWRIGHT_COVERAGE_FILE_PREFIX) {
+    return baseFileName;
+  }
+
+  return `${PLAYWRIGHT_COVERAGE_FILE_PREFIX}-${baseFileName}`;
 }
 
 /** Persists raw Chromium V8 coverage so the wrapper can merge it after the run. */
