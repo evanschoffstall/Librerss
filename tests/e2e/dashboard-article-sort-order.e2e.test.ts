@@ -1,8 +1,4 @@
-import {
-  articleCard,
-  gotoPreviewDashboard,
-  readArticleKey,
-} from "./helpers";
+import { articleCard, gotoPreviewDashboard, readArticleKey } from "./helpers";
 import { expect, test } from "./test";
 
 const SORT_TOGGLE_NAME = /sort by date/i;
@@ -51,10 +47,9 @@ test.describe("dashboard article sort order", () => {
     await expect(sortToggle).toContainText("Oldest");
 
     await expect
-      .poll(
-        async () => readArticleKey(articleCard(page, 0)),
-        { timeout: 15_000 },
-      )
+      .poll(async () => readArticleKey(articleCard(page, 0)), {
+        timeout: 15_000,
+      })
       .not.toBe(initialFirstKey);
 
     const persistedOrder = await page.evaluate(() =>
@@ -93,5 +88,36 @@ test.describe("dashboard article sort order", () => {
       "newest",
     );
     await expect(sortToggle).toContainText("Newest");
+  });
+
+  test("renders the mobile sort toggle as icon-only while keeping its accessible state", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ height: 820, width: 390 });
+    await gotoPreviewDashboard(page);
+
+    const sortToggle = page.getByRole("button", { name: SORT_TOGGLE_NAME });
+    const sortLabel = page.locator(
+      '[data-dashboard-filter-bar-sort-label="true"]',
+    );
+
+    await expect(sortToggle).toBeVisible({ timeout: 15_000 });
+    await expect(sortToggle).toHaveAttribute(
+      "data-dashboard-filter-bar-sort-order",
+      "newest",
+    );
+    await expect(sortLabel).toHaveCSS("display", "none");
+
+    const mobileSortMetrics = await sortToggle.evaluate((button) => {
+      const rect = button.getBoundingClientRect();
+      const icons = button.querySelectorAll("svg");
+      return {
+        iconCount: icons.length,
+        width: rect.width,
+      };
+    });
+
+    expect(mobileSortMetrics.iconCount).toBe(1);
+    expect(mobileSortMetrics.width).toBeLessThan(42);
   });
 });

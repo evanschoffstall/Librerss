@@ -386,6 +386,30 @@ describe("DashboardFilterBar", () => {
     ).toBeTruthy();
   });
 
+  test("keeps the sort-order text visually hidden until the small breakpoint", () => {
+    // Regression guard: narrow phones need an icon-only newest/oldest toggle
+    // so the quick filter strip, sort control, and refresh status all fit in
+    // the bottom action bar without wrapping or pushing the indicator away.
+    const { getByText } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        articleSortOrder="oldest"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+        onArticleSortOrderChange={() => {}}
+      />,
+    );
+
+    const sortLabel = getByText("Oldest");
+
+    expect(
+      sortLabel.getAttribute("data-dashboard-filter-bar-sort-label"),
+    ).toBe("true");
+    expect(sortLabel.getAttribute("class") ?? "").toContain("hidden");
+    expect(sortLabel.getAttribute("class") ?? "").toContain("sm:inline");
+  });
+
   test("renders the oldest-first state with the ascending icon and pressed aria state", () => {
     const { container, getByRole } = render(
       <DashboardFilterBar
