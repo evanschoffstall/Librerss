@@ -221,6 +221,13 @@ export async function expectPreviewDashboard(page: Page) {
     .toBe("1");
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
+  const viewportWidth =
+    page.viewportSize()?.width ??
+    (await page.evaluate(() => {
+      return window.innerWidth;
+    }));
+  const isMobileViewport = viewportWidth < 768;
+
   const mobileFeedsButton = page.getByRole("button", {
     name: "Open feeds",
   });
@@ -232,20 +239,7 @@ export async function expectPreviewDashboard(page: Page) {
   });
   const signOutButton = page.getByRole("button", { name: "Sign out" });
 
-  await expect
-    .poll(async () => {
-      const isMobileReady =
-        (await mobileActionsMenuButton.isVisible().catch(() => false)) &&
-        (await mobileFeedsButton.isVisible().catch(() => false));
-      const isDesktopReady =
-        (await desktopSettingsButton.isVisible().catch(() => false)) &&
-        (await signOutButton.isVisible().catch(() => false));
-
-      return isMobileReady || isDesktopReady;
-    })
-    .toBe(true);
-
-  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+  if (isMobileViewport) {
     await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
     await expect(mobileFeedsButton).toBeVisible({
       timeout: 15_000,
