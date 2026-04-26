@@ -49,6 +49,7 @@ test.describe("dashboard toolbar tablet placement", () => {
       const filterBarRect = filterBar.getBoundingClientRect();
 
       return {
+        filterBarBottom: filterBarRect.bottom,
         filterBarTop: filterBarRect.top,
         firstArticleTop: firstArticleRect?.top ?? null,
         toolbarBottomGap: window.innerHeight - toolbarRect.bottom,
@@ -60,6 +61,9 @@ test.describe("dashboard toolbar tablet placement", () => {
     expect(layoutMetrics?.toolbarBottomGap ?? 999).toBeLessThanOrEqual(24);
     expect(layoutMetrics?.toolbarTop ?? 0).toBeGreaterThan(700);
     expect(layoutMetrics?.filterBarTop ?? 999).toBeGreaterThan(700);
+    expect(layoutMetrics?.filterBarBottom ?? 999).toBeLessThanOrEqual(
+      layoutMetrics?.toolbarTop ?? 0,
+    );
     expect(layoutMetrics?.firstArticleTop ?? 999).toBeLessThan(120);
   });
 });
