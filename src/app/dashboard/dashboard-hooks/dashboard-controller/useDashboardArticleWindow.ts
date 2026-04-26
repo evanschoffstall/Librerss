@@ -382,6 +382,7 @@ function useDashboardArticleWindowNextPagePrefetch(
     hasMoreServerArticles: articleWindowState.hasMoreServerArticles,
     inFlightPrefetchedLimitRef: articleWindowState.inFlightPrefetchedLimitRef,
     isLoading: options.isLoading,
+    isLoadingMoreArticlesRef: articleWindowState.isLoadingMoreArticlesRef,
     lastPrefetchedLimitRef: articleWindowState.lastPrefetchedLimitRef,
     prefetchAllFeeds: options.prefetchAllFeeds,
     prefetchCategoryFeeds: options.prefetchCategoryFeeds,

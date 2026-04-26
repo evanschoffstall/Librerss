@@ -10,12 +10,30 @@ import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/s
 
 /**
  * Describes the options for article window prefetch effect.
+ *
+ * The `isLoadingMoreArticlesRef` ref is read synchronously at effect-call time
+ * to block premature prefetches while a concurrent server refill or scroll
+ * load-more fetch is already in-flight.  Because `refillDashboardArticleWindow`
+ * sets this ref synchronously before the effect callback returns, the guard is
+ * always current even when multiple `useEffect` callbacks fire within the same
+ * React commit.
  */
 interface ArticleWindowPrefetchEffectOptions {
   articlesPerPage: number;
   hasMoreServerArticles: boolean;
   inFlightPrefetchedLimitRef: React.RefObject<number>;
   isLoading: boolean;
+  /**
+   * Ref mirror of the `isLoadingMoreArticles` loading flag.
+   *
+   * Read synchronously inside the effect to skip scheduling a prefetch when an
+   * unread-window refill or scroll load-more request has already claimed the
+   * in-flight slot.  Prevents the three-concurrent-batch-request regression
+   * where `useUnreadWindowRefill` and `useArticleWindowPrefetchEffect` both
+   * fire in the same render cycle and dispatch separate requests for slightly
+   * different article-window limits.
+   */
+  isLoadingMoreArticlesRef: React.RefObject<boolean>;
   lastPrefetchedLimitRef: React.RefObject<number>;
   prefetchNextPage: (nextLimit: number) => Promise<void>;
   requestedArticleLimit: number;
@@ -40,6 +58,13 @@ interface UseDashboardArticleWindowPrefetchOptions {
   hasMoreServerArticles: boolean;
   inFlightPrefetchedLimitRef: React.RefObject<number>;
   isLoading: boolean;
+  /**
+   * Ref mirror of the `isLoadingMoreArticles` loading flag forwarded from
+   * `useDashboardArticleWindowState`.  Passed through to
+   * `useArticleWindowPrefetchEffect` so the effect can abort early when a
+   * concurrent server refill or scroll load-more fetch is already in-flight.
+   */
+  isLoadingMoreArticlesRef: React.RefObject<boolean>;
   lastPrefetchedLimitRef: React.RefObject<number>;
   prefetchAllFeeds: FeedSelectionFetchers["fetchAllFeeds"];
   prefetchCategoryFeeds: FeedSelectionFetchers["fetchCategoryFeeds"];
@@ -91,6 +116,7 @@ export function useDashboardArticleWindowPrefetch(
     hasMoreServerArticles,
     inFlightPrefetchedLimitRef,
     isLoading,
+    isLoadingMoreArticlesRef,
     lastPrefetchedLimitRef,
     prefetchAllFeeds,
     prefetchCategoryFeeds,
@@ -144,6 +170,7 @@ export function useDashboardArticleWindowPrefetch(
     hasMoreServerArticles,
     inFlightPrefetchedLimitRef,
     isLoading,
+    isLoadingMoreArticlesRef,
     lastPrefetchedLimitRef,
     prefetchNextPage: requestNextPagePrefetch,
     requestedArticleLimit,
@@ -157,6 +184,28 @@ export function useDashboardArticleWindowPrefetch(
  * Manage the article window prefetch effect.
  * @param options - The options used to manage the article window prefetch effect.
  */
+/**
+ * Fire a background prefetch for the article-window page that follows the
+ * currently loaded window.
+ *
+ * The prefetch is skipped when any of the following hold:
+ * - the article window feature is disabled (`!shouldUseArticleWindow`)
+ * - the primary feed fetch is in-flight (`isLoading`)
+ * - the server has no more articles (`!hasMoreServerArticles`)
+ * - a refill or scroll load-more fetch is already in-flight
+ *   (`isLoadingMoreArticlesRef.current`) — this prevents the three-concurrent-
+ *   batch-request regression where `useUnreadWindowRefill` and this effect both
+ *   fire in the same React commit and dispatch separate requests for different
+ *   article-window limits before either one has settled
+ * - the in-flight or last-completed prefetch already covers the target limit.
+ *
+ * After a refill completes and `isLoadingMoreArticlesRef` clears, the effect
+ * re-runs automatically (the state mirror `isLoadingMoreArticles` is in the
+ * dependency array of `useDashboardArticleWindowPrefetch`'s parent) and
+ * schedules the correct next-page prefetch for the updated window size.
+ *
+ * @param options - Current article-window and prefetch-state inputs.
+ */
 function useArticleWindowPrefetchEffect(
   options: ArticleWindowPrefetchEffectOptions,
 ) {
@@ -165,13 +214,19 @@ function useArticleWindowPrefetchEffect(
     hasMoreServerArticles,
     inFlightPrefetchedLimitRef,
     isLoading,
+    isLoadingMoreArticlesRef,
     lastPrefetchedLimitRef,
     prefetchNextPage,
     requestedArticleLimit,
     shouldUseArticleWindow,
   } = options;
   useEffect(() => {
-    if (!shouldUseArticleWindow || isLoading || !hasMoreServerArticles) {
+    if (
+      !shouldUseArticleWindow ||
+      isLoading ||
+      !hasMoreServerArticles ||
+      isLoadingMoreArticlesRef.current
+    ) {
       return;
     }
 
@@ -189,6 +244,7 @@ function useArticleWindowPrefetchEffect(
     hasMoreServerArticles,
     inFlightPrefetchedLimitRef,
     isLoading,
+    isLoadingMoreArticlesRef,
     lastPrefetchedLimitRef,
     prefetchNextPage,
     requestedArticleLimit,
