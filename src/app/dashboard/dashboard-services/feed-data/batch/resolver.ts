@@ -93,6 +93,30 @@ export async function resolveFeedBatchResults(
 }
 
 /**
+ * Compare placeholder article candidates before applying an article-window
+ * limit. Placeholder mode has no database query to choose the global oldest or
+ * newest window, so its in-memory resolver must apply the same chronological
+ * contract before slicing the candidate set.
+ * @param leftCandidate - The first placeholder candidate in the comparison.
+ * @param rightCandidate - The second placeholder candidate in the comparison.
+ * @param articleSortOrder - The requested chronological display order.
+ * @returns A negative number when the left candidate should appear first.
+ */
+function comparePlaceholderArticlesBySortOrder(
+  leftCandidate: PlaceholderArticleCandidate,
+  rightCandidate: PlaceholderArticleCandidate,
+  articleSortOrder: ArticleSortOrder,
+): number {
+  const publicationDateDelta =
+    leftCandidate.article.publicationDate.getTime() -
+    rightCandidate.article.publicationDate.getTime();
+  const articleIdDelta = leftCandidate.article.id - rightCandidate.article.id;
+  const ascendingDelta = publicationDateDelta || articleIdDelta;
+
+  return articleSortOrder === "oldest" ? ascendingDelta : -ascendingDelta;
+}
+
+/**
  * Resolve the limited placeholder candidates.
  * @param normalizedSources - The d sources.
  * @param getPlaceholderArticles - The callback that placeholder articles.
@@ -140,17 +164,13 @@ function resolveLimitedPlaceholderCandidates(
 
       return filteredArticles.length > 0;
     })
-    .sort((left, right) => {
-      const publicationDateDelta =
-        right.article.publicationDate.getTime() -
-        left.article.publicationDate.getTime();
-
-      if (publicationDateDelta !== 0) {
-        return publicationDateDelta;
-      }
-
-      return right.article.id - left.article.id;
-    });
+    .sort((leftCandidate, rightCandidate) =>
+      comparePlaceholderArticlesBySortOrder(
+        leftCandidate,
+        rightCandidate,
+        options?.articleSortOrder ?? "newest",
+      ),
+    );
 
   if (options?.articleLimit === undefined) {
     return filteredCandidates;

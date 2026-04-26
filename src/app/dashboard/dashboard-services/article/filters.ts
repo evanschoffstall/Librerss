@@ -6,6 +6,7 @@ import {
   type ArticleFilter,
   type ArticleSortOrder,
 } from "@/lib/core";
+import { parseDateOrNull } from "@/lib/utils";
 
 export const ARTICLE_FILTER_OPTIONS = ARTICLE_FILTERS;
 export const ARTICLE_SORT_ORDER_OPTIONS = ARTICLE_SORT_ORDERS;
@@ -50,17 +51,59 @@ export function filterArticlesByState(
 }
 
 /**
- * Apply the user's preferred sort order to an article list. The canonical
- * internal feed is always newest-first (descending by publication date), so
- * `"newest"` is a no-op and `"oldest"` returns a reversed copy. Neither path
- * mutates the input array.
- * @param articles - The articles to reorder, expected to be in newest-first order.
- * @param sortOrder - The desired display order.
- * @returns The articles in the requested display order.
+ * Apply the user's preferred chronological order to an article list without
+ * trusting the incoming array direction. Server queries own the global window
+ * that is fetched for live data, but the visible list can still contain cached,
+ * optimistic, placeholder, or restored articles after request failures. Sorting
+ * by the article's actual publication timestamp keeps the toolbar state and the
+ * rendered order aligned for every feed source.
+ * @param articles - The articles to reorder by publication timestamp.
+ * @param sortOrder - The desired chronological display order.
+ * @returns A copy of the articles in the requested display order.
  */
 export function sortArticlesByOrder(
   articles: Article[],
   sortOrder: ArticleSortOrder,
 ): Article[] {
-  return sortOrder === "oldest" ? [...articles].reverse() : articles;
+  return [...articles].sort((leftArticle, rightArticle) =>
+    compareArticlesBySortOrder(leftArticle, rightArticle, sortOrder),
+  );
+}
+
+/**
+ * Compare two articles with the same tie-breakers used by the database article
+ * window query. Matching the DB contract prevents client-side normalization
+ * from reshuffling rows that share an exact publication timestamp.
+ * @param leftArticle - The first article in the comparison.
+ * @param rightArticle - The second article in the comparison.
+ * @param sortOrder - The chronological order requested by the user.
+ * @returns A negative number when the left article should render first.
+ */
+function compareArticlesBySortOrder(
+  leftArticle: Article,
+  rightArticle: Article,
+  sortOrder: ArticleSortOrder,
+): number {
+  const publicationDateDelta =
+    readArticlePublicationTime(leftArticle) -
+    readArticlePublicationTime(rightArticle);
+  const articleIdDelta = leftArticle.id - rightArticle.id;
+  const ascendingDelta = publicationDateDelta || articleIdDelta;
+
+  return sortOrder === "oldest" ? ascendingDelta : -ascendingDelta;
+}
+
+/**
+ * Read the sortable publication timestamp from an article. API payloads are
+ * normalized to `Date` objects, but existing React state can briefly contain
+ * serialized timestamps across hot reloads, cache hydration, or error recovery.
+ * @param article - The article whose publication timestamp should be read.
+ * @returns The finite publication timestamp, or epoch when no valid date exists.
+ */
+function readArticlePublicationTime(article: Article): number {
+  const parsedPublicationDate = parseDateOrNull(
+    (article as { publicationDate: unknown }).publicationDate,
+  );
+
+  return parsedPublicationDate?.getTime() ?? 0;
 }

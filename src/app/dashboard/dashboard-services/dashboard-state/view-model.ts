@@ -51,7 +51,6 @@ export function buildDashboardViewModel(options: DashboardViewModelInput) {
     searchTerm,
     selectedCategory,
     useLocalSearch,
-    usePlaceholderData,
   } = options;
   const feedByState = filterArticlesByState(
     feed,
@@ -63,14 +62,7 @@ export function buildDashboardViewModel(options: DashboardViewModelInput) {
   const searchedFeed = useLocalSearch
     ? filterArticlesBySearchTerm(feedByState, searchTerm)
     : feedByState;
-  // Production data keeps sort ownership on the server-side article-window
-  // query so the React Query cache and visible order remain authoritative.
-  // Placeholder mode skips that refetch path, so the view model must apply the
-  // user's display preference locally to keep explore-mode behavior aligned
-  // with the toolbar toggle.
-  const filteredFeed = usePlaceholderData
-    ? sortArticlesByOrder(searchedFeed, articleSortOrder)
-    : searchedFeed;
+  const filteredFeed = sortArticlesByOrder(searchedFeed, articleSortOrder);
 
   const selectedFeedNode = findFeedNodeByKey(categories, selectedCategory);
 

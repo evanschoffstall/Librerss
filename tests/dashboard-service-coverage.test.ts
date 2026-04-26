@@ -337,12 +337,14 @@ describe("dashboard pure service coverage", () => {
         content: "secondary body",
         id: 20,
         link: "https://example.com/title",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
         title: "Needle title",
       }),
       buildFeedListArticle({
         content: "contains special search needle",
         id: 21,
         link: "https://example.com/body",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
         title: "Other",
       }),
       buildFeedListArticle({
@@ -492,6 +494,51 @@ describe("dashboard pure service coverage", () => {
       buildFeedListArticle({ id: 40, link: `${url}/placeholder` }),
     ]);
 
+    const placeholderOldestWindow = await resolveFeedBatchResults(
+      normalizedSources.slice(0, 2),
+      true,
+      {
+        articleLimit: 2,
+        articleSortOrder: "oldest",
+      },
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: (url: string) =>
+          url.endsWith("/1")
+            ? [
+                buildFeedListArticle({
+                  id: 10,
+                  link: `${url}/newer`,
+                  publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+                }),
+                buildFeedListArticle({
+                  id: 11,
+                  link: `${url}/oldest`,
+                  publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+                }),
+              ]
+            : [
+                buildFeedListArticle({
+                  id: 20,
+                  link: `${url}/middle`,
+                  publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+                }),
+                buildFeedListArticle({
+                  id: 21,
+                  link: `${url}/newest`,
+                  publicationDate: new Date("2026-03-13T13:00:00.000Z"),
+                }),
+              ],
+      },
+    );
+
+    expect(
+      placeholderOldestWindow.flatMap((result) =>
+        result.articles.map((article) => article.id),
+      ),
+    ).toEqual([11, 20]);
+
     expect(
       await resolveFeedBatchResults(
         normalizedSources,
@@ -589,30 +636,55 @@ describe("article sort order utilities and view-model integration", () => {
     expect(isArticleSortOrder({})).toBe(false);
   });
 
-  test("sortArticlesByOrder leaves the array untouched and reference-equal for newest", () => {
+  test("sortArticlesByOrder returns newest-first by publication date without mutating input", () => {
     const articles = [
-      buildFeedListArticle({ id: 1, title: "A" }),
-      buildFeedListArticle({ id: 2, title: "B" }),
-      buildFeedListArticle({ id: 3, title: "C" }),
+      buildFeedListArticle({
+        id: 1,
+        publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+        title: "A",
+      }),
+      buildFeedListArticle({
+        id: 2,
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+        title: "B",
+      }),
+      buildFeedListArticle({
+        id: 3,
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+        title: "C",
+      }),
     ];
 
     const result = sortArticlesByOrder(articles, "newest");
 
-    expect(result).toBe(articles);
-    expect(result.map((article) => article.id)).toEqual([1, 2, 3]);
+    expect(result).not.toBe(articles);
+    expect(result.map((article) => article.id)).toEqual([2, 3, 1]);
+    expect(articles.map((article) => article.id)).toEqual([1, 2, 3]);
   });
 
-  test("sortArticlesByOrder returns a reversed copy for oldest without mutating input", () => {
+  test("sortArticlesByOrder returns oldest-first by publication date without mutating input", () => {
     const articles = [
-      buildFeedListArticle({ id: 1, title: "A" }),
-      buildFeedListArticle({ id: 2, title: "B" }),
-      buildFeedListArticle({ id: 3, title: "C" }),
+      buildFeedListArticle({
+        id: 1,
+        publicationDate: new Date("2026-03-13T09:00:00.000Z"),
+        title: "A",
+      }),
+      buildFeedListArticle({
+        id: 2,
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+        title: "B",
+      }),
+      buildFeedListArticle({
+        id: 3,
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+        title: "C",
+      }),
     ];
 
     const result = sortArticlesByOrder(articles, "oldest");
 
     expect(result).not.toBe(articles);
-    expect(result.map((article) => article.id)).toEqual([3, 2, 1]);
+    expect(result.map((article) => article.id)).toEqual([1, 3, 2]);
     expect(articles.map((article) => article.id)).toEqual([1, 2, 3]);
   });
 
@@ -621,21 +693,30 @@ describe("article sort order utilities and view-model integration", () => {
     expect(sortArticlesByOrder([], "oldest")).toEqual([]);
   });
 
-  test("buildDashboardViewModel preserves feed order as returned from the server (DB owns sort)", () => {
+  test("buildDashboardViewModel keeps stale live data aligned with the selected sort order", () => {
     const categories = [
       createCategory("Tech", [
         createFeedNode("feed-1", "Feed 1", "https://example.com/feed-1.xml"),
       ]),
     ];
     const articles = [
-      buildFeedListArticle({ id: 10, link: "https://example.com/a" }),
-      buildFeedListArticle({ id: 11, link: "https://example.com/b" }),
-      buildFeedListArticle({ id: 12, link: "https://example.com/c" }),
+      buildFeedListArticle({
+        id: 10,
+        link: "https://example.com/a",
+        publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 11,
+        link: "https://example.com/b",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 12,
+        link: "https://example.com/c",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+      }),
     ];
 
-    // Both sort orders should preserve the server-side order because
-    // the DB `ORDER BY` clause is the sole authority over article ordering.
-    // The view-model must not re-sort the feed on the client.
     const viewModel = buildDashboardViewModel({
       articleFilter: "all",
       articleSortOrder: "oldest",
@@ -652,7 +733,7 @@ describe("article sort order utilities and view-model integration", () => {
     });
 
     expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
-      10, 11, 12,
+      11, 12, 10,
     ]);
   });
 
@@ -663,9 +744,21 @@ describe("article sort order utilities and view-model integration", () => {
       ]),
     ];
     const articles = [
-      buildFeedListArticle({ id: 10, link: "https://example.com/a" }),
-      buildFeedListArticle({ id: 11, link: "https://example.com/b" }),
-      buildFeedListArticle({ id: 12, link: "https://example.com/c" }),
+      buildFeedListArticle({
+        id: 10,
+        link: "https://example.com/a",
+        publicationDate: new Date("2026-03-13T12:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 11,
+        link: "https://example.com/b",
+        publicationDate: new Date("2026-03-13T10:00:00.000Z"),
+      }),
+      buildFeedListArticle({
+        id: 12,
+        link: "https://example.com/c",
+        publicationDate: new Date("2026-03-13T11:00:00.000Z"),
+      }),
     ];
 
     const viewModel = buildDashboardViewModel({
@@ -684,7 +777,7 @@ describe("article sort order utilities and view-model integration", () => {
     });
 
     expect(viewModel.filteredFeed.map((article) => article.id)).toEqual([
-      12, 11, 10,
+      11, 12, 10,
     ]);
   });
 });
