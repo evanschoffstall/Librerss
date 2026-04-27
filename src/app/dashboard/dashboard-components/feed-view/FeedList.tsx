@@ -611,6 +611,7 @@ export const FeedList = memo(
                     <FeedVirtualList
                       articles={feedData}
                       className={FEED_VIRTUALIZER_CLASSNAME}
+                      deferTotalListHeightChange={hasSearchTerm}
                       estimatedItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
                       expandedArticleKey={expandedArticleKey}
                       feedViewKey={feedViewKey}
@@ -700,12 +701,14 @@ export const FeedList = memo(
                           syncViewportScrollTop(scrollViewport, 0);
                         }
 
-                        maybeAutoFillViewport(
-                          Math.max(
-                            nextTotalListHeight,
-                            invertedHeightFloorRef.current ?? 0,
-                          ),
-                        );
+                        if (!(hasSearchTerm && isSearchFetching)) {
+                          maybeAutoFillViewport(
+                            Math.max(
+                              nextTotalListHeight,
+                              invertedHeightFloorRef.current ?? 0,
+                            ),
+                          );
+                        }
                       }}
                       renderArticle={renderFeedRow}
                       scrollMode={feedScrollMode}

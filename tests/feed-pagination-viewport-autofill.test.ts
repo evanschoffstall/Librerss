@@ -72,7 +72,7 @@ describe("maybeAutoFillViewportNow", () => {
     expect(expandVisibleWindow).not.toHaveBeenCalled();
   });
 
-  test("auto-fills when the viewport is underfilled and the visible count is below the one-page ceiling", () => {
+  test("auto-fills one article when the visible count is below the clipped-overflow window", () => {
     const expandVisibleWindow = mock(() => true);
 
     maybeAutoFillViewportNow(
@@ -82,13 +82,10 @@ describe("maybeAutoFillViewportNow", () => {
       }),
     );
 
-    expect(expandVisibleWindow).toHaveBeenCalledWith(true);
+    expect(expandVisibleWindow).toHaveBeenCalledWith(true, 4);
   });
 
-  test("does not auto-fill past one page even when the list is shorter than the viewport (count ceiling enforced)", () => {
-    // scrollHeight (400) < clientHeight (600): the count ceiling still applies.
-    // Auto-fill must not expand past one configured page regardless of whether
-    // the committed list height has reached the viewport height.
+  test("auto-fills one clipped overflow article after the configured page is present", () => {
     const expandVisibleWindow = mock(() => true);
 
     maybeAutoFillViewportNow(
@@ -99,12 +96,10 @@ describe("maybeAutoFillViewportNow", () => {
       }),
     );
 
-    expect(expandVisibleWindow).not.toHaveBeenCalled();
+    expect(expandVisibleWindow).toHaveBeenCalledWith(true, 5);
   });
 
-  test("does not auto-fill when the list exceeds the viewport height and the visible count has reached one page with no owned target", () => {
-    // scrollHeight (700) > clientHeight (600): list is already scrollable.
-    // The height-based ceiling stops auto-fill here.
+  test("does not auto-fill once the clipped overflow row is present", () => {
     const expandVisibleWindow = mock(() => true);
     const viewport = document.createElement("div");
 
@@ -122,7 +117,7 @@ describe("maybeAutoFillViewportNow", () => {
         expandVisibleWindow,
         scrollViewport: viewport,
         standardViewportRefillTargetVisibleCountRef: { current: null },
-        visibleArticleCountRef: { current: 4 },
+        visibleArticleCountRef: { current: 5 },
       }),
     );
 
@@ -183,7 +178,7 @@ describe("maybeAutoFillViewportNow", () => {
       }),
     );
 
-    expect(expandVisibleWindow).toHaveBeenCalledWith(true);
+    expect(expandVisibleWindow).toHaveBeenCalledWith(true, 3);
     expect(requestMoreFromServer).toHaveBeenCalledWith({
       isViewportRefill: true,
     });

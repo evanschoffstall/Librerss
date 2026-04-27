@@ -66,6 +66,51 @@ describe("createViewportScrollHandler", () => {
     expect(maybeLoadNextPage).toHaveBeenCalledWith("scroll");
   });
 
+  test("resets restored initial standard scroll without treating it as pagination intent", () => {
+    const maybeLoadNextPage = mock((_trigger: "scroll" | "sentinel") => {});
+    const clearInitialNormalScrollLock = mock(() => {});
+    const suppressImmediateNormalScrollIntent = mock(() => {});
+    const rearmStandardBoundaryFromScrollPosition = mock(() => {});
+    const hasUserScrolledRef = { current: false };
+    const scrollViewport = {
+      clientHeight: 400,
+      scrollHeight: 1200,
+      scrollTop: 600,
+    } as HTMLElement;
+
+    const handleScroll = createViewportScrollHandler({
+      capturePendingInvertedPaginationAnchorSnapshot: mock(() => {}),
+      clearInitialNormalScrollLock,
+      hasActiveInvertedExpansionScrollLock: mock(() => false),
+      hasUserScrolledRef,
+      invertedPaginationAnchorRef: { current: null },
+      isInvertedScroll: false,
+      maybeLoadNextPage,
+      normalScrollIntentSuppressionFrameRef: { current: null },
+      onClaimInvertedScrollOwnership: mock(() => {}),
+      onSyncInvertedExpansionScrollLock: mock(() => {}),
+      pendingInvertedPaginationAnchorSnapshotRef: { current: null },
+      preservePendingInvertedPaginationAnchorSnapshotRef: { current: false },
+      rearmInvertedBoundaryFromScrollPosition: mock(() => {}),
+      rearmStandardBoundaryFromScrollPosition,
+      releaseInvertedPaginationAnchor: mock(() => {}),
+      scrollViewport,
+      shouldLockInitialNormalScroll: mock(() => true),
+      suppressImmediateNormalScrollIntent,
+    });
+
+    act(() => {
+      handleScroll();
+    });
+
+    expect(scrollViewport.scrollTop).toBe(0);
+    expect(hasUserScrolledRef.current).toBe(false);
+    expect(clearInitialNormalScrollLock).toHaveBeenCalledTimes(1);
+    expect(suppressImmediateNormalScrollIntent).toHaveBeenCalledTimes(1);
+    expect(rearmStandardBoundaryFromScrollPosition).not.toHaveBeenCalled();
+    expect(maybeLoadNextPage).not.toHaveBeenCalled();
+  });
+
   test("does not trigger inverted pagination while the expansion lock owns the viewport", () => {
     const maybeLoadNextPage = mock((_trigger: "scroll" | "sentinel") => {});
     const capturePendingInvertedPaginationAnchorSnapshot = mock(() => {});

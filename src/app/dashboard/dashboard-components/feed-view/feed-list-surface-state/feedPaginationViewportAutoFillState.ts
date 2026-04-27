@@ -1,3 +1,5 @@
+import { resolveMinimumClippedArticleCount } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
+
 const STANDARD_VIEWPORT_REFILL_SHRINK_THRESHOLD_PX = 1;
 
 /**
@@ -232,10 +234,15 @@ function primeStandardViewportRefillTarget(
 function resolveStandardViewportRefillTargetVisibleCount(
   options: StandardViewportRefillTargetOptions,
 ) {
+  const minimumClippedArticleCount = resolveMinimumClippedArticleCount({
+    articlesPerPage: options.articlesPerPage,
+    filteredFeedLength: Number.POSITIVE_INFINITY,
+  });
+
   return options.hasUserScrolled
     ? Math.max(
         options.visibleArticleCountRef.current,
-        options.articlesPerPage * 2,
+        minimumClippedArticleCount,
       )
-    : options.articlesPerPage * 2;
+    : minimumClippedArticleCount;
 }

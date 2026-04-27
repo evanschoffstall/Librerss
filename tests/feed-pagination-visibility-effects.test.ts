@@ -134,7 +134,7 @@ describe("useFeedPaginationQueryResetEffect", () => {
     expect(suppressNextInitialViewportAutoFillRef.current).toBe(true);
   });
 
-  test("suppresses the refresh-owned unread overflow target for the same reset cycle", () => {
+  test("keeps unread query resets at the one-page baseline for the same refresh cycle", () => {
     const resetPaginationState = mock(() => {});
     const suppressNextInitialViewportAutoFillRef = { current: false };
     const suppressNextRefreshViewportRefillRef = { current: false };
@@ -147,7 +147,7 @@ describe("useFeedPaginationQueryResetEffect", () => {
     const { rerender } = renderHook(
       ({ articlesPerPage, isRefreshing, refreshEpoch }) => {
         useFeedPaginationQueryResetEffect({
-          articleFilter: "all",
+          articleFilter: "unread",
           articlesPerPage,
           feedViewKey: "preview-all",
           isInvertedScroll: false,
@@ -157,7 +157,7 @@ describe("useFeedPaginationQueryResetEffect", () => {
           suppressNextRefreshViewportRefillRef,
         });
         useFeedPaginationRefreshResetEffect({
-          articleFilter: "all",
+          articleFilter: "unread",
           articlesPerPage,
           hasUserScrolledRef: { current: false },
           isInvertedScroll: false,
@@ -192,7 +192,7 @@ describe("useFeedPaginationQueryResetEffect", () => {
     expect(suppressNextRefreshViewportRefillRef.current).toBe(false);
   });
 
-  test("still arms the refresh-owned unread overflow target for ordinary refreshes", () => {
+  test("keeps ordinary unread refreshes at the one-page baseline until user scroll or depletion owns refill", () => {
     const resetPaginationState = mock(() => {});
     const isStandardViewportRefillActiveRef = { current: false };
     const previousRefreshEpochRef = { current: 0 };
@@ -223,8 +223,8 @@ describe("useFeedPaginationQueryResetEffect", () => {
     rerender({ refreshEpoch: 1 });
 
     expect(resetPaginationState).toHaveBeenCalledTimes(1);
-    expect(isStandardViewportRefillActiveRef.current).toBe(true);
-    expect(standardViewportRefillTargetVisibleCountRef.current).toBe(8);
+    expect(isStandardViewportRefillActiveRef.current).toBe(false);
+    expect(standardViewportRefillTargetVisibleCountRef.current).toBeNull();
   });
 
   test("does not arm the refresh-owned overflow target for non-unread refreshes", () => {

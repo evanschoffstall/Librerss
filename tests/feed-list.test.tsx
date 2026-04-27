@@ -146,8 +146,7 @@ afterEach(() => {
 });
 
 describe("FeedList", () => {
-  test("shows only one page when the viewport still cannot scroll (count ceiling enforced)", async () => {
-    let testContainer: HTMLElement | null = null;
+  test("fills until the mocked viewport can clip the next article", async () => {
     const articles = Array.from({ length: 10 }, (_value, index) =>
       buildFeedListArticle({
         id: index + 1,
@@ -173,8 +172,7 @@ describe("FeedList", () => {
             configurable: true,
             get() {
               const renderedRows =
-                testContainer?.querySelectorAll("[data-scroll-restore-key]")
-                  .length ?? 0;
+                document.querySelectorAll("[data-scroll-restore-key]").length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -202,19 +200,16 @@ describe("FeedList", () => {
       </div>,
     );
 
-    testContainer = container;
-
     await waitFor(() => {
-      expect(getByText("Viewport fill article 4")).toBeTruthy();
-      expect(queryByText("Viewport fill article 5")).toBeNull();
+      expect(getByText("Viewport fill article 8")).toBeTruthy();
+      expect(queryByText("Viewport fill article 9")).toBeNull();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(8);
     });
   });
 
-  test("shows only one page for starred results when the viewport cannot scroll (count ceiling enforced)", async () => {
-    let testContainer: HTMLElement | null = null;
+  test("fills starred results until the mocked viewport can clip the next article", async () => {
     const articles = Array.from({ length: 13 }, (_value, index) =>
       buildFeedListArticle({
         id: index + 1,
@@ -242,8 +237,7 @@ describe("FeedList", () => {
             configurable: true,
             get() {
               const renderedRows =
-                testContainer?.querySelectorAll("[data-scroll-restore-key]")
-                  .length ?? 0;
+                document.querySelectorAll("[data-scroll-restore-key]").length;
 
               return renderedRows >= 12 ? 1200 : 400;
             },
@@ -271,23 +265,21 @@ describe("FeedList", () => {
       </div>,
     );
 
-    testContainer = container;
-
     await waitFor(
       () => {
         const renderedRows = container.querySelectorAll(
           "[data-scroll-restore-key]",
         ).length;
-        expect(renderedRows).toBe(4);
+        expect(renderedRows).toBe(12);
       },
       { timeout: 5000 },
     );
 
-    expect(getByText("Starred auto-fill article 4")).toBeTruthy();
-    expect(queryByText("Starred auto-fill article 5")).toBeNull();
+    expect(getByText("Starred auto-fill article 12")).toBeTruthy();
+    expect(queryByText("Starred auto-fill article 13")).toBeNull();
   });
 
-  test("keeps starred auto-fill bounded to one page without an owned refill target", async () => {
+  test("fills the starred local backlog when the mocked viewport never clips", async () => {
     let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 6 }, (_value, index) =>
       buildFeedListArticle({
@@ -349,13 +341,13 @@ describe("FeedList", () => {
 
     await waitFor(() => {
       expect(getByText("Starred exhausted article 4")).toBeTruthy();
-      expect(() => getByText("Starred exhausted article 6")).toThrow();
+      expect(getByText("Starred exhausted article 6")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(6);
       expect(
         container.querySelector("[data-feed-load-more-sentinel='true']"),
-      ).not.toBeNull();
+      ).toBeNull();
     });
   });
 
@@ -486,7 +478,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
       expect(
         container.querySelectorAll("[data-feed-load-more-skeletons='true']"),
       ).toHaveLength(1);
@@ -572,7 +564,6 @@ describe("FeedList", () => {
   });
 
   test("does not prefetch another server page during idle auto-fill before any scroll intent", async () => {
-    let testContainer: HTMLElement | null = null;
     const articles = Array.from({ length: 8 }, (_value, index) =>
       buildFeedListArticle({
         id: index + 1,
@@ -600,8 +591,7 @@ describe("FeedList", () => {
             configurable: true,
             get() {
               const renderedRows =
-                testContainer?.querySelectorAll("[data-scroll-restore-key]")
-                  .length ?? 0;
+                document.querySelectorAll("[data-scroll-restore-key]").length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -630,13 +620,11 @@ describe("FeedList", () => {
       </div>,
     );
 
-    testContainer = container;
-
     await waitFor(() => {
       expect(getByText("Idle auto-fill article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(8);
     });
 
     await flushFeedListAsyncWork();
@@ -645,7 +633,6 @@ describe("FeedList", () => {
   });
 
   test("requests another desktop page after unread removals shrink a user-owned viewport", async () => {
-    let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
     const initialArticles = buildSequentialFeedListArticles(
       "desktop-refill",
@@ -671,8 +658,7 @@ describe("FeedList", () => {
             configurable: true,
             get() {
               const renderedRows =
-                testContainer?.querySelectorAll("[data-scroll-restore-key]")
-                  .length ?? 0;
+                document.querySelectorAll("[data-scroll-restore-key]").length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -710,13 +696,11 @@ describe("FeedList", () => {
       </div>,
     );
 
-    testContainer = container;
-
     await waitFor(() => {
       expect(getByText("desktop-refill article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(8);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -865,7 +849,7 @@ describe("FeedList", () => {
       expect(getByText("desktop-deplete article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(6);
     });
 
     rerender(
@@ -1013,7 +997,7 @@ describe("FeedList", () => {
       expect(getByText("inverted-deplete article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(6);
     });
 
     rerender(
@@ -1260,9 +1244,11 @@ describe("FeedList", () => {
 
     await flushFeedListAsyncWork();
 
+    expect(scrollTop).toBe(0);
     expect(onLoadMore).not.toHaveBeenCalled();
 
     await act(async () => {
+      scrollTop = 1280;
       viewport.dispatchEvent(new Event("wheel"));
     });
 
@@ -1860,7 +1846,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -1871,6 +1857,7 @@ describe("FeedList", () => {
     }
 
     await act(async () => {
+      scrollTop = 0;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
       viewport.dispatchEvent(new Event("scroll"));
@@ -1879,7 +1866,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
+      ).toHaveLength(9);
     });
 
     await flushFeedListAsyncWork();
@@ -2013,7 +2000,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
+      ).toHaveLength(9);
     });
 
     await act(async () => {
@@ -2033,7 +2020,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(12);
+      ).toHaveLength(13);
     });
 
     const stableScrollTop = 260;
@@ -2152,7 +2139,7 @@ describe("FeedList", () => {
       expect(getByText("Standard scroll article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
       expect(queryByText("Standard scroll article 12")).toBeNull();
     });
 
@@ -2164,7 +2151,7 @@ describe("FeedList", () => {
     }
 
     await act(async () => {
-      scrollTop = 120;
+      scrollTop = 220;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
       viewport.dispatchEvent(new Event("scroll"));
@@ -2174,8 +2161,8 @@ describe("FeedList", () => {
       expect(getByText("Standard scroll article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
-      expect(getByText("Standard scroll article 8")).toBeTruthy();
+      ).toHaveLength(9);
+      expect(getByText("Standard scroll article 9")).toBeTruthy();
       expect(queryByText("Standard scroll article 12")).toBeNull();
     });
   });
@@ -2255,7 +2242,7 @@ describe("FeedList", () => {
       expect(getByText("Standard scroll rearm article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
       expect(queryByText("Standard scroll rearm article 8")).toBeNull();
     });
 
@@ -2267,7 +2254,7 @@ describe("FeedList", () => {
     }
 
     await act(async () => {
-      scrollTop = 120;
+      scrollTop = 220;
       viewport.dispatchEvent(new Event("touchmove"));
       viewport.dispatchEvent(new Event("wheel"));
       viewport.dispatchEvent(new Event("scroll"));
@@ -2276,8 +2263,8 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
-      expect(getByText("Standard scroll rearm article 8")).toBeTruthy();
+      ).toHaveLength(9);
+      expect(getByText("Standard scroll rearm article 9")).toBeTruthy();
       expect(queryByText("Standard scroll rearm article 12")).toBeNull();
     });
 
@@ -2662,7 +2649,7 @@ describe("FeedList", () => {
       expect(getByText("Standard scroll idle article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
       expect(queryByText("Standard scroll idle article 12")).toBeNull();
     });
 
@@ -2683,7 +2670,7 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
       expect(queryByText("Standard scroll idle article 12")).toBeNull();
     });
   });
@@ -2764,7 +2751,7 @@ describe("FeedList", () => {
       expect(getByText("Refresh epoch article 4")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(5);
     });
 
     const viewport = container.querySelector<HTMLElement>(
@@ -2784,8 +2771,8 @@ describe("FeedList", () => {
     await waitFor(() => {
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(8);
-      expect(getByText("Refresh epoch article 8")).toBeTruthy();
+      ).toHaveLength(9);
+      expect(getByText("Refresh epoch article 9")).toBeTruthy();
       expect(queryByText("Refresh epoch article 12")).toBeNull();
     });
 
@@ -2820,10 +2807,10 @@ describe("FeedList", () => {
         "[data-scroll-restore-key]",
       ).length;
 
-      expect(renderedRows).toBeGreaterThanOrEqual(4);
+      expect(renderedRows).toBeGreaterThanOrEqual(5);
       expect(renderedRows).toBeLessThanOrEqual(6);
       expect(getByText("Refresh epoch article 4")).toBeTruthy();
-      expect(queryByText("Refresh epoch article 8")).toBeNull();
+      expect(queryByText("Refresh epoch article 9")).toBeNull();
     });
   });
 
@@ -3329,8 +3316,7 @@ describe("FeedList", () => {
         configurable: true,
         get() {
           const renderedRows =
-            testContainer?.querySelectorAll("[data-scroll-restore-key]")
-              .length ?? 0;
+            document.querySelectorAll("[data-scroll-restore-key]").length;
 
           return renderedRows >= 8 ? 1200 : 400;
         },
@@ -3372,12 +3358,12 @@ describe("FeedList", () => {
 
     testContainer = container;
 
-    // With the count ceiling enforced, only one page (articlesPerPage=4) renders initially.
+    // The refresh reset hydrates the smallest window that can clip overflow.
     await waitFor(() => {
-      expect(getByText("Refresh epoch article 4")).toBeTruthy();
+      expect(getByText("Refresh epoch article 8")).toBeTruthy();
       expect(
         container.querySelectorAll("[data-scroll-restore-key]"),
-      ).toHaveLength(4);
+      ).toHaveLength(8);
     });
 
     // Simulate the user having scrolled
@@ -3412,13 +3398,13 @@ describe("FeedList", () => {
 
     // Scroll position should be reset to top
     expect(scrollTop).toBe(0);
-    // Visible count resets to articlesPerPage and stays at one page (count ceiling enforced).
+    // Visible count resets and auto-fills back to the clipped-overflow window.
     await waitFor(() => {
       const renderedRows = container.querySelectorAll(
         "[data-scroll-restore-key]",
       ).length;
 
-      expect(renderedRows).toBe(4);
+      expect(renderedRows).toBe(8);
     });
   });
 });

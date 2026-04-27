@@ -138,20 +138,40 @@ function updateFeedViewportHistory(options: FeedViewportHistoryOptions) {
  * @returns The feed viewport host ref state and callbacks.
  */
 function useFeedViewportHostRef(options: FeedViewportHostRefOptions) {
+  const {
+    isMountedRef,
+    setScrollViewport,
+    setViewportResolutionState,
+    viewportResolutionRequestRef,
+  } = options;
+
   return useCallback(
     (node: HTMLDivElement | null) => {
-      options.viewportResolutionRequestRef.current += 1;
-      if (!options.isMountedRef.current) {
+      viewportResolutionRequestRef.current += 1;
+      if (!isMountedRef.current) {
         return;
       }
 
       const resolvedViewport = resolveFeedScrollViewport(node);
-      options.setScrollViewport(resolvedViewport);
-      options.setViewportResolutionState(
-        resolvedViewport ? "ready" : "missing",
+      setScrollViewport((currentViewport) =>
+        currentViewport === resolvedViewport
+          ? currentViewport
+          : resolvedViewport,
+      );
+      setViewportResolutionState((currentState) =>
+        currentState === (resolvedViewport ? "ready" : "missing")
+          ? currentState
+          : resolvedViewport
+            ? "ready"
+            : "missing",
       );
     },
-    [options],
+    [
+      isMountedRef,
+      setScrollViewport,
+      setViewportResolutionState,
+      viewportResolutionRequestRef,
+    ],
   );
 }
 

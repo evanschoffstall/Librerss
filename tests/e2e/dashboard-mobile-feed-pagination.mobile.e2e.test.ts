@@ -106,7 +106,7 @@ async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
 
 test.describe("dashboard mobile feed pagination", () => {
   for (const viewportCase of MOBILE_VIEWPORT_CASES) {
-    test(`keeps one configured page visible and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
+    test(`keeps a clipped overflow window and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -255,7 +255,7 @@ test.describe("dashboard mobile feed pagination", () => {
       ).toBeLessThanOrEqual(STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX);
     });
 
-    test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({
+    test(`keeps a clipped overflow window and appends older pages in standard mode on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.addInitScript((storageKey: string) => {
@@ -284,10 +284,7 @@ test.describe("dashboard mobile feed pagination", () => {
         })
         .toBe(true);
 
-      await scrollFeedViewportToBottom(page);
-      await triggerFeedViewportWheelIntent(page, 240);
-      await scrollFeedViewportToBottom(page);
-      await triggerFeedViewportWheelIntent(page, 240);
+      await expandStandardMobileWindow(page);
       await expect
         .poll(async () => {
           return (await readRenderedItemWindow(page)).maxIndex;
@@ -414,6 +411,8 @@ test.describe("dashboard mobile feed pagination", () => {
       expect(collapsedWindow.maxIndex).not.toBeNull();
       expect(collapsedWindow.maxIndex!).toBeLessThan(11);
 
+      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
       await triggerFeedViewportWheelIntent(page, 240);
       await expect

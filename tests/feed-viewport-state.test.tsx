@@ -41,4 +41,23 @@ describe("useFeedViewportState", () => {
       expect(result.current.scrollViewport).toBe(viewport);
     });
   });
+
+  test("keeps the viewport host ref stable across same-input rerenders", () => {
+    const { rerender, result } = renderHook(
+      () =>
+        useFeedViewportState({
+          feedViewKey: "system-all-feeds:all",
+          isCollapseScrollRestoreActive: false,
+          isInvertedScroll: false,
+          refreshEpoch: 0,
+        }),
+    );
+    const initialHandleViewportHostRef = result.current.handleViewportHostRef;
+
+    rerender();
+
+    expect(result.current.handleViewportHostRef).toBe(
+      initialHandleViewportHostRef,
+    );
+  });
 });

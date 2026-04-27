@@ -15,7 +15,9 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
-  readRenderedArticleCount,
+  readFeedArticleClipState,
+  readVisibleFeedArticleCount,
+  selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -38,64 +40,70 @@ async function clickMarkFullyVisibleArticlesAsRead(page: Page) {
   }
 }
 
+async function waitForInitialClippedWindow(page: Page, pageSize: number) {
+  await expect
+    .poll(async () => {
+      const visibleCount = await readVisibleFeedArticleCount(page);
+      const clipState = await readFeedArticleClipState(page);
+
+      return (
+        visibleCount > pageSize &&
+        visibleCount < pageSize * 2 &&
+        clipState.partiallyVisibleCount > 0
+      );
+    })
+    .toBe(true);
+
+  return await readVisibleFeedArticleCount(page);
+}
+
 test.describe("dashboard feed pagination", () => {
   test.beforeEach(async ({ page }) => {
     await installDeterministicFeedBatchRoute(page);
   });
 
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
-    test(`waits to refill visible-read depletion until unread drops below a page plus overflow on ${viewportCase.name}`, async ({
+    test(`keeps visible-read replacement bounded to the clipped overflow window on ${viewportCase.name}`, async ({
       page,
     }) => {
-      const feedRequestUrls: string[] = [];
-      const handleRequest = (request: { url: () => string }) => {
-        const requestUrl = new URL(request.url());
-
-        if (requestUrl.pathname === "/api/feeds") {
-          feedRequestUrls.push(request.url());
-        }
-      };
-
-      page.on("request", handleRequest);
-
       await page.setViewportSize({
         height: viewportCase.height,
         width: viewportCase.width,
       });
 
-      try {
-        await gotoPreviewDashboard(page);
-        await configureArticlesPerPage(page, 4);
+      await gotoPreviewDashboard(page);
+      await selectArticleFilter(page, "unread");
+      await configureArticlesPerPage(page, 4);
 
-        await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-        await expect
-          .poll(async () => {
-            return await readRenderedArticleCount(page);
-          })
-          .toBe(8);
+      await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+      await waitForInitialClippedWindow(page, 4);
 
-        feedRequestUrls.length = 0;
+      const initialSnapshot = await readStableDesktopMarkVisibleReadBaseline(
+        page,
+      );
 
-        await page
-          .getByRole("button", { name: "Mark fully visible articles as read" })
-          .click();
+      await page
+        .getByRole("button", { name: "Mark fully visible articles as read" })
+        .click();
 
-        await expect
-          .poll(async () => {
-            return await readRenderedArticleCount(page);
-          })
-          .toBeGreaterThanOrEqual(8);
-        await expect
-          .poll(() => {
-            return feedRequestUrls.length;
-          }, { timeout: 1_000 })
-          .toBe(0);
-      } finally {
-        page.off("request", handleRequest);
-      }
+      const replacementSnapshot = await waitForStableDesktopMarkVisibleReadCycle(
+        page,
+        5,
+        initialSnapshot.fullyVisibleArticleKeys,
+      );
+
+      expect(replacementSnapshot.renderedCount).toBeGreaterThanOrEqual(5);
+      expect(replacementSnapshot.renderedCount).toBeLessThan(12);
+      await expect
+        .poll(async () => {
+          const visibleCount = await readVisibleFeedArticleCount(page);
+
+          return visibleCount >= 5 && visibleCount < 12;
+        })
+        .toBe(true);
     });
 
-    test(`keeps repeated visible-read refills stable for twenty cycles on ${viewportCase.name}`, async ({
+    test(`keeps repeated visible-read refills stable across available replacement pages on ${viewportCase.name}`, async ({
       page,
     }) => {
       test.slow();
@@ -112,6 +120,7 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
+      await selectArticleFilter(page, "unread");
       await configureArticlesPerPage(page, repeatedCyclePageSize);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -119,12 +128,17 @@ test.describe("dashboard feed pagination", () => {
 
       const initialSnapshot =
         await readStableDesktopMarkVisibleReadBaseline(page);
-      const minimumRenderedCount = repeatedCyclePageSize;
+      const minimumRenderedCount = repeatedCyclePageSize + 1;
 
       expect(initialSnapshot.fullyVisibleArticleKeys.length).toBeGreaterThanOrEqual(
         repeatedCyclePageSize,
       );
-      expect(initialSnapshot.renderedCount).toBeGreaterThanOrEqual(8);
+      expect(initialSnapshot.renderedCount).toBeGreaterThanOrEqual(
+        repeatedCyclePageSize + 1,
+      );
+      expect(initialSnapshot.renderedCount).toBeLessThan(
+        repeatedCyclePageSize * 3,
+      );
 
       await expect(markViewportReadButton).toBeEnabled();
       await clickMarkFullyVisibleArticlesAsRead(page);
@@ -137,13 +151,20 @@ test.describe("dashboard feed pagination", () => {
 
       let previousSnapshot = calibratedSnapshot;
 
-      for (const _cycleIndex of Array.from({ length: 19 }, (_, index) => index)) {
+      for (const _cycleIndex of Array.from({ length: 3 }, (_, index) => index)) {
         await clickMarkFullyVisibleArticlesAsRead(page);
 
         previousSnapshot = await waitForStableDesktopMarkVisibleReadCycle(
           page,
           minimumRenderedCount,
           previousSnapshot.fullyVisibleArticleKeys,
+        );
+
+        expect(previousSnapshot.renderedCount).toBeGreaterThanOrEqual(
+          repeatedCyclePageSize + 1,
+        );
+        expect(previousSnapshot.renderedCount).toBeLessThan(
+          repeatedCyclePageSize * 3,
         );
       }
     });

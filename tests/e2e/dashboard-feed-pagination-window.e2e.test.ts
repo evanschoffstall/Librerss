@@ -3,6 +3,8 @@
  * rendering and scroll-triggered page growth.
  */
 
+import type { Page } from "@playwright/test";
+
 import {
   DESKTOP_VIEWPORT_CASES,
   readFeedViewportMetrics,
@@ -13,13 +15,34 @@ import {
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   installDeterministicFeedBatchRoute,
+  readFeedArticleClipState,
+  readMountedFeedArticleCount,
   readRenderedArticleCount,
   readRenderedItemWindow,
+  readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   selectArticleFilter,
   setFeedViewportScrollTop,
+  triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect, test } from "./test";
+
+async function waitForInitialClippedWindow(page: Page, pageSize: number) {
+  await expect
+    .poll(async () => {
+      const visibleCount = await readVisibleFeedArticleCount(page);
+      const clipState = await readFeedArticleClipState(page);
+
+      return (
+        visibleCount > pageSize &&
+        visibleCount < pageSize * 2 &&
+        clipState.partiallyVisibleCount > 0
+      );
+    })
+    .toBe(true);
+
+  return await readVisibleFeedArticleCount(page);
+}
 
 test.describe("dashboard feed pagination", () => {
   test.beforeEach(async ({ page }) => {
@@ -39,11 +62,15 @@ test.describe("dashboard feed pagination", () => {
       await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
+      const initialVisibleCount = await waitForInitialClippedWindow(page, 4);
+      expect(initialVisibleCount).toBeGreaterThan(4);
+      expect(initialVisibleCount).toBeLessThan(8);
+      expect(await readRenderedArticleCount(page)).toBe(initialVisibleCount);
       await expect
         .poll(async () => {
-          return await readRenderedArticleCount(page);
+          return await readMountedFeedArticleCount(page);
         })
-        .toBe(4);
+        .toBeLessThanOrEqual(initialVisibleCount);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
@@ -61,28 +88,32 @@ test.describe("dashboard feed pagination", () => {
 
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-  await selectArticleFilter(page, "all");
+      await selectArticleFilter(page, "all");
 
       await configureArticlesPerPage(page, 4);
 
-      await expect
-        .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
-        })
-        .toBeGreaterThanOrEqual(3);
+      const initialVisibleCount = await waitForInitialClippedWindow(page, 4);
       await expect
         .poll(async () => {
           return await hasLoadMoreSentinel(page);
         })
         .toBe(true);
 
-      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(11);
+        .toBeGreaterThanOrEqual(initialVisibleCount + 4);
+
+      await triggerFeedViewportWheelIntent(page, 240);
+      await scrollFeedViewportToBottom(page);
+      await expect
+        .poll(async () => {
+          return await readVisibleFeedArticleCount(page);
+        })
+        .toBeGreaterThanOrEqual(initialVisibleCount + 8);
 
       const previousWindow = await readRenderedItemWindow(page);
       expect(previousWindow.maxIndex).not.toBeNull();
@@ -109,24 +140,19 @@ test.describe("dashboard feed pagination", () => {
       await selectArticleFilter(page, "all");
       await configureArticlesPerPage(page, 4);
 
-      await expect
-        .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
-        })
-        .toBeGreaterThanOrEqual(3);
+      const initialVisibleCount = await waitForInitialClippedWindow(page, 4);
 
-      // The one-page ceiling starts the feed with one configured page; scroll to
-      // the bottom twice to reliably trigger the initial boundary load (the first
-      // scroll clears the initial scroll lock, the second sets hasUserScrolled and
-      // fires the boundary), then exercise the 70 % early-trigger contract on the
-      // second page.
+      // The clipped-overflow baseline starts with only enough rows to expose a
+      // partial next article; scroll to the bottom twice to reliably trigger the
+      // initial boundary load, then exercise the 70 % early-trigger contract on
+      // the second page.
       await scrollFeedViewportToBottom(page);
       await scrollFeedViewportToBottom(page);
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(7);
+        .toBeGreaterThanOrEqual(initialVisibleCount + 4);
 
       const initialMetrics = await readFeedViewportMetrics(page);
       await setFeedViewportScrollTop(
@@ -136,9 +162,9 @@ test.describe("dashboard feed pagination", () => {
 
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(11);
+        .toBeGreaterThanOrEqual(initialVisibleCount + 8);
       await expect
         .poll(async () => {
           return (await readFeedViewportMetrics(page)).remaining;
@@ -169,9 +195,9 @@ test.describe("dashboard feed pagination", () => {
 
       await expect
         .poll(async () => {
-          return (await readRenderedItemWindow(page)).maxIndex;
+          return await readVisibleFeedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(11);
+        .toBeGreaterThanOrEqual(initialVisibleCount + 8);
     });
   }
 });

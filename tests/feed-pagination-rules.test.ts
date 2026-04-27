@@ -117,7 +117,7 @@ describe("shouldAutoFillViewport", () => {
     ).toBe(false);
   });
 
-  test("reveals the visible window while the first paint is below the one-page ceiling", () => {
+  test("reveals the visible window while the first paint is below the clipped-overflow count", () => {
     expect(
       shouldAutoFillViewport({
         activeViewportRefillTargetVisibleCount: null,
@@ -133,7 +133,7 @@ describe("shouldAutoFillViewport", () => {
     ).toBe(true);
   });
 
-  test("stops generic auto-fill at the one-page ceiling when the list height fills the viewport", () => {
+  test("reveals the clipped overflow row after the configured page is present", () => {
     expect(
       shouldAutoFillViewport({
         activeViewportRefillTargetVisibleCount: null,
@@ -147,27 +147,44 @@ describe("shouldAutoFillViewport", () => {
         hasUserScrolled: false,
         isInitialLoading: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  test("bypasses the one-page ceiling and allows auto-fill when the list has shrunk", () => {
+  test("continues generic auto-fill until the clipped overflow row exists", () => {
     expect(
       shouldAutoFillViewport({
         activeViewportRefillTargetVisibleCount: null,
-        articleFilter: "unread",
+        articleFilter: "all",
         articlesPerPage: 4,
         clientHeight: 480,
         committedListHeight: 10,
-        currentVisibleCount: 4,
+        currentVisibleCount: 5,
         filteredFeedLength: 20,
-        hasListShrunk: true,
+        hasListShrunk: false,
         hasUserScrolled: false,
         isInitialLoading: false,
       }),
     ).toBe(true);
   });
 
-  test("does not bypass the one-page ceiling for non-unread shrink recovery", () => {
+  test("stops generic auto-fill once the clipped overflow row is present", () => {
+    expect(
+      shouldAutoFillViewport({
+        activeViewportRefillTargetVisibleCount: null,
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        clientHeight: 480,
+        committedListHeight: 600,
+        currentVisibleCount: 5,
+        filteredFeedLength: 20,
+        hasListShrunk: true,
+        hasUserScrolled: false,
+        isInitialLoading: false,
+      }),
+    ).toBe(false);
+  });
+
+  test("applies clipped overflow recovery to non-unread shrink recovery", () => {
     expect(
       shouldAutoFillViewport({
         activeViewportRefillTargetVisibleCount: null,
@@ -181,10 +198,10 @@ describe("shouldAutoFillViewport", () => {
         hasUserScrolled: false,
         isInitialLoading: false,
       }),
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  test("continues auto-fill past the one-page ceiling when an owned refill target is active", () => {
+  test("continues auto-fill past the clipped row when an owned refill target is active", () => {
     expect(
       shouldAutoFillViewport({
         activeViewportRefillTargetVisibleCount: 8,
@@ -207,7 +224,7 @@ describe("shouldAutoFillViewport", () => {
         articleFilter: "all",
         articlesPerPage: 4,
         clientHeight: 780,
-        committedListHeight: 720,
+        committedListHeight: 920,
         currentVisibleCount: 8,
         filteredFeedLength: 12,
         hasUserScrolled: false,

@@ -170,14 +170,21 @@ export function useExpandVisibleWindow(options: ExpandVisibleWindowOptions) {
     visibleArticleCountRef,
   } = options;
   return useCallback(
-    (immediate = false) => {
+    (immediate = false, requestedVisibleCount?: number) => {
       const currentCount = visibleArticleCountRef.current;
       const currentFilteredFeedLength = filteredFeedLengthRef.current;
-      const nextVisibleCount = resolveNextVisibleCount({
-        articlesPerPage,
-        currentVisibleCount: currentCount,
-        filteredFeedLength: currentFilteredFeedLength,
-      });
+      const nextVisibleCount =
+        typeof requestedVisibleCount === "number" &&
+        Number.isFinite(requestedVisibleCount)
+          ? Math.min(
+              Math.max(requestedVisibleCount, currentCount),
+              currentFilteredFeedLength,
+            )
+          : resolveNextVisibleCount({
+              articlesPerPage,
+              currentVisibleCount: currentCount,
+              filteredFeedLength: currentFilteredFeedLength,
+            });
 
       if (nextVisibleCount === currentCount) {
         return false;

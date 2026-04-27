@@ -479,6 +479,7 @@ function shouldSuppressInitialSentinelLoad(
     return true;
   }
 
+  options.scrollViewport.scrollTop = 0;
   options.clearInitialNormalScrollLock();
   options.suppressImmediateNormalScrollIntent();
   return true;

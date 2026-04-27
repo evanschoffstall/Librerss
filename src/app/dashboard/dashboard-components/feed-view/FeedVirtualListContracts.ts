@@ -6,6 +6,7 @@ import type { Article } from "@/lib/core";
  */
 export interface FeedVirtualListSharedProps {
   className: string;
+  deferTotalListHeightChange?: boolean;
   estimatedItemHeight: number;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;
   minimumTotalListHeight?: number;
