@@ -145,7 +145,11 @@ function resolveLimitedPlaceholderCandidates(
             .includes(normalizedSearchTerm) ||
           candidate.article.content
             .toLowerCase()
-            .includes(normalizedSearchTerm);
+            .includes(normalizedSearchTerm) ||
+          candidate.article.link.toLowerCase().includes(normalizedSearchTerm) ||
+          candidate.sourceName?.toLowerCase().includes(normalizedSearchTerm) ===
+            true ||
+          candidate.sourceUrl.toLowerCase().includes(normalizedSearchTerm);
         if (!matchesSearch) {
           return false;
         }

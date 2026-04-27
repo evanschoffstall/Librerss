@@ -167,6 +167,10 @@ function buildArticleSearchCondition(searchPattern: string | undefined) {
   return sql`(
     article.title ILIKE ${searchPattern} ESCAPE '\\'
     OR article.content ILIKE ${searchPattern} ESCAPE '\\'
+    OR article.link ILIKE ${searchPattern} ESCAPE '\\'
+    OR source.name ILIKE ${searchPattern} ESCAPE '\\'
+    OR source.url ILIKE ${searchPattern} ESCAPE '\\'
+    OR category.category ILIKE ${searchPattern} ESCAPE '\\'
   )`;
 }
 
@@ -241,6 +245,14 @@ function buildTopArticlesPerFeedQuery(options: TopArticlesPerFeedQueryOptions) {
     FROM "Article" article
     INNER JOIN selected_feed_ids fid
       ON fid.id = article.feed_id
+    INNER JOIN "Feed" feed
+      ON feed.id = article.feed_id
+    INNER JOIN "FeedSource" source
+      ON source.url = feed.url
+     AND source.user_id = ${options.userId}
+     AND source.enabled = true
+    LEFT JOIN "FeedCategory" category
+      ON category.feed_id = feed.id AND category.user_id = ${options.userId}
     LEFT JOIN "ArticleStatus" status
       ON status.article_id = article.id AND status.user_id = ${options.userId}
     WHERE ${buildArticleFilterCondition(options.articleFilter)}

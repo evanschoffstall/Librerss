@@ -335,15 +335,16 @@ describe("dashboard pure service coverage", () => {
     const articles = [
       buildFeedListArticle({
         content: "secondary body",
+        feedName: "Source needle",
         id: 20,
         link: "https://example.com/title",
         publicationDate: new Date("2026-03-13T11:00:00.000Z"),
-        title: "Needle title",
+        title: "Source-only title",
       }),
       buildFeedListArticle({
         content: "contains special search needle",
         id: 21,
-        link: "https://example.com/body",
+        link: "https://example.com/body-needle",
         publicationDate: new Date("2026-03-13T10:00:00.000Z"),
         title: "Other",
       }),
@@ -375,7 +376,7 @@ describe("dashboard pure service coverage", () => {
 
     expect(viewModel.filteredFeed.map((article) => article.link)).toEqual([
       "https://example.com/title",
-      "https://example.com/body",
+      "https://example.com/body-needle",
     ]);
     expect(
       viewModel.displayCategories.map((category) => category.label),

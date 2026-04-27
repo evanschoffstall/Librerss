@@ -1170,7 +1170,7 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).not.toContain("starred_candidates");
   });
 
-  test("queryTopArticlesPerFeed adds escaped title/content search predicates when searchTerm is present", async () => {
+  test("queryTopArticlesPerFeed searches article text, URLs, and feed metadata when searchTerm is present", async () => {
     const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
 
     const execute = mock(async (_query: unknown) => []);
@@ -1193,6 +1193,15 @@ describe("feed-batch-pipeline", () => {
 
     expect(serializedQuery).toContain("article.title ILIKE");
     expect(serializedQuery).toContain("article.content ILIKE");
+    expect(serializedQuery).toContain("article.link ILIKE");
+    expect(serializedQuery).toContain("source.name ILIKE");
+    expect(serializedQuery).toContain("source.url ILIKE");
+    expect(serializedQuery).toContain("category.category ILIKE");
+    expect(serializedQuery).toContain("FeedSource");
+    expect(serializedQuery).toContain("source.user_id");
+    expect(serializedQuery).toContain("source.enabled = true");
+    expect(serializedQuery).toContain("FeedCategory");
+    expect(serializedQuery).toContain("category.feed_id = feed.id");
     expect(serializedQuery).toContain("ESCAPE '\\\\'");
     expect(serializedQuery).toContain("%50\\\\%\\\\_match\\\\\\\\value%");
   });

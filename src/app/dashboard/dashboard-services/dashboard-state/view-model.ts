@@ -13,6 +13,7 @@ import {
 } from "@/app/dashboard/dashboard-services/category-tree";
 
 const articleContentSearchTextCache = new WeakMap<Article, string>();
+const articleMetadataSearchTextCache = new WeakMap<Article, string>();
 const articleTitleSearchTextCache = new WeakMap<Article, string>();
 
 /**
@@ -141,6 +142,26 @@ function getArticleContentSearchText(article: Article) {
 }
 
 /**
+ * Return user-visible source and URL metadata searchable before the server
+ * finishes replacing the current article window.
+ * @param article - The dashboard article currently loaded in memory.
+ * @returns The lower-cased article metadata search text.
+ */
+function getArticleMetadataSearchText(article: Article) {
+  const cached = articleMetadataSearchTextCache.get(article);
+  if (cached) {
+    return cached;
+  }
+
+  const searchText = [article.link, article.feedName, article.feedUrl]
+    .filter((value): value is string => typeof value === "string")
+    .join(" ")
+    .toLowerCase();
+  articleMetadataSearchTextCache.set(article, searchText);
+  return searchText;
+}
+
+/**
  * Return the article title search text.
  * @param article - The article.
  * @returns The article title search text.
@@ -167,5 +188,9 @@ function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {
     return true;
   }
 
-  return getArticleContentSearchText(article).includes(normalizedSearchTerm);
+  if (getArticleContentSearchText(article).includes(normalizedSearchTerm)) {
+    return true;
+  }
+
+  return getArticleMetadataSearchText(article).includes(normalizedSearchTerm);
 }
