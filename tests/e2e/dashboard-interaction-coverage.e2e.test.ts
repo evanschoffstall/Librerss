@@ -444,8 +444,6 @@ async function swipeArticleReadAndCollectFrameSamples(
 }
 
 test.describe("dashboard interaction coverage", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("covers article actions, expanded text selection, and share dialogs", async ({
     page,
   }) => {

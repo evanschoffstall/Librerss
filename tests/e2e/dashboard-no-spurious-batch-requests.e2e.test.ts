@@ -51,8 +51,8 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
-/** Milliseconds to wait after initial hydration for background tasks to settle. */
-const BACKGROUND_SETTLE_MS = 800;
+/** Maximum time budget for background batch-request activity to settle. */
+const BACKGROUND_SETTLE_TIMEOUT_MS = 1_200;
 
 /**
  * Records the `articleLimit` and wall-clock timestamp of every intercepted
@@ -101,8 +101,24 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
       await selectArticleFilter(page, "unread");
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
-      // Allow background tasks (unread refill, prefetch) to settle.
-      await page.waitForTimeout(BACKGROUND_SETTLE_MS);
+      // Allow background tasks (unread refill, prefetch) to settle by waiting
+      // until request activity stops changing for at least one polling cycle.
+      let previousBatchRequestCount = -1;
+      await expect
+        .poll(() => {
+          const currentBatchRequestCount = batchRequestLog.length;
+
+          if (currentBatchRequestCount === previousBatchRequestCount) {
+            return currentBatchRequestCount;
+          }
+
+          previousBatchRequestCount = currentBatchRequestCount;
+          return -1;
+        }, {
+          intervals: [120, 180, 220],
+          timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
+        })
+        .not.toBe(-1);
 
       // --- Network request assertions ---
 
@@ -173,7 +189,22 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
       await selectArticleFilter(page, "all");
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
-      await page.waitForTimeout(BACKGROUND_SETTLE_MS);
+      let previousBatchRequestCount = -1;
+      await expect
+        .poll(() => {
+          const currentBatchRequestCount = batchRequestLog.length;
+
+          if (currentBatchRequestCount === previousBatchRequestCount) {
+            return currentBatchRequestCount;
+          }
+
+          previousBatchRequestCount = currentBatchRequestCount;
+          return -1;
+        }, {
+          intervals: [120, 180, 220],
+          timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
+        })
+        .not.toBe(-1);
 
       // With "all" filter there is no unread refill.  Only the initial load
       // should fire.  The prefetch is suppressed by usePlaceholderData in

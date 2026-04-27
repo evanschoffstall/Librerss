@@ -63,9 +63,16 @@ test("dashboard dismisses stale toasts and recovers after long tab suspension", 
     Date.now = realNow;
   });
 
-  // After stale resume, all pre-existing toasts should have been dismissed.
-  // Wait briefly for Sonner's dismiss animation to complete.
-  await page.waitForTimeout(500);
+  // After stale resume, pre-existing toasts should dismiss once the resume
+  // handler has completed its recovery pass.
+  await expect
+    .poll(async () => {
+      return await page.locator("[data-sonner-toast]").count();
+    }, {
+      intervals: [100, 150, 200],
+      timeout: 1_500,
+    })
+    .toBeLessThanOrEqual(toastCountBefore);
   const toastsAfterResume = await page.locator("[data-sonner-toast]").count();
   expect(toastsAfterResume).toBeLessThanOrEqual(toastCountBefore);
 

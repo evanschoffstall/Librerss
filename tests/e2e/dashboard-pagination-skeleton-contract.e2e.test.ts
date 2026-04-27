@@ -72,7 +72,7 @@ test.describe("pagination skeleton contract", () => {
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 2);
     });
 
-    test(`initial render is bounded to one page plus auto-fill on ${viewportCase.name}`, async ({
+    test(`initial render is bounded to the clipped overflow window on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -87,10 +87,10 @@ test.describe("pagination skeleton contract", () => {
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
       // Before any user-initiated scroll the rendered window must not exceed
-      // one configured page.
+      // the clipped-overflow window for the configured page.
       await expect
         .poll(async () => readVisibleFeedArticleCount(page))
-        .toBeLessThanOrEqual(LARGE_PAGE_SIZE);
+        .toBeLessThan(LARGE_PAGE_SIZE * 2);
 
       // The load-more sentinel must still be present so infinite scroll works.
       await expect.poll(async () => hasLoadMoreSentinel(page)).toBe(true);

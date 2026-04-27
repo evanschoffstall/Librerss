@@ -157,8 +157,6 @@ export function useFeedPaginationRefreshResetEffect(
 ) {
   const {
     articleFilter,
-    articlesPerPage,
-    hasUserScrolledRef,
     isInvertedScroll,
     isLoadingMore,
     isRefreshing,
@@ -186,22 +184,17 @@ export function useFeedPaginationRefreshResetEffect(
       }
       resetPaginationState();
 
-      if (
-        !isInvertedScroll &&
-        articleFilter === "unread" &&
-        !shouldSuppressRefreshViewportRefill
-      ) {
-        // Refresh resets re-establish the one-page baseline, then allow only
-        // the minimum extra rows needed to regain a stable overflow window.
-        isStandardViewportRefillActiveRef.current = true;
-        standardViewportRefillTargetVisibleCountRef.current =
-          articlesPerPage * 2;
+      if (shouldSuppressRefreshViewportRefill) {
+        return;
+      }
+
+      if (!isInvertedScroll && articleFilter === "unread") {
+        isStandardViewportRefillActiveRef.current = false;
+        standardViewportRefillTargetVisibleCountRef.current = null;
       }
     }
   }, [
     articleFilter,
-    articlesPerPage,
-    hasUserScrolledRef,
     isInvertedScroll,
     isLoadingMore,
     isRefreshing,

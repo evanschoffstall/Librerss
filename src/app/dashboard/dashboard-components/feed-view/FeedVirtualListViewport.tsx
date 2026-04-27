@@ -1,5 +1,5 @@
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import type { buildFeedVirtualListEntries } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
 import type { FeedVirtualListSharedProps } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualListContracts";
@@ -48,6 +48,16 @@ interface FeedVirtualListRuntimeProps extends FeedVirtualListSharedProps {
 }
 
 /**
+ * Describes virtual-list total height reporting options.
+ */
+interface TotalListHeightReporterOptions {
+  deferTotalListHeightChange: boolean;
+  lastReportedTotalSizeRef: React.RefObject<null | number>;
+  onTotalListHeightChange: (nextTotalListHeight: number) => void;
+  totalSize: number;
+}
+
+/**
  * Describes the options for virtual entry.
  */
 interface VirtualEntryOptions {
@@ -68,7 +78,6 @@ interface VirtualEntryOptions {
  * @returns The rendered feed virtual list runtime component.
  */
 export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
-  const { onTotalListHeightChange } = props;
   const virtualizer = useFeedVirtualizer({
     entries: props.entries,
     estimatedItemHeight: props.estimatedItemHeight,
@@ -97,15 +106,12 @@ export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
     .some(
       (virtualItem) => props.entries[virtualItem.index]?.kind === "boundary",
     );
-
-  useLayoutEffect(() => {
-    if (lastReportedTotalSizeRef.current === totalSize) {
-      return;
-    }
-
-    lastReportedTotalSizeRef.current = totalSize;
-    onTotalListHeightChange(totalSize);
-  }, [onTotalListHeightChange, totalSize]);
+  useTotalListHeightReporter({
+    deferTotalListHeightChange: props.deferTotalListHeightChange ?? false,
+    lastReportedTotalSizeRef,
+    onTotalListHeightChange: props.onTotalListHeightChange,
+    totalSize,
+  });
 
   return (
     <div
@@ -144,6 +150,20 @@ export function FeedVirtualListRuntime(props: FeedVirtualListRuntimeProps) {
     </div>
   );
 }
+
+/**
+ * Cancels a pending total-size report animation frame.
+ * @param frameRef - Mutable ref storing the scheduled animation frame id.
+ */
+function cancelTotalSizeReportFrame(frameRef: React.RefObject<null | number>) {
+  if (frameRef.current === null) {
+    return;
+  }
+
+  window.cancelAnimationFrame(frameRef.current);
+  frameRef.current = null;
+}
+
 /**
  * Render the virtual entry.
  * @param options - The options used to render the virtual entry.
@@ -177,7 +197,6 @@ function renderVirtualEntry(options: VirtualEntryOptions) {
     />
   ) : null;
 }
-
 /**
  * Resolve the boundary offset top.
  * @param entries - The entries.
@@ -234,6 +253,7 @@ function resolveFeedVirtualListLayout(options: FeedVirtualListLayoutOptions) {
     totalSize,
   };
 }
+
 /**
  * Resolve the virtualizer rect.
  * @param scrollViewport - The scroll viewport.
@@ -246,7 +266,6 @@ function resolveVirtualizerRect(scrollViewport: HTMLElement) {
     width: Math.max(scrollViewport.clientWidth, rect.width, 0),
   };
 }
-
 /**
  * Manage the feed virtualizer.
  * @param options - The options used to manage the feed virtualizer.
@@ -296,4 +315,52 @@ function useFeedVirtualizer(options: FeedVirtualizerOptions) {
     initialRect: resolveVirtualizerRect(options.scrollViewport),
     overscan,
   });
+}
+
+/**
+ * Reports measured virtual-list height changes to the parent feed surface.
+ * @param options - Height reporting mode, current size, and callback refs.
+ */
+function useTotalListHeightReporter(options: TotalListHeightReporterOptions) {
+  const {
+    deferTotalListHeightChange,
+    lastReportedTotalSizeRef,
+    onTotalListHeightChange,
+    totalSize,
+  } = options;
+  const onTotalListHeightChangeRef = useRef(onTotalListHeightChange);
+  const totalSizeReportFrameRef = useRef<null | number>(null);
+
+  useLayoutEffect(() => {
+    onTotalListHeightChangeRef.current = onTotalListHeightChange;
+  }, [onTotalListHeightChange]);
+
+  useEffect(() => {
+    return () => {
+      cancelTotalSizeReportFrame(totalSizeReportFrameRef);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (lastReportedTotalSizeRef.current === totalSize) {
+      return;
+    }
+
+    lastReportedTotalSizeRef.current = totalSize;
+    if (!deferTotalListHeightChange) {
+      onTotalListHeightChange(totalSize);
+      return;
+    }
+
+    cancelTotalSizeReportFrame(totalSizeReportFrameRef);
+    totalSizeReportFrameRef.current = window.requestAnimationFrame(() => {
+      totalSizeReportFrameRef.current = null;
+      onTotalListHeightChangeRef.current(totalSize);
+    });
+  }, [
+    deferTotalListHeightChange,
+    lastReportedTotalSizeRef,
+    onTotalListHeightChange,
+    totalSize,
+  ]);
 }

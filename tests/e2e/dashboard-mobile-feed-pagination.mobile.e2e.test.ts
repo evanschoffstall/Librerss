@@ -101,15 +101,12 @@ async function readInvertedScrollAttribute(page: Page) {
 /** Rearms the inverted mobile pagination boundary after refresh. */
 async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
   await scrollFeedViewportToTop(page);
-  await page.waitForTimeout(250);
   await wheelActiveFeedViewport(page, -700);
 }
 
 test.describe("dashboard mobile feed pagination", () => {
-  test.describe.configure({ mode: "serial" });
-
   for (const viewportCase of MOBILE_VIEWPORT_CASES) {
-    test(`keeps one configured page visible and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
+    test(`keeps a clipped overflow window and prepends older pages in inverted mode on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -184,8 +181,21 @@ test.describe("dashboard mobile feed pagination", () => {
 
       for (let attempt = 0; attempt < 10; attempt += 1) {
         await wheelActiveFeedViewport(page, -700);
-        await page.waitForTimeout(180);
-        thirdVisibleCount = await readVisibleFeedArticleCount(page);
+
+        try {
+          await expect
+            .poll(async () => {
+              return await readVisibleFeedArticleCount(page);
+            }, {
+              intervals: [80, 120, 160],
+              timeout: 700,
+            })
+            .toBeGreaterThan(secondVisibleCount);
+          thirdVisibleCount = await readVisibleFeedArticleCount(page);
+          break;
+        } catch {
+          thirdVisibleCount = await readVisibleFeedArticleCount(page);
+        }
 
         if (thirdVisibleCount > secondVisibleCount) {
           break;
@@ -245,7 +255,7 @@ test.describe("dashboard mobile feed pagination", () => {
       ).toBeLessThanOrEqual(STABLE_TOP_VISIBLE_ARTICLE_TOLERANCE_PX);
     });
 
-    test(`keeps one configured page visible and appends older pages in standard mode on ${viewportCase.name}`, async ({
+    test(`keeps a clipped overflow window and appends older pages in standard mode on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.addInitScript((storageKey: string) => {
@@ -274,10 +284,7 @@ test.describe("dashboard mobile feed pagination", () => {
         })
         .toBe(true);
 
-      await scrollFeedViewportToBottom(page);
-      await triggerFeedViewportWheelIntent(page, 240);
-      await scrollFeedViewportToBottom(page);
-      await triggerFeedViewportWheelIntent(page, 240);
+      await expandStandardMobileWindow(page);
       await expect
         .poll(async () => {
           return (await readRenderedItemWindow(page)).maxIndex;
@@ -404,6 +411,8 @@ test.describe("dashboard mobile feed pagination", () => {
       expect(collapsedWindow.maxIndex).not.toBeNull();
       expect(collapsedWindow.maxIndex!).toBeLessThan(11);
 
+      await scrollFeedViewportToBottom(page);
+      await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
       await triggerFeedViewportWheelIntent(page, 240);
       await expect

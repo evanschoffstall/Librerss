@@ -26,6 +26,7 @@ type FeedVirtualListEntry = ReturnType<
  */
 interface FeedVirtualListTestSurfaceProps {
   className: string;
+  deferTotalListHeightChange?: boolean;
   entries: ReturnType<typeof buildFeedVirtualListEntries>;
   estimatedItemHeight: number;
   loadMoreSentinelRef: (node: HTMLDivElement | null) => void;

@@ -221,6 +221,13 @@ export async function expectPreviewDashboard(page: Page) {
     .toBe("1");
   await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
+  const viewportWidth =
+    page.viewportSize()?.width ??
+    (await page.evaluate(() => {
+      return window.innerWidth;
+    }));
+  const isMobileViewport = viewportWidth < 768;
+
   const mobileFeedsButton = page.getByRole("button", {
     name: "Open feeds",
   });
@@ -232,20 +239,7 @@ export async function expectPreviewDashboard(page: Page) {
   });
   const signOutButton = page.getByRole("button", { name: "Sign out" });
 
-  await expect
-    .poll(async () => {
-      const isMobileReady =
-        (await mobileActionsMenuButton.isVisible().catch(() => false)) &&
-        (await mobileFeedsButton.isVisible().catch(() => false));
-      const isDesktopReady =
-        (await desktopSettingsButton.isVisible().catch(() => false)) &&
-        (await signOutButton.isVisible().catch(() => false));
-
-      return isMobileReady || isDesktopReady;
-    })
-    .toBe(true);
-
-  if (await mobileActionsMenuButton.isVisible().catch(() => false)) {
+  if (isMobileViewport) {
     await expect(mobileActionsMenuButton).toBeVisible({ timeout: 15_000 });
     await expect(mobileFeedsButton).toBeVisible({
       timeout: 15_000,
@@ -455,6 +449,48 @@ export async function readClientStateSentinel(page: Page) {
   }, PLAYWRIGHT_SENTINEL_STORAGE_KEY);
 }
 
+/**
+ * Reads article visibility inside the active feed viewport so pagination tests
+ * can distinguish fully visible rows from the clipped overflow marker row.
+ */
+export async function readFeedArticleClipState(page: Page) {
+  const viewport = await getActiveFeedViewport(page);
+
+  return await viewport.evaluate((node) => {
+    const viewportRect = node.getBoundingClientRect();
+    const feedSurface =
+      node.closest<HTMLElement>("[data-feed-surface-mode]") ??
+      node.querySelector<HTMLElement>("[data-feed-surface-mode]") ??
+      node;
+    const articles = Array.from(
+      feedSurface.querySelectorAll<HTMLElement>("article[data-article-key]"),
+    ).map((articleElement) => {
+      const articleRect = articleElement.getBoundingClientRect();
+      const intersectsViewport =
+        articleRect.bottom > viewportRect.top &&
+        articleRect.top < viewportRect.bottom;
+      const fullyVisible =
+        articleRect.top >= viewportRect.top &&
+        articleRect.bottom <= viewportRect.bottom;
+
+      return {
+        articleKey: articleElement.dataset.articleKey ?? null,
+        fullyVisible,
+        partiallyVisible: intersectsViewport && !fullyVisible,
+      };
+    });
+
+    return {
+      fullyVisibleCount: articles.filter((article) => article.fullyVisible)
+        .length,
+      mountedCount: articles.length,
+      partiallyVisibleCount: articles.filter(
+        (article) => article.partiallyVisible,
+      ).length,
+    };
+  });
+}
+
 /** Reads the active feed viewport metrics used by expand and scroll-restore flows. */
 export async function readFeedViewportMetrics(page: Page) {
   const viewport = await getActiveFeedViewport(page);
@@ -518,6 +554,28 @@ export async function readLoadMoreSkeletonState(page: Page) {
     throw new Error(
       "Expected the active feed surface to expose its skeleton state.",
     );
+  });
+}
+
+/** Reads the number of mounted article cards in the active feed DOM. */
+export async function readMountedFeedArticleCount(page: Page) {
+  return await page.evaluate(() => {
+    const feedSurface = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-feed-surface-mode]"),
+    ).find((candidate) => {
+      const rect = candidate.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        window.getComputedStyle(candidate).visibility !== "hidden" &&
+        candidate.querySelector("article[data-article-key]") !== null
+      );
+    });
+
+    return (
+      feedSurface ?? document
+    ).querySelectorAll("article[data-article-key]").length;
   });
 }
 

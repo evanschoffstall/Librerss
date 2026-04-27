@@ -60,8 +60,6 @@ async function toggleVisibleArticleSurface(
 }
 
 test.describe("dashboard explore article interactions", () => {
-  test.describe.configure({ mode: "serial" });
-
   test.beforeEach(async ({ page }) => {
     await installDeterministicFeedBatchRoute(page);
     await installDeterministicArticleExtractRoute(page);

@@ -7,7 +7,7 @@ import {
   resolveStandardViewportRefillState,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportAutoFillState";
 import {
-  resolveNextVisibleCount,
+  resolveNextAutoFillVisibleCount,
   shouldAutoFillViewport,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/paginationRules";
 import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
@@ -22,7 +22,10 @@ export interface MaybeAutoFillViewportOptions {
   canLoadMoreFromServer: boolean;
   expandedArticleKey: null | string;
   /** `immediate=true` skips the skeleton reveal delay used by scroll pagination. */
-  expandVisibleWindow: (immediate?: boolean) => boolean;
+  expandVisibleWindow: (
+    immediate?: boolean,
+    nextVisibleCount?: number,
+  ) => boolean;
   filteredFeedLengthRef: { current: number };
   hasActiveInvertedExpansionScrollLock: () => boolean;
   hasPendingServerRevealRef: { current: boolean };
@@ -67,7 +70,10 @@ interface FinishViewportAutoFillOptions extends FinishStandardViewportRefillOpti
   articleFilter: string;
   articlesPerPage: number;
   currentFilteredFeedLength: number;
-  expandVisibleWindow: (immediate?: boolean) => boolean;
+  expandVisibleWindow: (
+    immediate?: boolean,
+    nextVisibleCount?: number,
+  ) => boolean;
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
   requestMoreFromServer: (options?: { isViewportRefill?: boolean }) => boolean;
@@ -224,13 +230,12 @@ function finishViewportAutoFill(options: FinishViewportAutoFillOptions) {
   if (
     options.visibleArticleCountRef.current < options.currentFilteredFeedLength
   ) {
-    const projectedVisibleCount = resolveNextVisibleCount({
-      articlesPerPage: options.articlesPerPage,
+    const projectedVisibleCount = resolveNextAutoFillVisibleCount({
       currentVisibleCount: options.visibleArticleCountRef.current,
       filteredFeedLength: options.currentFilteredFeedLength,
     });
 
-    options.expandVisibleWindow(true);
+    options.expandVisibleWindow(true, projectedVisibleCount);
 
     if (
       shouldRequestAnotherViewportRefillPage(options, projectedVisibleCount)

@@ -10,6 +10,7 @@ import {
   readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   setFeedViewportScrollTop,
+  triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect } from "./test";
 
@@ -19,6 +20,7 @@ import { expect } from "./test";
 export interface DesktopMarkVisibleReadSnapshot {
   fullyVisibleArticleKeys: string[];
   maxIndex: null | number;
+  partiallyVisibleArticleKeys: string[];
   renderedArticleKeys: string[];
   renderedCount: number;
 }
@@ -73,16 +75,14 @@ export async function expectDesktopRefreshCollapse(page: Page) {
     .getByRole("button", { exact: true, name: "Refresh selected feed" })
     .click();
 
-  await expect
-    .poll(async () => {
-      return await readVisibleFeedArticleCount(page);
-    })
-    .toBe(4);
+  const collapsedCount = await waitForDesktopClippedWindow(page, 4);
   await expect
     .poll(async () => {
       return await hasLoadMoreSentinel(page);
     })
     .toBe(true);
+
+  return collapsedCount;
 }
 
 /**
@@ -134,6 +134,7 @@ export async function readDesktopMarkVisibleReadSnapshot(
       return {
         fullyVisibleArticleKeys: [],
         maxIndex: null,
+        partiallyVisibleArticleKeys: [],
         renderedArticleKeys: [],
         renderedCount: 0,
       };
@@ -155,11 +156,37 @@ export async function readDesktopMarkVisibleReadSnapshot(
         }
 
         const articleRect = articleElement.getBoundingClientRect();
+
         return (
           articleRect.top >= viewportRect.top &&
-          articleRect.right <= viewportRect.right &&
           articleRect.bottom <= viewportRect.bottom &&
-          articleRect.left >= viewportRect.left
+          articleElement.offsetWidth > 0 &&
+          articleElement.offsetHeight > 0
+        );
+      })
+      .map((articleElement) => articleElement.dataset.articleKey)
+      .filter((articleKey): articleKey is string => Boolean(articleKey));
+    const partiallyVisibleArticleKeys = articleElements
+      .filter((articleElement) => {
+        if (
+          articleElement.closest('[data-article-entering="true"]') !== null
+        ) {
+          return false;
+        }
+
+        const articleRect = articleElement.getBoundingClientRect();
+        const intersectsViewport =
+          articleRect.bottom > viewportRect.top &&
+          articleRect.top < viewportRect.bottom;
+        const fullyVisible =
+          articleRect.top >= viewportRect.top &&
+          articleRect.bottom <= viewportRect.bottom;
+
+        return (
+          intersectsViewport &&
+          !fullyVisible &&
+          articleElement.offsetWidth > 0 &&
+          articleElement.offsetHeight > 0
         );
       })
       .map((articleElement) => articleElement.dataset.articleKey)
@@ -174,6 +201,7 @@ export async function readDesktopMarkVisibleReadSnapshot(
     return {
       fullyVisibleArticleKeys,
       maxIndex: indexes.length > 0 ? indexes[indexes.length - 1] : null,
+      partiallyVisibleArticleKeys,
       renderedArticleKeys,
       renderedCount: renderedArticleKeys.length,
     };
@@ -226,7 +254,7 @@ export async function readFeedViewportMetrics(page: Page) {
  * @returns Settled snapshot for the current visible-read window.
  */
 export async function readStableDesktopMarkVisibleReadBaseline(page: Page) {
-  const minimumRenderedCount = 4;
+  const minimumRenderedCount = 5;
   const minimumVisibleCount = 4;
 
   await expect
@@ -240,6 +268,12 @@ export async function readStableDesktopMarkVisibleReadBaseline(page: Page) {
         .fullyVisibleArticleKeys.length;
     })
     .toBeGreaterThanOrEqual(minimumVisibleCount);
+  await expect
+    .poll(async () => {
+      return (await readDesktopMarkVisibleReadSnapshot(page))
+        .partiallyVisibleArticleKeys.length;
+    })
+    .toBeGreaterThan(0);
 
   let previousSnapshot = await readDesktopMarkVisibleReadSnapshot(page);
 
@@ -249,13 +283,17 @@ export async function readStableDesktopMarkVisibleReadBaseline(page: Page) {
       const baselineDidSettle =
         nextSnapshot.renderedCount === previousSnapshot.renderedCount &&
         nextSnapshot.fullyVisibleArticleKeys.length ===
-          previousSnapshot.fullyVisibleArticleKeys.length;
+          previousSnapshot.fullyVisibleArticleKeys.length &&
+        nextSnapshot.partiallyVisibleArticleKeys.length ===
+          previousSnapshot.partiallyVisibleArticleKeys.length;
 
       previousSnapshot = nextSnapshot;
 
       return baselineDidSettle
         ? {
             fullyVisibleCount: nextSnapshot.fullyVisibleArticleKeys.length,
+            partiallyVisibleCount:
+              nextSnapshot.partiallyVisibleArticleKeys.length,
             renderedCount: nextSnapshot.renderedCount,
           }
         : null;
@@ -274,13 +312,46 @@ export async function rearmDesktopPaginationAfterRefresh(page: Page) {
   const metrics = await readFeedViewportMetrics(page);
 
   await setFeedViewportScrollTop(page, Math.floor(metrics.maxScrollTop * 0.45));
-  await page.waitForTimeout(800);
+  await triggerFeedViewportWheelIntent(page, 240);
+  await expect
+    .poll(async () => {
+      const currentMetrics = await readFeedViewportMetrics(page);
+
+      return currentMetrics.remaining;
+    })
+    .toBeGreaterThan(0);
 
   const rearmMetrics = await readFeedViewportMetrics(page);
   await setFeedViewportScrollTop(
     page,
     Math.floor(rearmMetrics.maxScrollTop * 0.95),
   );
+  await triggerFeedViewportWheelIntent(page, 240);
+}
+
+/**
+ * Wait for the active desktop feed to settle on a clipped-overflow window for
+ * the configured page size.
+ * @param page - Active Playwright page.
+ * @param pageSize - Configured articles-per-page value.
+ * @returns The settled visible article count.
+ */
+export async function waitForDesktopClippedWindow(
+  page: Page,
+  pageSize: number,
+) {
+  await expect
+    .poll(async () => {
+      const visibleCount = await readVisibleFeedArticleCount(page);
+
+      return (
+        visibleCount > pageSize &&
+        visibleCount < pageSize * 3
+      );
+    })
+    .toBe(true);
+
+  return await readVisibleFeedArticleCount(page);
 }
 
 /**
@@ -302,22 +373,37 @@ export async function waitForStableDesktopMarkVisibleReadCycle(
     .poll(async () => {
       const snapshot = await readDesktopMarkVisibleReadSnapshot(page);
       const hasVisibleUnreadWindow = snapshot.fullyVisibleArticleKeys.length > 0;
+      const hasClippedOverflowWindow =
+        snapshot.partiallyVisibleArticleKeys.length > 0;
+      const renderedWindowRecovered =
+        snapshot.renderedCount >= minimumRenderedCount;
+      const visibleWindowChanged =
+        previousFullyVisibleArticleKeys.length === 0 ||
+        !haveMatchingArticleKeys(
+          previousFullyVisibleArticleKeys,
+          snapshot.fullyVisibleArticleKeys,
+        );
 
-      settledSnapshot = hasVisibleUnreadWindow ? snapshot : null;
+      settledSnapshot =
+        hasVisibleUnreadWindow &&
+        hasClippedOverflowWindow &&
+        renderedWindowRecovered &&
+        visibleWindowChanged
+          ? snapshot
+          : null;
 
       return {
+        hasClippedOverflowWindow,
         hasVisibleUnreadWindow,
-        renderedWindowRecovered: snapshot.renderedCount >= minimumRenderedCount,
-        visibleWindowChanged:
-          previousFullyVisibleArticleKeys.length === 0 ||
-          !haveMatchingArticleKeys(
-            previousFullyVisibleArticleKeys,
-            snapshot.fullyVisibleArticleKeys,
-          ),
+        renderedWindowRecovered,
+        visibleWindowChanged,
       };
     }, { timeout: 20_000 })
     .toMatchObject({
+      hasClippedOverflowWindow: true,
       hasVisibleUnreadWindow: true,
+      renderedWindowRecovered: true,
+      visibleWindowChanged: true,
     });
 
   if (!settledSnapshot) {

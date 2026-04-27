@@ -239,7 +239,7 @@ export const DashboardFilterBar = memo(
                     aria-label={`Sort by date: ${SORT_ORDER_LABEL[articleSortOrder]}`}
                     aria-pressed={isOldestFirst}
                     className={cn(
-                      "flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors",
+                      "inline-flex shrink-0 cursor-pointer items-center gap-0 rounded-full px-2 py-0.5 text-xs transition-colors sm:gap-1",
                       isOldestFirst
                         ? "bg-muted font-semibold text-foreground ring-1 ring-border/40 ring-inset"
                         : "text-muted-foreground/70 hover:bg-muted/50 hover:text-foreground",
@@ -254,7 +254,12 @@ export const DashboardFilterBar = memo(
                     type="button"
                   >
                     <SortIcon className="size-3 shrink-0" />
-                    <span>{SORT_ORDER_LABEL[articleSortOrder]}</span>
+                    <span
+                      className="hidden sm:inline"
+                      data-dashboard-filter-bar-sort-label="true"
+                    >
+                      {SORT_ORDER_LABEL[articleSortOrder]}
+                    </span>
                   </button>
 
                   <span

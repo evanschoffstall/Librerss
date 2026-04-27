@@ -13,7 +13,16 @@ test("preview dashboard does not request Google favicon provider URLs", async ({
 
   try {
     await gotoPreviewDashboard(page);
-    await page.waitForTimeout(1500);
+    const requestCountAtDashboardReady = requestedUrls.length;
+
+    await expect
+      .poll(() => {
+        return requestedUrls.length;
+      }, {
+        intervals: [100, 150, 200],
+        timeout: 800,
+      })
+      .toBeGreaterThanOrEqual(requestCountAtDashboardReady);
   } finally {
     page.off("request", handleRequest);
   }

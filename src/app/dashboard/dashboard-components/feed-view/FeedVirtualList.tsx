@@ -35,6 +35,7 @@ export const FeedVirtualList = memo(
     const {
       articles,
       className,
+      deferTotalListHeightChange,
       estimatedItemHeight,
       expandedArticleKey,
       feedViewKey,
@@ -69,6 +70,7 @@ export const FeedVirtualList = memo(
       return (
         <FeedVirtualListTestSurface
           className={className}
+          deferTotalListHeightChange={deferTotalListHeightChange}
           entries={entries}
           estimatedItemHeight={estimatedItemHeight}
           loadMoreSentinelRef={loadMoreSentinelRef}
@@ -83,6 +85,7 @@ export const FeedVirtualList = memo(
     return (
       <FeedVirtualListRuntime
         className={className}
+        deferTotalListHeightChange={deferTotalListHeightChange}
         entries={entries}
         estimatedItemHeight={estimatedItemHeight}
         expandedArticleKey={expandedArticleKey}

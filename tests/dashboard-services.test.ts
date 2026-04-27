@@ -66,32 +66,39 @@ describe("dashboard-view-model search filtering", () => {
     expect(filterArticlesBySearchTerm(articles, "   ")).toBe(articles);
   });
 
-  test("matches against article title and content case-insensitively", () => {
+  test("matches against article text, source metadata, and links case-insensitively", () => {
     const articles = [
       {
         content: "Gamma body",
         feedId: 1,
+        feedName: "Alpha Source",
+        feedUrl: "https://feeds.example.com/alpha.xml",
         id: 1,
         lastChecked: new Date("2024-01-01T00:00:00.000Z"),
-        link: "https://example.com/a",
+        link: "https://example.com/articles/source-only",
         publicationDate: new Date("2024-01-01T00:00:00.000Z"),
-        title: "Alpha",
+        title: "First",
       },
       {
         content: "Delta body",
         feedId: 1,
+        feedName: "Second Source",
+        feedUrl: "https://feeds.example.com/beta.xml",
         id: 2,
         lastChecked: new Date("2024-01-02T00:00:00.000Z"),
-        link: "https://example.com/b",
+        link: "https://example.com/articles/link-needle",
         publicationDate: new Date("2024-01-02T00:00:00.000Z"),
         title: "Beta",
       },
     ];
 
-    expect(filterArticlesBySearchTerm(articles, "alpha")).toEqual([
+    expect(filterArticlesBySearchTerm(articles, "alpha source")).toEqual([
       articles[0],
     ]);
     expect(filterArticlesBySearchTerm(articles, "DELTA")).toEqual([
+      articles[1],
+    ]);
+    expect(filterArticlesBySearchTerm(articles, "LINK-NEEDLE")).toEqual([
       articles[1],
     ]);
   });

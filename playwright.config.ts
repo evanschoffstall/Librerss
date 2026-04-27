@@ -13,14 +13,20 @@ const htmlReportDir =
 const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
 const isCoverageRun = process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
 const junitReportPath = process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
+const htmlReportEnabled =
+  process.env.PLAYWRIGHT_HTML_REPORT_ENABLED === "1" || !isCoverageRun;
 const outputDir =
   process.env.PLAYWRIGHT_OUTPUT_DIR ?? "test-results/playwright";
 const workerOverride = process.env.PLAYWRIGHT_WORKERS?.trim();
 const consoleReporter = process.env.CI ? "dot" : "line";
-const LOCAL_PLAYWRIGHT_WORKER_CAP = 8;
+const LOCAL_PLAYWRIGHT_WORKER_CAP = 10;
 const reporter: ReporterDescription[] = [
   [consoleReporter],
-  ["html", { open: "never", outputFolder: htmlReportDir }],
+  ...(htmlReportEnabled
+    ? ([
+        ["html", { open: "never", outputFolder: htmlReportDir }],
+      ] satisfies ReporterDescription[])
+    : []),
   ...(junitReportPath
     ? ([
         ["junit", { outputFile: junitReportPath }],
@@ -29,7 +35,7 @@ const reporter: ReporterDescription[] = [
 ];
 
 /**
- * Recursively counts `.e2e.ts` entrypoint files under the given directory so
+ * Recursively counts `.e2e.test.ts` entrypoint files under the given directory so
  * worker allocation can scale to the number of test files automatically.
  * @param directoryPath - Absolute path to the directory containing Playwright entrypoint files.
  * @returns The count of Playwright entrypoint files found at any nesting depth.
@@ -40,7 +46,7 @@ function countEntrypointFiles(directoryPath: string): number {
   for (const entry of readdirSync(directoryPath, { withFileTypes: true })) {
     if (entry.isDirectory()) {
       fileCount += countEntrypointFiles(join(directoryPath, entry.name));
-    } else if (entry.isFile() && entry.name.endsWith(".e2e.ts")) {
+    } else if (entry.isFile() && entry.name.endsWith(".e2e.test.ts")) {
       fileCount += 1;
     }
   }
@@ -49,7 +55,7 @@ function countEntrypointFiles(directoryPath: string): number {
 }
 
 /**
- * Returns the number of `.e2e.ts` entrypoint files under `tests/e2e` so that
+ * Returns the number of `.e2e.test.ts` entrypoint files under `tests/e2e` so that
  * local runs can automatically fan out across the entire suite without an
  * artificial worker cap.
  * @returns The number of Playwright e2e entrypoint files in the test suite.
@@ -119,14 +125,14 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testIgnore: ["**/*.mobile.e2e.ts"],
+      testIgnore: ["**/*.mobile.e2e.test.ts"],
       use: {
         ...devices["Desktop Chrome"],
       },
     },
     {
       name: "mobile-chromium",
-      testMatch: "**/*.mobile.e2e.ts",
+      testMatch: "**/*.mobile.e2e.test.ts",
       use: {
         ...devices["Pixel 7"],
         browserName: "chromium" as const,
@@ -136,7 +142,7 @@ export default defineConfig({
       ? [
           {
             name: "mobile-webkit",
-            testMatch: "**/*.mobile.e2e.ts",
+            testMatch: "**/*.mobile.e2e.test.ts",
             use: {
               ...devices["iPhone 14"],
               browserName: "webkit" as const,
@@ -148,7 +154,7 @@ export default defineConfig({
   reporter,
   retries: process.env.CI ? 1 : 0,
   testDir: "./tests/e2e",
-  testMatch: "**/*.e2e.ts",
+  testMatch: "**/*.e2e.test.ts",
   timeout: 30_000,
   use: {
     actionTimeout: 5_000,

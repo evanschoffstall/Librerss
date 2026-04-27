@@ -8,6 +8,7 @@ import {
   expandDesktopFeedWindow,
   expectDesktopRefreshCollapse,
   rearmDesktopPaginationAfterRefresh,
+  waitForDesktopClippedWindow,
 } from "./dashboard-feed-pagination-support";
 import {
   articleCard,
@@ -27,7 +28,7 @@ test.describe("dashboard feed pagination", () => {
   });
 
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
-    test(`resets refresh back to one configured page on ${viewportCase.name}`, async ({
+    test(`resets refresh back to the clipped overflow window on ${viewportCase.name}`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -40,11 +41,7 @@ test.describe("dashboard feed pagination", () => {
       await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await expect
-        .poll(async () => {
-          return await readRenderedArticleCount(page);
-        })
-        .toBe(4);
+      const initialCount = await waitForDesktopClippedWindow(page, 4);
 
       await scrollFeedViewportToBottom(page);
       await scrollFeedViewportToBottom(page);
@@ -53,17 +50,13 @@ test.describe("dashboard feed pagination", () => {
         .poll(async () => {
           return await readRenderedArticleCount(page);
         })
-        .toBeGreaterThanOrEqual(12);
+        .toBeGreaterThanOrEqual(initialCount + 8);
 
       await page
         .getByRole("button", { exact: true, name: "Refresh selected feed" })
         .click();
 
-      await expect
-        .poll(async () => {
-          return await readRenderedArticleCount(page);
-        })
-        .toBe(4);
+      await waitForDesktopClippedWindow(page, 4);
     });
 
     test(`keeps repeated desktop refreshes collapsed after the feed was expanded on ${viewportCase.name}`, async ({
@@ -79,25 +72,17 @@ test.describe("dashboard feed pagination", () => {
       await configureArticlesPerPage(page, 4);
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await expect
-        .poll(async () => {
-          return await readRenderedArticleCount(page);
-        })
-        .toBe(4);
+      await waitForDesktopClippedWindow(page, 4);
 
       await expandDesktopFeedWindow(page);
       const expandedCount = await readRenderedArticleCount(page);
 
-      await expectDesktopRefreshCollapse(page);
-      const firstRefreshCount = await readRenderedArticleCount(page);
+      const firstRefreshCount = await expectDesktopRefreshCollapse(page);
 
-      expect(firstRefreshCount).toBe(4);
       expect(firstRefreshCount).toBeLessThan(expandedCount);
 
-      await expectDesktopRefreshCollapse(page);
-      const secondRefreshCount = await readRenderedArticleCount(page);
+      const secondRefreshCount = await expectDesktopRefreshCollapse(page);
 
-      expect(secondRefreshCount).toBe(4);
       expect(secondRefreshCount).toBeLessThan(expandedCount);
       expect(secondRefreshCount).toBeLessThan(12);
     });
@@ -149,11 +134,7 @@ test.describe("dashboard feed pagination", () => {
       await page.reload({ waitUntil: "networkidle" });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await expect
-        .poll(async () => {
-          return await readRenderedArticleCount(page);
-        })
-        .toBe(4);
+      await waitForDesktopClippedWindow(page, 4);
     });
   }
 });

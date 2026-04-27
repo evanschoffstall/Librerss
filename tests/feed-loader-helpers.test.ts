@@ -125,6 +125,12 @@ describe("isCanceledBatchRequest", () => {
     expect(isCanceledBatchRequest(err)).toBe(true);
   });
 
+  test("returns true for TanStack cancellation errors reported by message", () => {
+    const err = new Error("CancelledError");
+    err.name = "Error";
+    expect(isCanceledBatchRequest(err)).toBe(true);
+  });
+
   test("returns false for other errors", () => {
     expect(isCanceledBatchRequest(new Error("network"))).toBe(false);
   });

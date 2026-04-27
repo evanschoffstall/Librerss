@@ -154,4 +154,89 @@ test.describe("dashboard feed error recovery", () => {
       ),
     ).toBeVisible();
   });
+
+  test("renders a live search result from a fresh searched batch window", async ({
+    page,
+  }) => {
+    const searchedBatchBodies: unknown[] = [];
+
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        knownLastFetchedAtByUrl?: Record<string, string>;
+        requestSource?: string;
+        searchTerm?: string;
+        urls?: string[];
+      };
+      const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      const isSearchRequest = requestBody.requestSource === "search-change";
+
+      if (isSearchRequest) {
+        searchedBatchBodies.push(requestBody);
+      }
+
+      const payload = urls.map((url, index) => ({
+        articles:
+          isSearchRequest && index === 0
+            ? [
+                {
+                  content: "A searched batch article returned by the server.",
+                  feedId: 9001,
+                  feedName: "Livescience",
+                  feedUrl: url,
+                  hasFullContent: true,
+                  id: 9001,
+                  isRead: false,
+                  isStarred: false,
+                  lastChecked: "2026-04-27T02:00:00.000Z",
+                  link: "https://example.com/livescience-search-result",
+                  publicationDate: "2026-04-27T01:59:00.000Z",
+                  title: "Livescience search result",
+                },
+              ]
+            : [
+                {
+                  content: "Initial dashboard article.",
+                  feedId: index + 1,
+                  feedName: `Initial Feed ${index + 1}`,
+                  feedUrl: url,
+                  hasFullContent: true,
+                  id: index + 1,
+                  isRead: false,
+                  isStarred: false,
+                  lastChecked: "2026-04-27T01:55:00.000Z",
+                  link: `https://example.com/initial-${index + 1}`,
+                  publicationDate: "2026-04-27T01:54:00.000Z",
+                  title: `Initial article ${index + 1}`,
+                },
+              ],
+        lastFetchedAt: "2026-04-27T02:00:00.000Z",
+        ok: true,
+        url,
+      }));
+
+      await route.fulfill({
+        body: JSON.stringify(payload),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+
+    await gotoAuthenticatedDashboard(page);
+
+    await page.getByPlaceholder("Search...").fill("livescience");
+    await expect(page.getByText("Livescience search result")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByRole("heading", { name: "No results" })).toHaveCount(
+      0,
+    );
+
+    await expect
+      .poll(() => searchedBatchBodies.length)
+      .toBeGreaterThanOrEqual(1);
+    expect(
+      (searchedBatchBodies.at(-1) as { knownLastFetchedAtByUrl?: unknown })
+        .knownLastFetchedAtByUrl,
+    ).toBeUndefined();
+  });
 });

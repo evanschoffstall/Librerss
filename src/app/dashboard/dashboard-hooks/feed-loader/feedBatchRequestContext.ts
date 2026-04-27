@@ -49,6 +49,7 @@ export interface FeedBatchRequestHelpers {
   getKnownLastFetchedAtByUrl: (
     normalizedSources: FeedBatchSource[],
     keepExistingFeed: boolean,
+    searchTerm?: FeedFetchOptions["searchTerm"],
   ) => Map<string, Date> | undefined;
 }
 
@@ -316,6 +317,7 @@ function buildFeedBatchRequestQueryState(
     options.requestHelpers.getKnownLastFetchedAtByUrl(
       options.normalizedSources,
       options.keepExistingFeed,
+      options.options?.searchTerm,
     );
 
   return {

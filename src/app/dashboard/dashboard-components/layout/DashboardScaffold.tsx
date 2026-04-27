@@ -59,7 +59,6 @@ export function DashboardScaffold(props: DashboardScaffoldProps) {
             mx-auto flex h-full max-w-6xl flex-col overflow-hidden px-4
             pt-[env(safe-area-inset-top)]
             pb-[calc(env(safe-area-inset-bottom)+3.8rem)]
-            sm:pb-0
             md:px-6
             lg:pt-[calc(env(safe-area-inset-top)+3.8rem)]
             lg:pb-[env(safe-area-inset-bottom)]

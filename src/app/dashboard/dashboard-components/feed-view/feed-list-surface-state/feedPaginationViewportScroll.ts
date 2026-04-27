@@ -306,8 +306,10 @@ function handleStandardViewportScroll(options: ViewportScrollHandlerOptions) {
     shouldLockInitialNormalScroll && options.scrollViewport.scrollTop !== 0;
 
   if (didClearInitialNormalScrollLock) {
+    options.scrollViewport.scrollTop = 0;
     options.clearInitialNormalScrollLock();
     options.suppressImmediateNormalScrollIntent();
+    return true;
   } else if (
     shouldLockInitialNormalScroll &&
     options.scrollViewport.scrollTop === 0
@@ -315,17 +317,11 @@ function handleStandardViewportScroll(options: ViewportScrollHandlerOptions) {
     return true;
   }
 
-  if (
-    options.normalScrollIntentSuppressionFrameRef.current !== null &&
-    !didClearInitialNormalScrollLock
-  ) {
+  if (options.normalScrollIntentSuppressionFrameRef.current !== null) {
     return true;
   }
 
-  if (
-    !didClearInitialNormalScrollLock &&
-    options.scrollViewport.scrollTop > 0
-  ) {
+  if (options.scrollViewport.scrollTop > 0) {
     options.hasUserScrolledRef.current = true;
   }
 

@@ -105,8 +105,6 @@ async function openPreviewDashboardOnMobile(page: Page) {
 }
 
 test.describe("dashboard mobile gestures", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("keeps expanded article reading interactions from collapsing the card", async ({
     page,
   }) => {

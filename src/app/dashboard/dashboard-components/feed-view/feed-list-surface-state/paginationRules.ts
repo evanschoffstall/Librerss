@@ -32,6 +32,24 @@ export interface ResolveInvertedPaginationAnchorScrollTopOptions {
 }
 
 /**
+ * Describes the inputs used to resolve the smallest feed window that can show a
+ * full configured page plus one clipped article below it.
+ */
+export interface ResolveMinimumClippedArticleCountOptions {
+  articlesPerPage: number;
+  filteredFeedLength: number;
+}
+
+/**
+ * Describes the inputs used to reveal one additional auto-fill article without
+ * crossing the available feed boundary.
+ */
+export interface ResolveNextAutoFillVisibleCountOptions {
+  currentVisibleCount: number;
+  filteredFeedLength: number;
+}
+
+/**
  * Describes the options for resolve next visible count.
  */
 export interface ResolveNextVisibleCountOptions {
@@ -150,6 +168,35 @@ export function resolveInvertedPaginationAnchorScrollTop(
 }
 
 /**
+ * Resolve the smallest article count that gives the reader one configured page
+ * of articles plus one overflow article for the scroll marker to clip.
+ *
+ * @param options - Page-size and available-feed inputs for the visible window.
+ * @returns The minimum clipped article count, capped by the available feed.
+ */
+export function resolveMinimumClippedArticleCount(
+  options: ResolveMinimumClippedArticleCountOptions,
+) {
+  return Math.min(options.articlesPerPage + 1, options.filteredFeedLength);
+}
+
+/**
+ * Resolve the next auto-fill count by adding exactly one article.
+ *
+ * Auto-fill exists to create the smallest clipped overflow, so it advances in
+ * single-article steps. Scroll pagination still uses `resolveNextVisibleCount`
+ * to reveal a full configured page per boundary gesture.
+ *
+ * @param options - Current and available article counts for the auto-fill pass.
+ * @returns The next one-article auto-fill count, capped by the feed length.
+ */
+export function resolveNextAutoFillVisibleCount(
+  options: ResolveNextAutoFillVisibleCountOptions,
+) {
+  return Math.min(options.currentVisibleCount + 1, options.filteredFeedLength);
+}
+
+/**
  * Resolve the next visible count.
  * @param options - The options used to resolve the next visible count.
  * @returns The next visible count.
@@ -191,6 +238,22 @@ export function shouldAutoFillViewport(options: ShouldAutoFillViewportOptions) {
 
   const scrollableOverflowPx =
     options.committedListHeight - options.clientHeight;
+  const minimumClippedArticleCount = resolveMinimumClippedArticleCount({
+    articlesPerPage: options.articlesPerPage,
+    filteredFeedLength: options.filteredFeedLength,
+  });
+  const activeViewportRefillTarget = resolveOwnedViewportRefillTarget(options);
+
+  if (options.currentVisibleCount < minimumClippedArticleCount) {
+    return true;
+  }
+
+  if (
+    activeViewportRefillTarget !== null &&
+    options.currentVisibleCount < activeViewportRefillTarget
+  ) {
+    return true;
+  }
 
   return (
     Number.isFinite(scrollableOverflowPx) &&
@@ -219,17 +282,6 @@ function hasExhaustedViewportAutoFillBacklog(
  * @param options - The auto-fill inputs for the current feed surface.
  * @returns Whether the owned visible-count target has been reached.
  */
-function hasReachedOwnedViewportRefillTarget(
-  options: ShouldAutoFillViewportOptions,
-) {
-  const ownedViewportRefillTarget = resolveOwnedViewportRefillTarget(options);
-
-  return (
-    ownedViewportRefillTarget !== null &&
-    options.currentVisibleCount >= ownedViewportRefillTarget
-  );
-}
-
 /**
  * Return whether the generic viewport auto-fill inputs contain usable numeric
  * measurements.
@@ -333,13 +385,13 @@ function resolveStandardBoundaryState(
  * Return whether the generic viewport auto-fill pass should short-circuit
  * before measuring overflow.
  *
- * The one-page ceiling check enforces the Initial Hydration Contract: without
- * an active owned refill target the visible window must never grow past one
- * configured page by auto-fill alone. This prevents unbounded DOM expansion on
- * first render and after browser reloads, regardless of the scroll-container
- * measurement at the time of each auto-fill pass. An owned refill target (for
- * example the two-page window that the post-refresh reset arms) is the only
- * path that may legally exceed this ceiling.
+ * The clipped-window ceiling check enforces the Initial Hydration Contract:
+ * without an active owned refill target, auto-fill may reveal only one
+ * configured page plus a single overflow article for the scroll marker to clip.
+ * This prevents unbounded DOM expansion on first render and after browser
+ * reloads, regardless of the scroll-container measurement at the time of each
+ * auto-fill pass. An owned refill target is the only path that may legally
+ * exceed this clipped window.
  *
  * @param options - The auto-fill inputs for the current feed surface.
  * @returns Whether the caller should skip generic viewport auto-fill.
@@ -357,21 +409,5 @@ function shouldSkipViewportAutoFill(options: ShouldAutoFillViewportOptions) {
     return true;
   }
 
-  const canBypassOnePageCeilingForShrinkRecovery =
-    options.articleFilter === "unread" && options.hasListShrunk === true;
-
-  if (
-    resolveOwnedViewportRefillTarget(options) === null &&
-    options.currentVisibleCount >= options.articlesPerPage &&
-    !canBypassOnePageCeilingForShrinkRecovery
-  ) {
-    // Hard count ceiling: auto-fill must never expand the visible window past
-    // one configured page without an owned refill target. This enforces the
-    // Initial Hydration Contract regardless of whether the committed list height
-    // has reached the viewport height, ensuring consistent behaviour between
-    // unit tests (mocked heights) and real browser (variable article heights).
-    return true;
-  }
-
-  return hasReachedOwnedViewportRefillTarget(options);
+  return false;
 }

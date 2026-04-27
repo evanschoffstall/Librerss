@@ -16,7 +16,7 @@ import { expect, test } from "./test";
  * mechanism (`preservePartialFilteredWindowAvailability`) that automatically
  * reloads placeholder articles whenever the unread list empties, preventing
  * `articleCard(page, 0).count()` from ever reaching 0 reliably.  The
- * workaround is the same pattern used by `dashboard-preview.e2e.ts`: switch
+ * workaround is the same pattern used by `dashboard-preview.e2e.test.ts`: switch
  * to the "all" filter first, then call "Mark all read".  In "all" mode the
  * refill mechanism is disabled (it only activates when `articleFilter ===
  * "unread"`), so the local state update applied by `onMarkAllReadLocally` is

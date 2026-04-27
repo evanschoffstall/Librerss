@@ -657,8 +657,6 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
 }
 
 test.describe("dashboard mobile inverted scroll", () => {
-  test.describe.configure({ mode: "serial" });
-
   test("keeps inverted scroll off by default on mobile and anchors the feed at the top", async ({
     page,
   }) => {
@@ -879,10 +877,24 @@ test.describe("dashboard mobile inverted scroll", () => {
           Math.max(320, Math.floor(currentMetrics.scrollHeight * 0.6)),
         );
         await scrollFeedViewportWithIntent(page, 0);
-        await page.waitForTimeout(120);
+        await expect
+          .poll(async () => {
+            const metrics = await readFeedViewportMetrics(page);
+
+            return metrics.scrollTop;
+          }, {
+            intervals: [40, 70, 90],
+            timeout: 300,
+          })
+          .toBeGreaterThanOrEqual(0);
       }
 
-      await page.waitForTimeout(1_200);
+      await expect
+        .poll(() => cancellationSignals.length, {
+          intervals: [120, 180, 220],
+          timeout: 1_200,
+        })
+        .toBe(0);
       expect(cancellationSignals).toEqual([]);
     } finally {
       page.off("console", handleConsole);
@@ -1036,13 +1048,27 @@ test.describe("dashboard mobile inverted scroll", () => {
       .poll(async () => await readArticleExpandedState(page, targetArticleKey))
       .toBe("true");
 
-    await page.waitForTimeout(300);
+    await expect
+      .poll(async () => {
+        return await readArticleExpandedState(page, targetArticleKey);
+      }, {
+        intervals: [50, 80, 100],
+        timeout: 500,
+      })
+      .toBe("true");
 
     const scrolledFar = await scrollFeedViewportWithIntent(
       page,
       Math.max(0, before.scrollTop - 480),
     );
-    await page.waitForTimeout(300);
+    await expect
+      .poll(async () => {
+        return (await readFeedViewportMetrics(page)).scrollTop;
+      }, {
+        intervals: [60, 90, 120],
+        timeout: 500,
+      })
+      .toBeGreaterThanOrEqual(0);
     const settledFar = (await readFeedViewportMetrics(page)).scrollTop;
     expect(Math.abs(settledFar - before.scrollTop)).toBeGreaterThan(200);
 
@@ -1086,13 +1112,27 @@ test.describe("dashboard mobile inverted scroll", () => {
       )
       .toBe("true");
 
-    await page.waitForTimeout(300);
+    await expect
+      .poll(async () => {
+        return await readArticleExpandedState(page, secondTargetArticleKey);
+      }, {
+        intervals: [50, 80, 100],
+        timeout: 500,
+      })
+      .toBe("true");
 
     const scrolledMidway = await scrollFeedViewportWithIntent(
       page,
       Math.max(0, secondBefore.scrollTop - 320),
     );
-    await page.waitForTimeout(300);
+    await expect
+      .poll(async () => {
+        return (await readFeedViewportMetrics(page)).scrollTop;
+      }, {
+        intervals: [60, 90, 120],
+        timeout: 500,
+      })
+      .toBeGreaterThanOrEqual(0);
     const settledMidway = (await readFeedViewportMetrics(page)).scrollTop;
     expect(Math.abs(settledMidway - secondBefore.scrollTop)).toBeGreaterThan(
       100,

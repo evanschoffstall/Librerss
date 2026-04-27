@@ -277,7 +277,7 @@ describe("feed pagination rule helpers", () => {
         articlesPerPage: 4,
         clientHeight: 480,
         committedListHeight: Number.NaN,
-        currentVisibleCount: 4,
+        currentVisibleCount: 5,
         filteredFeedLength: 12,
         hasUserScrolled: false,
         isInitialLoading: false,
