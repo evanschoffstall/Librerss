@@ -26,6 +26,29 @@ async function toolbarActionSkeletonCount(
 }
 
 test.describe("dashboard search live-search UX", () => {
+  test("empty search transitions do not crash the feed viewport before a source-metadata search", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => {
+      pageErrors.push(error.message);
+    });
+
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+
+    const input = searchInput(page);
+    await input.fill("xyzzy_unlikely_term_99");
+    await expect(page.getByRole("heading", { name: "No results" })).toBeVisible();
+
+    await input.clear();
+    await input.fill("nih research matters");
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("NIH Research Matters").first()).toBeVisible();
+    await expect(page.getByText("Something went wrong")).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+  });
+
   test("search input remains focused and interactive while skeleton feedback is limited to toolbar buttons and filter bar timestamp", async ({
     page,
   }) => {

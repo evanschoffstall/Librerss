@@ -149,6 +149,98 @@ describe("useFeedLoader", () => {
     }
   });
 
+  test("omits known feed timestamps when refreshing an existing live search", async () => {
+    const feedUrl = "https://example.com/search.xml";
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const article: Article = {
+      content: "Search result article body",
+      feedId: 7,
+      feedName: "Search Feed",
+      feedUrl,
+      id: 707,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T14:01:00.000Z"),
+      link: "https://example.com/articles/search-result",
+      publicationDate: new Date("2026-03-14T14:00:00.000Z"),
+      title: "Search result",
+    };
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const seenOptions: Parameters<typeof FeedService.getFeedsBatch>[1][] =
+      [];
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(
+      async (_urls: string[], options?: Parameters<typeof FeedService.getFeedsBatch>[1]) => {
+        seenOptions.push(options);
+
+        return [
+          {
+            articles: [article],
+            lastFetchedAt: new Date("2026-03-14T14:02:00.000Z"),
+            ok: true,
+            url: feedUrl,
+          },
+        ];
+      },
+    ) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(feedUrl);
+      });
+
+      await runWithAct(async () => {
+        await result.current.fetchFeed(feedUrl, {
+          keepExistingFeed: true,
+          requestSource: "search-change",
+          searchTerm: "livescience",
+          skipRefresh: true,
+        });
+      });
+
+      expect(seenOptions).toHaveLength(2);
+      expect(seenOptions[1]?.searchTerm).toBe("livescience");
+      expect(seenOptions[1]?.knownLastFetchedAtByUrl).toBeUndefined();
+    } finally {
+      queryClient.clear();
+    }
+  });
+
   test("reuses each prefetched page limit from cache while warming the next page", async () => {
     const categoriesRef = { current: [] as CategoryTreeNode[] };
     const prefetchedFeedUrl = "https://example.com/paged.xml";
