@@ -154,8 +154,12 @@ function useFeedBatchRequestHelpers(
   );
 
   const getKnownLastFetchedAtByUrl = useCallback(
-    (normalizedSources: FeedBatchSource[], keepExistingFeed: boolean) => {
-      if (!keepExistingFeed) {
+    (
+      normalizedSources: FeedBatchSource[],
+      keepExistingFeed: boolean,
+      searchTerm?: FeedFetchOptions["searchTerm"],
+    ) => {
+      if (!keepExistingFeed || searchTerm?.trim()) {
         return undefined;
       }
 

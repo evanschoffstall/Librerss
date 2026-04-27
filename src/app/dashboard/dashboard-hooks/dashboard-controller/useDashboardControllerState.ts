@@ -66,9 +66,7 @@ export function useDashboardRuntimeState(
   const appliedBatchArticleSortOrderRef = useRef(
     dashboardState.articleSortOrder,
   );
-  const appliedBatchSearchTermRef = useRef(
-    loadingState.deferredSearchTerm.trim(),
-  );
+  const appliedBatchSearchTermRef = useRef("");
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter: dashboardState.articleFilter,
     capturePreExpandSnapshot: articleActions.capturePreExpandSnapshot,

@@ -76,15 +76,20 @@ export function isCanceledBatchRequest(error: unknown): boolean {
     return false;
   }
 
-  const errorName =
-    "name" in error && typeof error.name === "string" ? error.name : null;
+  const errorName = readErrorStringProperty(error, "name");
+  const errorMessage = readErrorStringProperty(error, "message");
 
   return (
-    errorName === "AbortError" ||
-    errorName === "CanceledError" ||
-    errorName === "CancelledError"
+    CANCELED_BATCH_ERROR_TOKENS.has(errorName) ||
+    CANCELED_BATCH_ERROR_TOKENS.has(errorMessage)
   );
 }
+
+const CANCELED_BATCH_ERROR_TOKENS = new Set([
+  "AbortError",
+  "CanceledError",
+  "CancelledError",
+]);
 
 /**
  * Return whether is handled feed batch error.
@@ -176,6 +181,23 @@ function extractHttpStatus(error: unknown): number | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * Reads a string property from an unknown error-shaped object.
+ * @param source - Object that may expose an Error-compatible property.
+ * @param propertyName - Name of the property to read.
+ * @returns The string value when present, otherwise an empty string.
+ */
+function readErrorStringProperty(
+  source: object,
+  propertyName: "message" | "name",
+) {
+  const sourceRecord = source as Record<string, unknown>;
+
+  return typeof sourceRecord[propertyName] === "string"
+    ? sourceRecord[propertyName]
+    : "";
 }
 
 /**

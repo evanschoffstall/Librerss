@@ -42,6 +42,32 @@ interface DashboardAutoRefreshOptions {
 }
 
 /**
+ * Dashboard search refresh inputs plus mutable refs owned by the debounce hook.
+ */
+interface DashboardSearchDebounceOptions extends DashboardSearchRefreshOptions {
+  debounceRef: React.RefObject<null | ReturnType<typeof setTimeout>>;
+  latestSearchTermRef: React.RefObject<string>;
+}
+
+/**
+ * Dashboard inputs required to refresh the server-backed search window.
+ */
+type DashboardSearchRefreshOptions = Pick<
+  UseDashboardControllerRuntimeOptions,
+  | "appliedBatchSearchTermRef"
+  | "articleWindowLimit"
+  | "fetchAllFeeds"
+  | "fetchCategoryFeeds"
+  | "fetchFeed"
+  | "hasInitializedDashboardRef"
+  | "searchTerm"
+  | "selectedCategory"
+  | "selectedCategoryNode"
+  | "selectedFeedUrl"
+  | "usePlaceholderData"
+>;
+
+/**
  * Describes the options for dashboard selection refresh.
  */
 interface DashboardSelectionRefreshOptions<TValue> {
@@ -391,84 +417,157 @@ function useDashboardSelectionRefreshOnChange<TValue>(
 const SEARCH_DEBOUNCE_MS = 300;
 
 /**
+ * Clears a pending dashboard search debounce and marks the timer ref idle.
+ * @param debounceRef - Mutable timer ref owned by the search refresh hook.
+ */
+function clearDashboardSearchDebounce(
+  debounceRef: React.RefObject<null | ReturnType<typeof setTimeout>>,
+) {
+  if (debounceRef.current === null) {
+    return;
+  }
+
+  clearTimeout(debounceRef.current);
+  debounceRef.current = null;
+}
+
+/**
+ * Commits the latest debounced search term if no newer keystroke replaced it.
+ * @param options - Search refresh inputs captured for this debounce.
+ * @param pendingTerm - Trimmed term scheduled by the debounce.
+ */
+function commitDebouncedDashboardSearch(
+  options: DashboardSearchDebounceOptions,
+  pendingTerm: string,
+) {
+  if (options.latestSearchTermRef.current !== pendingTerm) {
+    return;
+  }
+
+  options.appliedBatchSearchTermRef.current = pendingTerm;
+  runDashboardSearchRefresh(options, pendingTerm);
+}
+
+/**
+ * Refreshes the current dashboard selection for a committed server search term.
+ * @param options - Current dashboard selection and fetch callbacks.
+ * @param searchTerm - Trimmed search term that survived the debounce window.
+ */
+function runDashboardSearchRefresh(
+  options: DashboardSearchRefreshOptions,
+  searchTerm: string,
+) {
+  if (options.usePlaceholderData) {
+    return;
+  }
+
+  void refreshCurrentSelection({
+    articleLimit: options.articleWindowLimit,
+    fetchAllFeeds: options.fetchAllFeeds,
+    fetchCategoryFeeds: options.fetchCategoryFeeds,
+    fetchFeed: options.fetchFeed,
+    keepExistingFeed: true,
+    requestSource: "search-change",
+    searchTerm,
+    selectedCategory: options.selectedCategory,
+    selectedCategoryNode: options.selectedCategoryNode,
+    selectedFeedUrl: options.selectedFeedUrl,
+    skipRefresh: true,
+  });
+}
+
+/**
+ * Schedules the debounced server refresh for the current dashboard search term.
+ * @param options - Search term, selection state, and mutable debounce refs.
+ * @returns Cleanup callback that cancels the pending debounce when inputs change.
+ */
+function scheduleDashboardSearchDebounce(
+  options: DashboardSearchDebounceOptions,
+) {
+  const normalizedSearchTerm = options.searchTerm.trim();
+  options.latestSearchTermRef.current = normalizedSearchTerm;
+  if (!shouldScheduleDashboardSearchRefresh(options, normalizedSearchTerm)) {
+    return;
+  }
+
+  clearDashboardSearchDebounce(options.debounceRef);
+
+  options.debounceRef.current = setTimeout(() => {
+    options.debounceRef.current = null;
+    commitDebouncedDashboardSearch(options, normalizedSearchTerm);
+  }, SEARCH_DEBOUNCE_MS);
+
+  return () => {
+    clearDashboardSearchDebounce(options.debounceRef);
+  };
+}
+
+/**
+ * Returns whether the current search term needs a server refresh debounce.
+ * @param options - Current dashboard search refresh inputs.
+ * @param normalizedSearchTerm - Trimmed search term from the current render.
+ * @returns Whether a debounce should be scheduled.
+ */
+function shouldScheduleDashboardSearchRefresh(
+  options: DashboardSearchDebounceOptions,
+  normalizedSearchTerm: string,
+) {
+  return (
+    options.hasInitializedDashboardRef.current &&
+    options.appliedBatchSearchTermRef.current !== normalizedSearchTerm
+  );
+}
+
+/**
  * Manage the dashboard search refresh.
  * @param options - The options used to manage the dashboard search refresh.
  */
-function useDashboardSearchRefresh(
-  options: Pick<
-    UseDashboardControllerRuntimeOptions,
-    | "appliedBatchSearchTermRef"
-    | "articleWindowLimit"
-    | "fetchAllFeeds"
-    | "fetchCategoryFeeds"
-    | "fetchFeed"
-    | "hasInitializedDashboardRef"
-    | "searchTerm"
-    | "selectedCategory"
-    | "selectedCategoryNode"
-    | "selectedFeedUrl"
-    | "usePlaceholderData"
-  >,
-) {
+function useDashboardSearchRefresh(options: DashboardSearchRefreshOptions) {
+  const {
+    appliedBatchSearchTermRef,
+    articleWindowLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    hasInitializedDashboardRef,
+    searchTerm,
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    usePlaceholderData,
+  } = options;
   const debounceRef = useRef<null | ReturnType<typeof setTimeout>>(null);
+  const latestSearchTermRef = useRef(searchTerm.trim());
 
-  useEffect(() => {
-    const normalizedSearchTerm = options.searchTerm.trim();
-    if (!options.hasInitializedDashboardRef.current) {
-      options.appliedBatchSearchTermRef.current = normalizedSearchTerm;
-      return;
-    }
-
-    if (options.appliedBatchSearchTermRef.current === normalizedSearchTerm) {
-      return;
-    }
-
-    // Cancel any in-flight debounce before scheduling a new one so rapid
-    // typing only triggers one server fetch 300 ms after the last keystroke.
-    if (debounceRef.current !== null) {
-      clearTimeout(debounceRef.current);
-    }
-
-    const pendingTerm = normalizedSearchTerm;
-
-    debounceRef.current = setTimeout(() => {
-      debounceRef.current = null;
-
-      // Guard: another effect run may have already applied this term.
-      if (options.appliedBatchSearchTermRef.current === pendingTerm) {
-        return;
-      }
-
-      options.appliedBatchSearchTermRef.current = pendingTerm;
-
-      if (options.usePlaceholderData) {
-        return;
-      }
-
-      // keepExistingFeed: true keeps the current (client-filtered) articles
-      // visible while the server resolves the fresh search result set.
-      // The feed is replaced in-place once the response arrives, with no
-      // intermediate empty state, so isShellLoading never fires.
-      void refreshCurrentSelection({
-        articleLimit: options.articleWindowLimit,
-        fetchAllFeeds: options.fetchAllFeeds,
-        fetchCategoryFeeds: options.fetchCategoryFeeds,
-        fetchFeed: options.fetchFeed,
-        keepExistingFeed: true,
-        requestSource: "search-change",
-        searchTerm: pendingTerm,
-        selectedCategory: options.selectedCategory,
-        selectedCategoryNode: options.selectedCategoryNode,
-        selectedFeedUrl: options.selectedFeedUrl,
-        skipRefresh: true,
-      });
-    }, SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      if (debounceRef.current !== null) {
-        clearTimeout(debounceRef.current);
-        debounceRef.current = null;
-      }
-    };
-  }, [options]);
+  useEffect(
+    () =>
+      scheduleDashboardSearchDebounce({
+        appliedBatchSearchTermRef,
+        articleWindowLimit,
+        debounceRef,
+        fetchAllFeeds,
+        fetchCategoryFeeds,
+        fetchFeed,
+        hasInitializedDashboardRef,
+        latestSearchTermRef,
+        searchTerm,
+        selectedCategory,
+        selectedCategoryNode,
+        selectedFeedUrl,
+        usePlaceholderData,
+      }),
+    [
+      appliedBatchSearchTermRef,
+      articleWindowLimit,
+      fetchAllFeeds,
+      fetchCategoryFeeds,
+      fetchFeed,
+      hasInitializedDashboardRef,
+      searchTerm,
+      selectedCategory,
+      selectedCategoryNode,
+      selectedFeedUrl,
+      usePlaceholderData,
+    ],
+  );
 }
