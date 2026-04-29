@@ -2,13 +2,51 @@ import {
   articleCard,
   expectArticleExpanded,
   gotoPreviewDashboard,
+  openDashboardSettings,
   waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
 
-async function readFeedScrollbarState(
-  page: Parameters<typeof gotoPreviewDashboard>[0],
-) {
+type DashboardPage = Parameters<typeof gotoPreviewDashboard>[0];
+
+/** Returns whether the dashboard feed's custom shadcn-style rail is visually exposed. */
+async function isDashboardFeedScrollbarVisible(page: DashboardPage) {
+  return await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const scrollbar = viewport?.nextElementSibling as HTMLElement | null;
+
+    if (!viewport || !scrollbar) {
+      throw new Error("Expected the dashboard feed scrollbar overlay.");
+    }
+
+    return Number.parseFloat(getComputedStyle(scrollbar).opacity) > 0.95;
+  });
+}
+
+/** Returns whether the settings dialog's Radix scrollbar is visually exposed. */
+async function isSettingsRadixScrollbarVisible(page: DashboardPage) {
+  return await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]');
+    const viewport = dialog?.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const scrollbar = Array.from(viewport?.parentElement?.children ?? []).find(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement &&
+        child.dataset.orientation === "vertical",
+    );
+
+    if (!viewport || !scrollbar) {
+      return false;
+    }
+
+    return Number.parseFloat(getComputedStyle(scrollbar).opacity) > 0.95;
+  });
+}
+
+async function readFeedScrollbarState(page: DashboardPage) {
   return await page.evaluate(() => {
     const viewport = document.querySelector<HTMLElement>(
       '[data-feed-scroll-viewport="true"]',
@@ -36,7 +74,69 @@ async function readFeedScrollbarState(
   });
 }
 
+/** Returns the settings dialog ScrollArea root so pointer hover targets the owning surface. */
+function settingsScrollAreaRoot(page: DashboardPage) {
+  return page
+    .getByRole("dialog", { name: "Reader Settings" })
+    .locator("[data-radix-scroll-area-viewport]")
+    .locator("xpath=..");
+}
+
 test.describe("dashboard feed scrollbar", () => {
+  test("only reveals the dashboard feed overlay scrollbar while the feed ScrollArea is hovered", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    const feedScrollAreaRoot = page
+      .locator('[data-feed-scroll-viewport="true"]')
+      .locator("xpath=..");
+
+    await page.mouse.move(1, 1);
+    await expect
+      .poll(async () => await isDashboardFeedScrollbarVisible(page))
+      .toBe(false);
+
+    await feedScrollAreaRoot.hover();
+    await expect
+      .poll(async () => await isDashboardFeedScrollbarVisible(page))
+      .toBe(true);
+
+    await page.mouse.move(1, 1);
+    await expect
+      .poll(async () => await isDashboardFeedScrollbarVisible(page))
+      .toBe(false);
+  });
+
+  test("only reveals Radix shadcn scrollbars while their ScrollArea is hovered", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+    await openDashboardSettings(page);
+
+    const scrollAreaRoot = settingsScrollAreaRoot(page);
+    await expect(scrollAreaRoot).toBeVisible();
+
+    await page.mouse.move(1, 1);
+    await expect
+      .poll(async () => await isSettingsRadixScrollbarVisible(page))
+      .toBe(false);
+
+    await scrollAreaRoot.hover();
+    await expect
+      .poll(async () => await isSettingsRadixScrollbarVisible(page))
+      .toBe(true);
+
+    await page.mouse.move(1, 1);
+    await expect
+      .poll(async () => await isSettingsRadixScrollbarVisible(page))
+      .toBe(false);
+  });
+
   test("shrinks the overlay thumb after article expansion increases the live scroll range", async ({
     page,
   }) => {
