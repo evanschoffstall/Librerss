@@ -140,10 +140,16 @@ export function resolveBackgroundStarPointerOffset(
 
 /**
  * Update the background star.
- * @param star - The star.
- * @param lerpFactor - The lerp factor.
- * @param mouse - The mouse.
- * @param staticity - The staticity.
+ *
+ * Pointer-driven parallax interpolation always runs because it is a direct
+ * response to user input. Autonomous twinkle and fade alpha modulation also
+ * advances on every frame so the background keeps its ambient star-field
+ * character in browsers that report reduced motion through system settings,
+ * including Microsoft Edge on Windows.
+ * @param star - The star to update in place.
+ * @param lerpFactor - The interpolation factor for pointer parallax.
+ * @param mouse - The pointer offset relative to the canvas center.
+ * @param staticity - The pointer staticity controlling parallax strength.
  */
 export function updateBackgroundStar(
   star: Star,

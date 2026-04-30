@@ -201,6 +201,13 @@ export default function BackgroundParticles(props: ParticlesProps) {
       initParticles: runtime.initParticles,
       startedAtRef: runtime.startedAtRef,
     });
+    // Paint a static initial frame so particles are visible immediately,
+    // without waiting for the first animation tick. Browsers that report
+    // `prefers-reduced-motion: reduce` (notably Edge on Windows with system
+    // animations disabled) can otherwise render no autonomous motion at
+    // all, leaving an empty canvas. The seeded frame guarantees universal
+    // visibility while pointer parallax remains active on subsequent ticks.
+    runtime.renderFrame(performance.now(), 0);
   }, [runtime]);
 
   useBackgroundCanvasWindowEvents({
