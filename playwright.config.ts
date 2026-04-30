@@ -8,6 +8,10 @@ import { join } from "node:path";
 import { resolvePlaywrightBaseUrl } from "./scripts/playwright-base-url";
 
 const baseURL = resolvePlaywrightBaseUrl();
+const backgroundUniversalDesktopTests =
+  "**/dashboard-background-universal.e2e.test.ts";
+const backgroundUniversalMobileTests =
+  "**/dashboard-background-universal.mobile.e2e.test.ts";
 const htmlReportDir =
   process.env.PLAYWRIGHT_HTML_REPORT_DIR ?? "playwright-report";
 const includeMobileWebKit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "1";
@@ -131,6 +135,24 @@ export default defineConfig({
       },
     },
     {
+      name: "edge-chromium",
+      testMatch: backgroundUniversalDesktopTests,
+      use: {
+        ...devices["Desktop Chrome"],
+        browserName: "chromium" as const,
+        userAgent:
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0",
+      },
+    },
+    {
+      name: "firefox",
+      testMatch: backgroundUniversalDesktopTests,
+      use: {
+        ...devices["Desktop Firefox"],
+      },
+    },
+    {
       name: "mobile-chromium",
       testMatch: "**/*.mobile.e2e.test.ts",
       use: {
@@ -142,7 +164,7 @@ export default defineConfig({
       ? [
           {
             name: "mobile-webkit",
-            testMatch: "**/*.mobile.e2e.test.ts",
+            testMatch: backgroundUniversalMobileTests,
             use: {
               ...devices["iPhone 14"],
               browserName: "webkit" as const,
