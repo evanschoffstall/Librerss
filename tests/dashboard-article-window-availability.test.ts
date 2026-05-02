@@ -181,7 +181,7 @@ describe("dashboard article window availability", () => {
   });
 
   test("only refills an unread window when local read updates emptied the filtered view", () => {
-    // Filtered count below threshold and no in-flight operations: refill fires.
+    // Filtered count dropped below threshold and no in-flight operations: refill fires.
     expect(
       shouldRefillDepletedUnreadWindow({
         articleFilter: "unread",
@@ -192,9 +192,27 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(true);
+
+    // Initial hydration can naturally return fewer unread articles than the
+    // threshold. That is not a local read-state depletion and must not refill.
+    expect(
+      shouldRefillDepletedUnreadWindow({
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        currentFeedLength: 12,
+        currentFilteredFeedLength: 4,
+        hasMoreServerArticles: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 4,
+        shouldUseArticleWindow: true,
+      }),
+    ).toBe(false);
 
     // Wrong filter: refill must only fire for the "unread" filter.
     expect(
@@ -207,6 +225,7 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 4,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);
@@ -222,6 +241,7 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);
@@ -241,6 +261,7 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: true,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);
@@ -258,6 +279,7 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(true);
@@ -276,6 +298,7 @@ describe("dashboard article window availability", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: true,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);

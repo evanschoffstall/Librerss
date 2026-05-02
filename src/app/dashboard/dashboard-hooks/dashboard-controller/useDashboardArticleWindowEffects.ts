@@ -5,6 +5,7 @@ import {
   type RefObject,
   type SetStateAction,
   useEffect,
+  useRef,
 } from "react";
 
 import type { CategoryTreeNode } from "@/lib/core";
@@ -32,6 +33,11 @@ interface ArticleWindowRefCollection {
   isRefillingDepletedUnreadWindowRef: RefObject<boolean>;
   lastPrefetchedLimitRef: RefObject<number>;
   previousAwaitedFeedLengthRef: RefObject<number>;
+}
+
+/** Inputs forwarded to the unread-window refill runner with previous render state. */
+interface UnreadWindowRefillEffectOptions extends UseUnreadWindowRefillOptions {
+  previousFilteredFeedLength: number;
 }
 
 /**
@@ -264,9 +270,32 @@ export function useResetArticleWindowOnSelectionChange(
 export function useUnreadWindowRefill(
   options: UseUnreadWindowRefillOptions,
 ): void {
+  const previousFilteredFeedLengthRef = useRef(
+    options.currentFilteredFeedLength,
+  );
+  const refillScopeRef = useRef(
+    getUnreadWindowRefillScope(options.articleFilter, options.selectedCategory),
+  );
+
   useEffect(
     () => {
-      runUnreadWindowRefillEffect(options);
+      const refillScope = getUnreadWindowRefillScope(
+        options.articleFilter,
+        options.selectedCategory,
+      );
+
+      if (refillScopeRef.current !== refillScope) {
+        refillScopeRef.current = refillScope;
+        previousFilteredFeedLengthRef.current =
+          options.currentFilteredFeedLength;
+        return;
+      }
+
+      runUnreadWindowRefillEffect({
+        ...options,
+        previousFilteredFeedLength: previousFilteredFeedLengthRef.current,
+      });
+      previousFilteredFeedLengthRef.current = options.currentFilteredFeedLength;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencies are listed explicitly off `options.*` to keep the hook free of a destructuring block that would duplicate this list and trip jscpd.
     [
@@ -298,6 +327,19 @@ export function useUnreadWindowRefill(
 }
 
 /**
+ * Return the state boundary where unread-refill comparisons remain meaningful.
+ * @param articleFilter - The active article filter.
+ * @param selectedCategory - The active category or feed key.
+ * @returns A stable key for resetting previous unread-count tracking.
+ */
+function getUnreadWindowRefillScope(
+  articleFilter: string,
+  selectedCategory: string,
+) {
+  return `${articleFilter}:${selectedCategory}`;
+}
+
+/**
  * Run a single depleted-unread-window refill pass for the dashboard article window.
  *
  * Extracted from `useUnreadWindowRefill` so the effect body lives outside the hook's
@@ -314,7 +356,7 @@ export function useUnreadWindowRefill(
  * @param options - The full hook options forwarded from `useUnreadWindowRefill`.
  */
 function runUnreadWindowRefillEffect(
-  options: UseUnreadWindowRefillOptions,
+  options: UnreadWindowRefillEffectOptions,
 ): void {
   if (
     !shouldRefillDepletedUnreadWindow({
@@ -329,6 +371,7 @@ function runUnreadWindowRefillEffect(
         options.isLoadingMoreArticles,
       isRefillingDepletedUnreadWindow:
         options.isRefillingDepletedUnreadWindowRef.current,
+      previousFilteredFeedLength: options.previousFilteredFeedLength,
       shouldUseArticleWindow: options.shouldUseArticleWindow,
     })
   ) {

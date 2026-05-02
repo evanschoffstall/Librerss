@@ -69,6 +69,7 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
   isLoading: boolean;
   isLoadingMoreArticles: boolean;
   isRefillingDepletedUnreadWindow: boolean;
+  previousFilteredFeedLength: number;
   shouldUseArticleWindow: boolean;
 }
 
@@ -168,6 +169,7 @@ export function shouldRefillDepletedUnreadWindow(
     isLoading,
     isLoadingMoreArticles,
     isRefillingDepletedUnreadWindow,
+    previousFilteredFeedLength,
     shouldUseArticleWindow,
   } = options;
   const unreadRefillThreshold = resolveUnreadRefillThreshold(articlesPerPage);
@@ -179,6 +181,7 @@ export function shouldRefillDepletedUnreadWindow(
     !isLoading &&
     !isLoadingMoreArticles &&
     !isRefillingDepletedUnreadWindow &&
+    currentFilteredFeedLength < previousFilteredFeedLength &&
     currentFilteredFeedLength < unreadRefillThreshold &&
     currentFeedLength > 0
   );
