@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildPlaywrightBaseUrl,
   resolvePlaywrightBaseUrl,
-} from "../scripts/playwright-base-url";
+} from "../scripts/playwright";
 
 describe("playwright base URL resolution", () => {
   test("prefers the wrapper-provided PLAYWRIGHT_BASE_URL", () => {
