@@ -22,9 +22,13 @@ export interface NextJsErrorMonitor {
 }
 
 interface DeterministicFeedBatchRouteOptions {
+  articleFeedCount?: number;
   articleHasFullContent?: boolean;
   articlesPerFeed?: number;
   failNextBatchRequestRef?: { current: boolean };
+  readArticleIdsRef?: Set<number>;
+  respectArticleLimit?: boolean;
+  totalArticlesPerFeed?: number;
 }
 
 const DETERMINISTIC_PREVIEW_PARAGRAPH = [
@@ -327,39 +331,74 @@ export async function installDeterministicFeedBatchRoute(
     }
 
     const requestBody = route.request().postDataJSON() as {
+      articleFilter?: string;
+      articleLimit?: number;
       urls?: string[];
     };
     const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
-    const articlesPerFeed = options.articlesPerFeed ?? 1;
-    const payload = urls.map((url, feedIndex) => ({
-      articles: Array.from({ length: articlesPerFeed }, (_, articleIndex) => {
-        const articleNumber = feedIndex * articlesPerFeed + articleIndex + 1;
+    const articlesPerFeed = resolveDeterministicArticlesPerFeed({
+      requestedArticleLimit: requestBody.articleLimit,
+      routeOptions: options,
+    });
+    const totalArticlesPerFeed =
+      options.totalArticlesPerFeed ?? articlesPerFeed;
+    const payload = urls.map((url, feedIndex) => {
+      const feedArticleCount =
+        options.articleFeedCount === undefined ||
+        feedIndex < options.articleFeedCount
+          ? totalArticlesPerFeed
+          : 0;
 
-        return {
-          content:
-            options.articleHasFullContent === false
-              ? `Deterministic excerpt ${articleNumber}`
-              : [
-                  `<p><strong>Deterministic Article ${articleNumber}</strong></p>`,
-                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-                ].join(""),
-          feedId: feedIndex + 1,
-          feedUrl: url,
-          hasFullContent: options.articleHasFullContent ?? true,
-          id: articleNumber,
-          isRead: false,
-          isStarred: false,
-          lastChecked: `2026-03-13T10:${String(articleNumber % 60).padStart(2, "0")}:00.000Z`,
-          link: `https://example.com/playwright/article-${articleNumber}`,
-          publicationDate: `2026-03-13T09:${String(articleNumber % 60).padStart(2, "0")}:00.000Z`,
-          title: `Deterministic Article ${articleNumber}`,
-        };
-      }),
-      ok: true,
-      url,
-    }));
+      return {
+        articles: Array.from(
+          { length: feedArticleCount },
+          (_, articleIndex) => {
+            return feedIndex * totalArticlesPerFeed + articleIndex + 1;
+          },
+        )
+          .filter((articleNumber) => {
+            if (requestBody.articleFilter === "unread") {
+              return !options.readArticleIdsRef?.has(articleNumber);
+            }
+            if (requestBody.articleFilter === "read") {
+              return options.readArticleIdsRef?.has(articleNumber) === true;
+            }
+            if (requestBody.articleFilter === "starred") {
+              return false;
+            }
+
+            return true;
+          })
+          .slice(0, articlesPerFeed)
+          .map((articleNumber) => {
+            const articleOffset = (articleNumber - 1) % totalArticlesPerFeed;
+
+            return {
+              content:
+                options.articleHasFullContent === false
+                  ? `Deterministic excerpt ${articleNumber}`
+                  : [
+                      `<p><strong>Deterministic Article ${articleNumber}</strong></p>`,
+                      `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                      `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                      `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                    ].join(""),
+              feedId: feedIndex + 1,
+              feedUrl: url,
+              hasFullContent: options.articleHasFullContent ?? true,
+              id: articleNumber,
+              isRead: options.readArticleIdsRef?.has(articleNumber) ?? false,
+              isStarred: false,
+              lastChecked: `2026-03-13T10:${String(articleOffset % 60).padStart(2, "0")}:00.000Z`,
+              link: `https://example.com/playwright/article-${articleNumber}`,
+              publicationDate: `2026-03-13T09:${String(articleOffset % 60).padStart(2, "0")}:00.000Z`,
+              title: `Deterministic Article ${articleNumber}`,
+            };
+          }),
+        ok: true,
+        url,
+      };
+    });
 
     await route.fulfill({
       body: JSON.stringify(payload),
@@ -1212,6 +1251,23 @@ async function readNextJsPortalText(page: Page) {
       return `${portal.textContent ?? ""} ${portal.shadowRoot?.textContent ?? ""}`;
     }),
   );
+}
+
+/**
+ * Resolves how many deterministic articles a mocked batch request should expose.
+ *
+ * Normal preview tests keep the historical fixed-size response, while finite
+ * corpus tests opt in to honoring the dashboard's requested article window.
+ */
+function resolveDeterministicArticlesPerFeed(options: {
+  requestedArticleLimit?: number;
+  routeOptions: DeterministicFeedBatchRouteOptions;
+}) {
+  if (!options.routeOptions.respectArticleLimit) {
+    return options.routeOptions.articlesPerFeed ?? 1;
+  }
+
+  return Math.max(0, options.requestedArticleLimit ?? 1);
 }
 
 function shouldCaptureNextJsConsoleError(message: ConsoleMessage) {
