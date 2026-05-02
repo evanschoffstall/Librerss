@@ -45,7 +45,9 @@ interface UnreadWindowRefillEffectOptions extends UseUnreadWindowRefillOptions {
  */
 interface UseArticleWindowAvailabilityOptions {
   allowPartialArticleWindowGrowthRef: RefObject<boolean>;
+  articlesPerPage: number;
   currentFeedLength: number;
+  currentFilteredFeedLength: number;
   hasMoreServerArticles: boolean;
   hasStartedArticleWindowSettlementRef: RefObject<boolean>;
   isAwaitingArticleWindowSettlementRef: RefObject<boolean>;
@@ -118,77 +120,30 @@ interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
 export function useArticleWindowAvailability(
   options: UseArticleWindowAvailabilityOptions,
 ): void {
-  const {
-    allowPartialArticleWindowGrowthRef,
-    currentFeedLength,
-    hasMoreServerArticles,
-    hasStartedArticleWindowSettlementRef,
-    isAwaitingArticleWindowSettlementRef,
-    isLoading,
-    isLoadingMoreArticles,
-    isLoadingMoreArticlesRef,
-    previousAwaitedFeedLengthRef,
-    requestedArticleLimit,
-    setHasMoreServerArticles,
-    setIsLoadingMoreArticles,
-    shouldUseArticleWindow,
-  } = options;
-  useEffect(() => {
-    const nextAvailability = resolveArticleWindowAvailability({
-      allowPartialFeedGrowth: allowPartialArticleWindowGrowthRef.current,
-      currentFeedLength,
-      hasStartedAwaitedWindowSettlement:
-        hasStartedArticleWindowSettlementRef.current,
-      isAwaitingWindowSettlement: isAwaitingArticleWindowSettlementRef.current,
-      isLoading,
-      isLoadingMoreArticles,
-      preservePartialFilteredWindowAvailability:
-        options.preservePartialFilteredWindowAvailability,
-      previousFeedLength: previousAwaitedFeedLengthRef.current,
-      previousHasMoreServerArticles: hasMoreServerArticles,
-      requestedArticleLimit,
-      shouldUseArticleWindow,
-    });
-
-    if (nextAvailability.shouldClearAwaitingWindowSettlement) {
-      isAwaitingArticleWindowSettlementRef.current = false;
-      allowPartialArticleWindowGrowthRef.current = false;
-      hasStartedArticleWindowSettlementRef.current = false;
-    }
-
-    if (!shouldUseArticleWindow) {
-      isLoadingMoreArticlesRef.current = false;
-      setIsLoadingMoreArticles(false);
-    }
-
-    if (nextAvailability.hasMoreServerArticles !== hasMoreServerArticles) {
-      setHasMoreServerArticles(nextAvailability.hasMoreServerArticles);
-    }
-
-    if (
-      isLoadingMoreArticlesRef.current &&
-      !isLoading &&
-      !isAwaitingArticleWindowSettlementRef.current
-    ) {
-      isLoadingMoreArticlesRef.current = false;
-      setIsLoadingMoreArticles(false);
-    }
-  }, [
-    allowPartialArticleWindowGrowthRef,
-    currentFeedLength,
-    hasMoreServerArticles,
-    hasStartedArticleWindowSettlementRef,
-    isAwaitingArticleWindowSettlementRef,
-    isLoading,
-    isLoadingMoreArticles,
-    isLoadingMoreArticlesRef,
-    previousAwaitedFeedLengthRef,
-    options.preservePartialFilteredWindowAvailability,
-    requestedArticleLimit,
-    setHasMoreServerArticles,
-    setIsLoadingMoreArticles,
-    shouldUseArticleWindow,
-  ]);
+  useEffect(
+    () => {
+      runArticleWindowAvailabilityEffect(options);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dependencies are listed explicitly off `options.*` so the hook can stay a thin lifecycle wrapper without duplicating the option shape.
+    [
+      options.allowPartialArticleWindowGrowthRef,
+      options.articlesPerPage,
+      options.currentFeedLength,
+      options.currentFilteredFeedLength,
+      options.hasMoreServerArticles,
+      options.hasStartedArticleWindowSettlementRef,
+      options.isAwaitingArticleWindowSettlementRef,
+      options.isLoading,
+      options.isLoadingMoreArticles,
+      options.isLoadingMoreArticlesRef,
+      options.preservePartialFilteredWindowAvailability,
+      options.previousAwaitedFeedLengthRef,
+      options.requestedArticleLimit,
+      options.setHasMoreServerArticles,
+      options.setIsLoadingMoreArticles,
+      options.shouldUseArticleWindow,
+    ],
+  );
 }
 
 /**
@@ -327,6 +282,35 @@ export function useUnreadWindowRefill(
 }
 
 /**
+ * Clears the refs that track an awaited article-window settlement.
+ * @param allowPartialArticleWindowGrowthRef - Ref that tracks whether partial feed growth is allowed.
+ * @param hasStartedArticleWindowSettlementRef - Ref that tracks whether settlement has started.
+ * @param isAwaitingArticleWindowSettlementRef - Ref that tracks whether settlement is still awaited.
+ */
+function clearAwaitingArticleWindowSettlement(
+  allowPartialArticleWindowGrowthRef: RefObject<boolean>,
+  hasStartedArticleWindowSettlementRef: RefObject<boolean>,
+  isAwaitingArticleWindowSettlementRef: RefObject<boolean>,
+): void {
+  isAwaitingArticleWindowSettlementRef.current = false;
+  allowPartialArticleWindowGrowthRef.current = false;
+  hasStartedArticleWindowSettlementRef.current = false;
+}
+
+/**
+ * Clears the loading-more state mirror and backing ref together.
+ * @param isLoadingMoreArticlesRef - Ref mirror for the loading-more state.
+ * @param setIsLoadingMoreArticles - Setter for the reactive loading-more state.
+ */
+function clearLoadingMoreArticles(
+  isLoadingMoreArticlesRef: RefObject<boolean>,
+  setIsLoadingMoreArticles: Dispatch<SetStateAction<boolean>>,
+): void {
+  isLoadingMoreArticlesRef.current = false;
+  setIsLoadingMoreArticles(false);
+}
+
+/**
  * Return the state boundary where unread-refill comparisons remain meaningful.
  * @param articleFilter - The active article filter.
  * @param selectedCategory - The active category or feed key.
@@ -337,6 +321,65 @@ function getUnreadWindowRefillScope(
   selectedCategory: string,
 ) {
   return `${articleFilter}:${selectedCategory}`;
+}
+
+/**
+ * Runs one availability synchronization pass for the article window lifecycle.
+ * @param options - Refs, state values, and setters for the article window lifecycle.
+ */
+function runArticleWindowAvailabilityEffect(
+  options: UseArticleWindowAvailabilityOptions,
+): void {
+  const nextAvailability = resolveArticleWindowAvailability({
+    allowPartialFeedGrowth: options.allowPartialArticleWindowGrowthRef.current,
+    articlesPerPage: options.articlesPerPage,
+    currentFeedLength: options.currentFeedLength,
+    currentFilteredFeedLength: options.currentFilteredFeedLength,
+    hasStartedAwaitedWindowSettlement:
+      options.hasStartedArticleWindowSettlementRef.current,
+    isAwaitingWindowSettlement:
+      options.isAwaitingArticleWindowSettlementRef.current,
+    isLoading: options.isLoading,
+    isLoadingMoreArticles: options.isLoadingMoreArticles,
+    preservePartialFilteredWindowAvailability:
+      options.preservePartialFilteredWindowAvailability,
+    previousFeedLength: options.previousAwaitedFeedLengthRef.current,
+    previousHasMoreServerArticles: options.hasMoreServerArticles,
+    requestedArticleLimit: options.requestedArticleLimit,
+    shouldUseArticleWindow: options.shouldUseArticleWindow,
+  });
+
+  if (nextAvailability.shouldClearAwaitingWindowSettlement) {
+    clearAwaitingArticleWindowSettlement(
+      options.allowPartialArticleWindowGrowthRef,
+      options.hasStartedArticleWindowSettlementRef,
+      options.isAwaitingArticleWindowSettlementRef,
+    );
+  }
+
+  if (!options.shouldUseArticleWindow) {
+    clearLoadingMoreArticles(
+      options.isLoadingMoreArticlesRef,
+      options.setIsLoadingMoreArticles,
+    );
+  }
+
+  if (
+    nextAvailability.hasMoreServerArticles !== options.hasMoreServerArticles
+  ) {
+    options.setHasMoreServerArticles(nextAvailability.hasMoreServerArticles);
+  }
+
+  if (
+    options.isLoadingMoreArticlesRef.current &&
+    !options.isLoading &&
+    !options.isAwaitingArticleWindowSettlementRef.current
+  ) {
+    clearLoadingMoreArticles(
+      options.isLoadingMoreArticlesRef,
+      options.setIsLoadingMoreArticles,
+    );
+  }
 }
 
 /**

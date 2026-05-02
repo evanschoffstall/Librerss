@@ -91,7 +91,9 @@ describe("dashboard article window availability", () => {
     expect(
       resolveArticleWindowAvailability({
         allowPartialFeedGrowth: false,
+        articlesPerPage: 4,
         currentFeedLength: 6,
+        currentFilteredFeedLength: 6,
         hasStartedAwaitedWindowSettlement: true,
         isAwaitingWindowSettlement: true,
         isLoading: false,
@@ -104,6 +106,52 @@ describe("dashboard article window availability", () => {
       }),
     ).toEqual({
       hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+  });
+
+  test("keeps unread pagination alive when visible-read refill restores the filtered window without growing total rows", () => {
+    expect(
+      resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: true,
+        articlesPerPage: 4,
+        currentFeedLength: 24,
+        currentFilteredFeedLength: 5,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        preservePartialFilteredWindowAvailability: true,
+        previousFeedLength: 24,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 29,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: true,
+      shouldClearAwaitingWindowSettlement: true,
+    });
+  });
+
+  test("marks unread pagination exhausted when refill cannot restore the minimum filtered window", () => {
+    expect(
+      resolveArticleWindowAvailability({
+        allowPartialFeedGrowth: true,
+        articlesPerPage: 4,
+        currentFeedLength: 24,
+        currentFilteredFeedLength: 4,
+        hasStartedAwaitedWindowSettlement: true,
+        isAwaitingWindowSettlement: true,
+        isLoading: false,
+        isLoadingMoreArticles: false,
+        preservePartialFilteredWindowAvailability: true,
+        previousFeedLength: 24,
+        previousHasMoreServerArticles: true,
+        requestedArticleLimit: 29,
+        shouldUseArticleWindow: true,
+      }),
+    ).toEqual({
+      hasMoreServerArticles: false,
       shouldClearAwaitingWindowSettlement: true,
     });
   });
