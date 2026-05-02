@@ -16,10 +16,12 @@ export { RateLimiter, rateLimiter } from "./rate-limit";
 export * as serverApi from "./server-api";
 export { logAndRespondError } from "./server-api";
 export {
+  type BatchFetchExecutionResult,
   type BatchRequestBody,
   type BatchRequestCompletedOptions,
   type BatchRequestState,
   type BatchUrlDescriptor,
+  buildBatchFetchExecutionResult,
   buildBatchFetchRequestOptions,
   buildBatchFetchResults,
   buildBatchIntent,
@@ -27,6 +29,7 @@ export {
   buildInvalidBatchResultResponse,
   createBatchSuccessResponse,
   ensureBatchUrlCount,
+  executeIsolatedFeedBatchFallback,
   logBatchDiagnostics,
   logBatchRequestCompleted,
   logBatchRequestReceived,

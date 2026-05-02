@@ -942,4 +942,100 @@ describe("api/feeds/batch route", () => {
       expect.any(Error),
     );
   });
+
+  test("falls back to isolated feed batches when a multi-feed refresh throws", async () => {
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const lastFetchedAt = new Date("2026-05-03T12:00:00.000Z");
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const warn = mock(() => undefined);
+    const fetchAndCacheFeedArticlesBatch = mock(
+      async (
+        _db: Parameters<FetchAndCacheFeedArticlesBatchFn>[0],
+        _userId: Parameters<FetchAndCacheFeedArticlesBatchFn>[1],
+        feedUrls: Parameters<FetchAndCacheFeedArticlesBatchFn>[2],
+        _options?: Parameters<FetchAndCacheFeedArticlesBatchFn>[3],
+      ): Promise<FetchAndCacheFeedArticlesBatchResult> => {
+        if (feedUrls.length > 1) {
+          throw new Error("batch refresh aborted");
+        }
+
+        const [feedUrl] = feedUrls;
+        if (feedUrl === secondUrl) {
+          throw new Error("isolated upstream failure");
+        }
+
+        return {
+          articles: new Map([
+            [firstUrl, [{ id: 1, title: "Recovered article" } as never]],
+          ]),
+          cachedCount: 0,
+          cooldownLimitedCount: 0,
+          errors: new Map(),
+          lastFetchedByUrl: new Map([[firstUrl, lastFetchedAt]]),
+          refreshedCount: 1,
+          resolution: "upstream",
+          unchangedUrls: new Set(),
+        };
+      },
+    );
+    logger.warn = warn as typeof logger.warn;
+    const deps: BatchRouteDeps = {
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      requireMutableAuthenticatedUserFn: async () => user,
+    };
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        forceRefresh: true,
+        requestSource: "manual-refresh",
+        urls: [firstUrl, secondUrl],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(207);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(3);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[2]).toEqual([
+      firstUrl,
+      secondUrl,
+    ]);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[1]?.[2]).toEqual([
+      firstUrl,
+    ]);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[2]?.[2]).toEqual([
+      secondUrl,
+    ]);
+    expect(data).toEqual([
+      {
+        articles: [{ id: 1, title: "Recovered article" }],
+        lastFetchedAt: lastFetchedAt.toISOString(),
+        ok: true,
+        url: firstUrl,
+      },
+      {
+        articles: [],
+        error: "isolated upstream failure",
+        ok: false,
+        url: secondUrl,
+      },
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      "Feed batch fetch fell back to isolated feed requests",
+      {
+        failedFeedCount: 1,
+        originalError: "batch refresh aborted",
+        succeededFeedCount: 1,
+        userId: user.userId,
+      },
+    );
+  });
 });

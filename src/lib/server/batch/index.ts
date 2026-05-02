@@ -22,4 +22,9 @@ export {
   buildBatchFetchRequestOptions,
   buildBatchFetchResults,
 } from "./fetch-execution";
+export {
+  type BatchFetchExecutionResult,
+  buildBatchFetchExecutionResult,
+  executeIsolatedFeedBatchFallback,
+} from "./isolated-feed-fallback";
 export { buildBatchResultItem } from "./result-item";

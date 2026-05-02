@@ -170,6 +170,78 @@ test.describe("dashboard feed error recovery", () => {
     });
   });
 
+  test("keeps successful all-feeds refresh results when one feed fails", async ({
+    page,
+  }) => {
+    await installDeterministicArticleExtractRoute(page);
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        forceRefresh?: boolean;
+        urls?: string[];
+      };
+      const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      const payload = urls.map((url, index) => {
+        if (requestBody.forceRefresh === true && index === 0) {
+          return {
+            articles: [],
+            error: "Isolated upstream failure",
+            ok: false,
+            url,
+          };
+        }
+
+        return {
+          articles: [
+            {
+              content: requestBody.forceRefresh
+                ? "Recovered from mixed refresh."
+                : "Initial dashboard article.",
+              feedId: index + 1,
+              feedName: `Feed ${index + 1}`,
+              feedUrl: url,
+              hasFullContent: true,
+              id: requestBody.forceRefresh ? 10_000 + index : index + 1,
+              isRead: false,
+              isStarred: false,
+              lastChecked: "2026-05-03T12:00:00.000Z",
+              link: `https://example.com/mixed-refresh-${index + 1}`,
+              publicationDate: "2026-05-03T11:59:00.000Z",
+              title: requestBody.forceRefresh
+                ? `Recovered refresh article ${index + 1}`
+                : `Initial article ${index + 1}`,
+            },
+          ],
+          lastFetchedAt: "2026-05-03T12:00:00.000Z",
+          ok: true,
+          url,
+        };
+      });
+
+      await route.fulfill({
+        body: JSON.stringify(payload),
+        contentType: "application/json",
+        status: requestBody.forceRefresh === true ? 207 : 200,
+      });
+    });
+
+    await gotoAuthenticatedDashboard(page);
+
+    await page
+      .getByRole("button", { exact: true, name: "Refresh selected feed" })
+      .last()
+      .click();
+
+    await expect(
+      page.getByText(/Recovered refresh article/).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      page.getByText("Unable to load this feed right now."),
+    ).toHaveCount(0);
+    await expect(page.getByText("Some feeds failed to update")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("renders a live search result from a fresh searched batch window", async ({
     page,
   }) => {
