@@ -5,9 +5,9 @@ import { readdirSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
 
-import { resolvePlaywrightBaseUrl } from "./scripts/playwright-base-url";
-
-const baseURL = resolvePlaywrightBaseUrl();
+const DEFAULT_PLAYWRIGHT_HOST = "127.0.0.1";
+const DEFAULT_PLAYWRIGHT_PORT = 3100;
+const baseURL = resolveConfigPlaywrightBaseUrl();
 const backgroundUniversalDesktopTests =
   "**/dashboard-background-universal.e2e.test.ts";
 const backgroundUniversalMobileTests =
@@ -66,6 +66,45 @@ function countEntrypointFiles(directoryPath: string): number {
  */
 function countPlaywrightEntrypoints(): number {
   return countEntrypointFiles(join(process.cwd(), "tests", "e2e"));
+}
+
+/**
+ * Builds the Playwright config base URL without importing the executable runner.
+ *
+ * Playwright loads this config through its own CommonJS transform, while the
+ * runner is executed by Bun as an executable TypeScript module. Keeping config
+ * resolution local avoids loading process-spawning runner code during config
+ * bootstrap and still honors the wrapper-injected host, port, or full URL.
+ * @returns Normalized HTTP base URL used by Playwright projects.
+ */
+function resolveConfigPlaywrightBaseUrl(): string {
+  const configuredBaseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim();
+
+  if (configuredBaseUrl) {
+    const normalizedUrl = new URL(configuredBaseUrl);
+    normalizedUrl.hash = "";
+
+    return normalizedUrl.toString().replace(/\/$/u, "");
+  }
+
+  const configuredHost =
+    process.env.PLAYWRIGHT_HOST?.trim() || DEFAULT_PLAYWRIGHT_HOST;
+  const configuredPort = Number.parseInt(
+    process.env.PLAYWRIGHT_PORT?.trim() ?? String(DEFAULT_PLAYWRIGHT_PORT),
+    10,
+  );
+
+  if (
+    !Number.isInteger(configuredPort) ||
+    configuredPort < 1 ||
+    configuredPort > 65_535
+  ) {
+    throw new Error(
+      `PLAYWRIGHT_PORT must be a valid TCP port. Received: ${configuredPort}`,
+    );
+  }
+
+  return `http://${configuredHost}:${configuredPort}`;
 }
 
 /**
