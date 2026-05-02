@@ -178,15 +178,17 @@ describe("useFeedLoader", () => {
         },
       },
     });
-    const seenOptions: Parameters<typeof FeedService.getFeedsBatch>[1][] =
-      [];
+    const seenOptions: Parameters<typeof FeedService.getFeedsBatch>[1][] = [];
     const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
       feedState = typeof updater === "function" ? updater(feedState) : updater;
       feedRef.current = feedState;
     });
 
     FeedService.getFeedsBatch = mock(
-      async (_urls: string[], options?: Parameters<typeof FeedService.getFeedsBatch>[1]) => {
+      async (
+        _urls: string[],
+        options?: Parameters<typeof FeedService.getFeedsBatch>[1],
+      ) => {
         seenOptions.push(options);
 
         return [

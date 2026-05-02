@@ -93,7 +93,10 @@ async function normalizeDashboardArticleVisibility(page: Page) {
   const searchInput = page.getByPlaceholder("Search...");
   await expect(searchInput).toBeVisible({ timeout: 15_000 });
 
-  const allFilterButton = page.getByRole("button", { exact: true, name: "all" });
+  const allFilterButton = page.getByRole("button", {
+    exact: true,
+    name: "all",
+  });
   await expect(allFilterButton).toBeVisible({ timeout: 15_000 });
 
   const allFeedsButton = page.getByRole("button", {

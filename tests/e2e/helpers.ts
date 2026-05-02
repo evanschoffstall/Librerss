@@ -573,9 +573,9 @@ export async function readMountedFeedArticleCount(page: Page) {
       );
     });
 
-    return (
-      feedSurface ?? document
-    ).querySelectorAll("article[data-article-key]").length;
+    return (feedSurface ?? document).querySelectorAll(
+      "article[data-article-key]",
+    ).length;
   });
 }
 

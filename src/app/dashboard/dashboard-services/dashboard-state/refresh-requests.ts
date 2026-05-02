@@ -129,6 +129,7 @@ export function prefetchDashboardCategory(
       ...(typeof articleLimit === "number" ? { articleLimit } : {}),
       requestSource: "sidebar-category-prefetch",
       searchTerm,
+      skipRefresh: true,
     });
     return;
   }
@@ -137,6 +138,7 @@ export function prefetchDashboardCategory(
     ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-category-prefetch",
     searchTerm,
+    skipRefresh: true,
   });
 }
 /**
@@ -161,6 +163,7 @@ export function prefetchDashboardFeed(
     ...(typeof articleLimit === "number" ? { articleLimit } : {}),
     requestSource: "sidebar-feed-prefetch",
     searchTerm,
+    skipRefresh: true,
   });
 }
 
