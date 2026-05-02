@@ -22,6 +22,7 @@ export interface NextJsErrorMonitor {
 }
 
 interface DeterministicFeedBatchRouteOptions {
+  articleHasFullContent?: boolean;
   articlesPerFeed?: number;
   failNextBatchRequestRef?: { current: boolean };
 }
@@ -335,15 +336,18 @@ export async function installDeterministicFeedBatchRoute(
         const articleNumber = feedIndex * articlesPerFeed + articleIndex + 1;
 
         return {
-          content: [
-            `<p><strong>Deterministic Article ${articleNumber}</strong></p>`,
-            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-            `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
-          ].join(""),
+          content:
+            options.articleHasFullContent === false
+              ? `Deterministic excerpt ${articleNumber}`
+              : [
+                  `<p><strong>Deterministic Article ${articleNumber}</strong></p>`,
+                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                  `<p>${DETERMINISTIC_PREVIEW_PARAGRAPH}</p>`,
+                ].join(""),
           feedId: feedIndex + 1,
           feedUrl: url,
-          hasFullContent: true,
+          hasFullContent: options.articleHasFullContent ?? true,
           id: articleNumber,
           isRead: false,
           isStarred: false,

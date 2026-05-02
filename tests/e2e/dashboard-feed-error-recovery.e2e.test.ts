@@ -3,7 +3,11 @@ import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { installDeterministicFeedBatchRoute } from "./helpers";
+import {
+  expectArticleExpanded,
+  installDeterministicArticleExtractRoute,
+  installDeterministicFeedBatchRoute,
+} from "./helpers";
 import { expect, test } from "./test";
 
 interface E2ECredentials {
@@ -121,7 +125,9 @@ test.describe("dashboard feed error recovery", () => {
     page,
   }) => {
     const shouldFailNextBatchRequest = { current: false };
+    await installDeterministicArticleExtractRoute(page);
     await installDeterministicFeedBatchRoute(page, {
+      articleHasFullContent: false,
       failNextBatchRequestRef: shouldFailNextBatchRequest,
     });
 
@@ -156,6 +162,12 @@ test.describe("dashboard feed error recovery", () => {
         `article[data-article-key="${String(firstArticleKey)}"]:visible`,
       ),
     ).toBeVisible();
+
+    await firstArticle.click();
+    await expectArticleExpanded(firstArticle, true);
+    await expect(firstArticle).toContainText("Deterministic extract", {
+      timeout: 10_000,
+    });
   });
 
   test("renders a live search result from a fresh searched batch window", async ({
