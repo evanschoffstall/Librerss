@@ -1229,6 +1229,7 @@ describe("useCategoryOrderState", () => {
 
   test("loads a saved category order when placeholder mode is disabled", async () => {
     FeedService.getCategoryOrder = mock(async () => ["News", "Tech"]);
+    FeedService.saveCategoryOrder = mock(async () => {});
 
     const { result } = renderHook(() =>
       useCategoryOrderState({ usePlaceholderData: false }),
@@ -1237,6 +1238,11 @@ describe("useCategoryOrderState", () => {
     await waitFor(() => {
       expect(result.current.orderedCategoryLabels).toEqual(["News", "Tech"]);
     });
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).not.toHaveBeenCalled();
   });
 
   test("ignores category order load errors", async () => {

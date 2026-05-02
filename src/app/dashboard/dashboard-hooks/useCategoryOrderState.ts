@@ -5,16 +5,21 @@ import { useEffect, useRef, useState } from "react";
 import { FeedService } from "@/lib/api";
 
 /**
- * Describes the options for use category order state.
+ * Configures how the dashboard category-order hook loads and persists saved
+ * ordering state.
  */
 interface UseCategoryOrderStateOptions {
   usePlaceholderData: boolean;
 }
 
 /**
- * Manage the category order state.
- * @param options - The options used to manage the category order state.
- * @returns The category order state state and callbacks.
+ * Coordinates the dashboard category order by loading the saved label sequence
+ * once real feed data is available, debouncing user-driven order changes, and
+ * exposing the current ordered labels for category rendering.
+ * @param options - Controls whether placeholder dashboard data should defer
+ * persisted order loading and saving.
+ * @returns The ordered category labels and the setter used by drag-and-drop or
+ * other category-reordering controls.
  */
 export function useCategoryOrderState(options: UseCategoryOrderStateOptions) {
   const { usePlaceholderData } = options;
@@ -23,6 +28,7 @@ export function useCategoryOrderState(options: UseCategoryOrderStateOptions) {
   );
   const hasLoadedOrderRef = useRef(false);
   const hasMountedRef = useRef(false);
+  const isApplyingLoadedOrderRef = useRef(false);
   const savePendingRef = useRef<null | ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
@@ -34,6 +40,7 @@ export function useCategoryOrderState(options: UseCategoryOrderStateOptions) {
     void FeedService.getCategoryOrder()
       .then((labels) => {
         if (labels.length > 0) {
+          isApplyingLoadedOrderRef.current = true;
           setOrderedCategoryLabels(labels);
         }
       })
@@ -47,6 +54,11 @@ export function useCategoryOrderState(options: UseCategoryOrderStateOptions) {
     }
 
     if (usePlaceholderData || orderedCategoryLabels.length === 0) {
+      return;
+    }
+
+    if (isApplyingLoadedOrderRef.current) {
+      isApplyingLoadedOrderRef.current = false;
       return;
     }
 
