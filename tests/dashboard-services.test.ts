@@ -1420,6 +1420,129 @@ describe("dashboard favicons comprehensive", () => {
 // ─── feed-batch: full branch coverage ────────────────────────────────────────
 
 describe("feed-batch pure helpers", () => {
+  async function expectMockedUnreadDbWindowToHydrateEveryArticle({
+    articlesPerFeed,
+    feedCount,
+  }: {
+    articlesPerFeed: number;
+    feedCount: number;
+  }) {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/dashboard-services/feed-data");
+    const { normalizeBatchItem } = await import("@/lib/api/http");
+    const { mapRowsToArticleMap, queryTopArticlesPerFeed } =
+      await import("@/lib/core/feed-batch-pipeline");
+    const articleCount = feedCount * articlesPerFeed;
+    const basePublicationTime = Date.parse("2026-03-14T12:00:00.000Z");
+    const allowedUrls = Array.from(
+      { length: feedCount },
+      (_ignored, feedIndex) => `https://feeds.example.com/${feedIndex}.xml`,
+    );
+    const feedByUrl = new Map(
+      allowedUrls.map((url, feedIndex) => [
+        url,
+        {
+          id: feedIndex + 1,
+          lastFetched: new Date("2026-03-14T13:00:00.000Z"),
+          lastFetchError: null,
+          url,
+        },
+      ]),
+    );
+    const rankedRows = allowedUrls.flatMap((_url, feedIndex) =>
+      Array.from({ length: articlesPerFeed }, (_ignored, articleIndex) => {
+        const articleId = feedIndex * articlesPerFeed + articleIndex + 1;
+        const publicationOffset = (articleId - 1) * 1_000;
+
+        return {
+          content: `<p>Hydration row ${articleId}</p>`,
+          feedId: feedIndex + 1,
+          id: articleId,
+          isRead: false,
+          isStarred: false,
+          lastChecked: new Date("2026-03-14T13:00:00.000Z"),
+          link: `https://articles.example.com/${articleId}`,
+          publicationDate: new Date(basePublicationTime - publicationOffset),
+          title: `Hydration Article ${articleId}`,
+        };
+      }),
+    );
+    const db = {
+      execute: mock(async () => ({ rows: rankedRows })),
+    };
+
+    const queriedRows = await queryTopArticlesPerFeed(
+      db as unknown as never,
+      7,
+      [...feedByUrl.values()].map((feed) => feed.id),
+      {
+        articleFilter: "unread",
+        articleLimit: articleCount,
+        articleSortOrder: "newest",
+      },
+    );
+    const articleMap = mapRowsToArticleMap(queriedRows, feedByUrl, allowedUrls);
+    const batchItems = allowedUrls.map((url) => ({
+      articles: articleMap.get(url) ?? [],
+      ok: true,
+      url,
+    }));
+    const normalizedBatchItems = JSON.parse(JSON.stringify(batchItems)).map(
+      normalizeBatchItem,
+    );
+    const hydratedArticles = mapBatchResultsToArticles(
+      normalizedBatchItems,
+      new Map(
+        allowedUrls.map((url, feedIndex) => [
+          url,
+          `Enterprise Feed ${feedIndex + 1}`,
+        ]),
+      ),
+      false,
+      () => [],
+    );
+    const hydratedIds = new Set(hydratedArticles.map((article) => article.id));
+    const hydratedLinks = new Set(
+      hydratedArticles.map((article) => article.link),
+    );
+
+    expect(db.execute).toHaveBeenCalledTimes(1);
+    expect(queriedRows).toHaveLength(articleCount);
+    expect([...articleMap.values()].flat()).toHaveLength(articleCount);
+    expect(
+      allowedUrls.every(
+        (url) => (articleMap.get(url) ?? []).length === articlesPerFeed,
+      ),
+    ).toBe(true);
+    expect(hydratedArticles).toHaveLength(articleCount);
+    expect(hydratedIds.size).toBe(articleCount);
+    expect(hydratedLinks.size).toBe(articleCount);
+    for (let articleId = 1; articleId <= articleCount; articleId += 1) {
+      expect(hydratedIds.has(articleId)).toBe(true);
+      expect(
+        hydratedLinks.has(`https://articles.example.com/${articleId}`),
+      ).toBe(true);
+    }
+    expect(hydratedArticles[0]?.id).toBe(1);
+    expect(hydratedArticles.at(-1)?.id).toBe(articleCount);
+    expect(hydratedArticles.every((article) => article.feedUrl)).toBe(true);
+    expect(hydratedArticles.every((article) => article.feedName)).toBe(true);
+  }
+
+  test("hydrates every article from a mocked 10000-row DB batch window", async () => {
+    await expectMockedUnreadDbWindowToHydrateEveryArticle({
+      articlesPerFeed: 1_000,
+      feedCount: 10,
+    });
+  });
+
+  test("hydrates every article from 20 mocked feeds with 5000 unread articles each", async () => {
+    await expectMockedUnreadDbWindowToHydrateEveryArticle({
+      articlesPerFeed: 5_000,
+      feedCount: 20,
+    });
+  });
+
   test("mapBatchResultsToArticles: usePlaceholderData returns placeholder articles on failed result", async () => {
     const { mapBatchResultsToArticles } =
       await import("@/app/dashboard/dashboard-services/feed-data");

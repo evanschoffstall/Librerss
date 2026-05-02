@@ -532,6 +532,68 @@ describe("Feed Fetcher - Batch Operations", () => {
     });
   });
 
+  test("fetchAndCacheFeedArticlesBatch preserves a 10000 article unread all-feeds window", async () => {
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 0,
+        refreshedUrls: new Set<string>(),
+      })),
+      mapRowsToArticleMap: mock(
+        () =>
+          new Map([
+            ["https://example.com/feed-a", []],
+            ["https://example.com/feed-b", []],
+          ]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: [
+          "https://example.com/feed-a",
+          "https://example.com/feed-b",
+        ],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+          [
+            "https://example.com/feed-b",
+            createFeedRecord({
+              id: 2,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-b",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a", "https://example.com/feed-b"],
+      {
+        articleFilter: "unread",
+        articleLimit: 10_000,
+        skipRefresh: true,
+      },
+    );
+
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [1, 2], {
+      articleFilter: "unread",
+      articleLimit: 10_000,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
+  });
+
   test("fetchAndCacheFeedArticlesBatch keys cache and ranked queries by searchTerm", async () => {
     const getCachedBatch = mock(() => null);
     const queryTopArticlesPerFeed = mock(async () => []);

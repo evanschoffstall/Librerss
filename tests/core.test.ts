@@ -1170,6 +1170,61 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).not.toContain("starred_candidates");
   });
 
+  test("queryTopArticlesPerFeed honors explicit large unread all-feeds windows", async () => {
+    const { CONFIG } = await import("@/lib/config");
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11, 12], {
+      articleFilter: "unread",
+      articleLimit: 10_000,
+      articleSortOrder: "newest",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const sqlQuery = execute.mock.calls.at(0)?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("selected_feed_ids");
+    expect(serializedQuery).toContain(
+      "COALESCE(status.is_read, false) = false",
+    );
+    expect(serializedQuery).toContain("LIMIT ");
+    expect(serializedQuery).toContain("10000");
+    expect(serializedQuery).not.toContain(
+      String(CONFIG.MAX_ALL_ARTICLES_LIMIT),
+    );
+  });
+
+  test("queryTopArticlesPerFeed keeps omitted article windows bounded by the fallback limit", async () => {
+    const { CONFIG } = await import("@/lib/config");
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], {
+      articleFilter: "all",
+    });
+
+    const sqlQuery = execute.mock.calls.at(0)?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("LIMIT ");
+    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
+  });
+
   test("queryTopArticlesPerFeed searches article text, URLs, and feed metadata when searchTerm is present", async () => {
     const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
 

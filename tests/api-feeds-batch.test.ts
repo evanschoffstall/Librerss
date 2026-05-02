@@ -778,6 +778,87 @@ describe("api/feeds/batch route", () => {
     });
   });
 
+  test("forwards explicit large article windows without clamping them to the fallback limit", async () => {
+    const normalizedUrl = "https://example.com/feed";
+    const requestedLargeWindow = CONFIG.MAX_ALL_ARTICLES_LIMIT + 9_500;
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps({
+      batchResult: {
+        articles: new Map([[normalizedUrl, []]]),
+        cachedCount: 0,
+        cooldownLimitedCount: 0,
+        errors: new Map(),
+        lastFetchedByUrl: new Map(),
+        refreshedCount: 0,
+        resolution: "cache",
+        unchangedUrls: new Set(),
+      },
+    });
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleFilter: "unread",
+        articleLimit: requestedLargeWindow,
+        urls: [normalizedUrl],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    expect(response.status).toBe(200);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toMatchObject({
+      articleFilter: "unread",
+      articleLimit: requestedLargeWindow,
+    });
+  });
+
+  test("rejects unsafe article windows before they can reach the ranked SQL limit", async () => {
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleLimit: Number.MAX_SAFE_INTEGER + 1,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: "articleLimit must be a positive safe integer when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("rejects fractional article windows instead of truncating pagination intent", async () => {
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleLimit: 500.5,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "articleLimit must be a positive safe integer when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
   test("trims and forwards searchTerm to the batch fetcher", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
