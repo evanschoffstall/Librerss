@@ -1658,13 +1658,13 @@ describe("feed-batch-pipeline", () => {
     }
   });
 
-  test("executeParallelRefreshes skips new feed refreshes when the Vercel budget is exhausted", async () => {
+  test("executeParallelRefreshes skips new feed refreshes when the serverless budget is exhausted", async () => {
     const { BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE, executeParallelRefreshes } =
       await importFeedBatchHelpers();
-    const previousVercel = process.env.VERCEL;
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
 
     try {
-      process.env.VERCEL = "1";
+      process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
 
       const stale = new Date(Date.now() - 1000 * 60 * 120);
       const urls = ["not-a-url-one", "not-a-url-two"];
@@ -1706,10 +1706,10 @@ describe("feed-batch-pipeline", () => {
         BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
       );
     } finally {
-      if (previousVercel === undefined) {
-        delete process.env.VERCEL;
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
       } else {
-        process.env.VERCEL = previousVercel;
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
       }
     }
   });

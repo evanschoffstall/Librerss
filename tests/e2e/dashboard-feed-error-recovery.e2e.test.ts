@@ -18,6 +18,13 @@ interface E2ECredentials {
   password: string;
 }
 
+/** Captures a feed batch request body shape used by dashboard e2e routes. */
+interface FeedBatchRequestBody {
+  forceRefresh?: boolean;
+  skipRefresh?: boolean;
+  urls?: string[];
+}
+
 /**
  * Resolves login credentials for the real dashboard sign-in flow.
  *
@@ -124,7 +131,7 @@ function readEnvFileValue(fileContents: string, key: string) {
 }
 
 test.describe("dashboard feed error recovery", () => {
-  test("keeps the previous article list visible when a refresh batch returns 504", async ({
+  test("keeps the previous article list visible when one refresh invocation returns 504", async ({
     page,
   }) => {
     const shouldFailNextBatchRequest = { current: false };
@@ -154,9 +161,9 @@ test.describe("dashboard feed error recovery", () => {
       .last()
       .click();
 
-    await expect(
-      page.getByText("Unable to load this feed right now."),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("Some feeds failed to update")).toBeVisible({
+      timeout: 10_000,
+    });
 
     await expect(firstArticle).toBeVisible();
     await expect(visibleArticles).toHaveCount(initialArticleCount);
@@ -176,15 +183,24 @@ test.describe("dashboard feed error recovery", () => {
   test("keeps successful refresh results when proxy credentials cannot be read", async ({
     page,
   }) => {
+    const proxyFailureUrlRef = { current: "" };
+
     await installDeterministicArticleExtractRoute(page);
     await page.route("**/api/feeds/batch", async (route) => {
-      const requestBody = route.request().postDataJSON() as {
-        forceRefresh?: boolean;
-        urls?: string[];
-      };
+      const requestBody = route
+        .request()
+        .postDataJSON() as FeedBatchRequestBody;
       const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      if (!requestBody.forceRefresh && urls.length > 1) {
+        proxyFailureUrlRef.current = urls[1] ?? "";
+      }
+
       const payload = urls.map((url, index) => {
-        if (requestBody.forceRefresh === true && index === 1) {
+        if (
+          requestBody.forceRefresh === true &&
+          !requestBody.skipRefresh &&
+          url === proxyFailureUrlRef.current
+        ) {
           return {
             articles: [],
             error:
@@ -252,15 +268,26 @@ test.describe("dashboard feed error recovery", () => {
   test("keeps successful all-feeds refresh results when one feed exhausts the refresh budget", async ({
     page,
   }) => {
+    const batchRequestLog: FeedBatchRequestBody[] = [];
+    const budgetFailureUrlRef = { current: "" };
+
     await installDeterministicArticleExtractRoute(page);
     await page.route("**/api/feeds/batch", async (route) => {
-      const requestBody = route.request().postDataJSON() as {
-        forceRefresh?: boolean;
-        urls?: string[];
-      };
+      const requestBody = route
+        .request()
+        .postDataJSON() as FeedBatchRequestBody;
+      batchRequestLog.push(requestBody);
       const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      if (!requestBody.forceRefresh && urls.length > 1) {
+        budgetFailureUrlRef.current = urls[0] ?? "";
+      }
+
       const payload = urls.map((url, index) => {
-        if (requestBody.forceRefresh === true && index === 0) {
+        if (
+          requestBody.forceRefresh === true &&
+          !requestBody.skipRefresh &&
+          url === budgetFailureUrlRef.current
+        ) {
           return {
             articles: [],
             error: BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
@@ -319,6 +346,41 @@ test.describe("dashboard feed error recovery", () => {
     await expect(page.getByText("Some feeds failed to update")).toBeVisible({
       timeout: 10_000,
     });
+
+    const aggregateRefreshRead = batchRequestLog.find(
+      (requestBody) =>
+        requestBody.forceRefresh === true &&
+        requestBody.skipRefresh === true &&
+        Array.isArray(requestBody.urls) &&
+        requestBody.urls.length > 1,
+    );
+    expect(
+      aggregateRefreshRead,
+      `Expected a multi-feed aggregate cache read after fan-out. Full log: ${JSON.stringify(
+        batchRequestLog,
+      )}`,
+    ).toBeTruthy();
+
+    const fanOutUrls = new Set(
+      batchRequestLog
+        .filter(
+          (requestBody) =>
+            requestBody.forceRefresh === true &&
+            !requestBody.skipRefresh &&
+            Array.isArray(requestBody.urls) &&
+            requestBody.urls.length === 1,
+        )
+        .map((requestBody) => requestBody.urls?.[0]),
+    );
+
+    for (const url of aggregateRefreshRead?.urls ?? []) {
+      expect(
+        fanOutUrls.has(url),
+        `Expected ${url} to refresh in its own request before the aggregate cache read. Full log: ${JSON.stringify(
+          batchRequestLog,
+        )}`,
+      ).toBe(true);
+    }
   });
 
   test("renders a live search result from a fresh searched batch window", async ({
