@@ -14,7 +14,7 @@ export {
   withNormalizedArticleContent,
 } from "./preview";
 export {
-  isVercelRuntime,
+  isConstrainedServerlessRuntime,
   resolveDnsLookupTimeoutMs,
   resolveFeedBatchConcurrency,
   resolveFeedBatchRefreshBudgetMs,

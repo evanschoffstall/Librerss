@@ -1056,8 +1056,8 @@ describe("api/feeds/batch route", () => {
     );
   });
 
-  test("returns fast per-feed fallback budget errors once the Vercel request window is spent", async () => {
-    const previousVercel = process.env.VERCEL;
+  test("returns fast per-feed fallback budget errors once the serverless request window is spent", async () => {
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
     const firstUrl = "https://example.com/feed-one";
     const secondUrl = "https://example.com/feed-two";
     const startedCalls: string[][] = [];
@@ -1087,7 +1087,7 @@ describe("api/feeds/batch route", () => {
       },
     };
 
-    process.env.VERCEL = "1";
+    process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
 
     try {
       const request = new NextRequest("http://localhost/api/feeds/batch", {
