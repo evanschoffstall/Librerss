@@ -126,6 +126,19 @@ describe("DashboardToolbar", () => {
     ).toHaveLength(2);
   });
 
+  test("does not override the toolbar search input with a mobile-zooming font size", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getByPlaceholderText } = render(<DashboardToolbar />);
+    const input = getByPlaceholderText("Search...");
+
+    expect(input.className).not.toMatch(/(?:^|\s)text-sm(?:\s|$)/u);
+  });
+
   test("shows a skeleton in the viewport read button while processing", async () => {
     setNodeEnv("test");
 

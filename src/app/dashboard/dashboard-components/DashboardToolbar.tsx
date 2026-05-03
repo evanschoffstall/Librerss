@@ -164,7 +164,7 @@ function DashboardToolbarSearch(
       )}
       <Input
         className={`
-          h-9 border-transparent pl-9 text-sm
+          h-9 border-transparent pl-9
           focus-visible:bg-background
           ${isSearchPending ? `bg-muted/45` : `bg-muted/30`}
         `}
