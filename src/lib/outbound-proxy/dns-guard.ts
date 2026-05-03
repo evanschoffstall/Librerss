@@ -12,10 +12,10 @@ import {
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
 /**
- * Process the s to blocked address.
- * @param hostname - The hostname.
- * @param deps - The deps.
- * @returns The s to blocked address.
+ * Resolve a proxy target hostname and report whether it maps to a blocked address range.
+ * @param hostname - Hostname extracted from an outbound proxy target URL.
+ * @param deps - Optional DNS runtime overrides used by tests.
+ * @returns Whether any resolved address is private, loopback, link-local, or otherwise blocked.
  */
 export async function resolvesToBlockedAddress(
   hostname: string,

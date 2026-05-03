@@ -34,7 +34,7 @@ const DEFAULT_SIGNATURE_CHANGE_OPTIONS = {
   minAlphaDelta: 24,
   minCentroidShift: 0.04,
 } satisfies Required<CanvasSignatureChangeOptions>;
-const MAX_SIGNATURE_WAIT_FRAMES = 180;
+const MAX_SIGNATURE_WAIT_FRAMES = 360;
 
 /**
  * Return the canvas locator for the active dashboard background mode.
