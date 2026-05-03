@@ -33,14 +33,23 @@ export interface DnsResolveDeps {
   warnFn: (message: string, context?: Record<string, unknown>) => void;
 }
 
+/** Describes the supported DNS lookup timeout failure. */
+export class DnsLookupTimeoutError extends Error {
+  /** Create a typed timeout error for DNS lookup guards. */
+  constructor() {
+    super("DNS lookup timeout");
+    this.name = "DnsLookupTimeoutError";
+  }
+}
+
 /**
- * Process the cache lookup result.
- * @param cache - The cache.
- * @param hostname - The hostname.
- * @param blocked - The blocked.
- * @param expiresAt - The expires at.
- * @param maxEntries - The max entries.
- * @returns Whether cache lookup result.
+ * Store a DNS validation result while enforcing the cache size limit.
+ * @param cache - DNS result cache keyed by normalized hostname.
+ * @param hostname - Normalized hostname whose lookup result is being cached.
+ * @param blocked - Whether the hostname resolved to a blocked address.
+ * @param expiresAt - Expiration timestamp for the cached result.
+ * @param maxEntries - Maximum number of cache entries to retain.
+ * @returns The blocked status that was cached.
  */
 export function cacheLookupResult(
   cache: Map<string, DnsCacheEntry>,
@@ -54,13 +63,25 @@ export function cacheLookupResult(
 }
 
 /**
- * Process the lookup with timeout.
- * @param hostname - The hostname.
- * @param timeoutMs - The timeout ms value.
- * @param lookupFn - The lookup fn.
- * @param setTimeoutFn - The set timeout fn.
- * @param clearTimeoutFn - The clear timeout fn.
- * @returns The lookup with timeout.
+ * Return whether an unknown error represents a DNS lookup timeout.
+ * @param error - Error thrown by a DNS lookup attempt.
+ * @returns Whether the error is a lookup timeout.
+ */
+export function isDnsLookupTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof DnsLookupTimeoutError ||
+    (error instanceof Error && error.message === "DNS lookup timeout")
+  );
+}
+
+/**
+ * Resolve a hostname and reject if DNS does not answer within the timeout.
+ * @param hostname - Normalized hostname to resolve.
+ * @param timeoutMs - Maximum lookup duration in milliseconds.
+ * @param lookupFn - DNS lookup implementation.
+ * @param setTimeoutFn - Timer implementation used for the timeout guard.
+ * @param clearTimeoutFn - Timer cleanup implementation.
+ * @returns DNS lookup records for the hostname.
  */
 export async function lookupWithTimeout(
   hostname: string,
@@ -76,7 +97,7 @@ export async function lookupWithTimeout(
   let timeoutHandle: null | ReturnType<typeof setTimeout> = null;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeoutFn(() => {
-      reject(new Error("DNS lookup timeout"));
+      reject(new DnsLookupTimeoutError());
     }, timeoutMs);
   });
 
@@ -88,11 +109,11 @@ export async function lookupWithTimeout(
 }
 
 /**
- * Process the read cached dns result.
- * @param cache - The cache.
- * @param hostname - The hostname.
- * @param nowFn - The callback that now fn.
- * @returns The read cached dns result.
+ * Read a non-expired DNS validation result from cache.
+ * @param cache - DNS result cache keyed by normalized hostname.
+ * @param hostname - Normalized hostname to read.
+ * @param nowFn - Clock used to compare cache expiration.
+ * @returns Cached blocked status, or undefined when no fresh entry exists.
  */
 export function readCachedDnsResult(
   cache: Map<string, DnsCacheEntry>,
@@ -104,10 +125,10 @@ export function readCachedDnsResult(
 }
 
 /**
- * Resolve the dns deps.
- * @param deps - The deps.
- * @param defaults - The defaults.
- * @returns The dns deps.
+ * Merge DNS runtime overrides with required defaults.
+ * @param deps - Optional DNS runtime overrides.
+ * @param defaults - Default DNS runtime dependencies.
+ * @returns Fully resolved DNS runtime dependencies.
  */
 export function resolveDnsDeps(
   deps: Partial<DnsResolveDeps> | undefined,
@@ -133,10 +154,10 @@ export function resolveDnsDeps(
 }
 
 /**
- * Resolve the dns deps with runtime defaults.
- * @param deps - The deps.
- * @param defaults - The defaults.
- * @returns The dns deps with runtime defaults.
+ * Merge DNS runtime overrides with Node timer defaults.
+ * @param deps - Optional DNS runtime overrides.
+ * @param defaults - DNS lookup, address policy, and warning defaults.
+ * @returns Fully resolved DNS runtime dependencies.
  */
 export function resolveDnsDepsWithRuntimeDefaults(
   deps: Partial<DnsResolveDeps> | undefined,
@@ -156,11 +177,11 @@ export function resolveDnsDepsWithRuntimeDefaults(
 }
 
 /**
- * Process the set cache safe.
- * @param cache - The cache.
- * @param key - The key.
- * @param value - The value.
- * @param maxEntries - The max entries.
+ * Store a cache entry after pruning expired or oldest entries when necessary.
+ * @param cache - DNS result cache to mutate.
+ * @param key - Normalized hostname cache key.
+ * @param value - DNS cache entry to store.
+ * @param maxEntries - Maximum allowed cache size.
  */
 function setCacheSafe(
   cache: Map<string, DnsCacheEntry>,

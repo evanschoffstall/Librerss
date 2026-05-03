@@ -521,6 +521,33 @@ describe("dns-cache", () => {
     expect(lookupFn).toHaveBeenCalledTimes(1);
   });
 
+  test("resolvesToBlockedAddress retries transient DNS timeouts before failing closed", async () => {
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
+      await import("@/lib/core/dns-cache");
+
+    clearDnsCacheForTests();
+
+    const warnFn = mock(() => {});
+    const lookupFn = mock(async () => {
+      if (lookupFn.mock.calls.length === 1) {
+        throw new Error("DNS lookup timeout");
+      }
+
+      return [{ address: "8.8.8.8" }];
+    });
+
+    const result = await resolvesToBlockedAddress("transient.example", {
+      isBlockedResolvedAddressFn: () => false,
+      lookupFn: lookupFn as any,
+      nowFn: () => 20_000,
+      warnFn,
+    });
+
+    expect(result).toBe(false);
+    expect(warnFn).not.toHaveBeenCalled();
+    expect(lookupFn).toHaveBeenCalledTimes(2);
+  });
+
   test("resolvesToBlockedAddress handles timeout race and clears timeout handle", async () => {
     const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
@@ -529,6 +556,7 @@ describe("dns-cache", () => {
 
     const warnFn = mock(() => {});
     const clearTimeoutFn = mock(() => {});
+    const lookupFn = mock(() => new Promise(() => {}));
 
     const setTimeoutFn = ((callback: () => void) => {
       callback();
@@ -538,7 +566,7 @@ describe("dns-cache", () => {
     const result = await resolvesToBlockedAddress("timeout.example", {
       clearTimeoutFn: clearTimeoutFn as any,
       isBlockedResolvedAddressFn: () => false,
-      lookupFn: (() => new Promise(() => {})) as any,
+      lookupFn: lookupFn as any,
       nowFn: () => 50_000,
       setTimeoutFn,
       warnFn,
@@ -546,7 +574,20 @@ describe("dns-cache", () => {
 
     expect(result).toBe(true);
     expect(warnFn).toHaveBeenCalledTimes(1);
-    expect(clearTimeoutFn).toHaveBeenCalledTimes(1);
+    expect(lookupFn).toHaveBeenCalledTimes(2);
+    expect(clearTimeoutFn).toHaveBeenCalledTimes(2);
+
+    expect(
+      await resolvesToBlockedAddress("timeout.example", {
+        clearTimeoutFn: clearTimeoutFn as any,
+        isBlockedResolvedAddressFn: () => false,
+        lookupFn: lookupFn as any,
+        nowFn: () => 55_000,
+        setTimeoutFn,
+        warnFn,
+      }),
+    ).toBe(true);
+    expect(lookupFn).toHaveBeenCalledTimes(4);
   });
 });
 
