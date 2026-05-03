@@ -15,6 +15,7 @@ const NEXT_JS_CONSOLE_ERROR_PATTERN =
   /(?:Build Error|ChunkLoadError|Failed to compile|Runtime Error|Unhandled Runtime Error)/iu;
 const NEXT_JS_OVERLAY_ERROR_PATTERN =
   /(?:Build Error|Runtime Error|Unhandled Runtime Error)/iu;
+const DASHBOARD_FILTER_CONTROL_READY_TIMEOUT_MS = 15_000;
 const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
 export interface NextJsErrorMonitor {
   assertNoNextJsErrors: () => Promise<void>;
@@ -876,7 +877,15 @@ export async function seedClientStateSentinel(page: Page, value = "present") {
   }
 }
 
-/** Selects a dashboard article filter pill and verifies it became active. */
+/**
+ * Selects a dashboard article filter pill after the filter bar hydrates and
+ * verifies the pressed state. Reload-heavy tests can reach the dashboard shell
+ * before the interactive filter controls are available, so this waits for the
+ * control itself instead of assuming domcontentloaded means the toolbar is
+ * actionable.
+ * @param page - Active Playwright page.
+ * @param filterName - Article filter pill to select.
+ */
 export async function selectArticleFilter(
   page: Page,
   filterName: "all" | "read" | "starred" | "unread",
@@ -886,7 +895,9 @@ export async function selectArticleFilter(
     name: filterName,
   });
 
-  await expect(filterButton).toBeVisible();
+  await expect(filterButton).toBeVisible({
+    timeout: DASHBOARD_FILTER_CONTROL_READY_TIMEOUT_MS,
+  });
 
   try {
     await clickVisibleControl(filterButton);

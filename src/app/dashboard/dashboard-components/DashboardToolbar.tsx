@@ -131,7 +131,9 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
       />
     </DashboardToolbarShell>
   );
-} /**
+}
+
+/**
  * Render the dashboard toolbar search component.
  * @param props - The component props.
  * @returns The rendered dashboard toolbar search component.
@@ -144,26 +146,29 @@ function DashboardToolbarSearch(
 ) {
   const { handleSearchChange, isSearchPending, search } = props;
   return (
-    <div className="relative min-w-0 flex-1">
+    <div className="relative h-9 min-w-0 flex-1 overflow-hidden rounded-md">
       {isSearchPending ? (
         <MotionSpinner
           className="
-            pointer-events-none absolute top-1/2 left-3 -translate-y-1/2
+            pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2
           "
           iconClassName="size-3.5 text-muted-foreground/60"
         />
       ) : (
         <Search
           className="
-            pointer-events-none absolute top-1/2 left-3 size-3.5
+            pointer-events-none absolute top-1/2 left-3 z-10 size-3.5
             -translate-y-1/2 text-muted-foreground/40
           "
         />
       )}
       <Input
         className={`
-          h-9 border-transparent pl-9 text-sm
+          absolute top-0 left-0 h-[calc(2.25rem/0.875)]
+          w-[calc(100%/0.875)] origin-top-left scale-[0.875]
+          border-transparent pl-[calc(2.25rem/0.875)] text-base
           focus-visible:bg-background
+          md:static md:h-9 md:w-full md:scale-100 md:pl-9 md:text-sm
           ${isSearchPending ? `bg-muted/45` : `bg-muted/30`}
         `}
         onChange={(event) => {

@@ -13,7 +13,9 @@ import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
 import { type FeedUpstreamTransport, fetchFeedXml } from "./http-client";
 import {
   dedupePendingArticles,
+  FEED_PARSER_CUSTOM_FIELDS,
   getPublicationDateRange,
+  type ParsedFeedItem,
   type PendingArticle,
   toPendingArticle,
 } from "./parser";
@@ -43,11 +45,10 @@ export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
 
 // ─── RSS parser singleton ─────────────────────────────────────────────────────
 // parseString() creates a fresh readable stream per call — no shared state.
-// Configure to parse content:encoded (used by many feeds for full article content)
+// The shared custom-field contract lives beside the pure item normalizer so
+// parser configuration and date/content selection cannot drift apart.
 const parser = new Parser({
-  customFields: {
-    item: [["content:encoded", "contentEncoded", { keepArray: false }]],
-  },
+  customFields: FEED_PARSER_CUSTOM_FIELDS,
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -74,7 +75,7 @@ export type UpstreamRefreshResult = { error: string; ok: false } | { ok: true };
  * Describes the parsed refresh items.
  */
 interface ParsedRefreshItems {
-  parsedItems: (Parser.Item & { contentEncoded?: string })[];
+  parsedItems: ParsedFeedItem[];
   publicationDateRange: ReturnType<typeof getPublicationDateRange>;
   validItems: PendingArticle[];
 }
@@ -90,9 +91,7 @@ interface RefreshDeps {
   ) => Promise<string>;
   getPublicationDateRangeFn?: typeof getPublicationDateRange;
   nowFn?: () => Date;
-  parseFeedXmlFn?: (
-    xml: string,
-  ) => Promise<{ items: (Parser.Item & { contentEncoded?: string })[] }>;
+  parseFeedXmlFn?: (xml: string) => Promise<{ items: ParsedFeedItem[] }>;
   proxyTransport?: FeedUpstreamTransport;
   toErrorMessageFn?: typeof toErrorMessage;
   toPendingArticleFn?: typeof toPendingArticle;
@@ -108,9 +107,7 @@ interface ResolvedRefreshDeps {
     transport?: FeedUpstreamTransport,
   ) => Promise<string>;
   getPublicationDateRangeFn: typeof getPublicationDateRange;
-  parseFeedXmlFn: (
-    xml: string,
-  ) => Promise<{ items: (Parser.Item & { contentEncoded?: string })[] }>;
+  parseFeedXmlFn: (xml: string) => Promise<{ items: ParsedFeedItem[] }>;
   toErrorMessageFn: typeof toErrorMessage;
   toPendingArticleFn: typeof toPendingArticle;
 }
@@ -227,7 +224,7 @@ function getAgeInMinutes(date: Date): number {
  */
 function logParsedRefreshResult(
   feed: FeedRecord,
-  parsedItems: (Parser.Item & { contentEncoded?: string })[],
+  parsedItems: ParsedFeedItem[],
   publicationDateRange: ReturnType<typeof getPublicationDateRange>,
   validItems: PendingArticle[],
 ): void {

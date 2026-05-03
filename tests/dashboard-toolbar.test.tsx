@@ -126,6 +126,21 @@ describe("DashboardToolbar", () => {
     ).toHaveLength(2);
   });
 
+  test("keeps the toolbar search input visually compact without mobile focus zoom", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const { DashboardToolbar } = await loadDashboardToolbar();
+    const { getByPlaceholderText } = render(<DashboardToolbar />);
+    const input = getByPlaceholderText("Search...");
+
+    expect(input.className).toMatch(/(?:^|\s)text-base(?:\s|$)/u);
+    expect(input.className).toMatch(/(?:^|\s)scale-\[0\.875\](?:\s|$)/u);
+    expect(input.className).not.toMatch(/(?:^|\s)text-sm(?:\s|$)/u);
+  });
+
   test("shows a skeleton in the viewport read button while processing", async () => {
     setNodeEnv("test");
 

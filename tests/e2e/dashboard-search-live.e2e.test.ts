@@ -39,7 +39,9 @@ test.describe("dashboard search live-search UX", () => {
 
     const input = searchInput(page);
     await input.fill("xyzzy_unlikely_term_99");
-    await expect(page.getByRole("heading", { name: "No results" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "No results" }),
+    ).toBeVisible();
 
     await input.clear();
     await input.fill("nih research matters");
