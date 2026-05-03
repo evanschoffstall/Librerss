@@ -1,6 +1,11 @@
 import type { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 
-import { logger } from "@/lib";
+import { CONFIG, logger } from "@/lib";
+import {
+  resolveFeedBatchConcurrency,
+  resolveFeedBatchRefreshBudgetMs,
+  resolveFeedRequestTimeoutMs,
+} from "@/lib/core";
 import { toErrorMessage } from "@/lib/utils";
 
 import type { BatchUrlDescriptor } from "./endpoint";
@@ -52,8 +57,26 @@ interface ExecuteIsolatedFeedBatchFallbackOptions {
   fetchAndCacheFeedArticlesBatchForRoute: typeof fetchAndCacheFeedArticlesBatch;
   initialError: unknown;
   normalizedUrls: string[];
+  nowFn?: () => number;
+  requestStartedAt: number;
   requestUrls: BatchUrlDescriptor[];
   userId: number;
+}
+
+/** Describes the options for resolving the isolated fallback retry deadline. */
+interface IsolatedFeedBatchFallbackDeadlineOptions {
+  requestStartedAt: number;
+}
+
+/** Describes one isolated feed retry task. */
+interface IsolatedFeedBatchRetryTask {
+  run: () => Promise<IsolatedFeedBatchSuccess>;
+}
+
+/** Describes the isolated fallback settlement summary. */
+interface IsolatedFeedBatchSettlementSummary {
+  failedUrls: Map<string, string>;
+  successes: IsolatedFeedBatchSuccess[];
 }
 
 /** Describes one successful isolated feed batch result. */
@@ -61,6 +84,17 @@ interface IsolatedFeedBatchSuccess {
   response: BatchFetchResponse;
   url: string;
 }
+
+/** Describes options for bounded isolated feed retry settlement. */
+interface SettleIsolatedFeedBatchRetriesOptions {
+  latestStartAt: number;
+  nowFn: () => number;
+  tasks: IsolatedFeedBatchRetryTask[];
+}
+
+/** Error reported for isolated fallback retries skipped to protect serverless request budgets. */
+export const ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE =
+  "Batch fallback budget exhausted before isolated feed retry started";
 
 /**
  * Build the route-level batch execution result from a core batch response.
@@ -97,34 +131,19 @@ export async function executeIsolatedFeedBatchFallback(
     return null;
   }
 
-  const settlements = await Promise.allSettled(
-    options.normalizedUrls.map((url) =>
-      options
-        .fetchAndCacheFeedArticlesBatchForRoute(
-          options.db,
-          options.userId,
-          [url],
-          options.batchFetchOptions,
-        )
-        .then((response) => ({ response, url })),
-    ),
+  const settlements = await settleIsolatedFeedBatchRetries({
+    latestStartAt: resolveLatestIsolatedFallbackStartAt({
+      requestStartedAt: options.requestStartedAt,
+    }),
+    nowFn: options.nowFn ?? Date.now,
+    tasks: buildIsolatedFeedBatchRetryTasks(options),
+  });
+  const { failedUrls, successes } = summarizeIsolatedFeedBatchSettlements(
+    settlements,
+    options.normalizedUrls,
   );
-  const successes: IsolatedFeedBatchSuccess[] = [];
-  const failedUrls = new Map<string, string>();
 
-  for (const [index, settlement] of settlements.entries()) {
-    const url = options.normalizedUrls[index];
-    if (!url) continue;
-
-    if (settlement.status === "fulfilled") {
-      successes.push(settlement.value);
-      continue;
-    }
-
-    failedUrls.set(url, toErrorMessage(settlement.reason));
-  }
-
-  if (successes.length === 0) {
+  if (successes.length === 0 && failedUrls.size === 0) {
     return null;
   }
 
@@ -139,6 +158,32 @@ export async function executeIsolatedFeedBatchFallback(
     batchResponse: combineIsolatedFeedBatchResponses(successes, failedUrls),
     requestUrls: options.requestUrls,
   });
+}
+
+/**
+ * Build one isolated retry task for each URL in the failed batch.
+ * @param options - Failed batch context and route dependencies.
+ * @returns Retry tasks aligned with the normalized URL order.
+ */
+function buildIsolatedFeedBatchRetryTasks(
+  options: ExecuteIsolatedFeedBatchFallbackOptions,
+): IsolatedFeedBatchRetryTask[] {
+  return options.normalizedUrls.map((url) => ({
+    /**
+     * Run one isolated single-feed retry for a URL that participated in the failed multi-feed batch.
+     * @returns The isolated feed batch response paired with its URL.
+     */
+    run: async () => {
+      const response = await options.fetchAndCacheFeedArticlesBatchForRoute(
+        options.db,
+        options.userId,
+        [url],
+        options.batchFetchOptions,
+      );
+
+      return { response, url };
+    },
+  }));
 }
 
 /**
@@ -230,4 +275,108 @@ function resolveCombinedBatchResolution(
   }
 
   return "cache";
+}
+
+/**
+ * Resolve the latest safe wall-clock time for starting an isolated fallback retry.
+ * @param options - Route timing information captured before auth and parsing work.
+ * @returns The latest timestamp at which another isolated retry may start.
+ */
+function resolveLatestIsolatedFallbackStartAt(
+  options: IsolatedFeedBatchFallbackDeadlineOptions,
+): number {
+  const budgetMs = resolveFeedBatchRefreshBudgetMs();
+  if (!Number.isFinite(budgetMs)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return (
+    options.requestStartedAt +
+    Math.max(
+      0,
+      budgetMs - resolveFeedRequestTimeoutMs(CONFIG.FEED_REQUEST_TIMEOUT_MS),
+    )
+  );
+}
+
+/**
+ * Run isolated feed retry tasks with bounded concurrency and a serverless-safe start deadline.
+ * @param options - Retry tasks, clock, and latest safe start timestamp.
+ * @returns Settled retry results aligned with the original URL order.
+ */
+async function settleIsolatedFeedBatchRetries(
+  options: SettleIsolatedFeedBatchRetriesOptions,
+): Promise<PromiseSettledResult<IsolatedFeedBatchSuccess>[]> {
+  const results: PromiseSettledResult<IsolatedFeedBatchSuccess>[] = [];
+  results.length = options.tasks.length;
+  let nextTaskIndex = 0;
+
+  /**
+   * Runs one bounded fallback worker until every retry has either started or
+   * been rejected before start because the route budget is already spent.
+   */
+  async function worker(): Promise<void> {
+    while (nextTaskIndex < options.tasks.length) {
+      const taskIndex = nextTaskIndex++;
+      const task = options.tasks[taskIndex];
+
+      if (options.nowFn() > options.latestStartAt) {
+        results[taskIndex] = {
+          reason: new Error(
+            ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
+          ),
+          status: "rejected",
+        };
+        continue;
+      }
+
+      try {
+        results[taskIndex] = { status: "fulfilled", value: await task.run() };
+      } catch (reason) {
+        results[taskIndex] = { reason, status: "rejected" };
+      }
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      {
+        length: Math.min(
+          resolveFeedBatchConcurrency(CONFIG.FEED_BATCH_CONCURRENCY),
+          options.tasks.length,
+        ),
+      },
+      () => worker(),
+    ),
+  );
+
+  return results;
+}
+
+/**
+ * Summarize settled isolated retry tasks into successes and per-url failures.
+ * @param settlements - Settled isolated retry results.
+ * @param normalizedUrls - URLs aligned with the settlement order.
+ * @returns Successful isolated responses and failed URL messages.
+ */
+function summarizeIsolatedFeedBatchSettlements(
+  settlements: PromiseSettledResult<IsolatedFeedBatchSuccess>[],
+  normalizedUrls: string[],
+): IsolatedFeedBatchSettlementSummary {
+  const successes: IsolatedFeedBatchSuccess[] = [];
+  const failedUrls = new Map<string, string>();
+
+  for (const [index, settlement] of settlements.entries()) {
+    const url = normalizedUrls[index];
+    if (!url) continue;
+
+    if (settlement.status === "fulfilled") {
+      successes.push(settlement.value);
+      continue;
+    }
+
+    failedUrls.set(url, toErrorMessage(settlement.reason));
+  }
+
+  return { failedUrls, successes };
 }

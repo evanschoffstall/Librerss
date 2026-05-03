@@ -150,6 +150,7 @@ interface ExecuteBatchFetchOptions {
   knownLastFetchedAtByUrl: Map<string, Date>;
   normalizedUrls: string[];
   requestSource: string;
+  requestStartedAt: number;
   requestUrls: BatchUrlDescriptor[];
   searchTerm: string | undefined;
   skipRefresh: boolean;
@@ -282,13 +283,6 @@ async function executeBatchFetch(
       requestUrls: options.requestUrls,
     });
   } catch (error) {
-    if (
-      error instanceof ServerServiceErrorCtor &&
-      error.reason === "proxy-password-unreadable"
-    ) {
-      throw error;
-    }
-
     const fallbackResult = await executeIsolatedFeedBatchFallback({
       batchFetchOptions,
       db: routeDeps.db,
@@ -296,6 +290,7 @@ async function executeBatchFetch(
         routeDeps.fetchAndCacheFeedArticlesBatchForRoute,
       initialError: error,
       normalizedUrls: options.normalizedUrls,
+      requestStartedAt: options.requestStartedAt,
       requestUrls: options.requestUrls,
       userId: options.userId,
     });
@@ -348,6 +343,7 @@ async function handleResolvedBatchPostRequest(
     knownLastFetchedAtByUrl,
     normalizedUrls,
     requestSource,
+    requestStartedAt: options.requestStartedAt,
     requestUrls,
     searchTerm,
     skipRefresh,

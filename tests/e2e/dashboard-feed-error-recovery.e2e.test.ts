@@ -173,66 +173,80 @@ test.describe("dashboard feed error recovery", () => {
     });
   });
 
-  test("keeps the previous article list visible when proxy credentials cannot be read", async ({
+  test("keeps successful refresh results when proxy credentials cannot be read", async ({
     page,
   }) => {
-    const shouldFailNextBatchRequest = { current: false };
     await installDeterministicArticleExtractRoute(page);
-    await installDeterministicFeedBatchRoute(page);
     await page.route("**/api/feeds/batch", async (route) => {
-      if (!shouldFailNextBatchRequest.current) {
-        await route.fallback();
-        return;
-      }
+      const requestBody = route.request().postDataJSON() as {
+        forceRefresh?: boolean;
+        urls?: string[];
+      };
+      const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      const payload = urls.map((url, index) => {
+        if (requestBody.forceRefresh === true && index === 1) {
+          return {
+            articles: [],
+            error:
+              "Saved proxy password could not be read. Update it in settings and try again.",
+            ok: false,
+            url,
+          };
+        }
 
-      shouldFailNextBatchRequest.current = false;
+        return {
+          articles: [
+            {
+              content:
+                requestBody.forceRefresh === true
+                  ? "Direct feed refreshed while proxy settings need attention."
+                  : "Initial dashboard article.",
+              feedId: index + 1,
+              feedName: `Direct Feed ${index + 1}`,
+              feedUrl: url,
+              hasFullContent: true,
+              id:
+                requestBody.forceRefresh === true ? 12_000 + index : index + 1,
+              isRead: false,
+              isStarred: false,
+              lastChecked: "2026-05-03T18:00:00.000Z",
+              link: `https://example.com/proxy-recovery-${index + 1}`,
+              publicationDate: "2026-05-03T17:59:00.000Z",
+              title:
+                requestBody.forceRefresh === true
+                  ? `Direct refresh survived proxy error ${index + 1}`
+                  : `Initial proxy recovery article ${index + 1}`,
+            },
+          ],
+          lastFetchedAt: "2026-05-03T18:00:00.000Z",
+          ok: true,
+          url,
+        };
+      });
+
       await route.fulfill({
-        body: JSON.stringify({
-          error:
-            "Saved proxy password could not be read. Update it in settings and try again.",
-          reason: "proxy-password-unreadable",
-        }),
+        body: JSON.stringify(payload),
         contentType: "application/json",
-        status: 500,
+        status: requestBody.forceRefresh === true ? 207 : 200,
       });
     });
 
     await gotoAuthenticatedDashboard(page);
-
-    const visibleArticles = page.locator("article[data-article-key]:visible");
-    const firstArticle = visibleArticles.first();
-    const firstArticleKey = await firstArticle.getAttribute("data-article-key");
-
-    expect(firstArticleKey).toBeTruthy();
-
-    const initialArticleCount = await page.evaluate(() => {
-      return document.querySelectorAll("article[data-article-key]").length;
-    });
-    expect(initialArticleCount).toBeGreaterThan(0);
-
-    shouldFailNextBatchRequest.current = true;
 
     await page
       .getByRole("button", { exact: true, name: "Refresh selected feed" })
       .last()
       .click();
 
-    await expect(page.getByText("Proxy credentials unavailable.")).toBeVisible({
+    await expect(
+      page.getByText(/Direct refresh survived proxy error/).first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText("Some feeds failed to update")).toBeVisible({
       timeout: 10_000,
     });
     await expect(
-      page.getByText(
-        "Re-enter your proxy password in Settings to restore feed access.",
-      ),
-    ).toBeVisible();
-
-    await expect(firstArticle).toBeVisible();
-    await expect(visibleArticles).toHaveCount(initialArticleCount);
-    await expect(
-      page.locator(
-        `article[data-article-key="${String(firstArticleKey)}"]:visible`,
-      ),
-    ).toBeVisible();
+      page.locator("article[data-article-key]:visible"),
+    ).not.toHaveCount(0);
   });
 
   test("keeps successful all-feeds refresh results when one feed exhausts the refresh budget", async ({

@@ -340,43 +340,49 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
-  test("returns a proxy credential error instead of retrying through direct egress", async () => {
+  test("keeps direct isolated fallback results when proxy credentials are unreadable", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps } = createRouteDeps();
-    const upstreamRefreshAttempt = mock(async () => {
-      throw new Error(
-        "The batch route must not bypass unreadable proxy credentials.",
-      );
-    });
-
-    deps.fetchAndCacheFeedArticlesBatchFn = mock(
-      async (_db, _userId, _feedUrls, options) => {
-        await options?.resolveProxyTransport?.();
-        await upstreamRefreshAttempt();
-
-        return {
-          articles: new Map([["https://example.com/feed", []]]),
-          cachedCount: 0,
-          cooldownLimitedCount: 0,
-          errors: new Map(),
-          lastFetchedByUrl: new Map(),
-          refreshedCount: 0,
-          resolution: "upstream",
-          unchangedUrls: new Set(),
-        };
-      },
-    ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
-    deps.resolveUserProxyFn = async () => {
+    const directUrl = "https://example.com/feed";
+    const proxiedUrl = "https://example.com/other-feed";
+    const lastFetchedAt = new Date("2026-05-03T18:00:00.000Z");
+    const resolveProxyTransportAttempts = mock(async () => {
       throw new serverApi.ServerServiceError(
         "Saved proxy password could not be read. Update it in settings and try again.",
         500,
         "proxy-password-unreadable",
       );
-    };
+    });
+
+    deps.fetchAndCacheFeedArticlesBatchFn = mock(
+      async (_db, _userId, feedUrls, options) => {
+        if (feedUrls.length > 1) {
+          throw new Error("batch refresh aborted by unreadable proxy settings");
+        }
+
+        if (feedUrls[0] === proxiedUrl) {
+          await options?.resolveProxyTransport?.();
+        }
+
+        return {
+          articles: new Map([
+            [directUrl, [{ id: 1, title: "Direct article" } as never]],
+          ]),
+          cachedCount: 0,
+          cooldownLimitedCount: 0,
+          errors: new Map(),
+          lastFetchedByUrl: new Map([[directUrl, lastFetchedAt]]),
+          refreshedCount: 1,
+          resolution: "upstream",
+          unchangedUrls: new Set(),
+        };
+      },
+    ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
+    deps.resolveUserProxyFn = resolveProxyTransportAttempts as never;
 
     const request = new NextRequest("http://localhost/api/feeds/batch", {
       body: JSON.stringify({
-        urls: ["https://example.com/feed", "https://example.com/other-feed"],
+        urls: [directUrl, proxiedUrl],
       }),
       headers: { "content-type": "application/json" },
       method: "POST",
@@ -385,14 +391,24 @@ describe("api/feeds/batch route", () => {
     const response = await POST(request, deps);
     const data = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(data).toEqual({
-      error:
-        "Saved proxy password could not be read. Update it in settings and try again.",
-      reason: "proxy-password-unreadable",
-    });
-    expect(deps.fetchAndCacheFeedArticlesBatchFn).toHaveBeenCalledTimes(1);
-    expect(upstreamRefreshAttempt).not.toHaveBeenCalled();
+    expect(response.status).toBe(207);
+    expect(data).toEqual([
+      {
+        articles: [{ id: 1, title: "Direct article" }],
+        lastFetchedAt: lastFetchedAt.toISOString(),
+        ok: true,
+        url: directUrl,
+      },
+      {
+        articles: [],
+        error:
+          "Saved proxy password could not be read. Update it in settings and try again.",
+        ok: false,
+        url: proxiedUrl,
+      },
+    ]);
+    expect(deps.fetchAndCacheFeedArticlesBatchFn).toHaveBeenCalledTimes(3);
+    expect(resolveProxyTransportAttempts).toHaveBeenCalledTimes(1);
   });
 
   test("returns 207 for mixed invalid URLs and upstream errors", async () => {
@@ -1038,5 +1054,77 @@ describe("api/feeds/batch route", () => {
         userId: user.userId,
       },
     );
+  });
+
+  test("returns fast per-feed fallback budget errors once the Vercel request window is spent", async () => {
+    const previousVercel = process.env.VERCEL;
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const startedCalls: string[][] = [];
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE } =
+      await import("@/lib/server");
+    const fetchAndCacheFeedArticlesBatch = mock(
+      async (
+        _db: Parameters<FetchAndCacheFeedArticlesBatchFn>[0],
+        _userId: Parameters<FetchAndCacheFeedArticlesBatchFn>[1],
+        feedUrls: Parameters<FetchAndCacheFeedArticlesBatchFn>[2],
+        _options?: Parameters<FetchAndCacheFeedArticlesBatchFn>[3],
+      ): Promise<FetchAndCacheFeedArticlesBatchResult> => {
+        startedCalls.push([...feedUrls]);
+        throw new Error("batch refresh aborted after platform budget");
+      },
+    );
+    const deps: BatchRouteDeps = {
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      requireMutableAuthenticatedUserFn: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2_750));
+        return user;
+      },
+    };
+
+    process.env.VERCEL = "1";
+
+    try {
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+          urls: [firstUrl, secondUrl],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+      const data = await response.json();
+
+      expect(response.status).toBe(207);
+      expect(startedCalls).toEqual([[firstUrl, secondUrl]]);
+      expect(data).toEqual([
+        {
+          articles: [],
+          error: ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: firstUrl,
+        },
+        {
+          articles: [],
+          error: ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: secondUrl,
+        },
+      ]);
+    } finally {
+      if (previousVercel === undefined) {
+        delete process.env.VERCEL;
+      } else {
+        process.env.VERCEL = previousVercel;
+      }
+    }
   });
 });

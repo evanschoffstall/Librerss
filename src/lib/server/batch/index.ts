@@ -26,5 +26,6 @@ export {
   type BatchFetchExecutionResult,
   buildBatchFetchExecutionResult,
   executeIsolatedFeedBatchFallback,
+  ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
 } from "./isolated-feed-fallback";
 export { buildBatchResultItem } from "./result-item";

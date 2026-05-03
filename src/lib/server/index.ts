@@ -30,6 +30,7 @@ export {
   createBatchSuccessResponse,
   ensureBatchUrlCount,
   executeIsolatedFeedBatchFallback,
+  ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
   logBatchDiagnostics,
   logBatchRequestCompleted,
   logBatchRequestReceived,
