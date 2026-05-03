@@ -1,6 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { gotoPreviewDashboard, waitForPreviewDashboardHydration } from "./helpers";
+import {
+  gotoPreviewDashboard,
+  waitForPreviewDashboardHydration,
+} from "./helpers";
 
 interface VisualViewportSnapshot {
   height: number;
