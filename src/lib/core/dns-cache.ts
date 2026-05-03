@@ -44,13 +44,13 @@ export async function resolvesToBlockedAddress(
     deps,
     hostname,
     maxEntries: CONFIG.DNS_CACHE_MAX_ENTRIES,
-    timeoutMs: CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+    timeoutMs: resolveDnsLookupTimeoutMs(CONFIG.DNS_LOOKUP_TIMEOUT_MS),
   });
 }
 
 /**
- * Return the lookup fn.
- * @returns The lookup fn.
+ * Lazily import Node's DNS lookup implementation.
+ * @returns The cached DNS lookup function.
  */
 async function getLookupFn(): Promise<DnsLookupFn> {
   if (!_lookupFn) {

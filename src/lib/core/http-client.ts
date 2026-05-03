@@ -6,6 +6,7 @@ import {
   type ValidatedHttpCloakRequestFn,
 } from "@/lib/utils/httpcloak";
 
+import { resolveFeedRequestTimeoutMs } from "./serverless-feed-refresh-limits";
 import { assertPublicFeedUrl } from "./url-validator";
 
 const MAX_FEED_REDIRECTS = 5;
@@ -55,7 +56,7 @@ export async function fetchFeedXml(
         allowInsecureTls: transport?.allowInsecureTls ?? false,
         maxRedirects: MAX_FEED_REDIRECTS,
         proxyUrl: transport?.proxyUrl,
-        timeoutMs: CONFIG.FEED_REQUEST_TIMEOUT_MS,
+        timeoutMs: resolveFeedRequestTimeoutMs(CONFIG.FEED_REQUEST_TIMEOUT_MS),
         url,
         /**
          * Process the validate url.

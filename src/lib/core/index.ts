@@ -14,6 +14,13 @@ export {
   withNormalizedArticleContent,
 } from "./preview";
 export {
+  isVercelRuntime,
+  resolveDnsLookupTimeoutMs,
+  resolveFeedBatchConcurrency,
+  resolveFeedBatchRefreshBudgetMs,
+  resolveFeedRequestTimeoutMs,
+} from "./serverless-feed-refresh-limits";
+export {
   FEED_STREAM_PREFIX,
   parseUserLabel,
   READING_LIST_STREAM,

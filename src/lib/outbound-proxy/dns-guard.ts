@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 
 import { CONFIG } from "@/lib/config";
+import { resolveDnsLookupTimeoutMs } from "@/lib/core";
 import { logger } from "@/lib/logger";
 import {
   type DnsCacheEntry,
@@ -32,6 +33,6 @@ export async function resolvesToBlockedAddress(
     deps,
     hostname,
     maxEntries: CONFIG.DNS_CACHE_MAX_ENTRIES,
-    timeoutMs: CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+    timeoutMs: resolveDnsLookupTimeoutMs(CONFIG.DNS_LOOKUP_TIMEOUT_MS),
   });
 }
