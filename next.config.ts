@@ -199,7 +199,7 @@ function resolvePackageTracingGlob(packageSpecifier: string) {
 /**
  * Non-secret server config keys whose .env defaults are serialised at build
  * time.  Next.js DefinePlugin bakes the resulting JSON blob into server
- * bundles so values survive into Vercel serverless functions even when .env
+ * bundles so values survive into serverless functions even when .env
  * files are not loaded into process.env at runtime.
  *
  * Sensitive values (DATABASE_URL, PROXY_CREDENTIAL_ENCRYPTION_KEY) are

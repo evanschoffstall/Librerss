@@ -27,10 +27,10 @@ type DashboardArticleWindowAvailabilityOptions = Pick<
   | "articlesPerPage"
   | "articleWindowState"
   | "currentFeedLength"
+  | "currentFilteredFeedLength"
   | "isLoading"
   | "selectedCategory"
   | "shouldUseArticleWindow"
-  | "usePlaceholderData"
 >;
 
 /**
@@ -38,11 +38,12 @@ type DashboardArticleWindowAvailabilityOptions = Pick<
  */
 interface DashboardArticleWindowAvailabilityResolutionLifecycleOptions {
   articleFilter: string;
+  articlesPerPage: number;
   currentFeedLength: number;
+  currentFilteredFeedLength: number;
   isLoading: boolean;
   lifecycleState: ReturnType<typeof getDashboardArticleWindowAvailabilityState>;
   shouldUseArticleWindow: boolean;
-  usePlaceholderData: boolean;
 }
 
 /**
@@ -188,10 +189,10 @@ function useDashboardArticleWindowAvailabilityLifecycle(
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
+    currentFilteredFeedLength,
     isLoading,
     selectedCategory,
     shouldUseArticleWindow,
-    usePlaceholderData,
   } = options;
   const lifecycleState =
     getDashboardArticleWindowAvailabilityState(articleWindowState);
@@ -206,11 +207,12 @@ function useDashboardArticleWindowAvailabilityLifecycle(
   });
   useDashboardArticleWindowAvailabilityResolutionLifecycle({
     articleFilter,
+    articlesPerPage,
     currentFeedLength,
+    currentFilteredFeedLength,
     isLoading,
     lifecycleState,
     shouldUseArticleWindow,
-    usePlaceholderData,
   });
 }
 
@@ -224,7 +226,9 @@ function useDashboardArticleWindowAvailabilityResolutionLifecycle(
   useArticleWindowAvailability({
     allowPartialArticleWindowGrowthRef:
       options.lifecycleState.allowPartialGrowthRef,
+    articlesPerPage: options.articlesPerPage,
     currentFeedLength: options.currentFeedLength,
+    currentFilteredFeedLength: options.currentFilteredFeedLength,
     hasMoreServerArticles: options.lifecycleState.hasMoreServerArticles,
     hasStartedArticleWindowSettlementRef:
       options.lifecycleState.hasStartedSettlementRef,
@@ -234,7 +238,7 @@ function useDashboardArticleWindowAvailabilityResolutionLifecycle(
     isLoadingMoreArticles: options.lifecycleState.isLoadingMoreArticles,
     isLoadingMoreArticlesRef: options.lifecycleState.isLoadingMoreArticlesRef,
     preservePartialFilteredWindowAvailability:
-      options.usePlaceholderData && options.articleFilter === "unread",
+      options.articleFilter === "unread",
     previousAwaitedFeedLengthRef:
       options.lifecycleState.previousAwaitedFeedLengthRef,
     requestedArticleLimit: options.lifecycleState.requestedArticleLimit,
@@ -303,10 +307,10 @@ function useDashboardArticleWindowLifecycle(
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
+    currentFilteredFeedLength,
     isLoading,
     selectedCategory,
     shouldUseArticleWindow,
-    usePlaceholderData,
   });
   useDashboardArticleWindowUnreadRefillLifecycle({
     articleFilter,

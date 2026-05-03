@@ -23,6 +23,22 @@ export interface ResolvedStoredProxyPassword {
 }
 
 /**
+ * Describes a decrypted proxy password and whether it used the primary key.
+ */
+interface DecryptedStoredProxyPassword {
+  password: string;
+  usedPrimaryKey: boolean;
+}
+
+/**
+ * Describes a candidate secret that can decrypt stored proxy passwords.
+ */
+interface ProxyPasswordSecretCandidate {
+  key: Buffer;
+  source: "configured" | "database-url";
+}
+
+/**
  * Process the encrypt stored proxy password.
  * @param password - The password.
  * @returns The encrypt stored proxy password.
@@ -105,10 +121,14 @@ export function resolveStoredProxyPassword(
     };
   }
 
+  const decryptedPassword = decryptStoredProxyPassword(trimmedPassword);
+
   return {
-    decryptedPassword: decryptStoredProxyPassword(trimmedPassword),
-    needsWriteback: false,
-    normalizedStoredPassword: trimmedPassword,
+    decryptedPassword: decryptedPassword.password,
+    needsWriteback: !decryptedPassword.usedPrimaryKey,
+    normalizedStoredPassword: decryptedPassword.usedPrimaryKey
+      ? trimmedPassword
+      : encryptStoredProxyPassword(decryptedPassword.password),
   };
 }
 
@@ -117,7 +137,9 @@ export function resolveStoredProxyPassword(
  * @param encryptedPassword - The encrypted password.
  * @returns The decrypt stored proxy password.
  */
-function decryptStoredProxyPassword(encryptedPassword: string): string {
+function decryptStoredProxyPassword(
+  encryptedPassword: string,
+): DecryptedStoredProxyPassword {
   const [version, ivToken, authTagToken, cipherTextToken, ...rest] =
     encryptedPassword.split(":");
 
@@ -131,20 +153,46 @@ function decryptStoredProxyPassword(encryptedPassword: string): string {
     throw new Error("Stored proxy password has an invalid encrypted format.");
   }
 
-  const decipher = createDecipheriv(
-    CIPHER_ALGORITHM,
-    getProxyPasswordEncryptionKey(),
-    Buffer.from(ivToken, "base64url"),
-    {
-      authTagLength: CIPHER_AUTH_TAG_BYTES,
-    },
-  );
-  decipher.setAuthTag(Buffer.from(authTagToken, "base64url"));
+  const iv = Buffer.from(ivToken, "base64url");
+  const authTag = Buffer.from(authTagToken, "base64url");
+  const cipherText = Buffer.from(cipherTextToken, "base64url");
+  const candidateKeys = getProxyPasswordDecryptionKeys();
 
-  return Buffer.concat([
-    decipher.update(Buffer.from(cipherTextToken, "base64url")),
-    decipher.final(),
-  ]).toString("utf8");
+  for (const [index, candidateKey] of candidateKeys.entries()) {
+    try {
+      const decipher = createDecipheriv(
+        CIPHER_ALGORITHM,
+        candidateKey.key,
+        iv,
+        {
+          authTagLength: CIPHER_AUTH_TAG_BYTES,
+        },
+      );
+      decipher.setAuthTag(authTag);
+
+      return {
+        password: Buffer.concat([
+          decipher.update(cipherText),
+          decipher.final(),
+        ]).toString("utf8"),
+        usedPrimaryKey: index === 0,
+      };
+    } catch (error) {
+      if (index === candidateKeys.length - 1) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Stored proxy password could not be decrypted.");
+}
+
+/**
+ * Return the proxy password decryption keys.
+ * @returns Candidate keys in primary-to-legacy order.
+ */
+function getProxyPasswordDecryptionKeys(): readonly ProxyPasswordSecretCandidate[] {
+  return getProxyPasswordSecretCandidates();
 }
 
 /**
@@ -152,18 +200,54 @@ function decryptStoredProxyPassword(encryptedPassword: string): string {
  * @returns The proxy password encryption key.
  */
 function getProxyPasswordEncryptionKey(): Buffer {
+  return getProxyPasswordSecretCandidates()[0].key;
+}
+
+/**
+ * Return configured and legacy proxy password secrets.
+ * @returns Candidate secrets in primary-to-legacy order.
+ */
+function getProxyPasswordSecretCandidates(): readonly ProxyPasswordSecretCandidate[] {
   const rawConfiguredSecret =
     process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY?.trim();
   const configuredSecret =
     rawConfiguredSecret === "" ? undefined : rawConfiguredSecret;
   const defaultSecret = process.env.DATABASE_URL?.trim();
-  const encryptionSecret = configuredSecret ?? defaultSecret;
+  const candidateSecrets = [
+    configuredSecret && {
+      source: "configured" as const,
+      value: configuredSecret,
+    },
+    defaultSecret && {
+      source: "database-url" as const,
+      value: defaultSecret,
+    },
+  ].filter(
+    (
+      candidate,
+    ): candidate is {
+      source: ProxyPasswordSecretCandidate["source"];
+      value: string;
+    } => Boolean(candidate),
+  );
+  const uniqueCandidateSecrets = candidateSecrets.filter(
+    (candidate, index, candidates) =>
+      candidates.findIndex((other) => other.value === candidate.value) ===
+      index,
+  );
 
-  if (!encryptionSecret || encryptionSecret.length < MIN_SECRET_LENGTH) {
+  const validCandidateSecrets = uniqueCandidateSecrets.filter(
+    (candidate) => candidate.value.length >= MIN_SECRET_LENGTH,
+  );
+
+  if (validCandidateSecrets.length === 0) {
     throw new Error(
       `${PROXY_PASSWORD_SECRET_ENV_KEY} must be at least ${MIN_SECRET_LENGTH} characters long, or DATABASE_URL must be present for proxy password encryption.`,
     );
   }
 
-  return createHash("sha256").update(encryptionSecret, "utf8").digest();
+  return validCandidateSecrets.map((candidate) => ({
+    key: createHash("sha256").update(candidate.value, "utf8").digest(),
+    source: candidate.source,
+  }));
 }

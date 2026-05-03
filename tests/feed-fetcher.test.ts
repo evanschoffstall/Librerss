@@ -5,6 +5,7 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import type { ArticleRow, RankedRow } from "@/lib/core";
 import type { FeedRecord } from "@/lib/core/refresher";
 import type { getDb } from "@/lib/db/db";
 
@@ -59,6 +60,23 @@ const mockDb = {
     })),
   })),
 } as unknown as ReturnType<typeof getDb>;
+
+function createArticleRow(overrides: Partial<ArticleRow> = {}): ArticleRow {
+  const now = new Date("2026-05-02T12:00:00.000Z");
+
+  return {
+    content: "Article body",
+    feedId: 1,
+    id: 100,
+    isRead: false,
+    isStarred: false,
+    lastChecked: now,
+    link: "https://example.com/article",
+    publicationDate: now,
+    title: "Article title",
+    ...overrides,
+  };
+}
 
 function createFeedRecord(overrides: Partial<FeedRecord> = {}): FeedRecord {
   return {
@@ -341,6 +359,180 @@ describe("Feed Fetcher - Batch Operations", () => {
     );
   });
 
+  test("fetchAndCacheFeedArticlesBatch resolves from memory cache without database article queries or upstream refresh", async () => {
+    const cachedArticle = createArticleRow({
+      title: "Memory cache article",
+    });
+    const getCachedBatch = mock(() => ({
+      articles: new Map([["https://example.com/feed", [cachedArticle]]]),
+      errors: new Map<string, string>(),
+      lastFetchedByUrl: new Map([
+        ["https://example.com/feed", cachedArticle.lastChecked],
+      ]),
+    }));
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>(["https://example.com/feed"]),
+    }));
+    const queryTopArticlesPerFeed = mock(async () => [
+      cachedArticle as unknown as RankedRow,
+    ]);
+    const resolveAuthorizedFeedRecords = mock(async () => ({
+      allowedUrls: ["https://example.com/feed"],
+      feedByUrl: new Map([["https://example.com/feed", createFeedRecord()]]),
+    }));
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      getCachedBatch,
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords,
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
+      "https://example.com/feed",
+    ]);
+
+    expect(result.resolution).toBe("memory");
+    expect(result.refreshedCount).toBe(0);
+    expect(result.cachedCount).toBe(1);
+    expect(result.articles.get("https://example.com/feed")).toEqual([
+      cachedArticle,
+    ]);
+    expect(getCachedBatch).toHaveBeenCalledTimes(1);
+    expect(resolveAuthorizedFeedRecords).not.toHaveBeenCalled();
+    expect(executeParallelRefreshes).not.toHaveBeenCalled();
+    expect(queryTopArticlesPerFeed).not.toHaveBeenCalled();
+  });
+
+  test("fetchAndCacheFeedArticlesBatch resolves from database articles when memory misses and no upstream refresh runs", async () => {
+    const databaseArticle = createArticleRow({
+      title: "Database article",
+    });
+    const databaseRow = databaseArticle as unknown as RankedRow;
+    const getCachedBatch = mock(() => null);
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 0,
+      refreshedUrls: new Set<string>(),
+    }));
+    const queryTopArticlesPerFeed = mock(async () => [databaseRow]);
+    const mapRowsToArticleMap = mock(
+      () => new Map([["https://example.com/feed", [databaseArticle]]]),
+    );
+    const setCachedBatch = mock(() => {});
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      getCachedBatch,
+      mapRowsToArticleMap,
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed"],
+        feedByUrl: new Map([
+          ["https://example.com/feed", createFeedRecord({ id: 7 })],
+        ]),
+      })),
+      setCachedBatch,
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
+      "https://example.com/feed",
+    ]);
+
+    expect(result.resolution).toBe("cache");
+    expect(result.refreshedCount).toBe(0);
+    expect(result.cachedCount).toBe(1);
+    expect(result.articles.get("https://example.com/feed")).toEqual([
+      databaseArticle,
+    ]);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forceRefresh: false,
+        skipRefresh: false,
+      }),
+    );
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [7], {
+      articleFilter: "all",
+      articleLimit: 500,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
+    expect(mapRowsToArticleMap).toHaveBeenCalledWith(
+      [databaseRow],
+      expect.any(Map),
+      ["https://example.com/feed"],
+    );
+    expect(setCachedBatch).toHaveBeenCalledTimes(1);
+  });
+
+  test("fetchAndCacheFeedArticlesBatch resolves from upstream refresh before reading refreshed database articles", async () => {
+    const refreshedArticle = createArticleRow({
+      title: "Upstream refreshed article",
+    });
+    const refreshedRow = refreshedArticle as unknown as RankedRow;
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>(),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>(["https://example.com/feed"]),
+    }));
+    const invalidateUserCache = mock(() => {});
+    const queryTopArticlesPerFeed = mock(async () => [refreshedRow]);
+    const mapRowsToArticleMap = mock(
+      () => new Map([["https://example.com/feed", [refreshedArticle]]]),
+    );
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      getCachedBatch: mock(() => null),
+      invalidateUserCache,
+      mapRowsToArticleMap,
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: ["https://example.com/feed"],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed",
+            createFeedRecord({
+              id: 9,
+              lastFetched: new Date("2026-05-02T11:00:00.000Z"),
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(mockDb, 1, [
+      "https://example.com/feed",
+    ]);
+
+    expect(result.resolution).toBe("upstream");
+    expect(result.refreshedCount).toBe(1);
+    expect(result.cachedCount).toBe(0);
+    expect(result.articles.get("https://example.com/feed")).toEqual([
+      refreshedArticle,
+    ]);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedUrls: ["https://example.com/feed"],
+        db: mockDb,
+        forceRefresh: false,
+        skipRefresh: false,
+      }),
+    );
+    expect(invalidateUserCache).toHaveBeenCalledWith(1);
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [9], {
+      articleFilter: "all",
+      articleLimit: 500,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
+  });
+
   test("fetchAndCacheFeedArticlesBatch omits unchanged cached feeds from article payloads", async () => {
     const lastFetchedAt = new Date("2026-03-14T12:00:00.000Z");
     setFeedFetcherDependenciesForTesting({
@@ -532,6 +724,68 @@ describe("Feed Fetcher - Batch Operations", () => {
     });
   });
 
+  test("fetchAndCacheFeedArticlesBatch preserves a 10000 article unread all-feeds window", async () => {
+    const queryTopArticlesPerFeed = mock(async () => []);
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes: mock(async () => ({
+        cooldownLimitedCount: 0,
+        errors: new Map<string, string>(),
+        refreshedCount: 0,
+        refreshedUrls: new Set<string>(),
+      })),
+      mapRowsToArticleMap: mock(
+        () =>
+          new Map([
+            ["https://example.com/feed-a", []],
+            ["https://example.com/feed-b", []],
+          ]),
+      ),
+      queryTopArticlesPerFeed,
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: [
+          "https://example.com/feed-a",
+          "https://example.com/feed-b",
+        ],
+        feedByUrl: new Map([
+          [
+            "https://example.com/feed-a",
+            createFeedRecord({
+              id: 1,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-a",
+            }),
+          ],
+          [
+            "https://example.com/feed-b",
+            createFeedRecord({
+              id: 2,
+              lastFetched: new Date("2026-03-14T11:00:00.000Z"),
+              url: "https://example.com/feed-b",
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      ["https://example.com/feed-a", "https://example.com/feed-b"],
+      {
+        articleFilter: "unread",
+        articleLimit: 10_000,
+        skipRefresh: true,
+      },
+    );
+
+    expect(queryTopArticlesPerFeed).toHaveBeenCalledWith(mockDb, 1, [1, 2], {
+      articleFilter: "unread",
+      articleLimit: 10_000,
+      articleSortOrder: "newest",
+      searchTerm: undefined,
+    });
+  });
+
   test("fetchAndCacheFeedArticlesBatch keys cache and ranked queries by searchTerm", async () => {
     const getCachedBatch = mock(() => null);
     const queryTopArticlesPerFeed = mock(async () => []);
@@ -661,6 +915,68 @@ describe("Feed Fetcher - Batch Operations", () => {
         skipRefresh: false,
       }),
     );
+  });
+
+  test("fetchAndCacheFeedArticlesBatch keeps direct refreshes when proxy materialization fails", async () => {
+    const directUrl = "https://direct.example/feed";
+    const proxiedUrl = "https://proxied.example/feed";
+    const proxyTransportError =
+      "Saved proxy password could not be read. Update it in settings and try again.";
+    const directArticle = createArticleRow({ feedId: 1, title: "Direct" });
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>([[proxiedUrl, proxyTransportError]]),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>([directUrl]),
+    }));
+    const resolveProxyTransport = mock(async () => {
+      throw new Error(proxyTransportError);
+    });
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      mapRowsToArticleMap: mock(
+        () =>
+          new Map([
+            [directUrl, [directArticle]],
+            [proxiedUrl, []],
+          ]),
+      ),
+      queryTopArticlesPerFeed: mock(async () => [directArticle as RankedRow]),
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: [directUrl, proxiedUrl],
+        feedByUrl: new Map([
+          [directUrl, createFeedRecord({ id: 1, url: directUrl })],
+          [
+            proxiedUrl,
+            createFeedRecord({
+              id: 2,
+              proxyEnabled: true,
+              url: proxiedUrl,
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      [directUrl, proxiedUrl],
+      { forceRefresh: true, resolveProxyTransport },
+    );
+
+    expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedUrls: [directUrl, proxiedUrl],
+        proxyTransport: undefined,
+        proxyTransportError,
+      }),
+    );
+    expect(result.errors).toEqual(new Map([[proxiedUrl, proxyTransportError]]));
+    expect(result.refreshedCount).toBe(1);
+    expect(result.articles.get(directUrl)).toEqual([directArticle]);
   });
 
   test("fetchAndCacheFeedArticlesBatch bypasses memory cache when forceResolveUpstream is enabled", async () => {

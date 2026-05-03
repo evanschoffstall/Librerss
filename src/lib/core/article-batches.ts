@@ -85,13 +85,19 @@ export function mapRowsToArticleMap(
 }
 
 /**
- * Process the query top articles per feed.
- * @param db - The db.
- * @param userId - The r id.
- * @param feedIds - The feed ids.
- * @param options - Query options including the article-state filter, page
- *   limit, search term, and display sort order.
- * @returns The query top articles per feed.
+ * Query the ranked article window across the selected feeds.
+ *
+ * When callers omit `articleLimit`, the query remains bounded by
+ * `MAX_ALL_ARTICLES_LIMIT` to protect legacy unwindowed reads. When the
+ * dashboard supplies an explicit infinite-scroll window, that value is honored
+ * as-is after positive safe-integer validation by the API layer, allowing large
+ * unread/all-feeds libraries to page past the default fallback.
+ * @param db - Database client used to execute the ranked article query.
+ * @param userId - Authenticated user whose enabled feed sources scope the query.
+ * @param feedIds - Feed IDs selected by the current dashboard category/feed.
+ * @param options - Article filter, requested window limit, search term, and
+ *   display sort order for the ranked query.
+ * @returns Ranked article rows for the requested global article window.
  */
 export async function queryTopArticlesPerFeed(
   db: ReturnType<DbMod["getDb"]>,
@@ -105,10 +111,7 @@ export async function queryTopArticlesPerFeed(
     articleSortOrder = "newest",
     searchTerm,
   } = options;
-  const normalizedArticleLimit = Math.min(
-    Math.max(1, articleLimit),
-    CONFIG.MAX_ALL_ARTICLES_LIMIT,
-  );
+  const normalizedArticleLimit = Math.max(1, articleLimit);
   const normalizedSearchTerm = searchTerm?.trim() ?? "";
   const searchPattern =
     normalizedSearchTerm.length > 0

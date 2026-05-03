@@ -235,7 +235,7 @@ const buildPrivacySections = (
   {
     body:
       profile.profile === "official"
-        ? `${profile.deploymentName} currently uses Vercel Analytics for aggregate site usage and performance telemetry. It also keeps operational logs for authentication, account changes, feed refreshes, and proxy compatibility checks so the service can be secured and debugged. Other LibreRSS deployments, and future LibreRSS versions, may use different providers, different retention practices, or no analytics at all.`
+        ? `${profile.deploymentName} may use a configured analytics provider for aggregate site usage and performance telemetry. It also keeps operational logs for authentication, account changes, feed refreshes, and proxy compatibility checks so the service can be secured and debugged. Other LibreRSS deployments, and future LibreRSS versions, may use different providers, different retention practices, or no analytics at all.`
         : `Retention, logging, analytics, and infrastructure choices are controlled by the operator of ${profile.deploymentName}, not by the LibreRSS codebase in the abstract. Those choices can be different on every deployment, and future LibreRSS versions may change what features or providers are involved.`,
     id: "operations",
     title: "Operations, analytics, and retention",

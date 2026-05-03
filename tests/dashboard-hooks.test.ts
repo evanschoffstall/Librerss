@@ -178,15 +178,17 @@ describe("useFeedLoader", () => {
         },
       },
     });
-    const seenOptions: Parameters<typeof FeedService.getFeedsBatch>[1][] =
-      [];
+    const seenOptions: Parameters<typeof FeedService.getFeedsBatch>[1][] = [];
     const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
       feedState = typeof updater === "function" ? updater(feedState) : updater;
       feedRef.current = feedState;
     });
 
     FeedService.getFeedsBatch = mock(
-      async (_urls: string[], options?: Parameters<typeof FeedService.getFeedsBatch>[1]) => {
+      async (
+        _urls: string[],
+        options?: Parameters<typeof FeedService.getFeedsBatch>[1],
+      ) => {
         seenOptions.push(options);
 
         return [
@@ -1229,6 +1231,7 @@ describe("useCategoryOrderState", () => {
 
   test("loads a saved category order when placeholder mode is disabled", async () => {
     FeedService.getCategoryOrder = mock(async () => ["News", "Tech"]);
+    FeedService.saveCategoryOrder = mock(async () => {});
 
     const { result } = renderHook(() =>
       useCategoryOrderState({ usePlaceholderData: false }),
@@ -1237,6 +1240,11 @@ describe("useCategoryOrderState", () => {
     await waitFor(() => {
       expect(result.current.orderedCategoryLabels).toEqual(["News", "Tech"]);
     });
+    await runWithAct(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 550));
+    });
+
+    expect(FeedService.saveCategoryOrder).not.toHaveBeenCalled();
   });
 
   test("ignores category order load errors", async () => {
@@ -1571,7 +1579,7 @@ describe("useArticleHydration", () => {
     expect(afterCalls).toBe(beforeCalls);
   });
 
-  test("hydrateArticleContent skips re-fetch on repeated calls", async () => {
+  test("hydrateArticleContent skips re-fetch when the current article already has full content", async () => {
     const article = createMockArticle();
     let feedState = [article];
     const setFeed = mock((updater: any) => {
@@ -1593,22 +1601,58 @@ describe("useArticleHydration", () => {
       .mockClear()
       .mockImplementation(async () => "<p>Different content</p>");
 
-    // Try to hydrate again
+    // Try to hydrate again with the post-hydration article object that the UI
+    // would pass after setFeed marks it as full content.
     await runWithAct(async () => {
-      await result.current.hydrateArticleContent(article);
+      await result.current.hydrateArticleContent(feedState[0]!);
     });
 
-    // Should skip extraction because this link is already hydrated
+    // Should skip extraction because the article itself is still full content.
     const afterSecondHydrateCalls = (
       ArticleService.extractArticleContent as ReturnType<typeof mock>
     ).mock.calls.length;
-    const infoCalls = (console.info as ReturnType<typeof mock>).mock.calls;
     expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
     expect(afterSecondHydrateCalls).toBe(0);
-    expect(infoCalls.length).toBeGreaterThanOrEqual(1);
-    expect(infoCalls[0]?.[0]).toBe("[dashboard] Article hydration cache hit");
-    expect(infoCalls[0]?.[1]).toEqual({ link: article.link });
     expect(feedState[0].content).toContain("Extracted content");
+  });
+
+  test("hydrateArticleContent rehydrates a refreshed excerpt even when the link was previously hydrated", async () => {
+    const article = createMockArticle();
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() => useArticleHydration({ setFeed }));
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(article);
+    });
+    await waitFor(() => {
+      expect(result.current.hydratedArticleLinks[article.link]).toBe(true);
+      expect(feedState[0]?.hasFullContent).toBe(true);
+    });
+
+    feedState = [
+      createMockArticle({
+        content: "Refreshed excerpt after a failed feed refresh",
+        hasFullContent: false,
+        link: article.link,
+      }),
+    ];
+    (ArticleService.extractArticleContent as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => "<p>Rehydrated after refresh error</p>");
+
+    await runWithAct(async () => {
+      await result.current.hydrateArticleContent(feedState[0]!);
+    });
+
+    await waitFor(() => {
+      expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
+      expect(feedState[0]?.content).toContain("Rehydrated after refresh error");
+      expect(feedState[0]?.hasFullContent).toBe(true);
+    });
   });
 
   test("hydrateArticleContent re-fetches on repeated calls when forced", async () => {

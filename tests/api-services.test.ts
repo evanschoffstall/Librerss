@@ -179,19 +179,13 @@ describe("FeedService", () => {
   });
 
   test("getFeedsBatch fetches multiple feeds", async () => {
-    const mockBatch = [
-      {
-        articles: [{ id: 1, title: "Article 1" }],
+    mockAxiosInstance.post = mock(async (_path, body) => ({
+      data: body.urls.map((url: string, index: number) => ({
+        articles: [{ id: index + 1, title: `Article ${index + 1}` }],
         ok: true,
-        url: "https://example.com/feed1",
-      },
-      {
-        articles: [{ id: 2, title: "Article 2" }],
-        ok: true,
-        url: "https://example.com/feed2",
-      },
-    ];
-    mockAxiosInstance.post = mock(async () => ({ data: mockBatch }));
+        url,
+      })),
+    }));
 
     const result = await FeedService.getFeedsBatch([
       "https://example.com/feed1",
@@ -200,6 +194,74 @@ describe("FeedService", () => {
 
     expect(result.length).toBe(2);
     expect(result[0].url).toBe("https://example.com/feed1");
+    expect(mockAxiosInstance.post).toHaveBeenCalledTimes(3);
+    expect(mockAxiosInstance.post.mock.calls[0]?.[1].urls).toEqual([
+      "https://example.com/feed1",
+    ]);
+    expect(mockAxiosInstance.post.mock.calls[1]?.[1].urls).toEqual([
+      "https://example.com/feed2",
+    ]);
+    expect(mockAxiosInstance.post.mock.calls[2]?.[1]).toMatchObject({
+      skipRefresh: true,
+      urls: ["https://example.com/feed1", "https://example.com/feed2"],
+    });
+  });
+
+  test("getFeedsBatch keeps per-feed results when one fan-out request fails", async () => {
+    mockAxiosInstance.post = mock(async (_path, body) => {
+      const [url] = body.urls as string[];
+      if (body.skipRefresh) {
+        return {
+          data: [
+            {
+              articles: [{ id: 1, title: "Article 1" } as never],
+              ok: true,
+              url: "https://example.com/feed1",
+            },
+            {
+              articles: [{ id: 2, title: "Article 2" } as never],
+              ok: true,
+              url: "https://example.com/feed2",
+            },
+          ],
+        };
+      }
+
+      if (url === "https://example.com/feed2") {
+        throw new Error("single feed request failed");
+      }
+
+      return {
+        data: [
+          {
+            articles: [{ id: 1, title: "Article 1" } as never],
+            ok: true,
+            url,
+          },
+        ],
+      };
+    });
+
+    const result = await FeedService.getFeedsBatch([
+      "https://example.com/feed1",
+      "https://example.com/feed2",
+    ]);
+
+    expect(result).toEqual([
+      {
+        articles: [{ id: 1, title: "Article 1" } as never],
+        ok: true,
+        url: "https://example.com/feed1",
+      },
+      {
+        articles: [{ id: 2, title: "Article 2" } as never],
+        error: "single feed request failed",
+        ok: false,
+        url: "https://example.com/feed2",
+      },
+    ]);
+    expect(mockAxiosInstance.post).toHaveBeenCalledTimes(3);
+    expect(mockAxiosInstance.post.mock.calls[2]?.[1].skipRefresh).toBe(true);
   });
 
   test("getFeedsBatch returns empty array for empty input", async () => {

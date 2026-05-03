@@ -340,39 +340,50 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
-  test("falls back to direct egress when lazy proxy resolution fails", async () => {
+  test("keeps direct isolated fallback results when proxy credentials are unreadable", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps } = createRouteDeps();
-    let resolvedProxyTransport:
-      | undefined
-      | { allowInsecureTls: boolean; proxyUrl: string | undefined };
-
-    deps.fetchAndCacheFeedArticlesBatchFn = mock(
-      async (_db, _userId, _feedUrls, options) => {
-        resolvedProxyTransport = await options?.resolveProxyTransport?.();
-
-        return {
-          articles: new Map([["https://example.com/feed", []]]),
-          cachedCount: 0,
-          cooldownLimitedCount: 0,
-          errors: new Map(),
-          lastFetchedByUrl: new Map(),
-          refreshedCount: 0,
-          resolution: "upstream",
-          unchangedUrls: new Set(),
-        };
-      },
-    ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
-    deps.resolveUserProxyFn = async () => {
+    const directUrl = "https://example.com/feed";
+    const proxiedUrl = "https://example.com/other-feed";
+    const lastFetchedAt = new Date("2026-05-03T18:00:00.000Z");
+    const resolveProxyTransportAttempts = mock(async () => {
       throw new serverApi.ServerServiceError(
         "Saved proxy password could not be read. Update it in settings and try again.",
         500,
         "proxy-password-unreadable",
       );
-    };
+    });
+
+    deps.fetchAndCacheFeedArticlesBatchFn = mock(
+      async (_db, _userId, feedUrls, options) => {
+        if (feedUrls.length > 1) {
+          throw new Error("batch refresh aborted by unreadable proxy settings");
+        }
+
+        if (feedUrls[0] === proxiedUrl) {
+          await options?.resolveProxyTransport?.();
+        }
+
+        return {
+          articles: new Map([
+            [directUrl, [{ id: 1, title: "Direct article" } as never]],
+          ]),
+          cachedCount: 0,
+          cooldownLimitedCount: 0,
+          errors: new Map(),
+          lastFetchedByUrl: new Map([[directUrl, lastFetchedAt]]),
+          refreshedCount: 1,
+          resolution: "upstream",
+          unchangedUrls: new Set(),
+        };
+      },
+    ) as BatchRouteDeps["fetchAndCacheFeedArticlesBatchFn"];
+    deps.resolveUserProxyFn = resolveProxyTransportAttempts as never;
 
     const request = new NextRequest("http://localhost/api/feeds/batch", {
-      body: JSON.stringify({ urls: ["https://example.com/feed"] }),
+      body: JSON.stringify({
+        urls: [directUrl, proxiedUrl],
+      }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -380,18 +391,24 @@ describe("api/feeds/batch route", () => {
     const response = await POST(request, deps);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(resolvedProxyTransport).toEqual({
-      allowInsecureTls: false,
-      proxyUrl: undefined,
-    });
+    expect(response.status).toBe(207);
     expect(data).toEqual([
       {
-        articles: [],
+        articles: [{ id: 1, title: "Direct article" }],
+        lastFetchedAt: lastFetchedAt.toISOString(),
         ok: true,
-        url: "https://example.com/feed",
+        url: directUrl,
+      },
+      {
+        articles: [],
+        error:
+          "Saved proxy password could not be read. Update it in settings and try again.",
+        ok: false,
+        url: proxiedUrl,
       },
     ]);
+    expect(deps.fetchAndCacheFeedArticlesBatchFn).toHaveBeenCalledTimes(3);
+    expect(resolveProxyTransportAttempts).toHaveBeenCalledTimes(1);
   });
 
   test("returns 207 for mixed invalid URLs and upstream errors", async () => {
@@ -778,6 +795,87 @@ describe("api/feeds/batch route", () => {
     });
   });
 
+  test("forwards explicit large article windows without clamping them to the fallback limit", async () => {
+    const normalizedUrl = "https://example.com/feed";
+    const requestedLargeWindow = CONFIG.MAX_ALL_ARTICLES_LIMIT + 9_500;
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps({
+      batchResult: {
+        articles: new Map([[normalizedUrl, []]]),
+        cachedCount: 0,
+        cooldownLimitedCount: 0,
+        errors: new Map(),
+        lastFetchedByUrl: new Map(),
+        refreshedCount: 0,
+        resolution: "cache",
+        unchangedUrls: new Set(),
+      },
+    });
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleFilter: "unread",
+        articleLimit: requestedLargeWindow,
+        urls: [normalizedUrl],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    expect(response.status).toBe(200);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[3]).toMatchObject({
+      articleFilter: "unread",
+      articleLimit: requestedLargeWindow,
+    });
+  });
+
+  test("rejects unsafe article windows before they can reach the ranked SQL limit", async () => {
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleLimit: Number.MAX_SAFE_INTEGER + 1,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: "articleLimit must be a positive safe integer when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
+  test("rejects fractional article windows instead of truncating pagination intent", async () => {
+    const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
+    const { POST } = await import("@/app/api/feeds/batch/route");
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        articleLimit: 500.5,
+        urls: ["https://example.com/feed"],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "articleLimit must be a positive safe integer when provided",
+    });
+    expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
+  });
+
   test("trims and forwards searchTerm to the batch fetcher", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
@@ -860,5 +958,262 @@ describe("api/feeds/batch route", () => {
       "Feed batch fetch error",
       expect.any(Error),
     );
+  });
+
+  test("falls back to isolated feed batches when a multi-feed refresh throws", async () => {
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const lastFetchedAt = new Date("2026-05-03T12:00:00.000Z");
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const warn = mock(() => undefined);
+    const fetchAndCacheFeedArticlesBatch = mock(
+      async (
+        _db: Parameters<FetchAndCacheFeedArticlesBatchFn>[0],
+        _userId: Parameters<FetchAndCacheFeedArticlesBatchFn>[1],
+        feedUrls: Parameters<FetchAndCacheFeedArticlesBatchFn>[2],
+        _options?: Parameters<FetchAndCacheFeedArticlesBatchFn>[3],
+      ): Promise<FetchAndCacheFeedArticlesBatchResult> => {
+        if (feedUrls.length > 1) {
+          throw new Error("batch refresh aborted");
+        }
+
+        const [feedUrl] = feedUrls;
+        if (feedUrl === secondUrl) {
+          throw new Error("isolated upstream failure");
+        }
+
+        return {
+          articles: new Map([
+            [firstUrl, [{ id: 1, title: "Recovered article" } as never]],
+          ]),
+          cachedCount: 0,
+          cooldownLimitedCount: 0,
+          errors: new Map(),
+          lastFetchedByUrl: new Map([[firstUrl, lastFetchedAt]]),
+          refreshedCount: 1,
+          resolution: "upstream",
+          unchangedUrls: new Set(),
+        };
+      },
+    );
+    logger.warn = warn as typeof logger.warn;
+    const deps: BatchRouteDeps = {
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      requireMutableAuthenticatedUserFn: async () => user,
+    };
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({
+        forceRefresh: true,
+        requestSource: "manual-refresh",
+        urls: [firstUrl, secondUrl],
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    const data = await response.json();
+
+    expect(response.status).toBe(207);
+    expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(3);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[0]?.[2]).toEqual([
+      firstUrl,
+      secondUrl,
+    ]);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[1]?.[2]).toEqual([
+      firstUrl,
+    ]);
+    expect(fetchAndCacheFeedArticlesBatch.mock.calls[2]?.[2]).toEqual([
+      secondUrl,
+    ]);
+    expect(data).toEqual([
+      {
+        articles: [{ id: 1, title: "Recovered article" }],
+        lastFetchedAt: lastFetchedAt.toISOString(),
+        ok: true,
+        url: firstUrl,
+      },
+      {
+        articles: [],
+        error: "isolated upstream failure",
+        ok: false,
+        url: secondUrl,
+      },
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      "Feed batch fetch fell back to isolated feed requests",
+      {
+        failedFeedCount: 1,
+        originalError: "batch refresh aborted",
+        succeededFeedCount: 1,
+        userId: user.userId,
+      },
+    );
+  });
+
+  test("returns fast per-feed fallback budget errors once the serverless request window is spent", async () => {
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const startedCalls: string[][] = [];
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE } =
+      await import("@/lib/server");
+    const fetchAndCacheFeedArticlesBatch = mock(
+      async (
+        _db: Parameters<FetchAndCacheFeedArticlesBatchFn>[0],
+        _userId: Parameters<FetchAndCacheFeedArticlesBatchFn>[1],
+        feedUrls: Parameters<FetchAndCacheFeedArticlesBatchFn>[2],
+        _options?: Parameters<FetchAndCacheFeedArticlesBatchFn>[3],
+      ): Promise<FetchAndCacheFeedArticlesBatchResult> => {
+        startedCalls.push([...feedUrls]);
+        throw new Error("batch refresh aborted after platform budget");
+      },
+    );
+    const deps: BatchRouteDeps = {
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      requireMutableAuthenticatedUserFn: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 2_750));
+        return user;
+      },
+    };
+
+    process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
+
+    try {
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+          urls: [firstUrl, secondUrl],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+      const data = await response.json();
+
+      expect(response.status).toBe(207);
+      expect(startedCalls).toEqual([[firstUrl, secondUrl]]);
+      expect(data).toEqual([
+        {
+          articles: [],
+          error: ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: firstUrl,
+        },
+        {
+          articles: [],
+          error: ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: secondUrl,
+        },
+      ]);
+    } finally {
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+      } else {
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
+      }
+    }
+  });
+
+  test("returns per-feed errors when the serverless route response budget expires before the batch completes", async () => {
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const timeoutToken = setTimeout(() => undefined, 0);
+    clearTimeout(timeoutToken);
+    const scheduledTimeouts: number[] = [];
+    const clearedTimeouts: unknown[] = [];
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE } =
+      await import("@/lib/server");
+    const fetchAndCacheFeedArticlesBatch = mock(
+      (): Promise<FetchAndCacheFeedArticlesBatchResult> =>
+        new Promise<FetchAndCacheFeedArticlesBatchResult>(() => undefined),
+    );
+    const deps: BatchRouteDeps = {
+      clearTimeoutFn: ((timeoutId) => {
+        clearedTimeouts.push(timeoutId);
+      }) as typeof clearTimeout,
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      nowFn: () => 1_000,
+      requireMutableAuthenticatedUserFn: async () => user,
+      setTimeoutFn: ((
+        handler: Parameters<typeof setTimeout>[0],
+        timeout?: Parameters<typeof setTimeout>[1],
+      ) => {
+        scheduledTimeouts.push(timeout ?? 0);
+        queueMicrotask(() => {
+          if (typeof handler === "function") {
+            handler();
+          }
+        });
+        return timeoutToken;
+      }) as typeof setTimeout,
+    };
+
+    process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
+
+    try {
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+          urls: [firstUrl, "not-a-url", secondUrl],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+      const data = await response.json();
+
+      expect(response.status).toBe(207);
+      expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+      expect(scheduledTimeouts).toEqual([8_500]);
+      expect(clearedTimeouts).toEqual([timeoutToken]);
+      expect(data).toEqual([
+        {
+          articles: [],
+          error: BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: firstUrl,
+        },
+        {
+          articles: [],
+          error: "Invalid feed URL",
+          ok: false,
+          url: "not-a-url",
+        },
+        {
+          articles: [],
+          error: BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: secondUrl,
+        },
+      ]);
+    } finally {
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+      } else {
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
+      }
+    }
   });
 });

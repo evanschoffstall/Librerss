@@ -1,6 +1,6 @@
 "use client";
 
-import { useAnimationFrame, useReducedMotion } from "motion/react";
+import { useAnimationFrame } from "motion/react";
 import { useEffect, useRef } from "react";
 
 /**
@@ -13,6 +13,19 @@ interface UseBackgroundCanvasAnimationOptions {
 
 /**
  * Manage the background canvas animation.
+ *
+ * The animation loop intentionally runs in every browser regardless of the
+ * user's `prefers-reduced-motion` preference. Suspending the loop entirely
+ * leaves the canvas blank in browsers (notably Microsoft Edge on Windows
+ * with the system "show animations" accessibility setting disabled) where
+ * `prefers-reduced-motion: reduce` is reported by default. The dashboard
+ * backgrounds are decorative but also form a user-selected visual theme, so
+ * the loop stays alive to keep particles visible, dust-like, and responsive
+ * to pointer parallax across Chromium, Edge-class Chromium, Firefox, and
+ * mobile WebKit environments.
+ *
+ * The loop is paused only when the document is hidden so background tabs do
+ * not waste CPU.
  * @param options - The options used to manage the background canvas animation.
  */
 export function useBackgroundCanvasAnimation(
@@ -23,20 +36,18 @@ export function useBackgroundCanvasAnimation(
   const motionEnabledRef = useRef(true);
   const onFrameRef = useRef(onFrame);
   const onResumeRef = useRef(onResume);
-  const prefersReducedMotion = useReducedMotion();
 
   onFrameRef.current = onFrame;
   onResumeRef.current = onResume;
 
   useEffect(() => {
     /**
-     * Process the sync animation state.
+     * Synchronize the animation enabled state with the current document
+     * visibility, resuming the loop and notifying consumers when the tab
+     * becomes visible again so timing references can be re-seeded.
      */
     const syncAnimationState = () => {
-      const nextEnabled = shouldRunBackgroundAnimation(
-        document.visibilityState,
-        prefersReducedMotion === true,
-      );
+      const nextEnabled = document.visibilityState !== "hidden";
       const wasEnabled = motionEnabledRef.current;
       motionEnabledRef.current = nextEnabled;
 
@@ -58,7 +69,7 @@ export function useBackgroundCanvasAnimation(
       lastFrameAtRef.current = 0;
       document.removeEventListener("visibilitychange", syncAnimationState);
     };
-  }, [prefersReducedMotion]);
+  }, []);
 
   useAnimationFrame((now) => {
     if (!motionEnabledRef.current) {
@@ -76,11 +87,13 @@ export function useBackgroundCanvasAnimation(
 }
 
 /**
- * Return whether should render background canvas frame.
- * @param lastFrameAt - The last frame at.
- * @param now - The now.
- * @param targetFrameMs - The target frame ms value.
- * @returns Whether should render background canvas frame.
+ * Return whether the next animation frame should be rendered, throttling the
+ * decorative background to roughly thirty frames per second so its CPU and
+ * GPU footprint stays negligible.
+ * @param lastFrameAt - The timestamp of the previously rendered frame.
+ * @param now - The current animation frame timestamp.
+ * @param targetFrameMs - The minimum interval between rendered frames.
+ * @returns Whether to render a new frame at the current tick.
  */
 function shouldRenderBackgroundCanvasFrame(
   lastFrameAt: number,
@@ -88,17 +101,4 @@ function shouldRenderBackgroundCanvasFrame(
   targetFrameMs = 1000 / 30,
 ) {
   return lastFrameAt === 0 || now - lastFrameAt >= targetFrameMs;
-}
-
-/**
- * Return whether should run background animation.
- * @param visibilityState - The visibility state.
- * @param prefersReducedMotion - The prefers reduced motion.
- * @returns Whether should run background animation.
- */
-function shouldRunBackgroundAnimation(
-  visibilityState: DocumentVisibilityState | undefined,
-  prefersReducedMotion: boolean,
-) {
-  return visibilityState !== "hidden" && !prefersReducedMotion;
 }

@@ -598,6 +598,59 @@ describe("proxy settings API route", () => {
     expect(persistedProxyPassword.startsWith("enc-v1:")).toBe(true);
   });
 
+  test("PUT verifies the stored encrypted proxy password before reporting the proxy reachable", async () => {
+    mock.module("@/lib/db/db", () => ({
+      getDb: () => ({
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: () => Promise.resolve([{ proxyUrl: null }]),
+            }),
+          }),
+        }),
+        update: () => ({
+          set: (_values: { proxyPassword?: null | string }) => ({
+            where: () => ({
+              returning: () =>
+                Promise.resolve([
+                  {
+                    allowInsecureTls: false,
+                    proxyPassword: "enc-v1:unreadable-after-write",
+                    proxyUsername: "alice",
+                  },
+                ]),
+            }),
+          }),
+        }),
+      }),
+    }));
+    mock.module("@/lib/logger", () => ({
+      logger: { debug: mock(), error: mock(), info: mock(), warn: mock() },
+    }));
+
+    const { PUT } = await import("@/app/api/settings/proxy/route");
+    const req = new NextRequest("http://localhost/api/settings/proxy", {
+      body: JSON.stringify({
+        proxyPassword: "super-secret-pass",
+        proxyUrl: "http://proxy:8080",
+        proxyUsername: "alice",
+      }),
+      headers: { "content-type": "application/json" },
+      method: "PUT",
+    });
+
+    const res = await PUT(req, routeDeps);
+    const body = await res.json();
+
+    expect(body.configured).toBe(true);
+    expect(body.error).toContain("Save it again");
+    expect(body.hasProxyPassword).toBe(true);
+    expect(body.proxyUrl).toBe("http://proxy:8080");
+    expect(body.proxyUsername).toBe("alice");
+    expect(body.routingCheck).toBeNull();
+    expect(body.status).toBe("unreachable");
+  });
+
   test("PUT reports encryption configuration errors when no valid secret is available", async () => {
     mockDb(null);
     process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = "short-secret";

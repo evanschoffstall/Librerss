@@ -24,7 +24,9 @@ export interface ArticleWindowAvailabilityResult {
  */
 export interface ResolveArticleWindowAvailabilityOptions {
   allowPartialFeedGrowth: boolean;
+  articlesPerPage?: number;
   currentFeedLength: number;
+  currentFilteredFeedLength?: number;
   hasStartedAwaitedWindowSettlement: boolean;
   isAwaitingWindowSettlement: boolean;
   isLoading: boolean;
@@ -69,6 +71,7 @@ export interface ShouldRefillDepletedUnreadWindowOptions {
   isLoading: boolean;
   isLoadingMoreArticles: boolean;
   isRefillingDepletedUnreadWindow: boolean;
+  previousFilteredFeedLength: number;
   shouldUseArticleWindow: boolean;
 }
 
@@ -168,6 +171,7 @@ export function shouldRefillDepletedUnreadWindow(
     isLoading,
     isLoadingMoreArticles,
     isRefillingDepletedUnreadWindow,
+    previousFilteredFeedLength,
     shouldUseArticleWindow,
   } = options;
   const unreadRefillThreshold = resolveUnreadRefillThreshold(articlesPerPage);
@@ -179,6 +183,7 @@ export function shouldRefillDepletedUnreadWindow(
     !isLoading &&
     !isLoadingMoreArticles &&
     !isRefillingDepletedUnreadWindow &&
+    currentFilteredFeedLength < previousFilteredFeedLength &&
     currentFilteredFeedLength < unreadRefillThreshold &&
     currentFeedLength > 0
   );
@@ -272,19 +277,31 @@ function shouldDeferAwaitedWindowSettlement(
 }
 
 /**
- * Return whether preview-mode unread filtering should preserve the previous
- * availability signal even though the filtered window is still below the
- * requested limit.
+ * Return whether unread filtering should preserve the previous availability
+ * signal after a refill restored enough unread rows to keep reading.
+ *
+ * Marking visible articles as read can swap old read rows for newly fetched
+ * unread rows without increasing the total feed array length. In that case,
+ * total length alone cannot prove server exhaustion: the unread filtered window
+ * reaching the refill threshold proves the reader can continue, so availability
+ * must stay armed until a later refill returns fewer than the minimum unread
+ * window.
  * @param options - Current article-window state used to derive availability.
- * @returns Whether preview-mode filtered availability should remain true.
+ * @returns Whether filtered unread availability should remain true.
  */
 function shouldPreservePartialFilteredWindowAvailability(
   options: ResolveArticleWindowAvailabilityOptions,
 ) {
+  const currentFilteredFeedLength =
+    options.currentFilteredFeedLength ?? options.currentFeedLength;
+  const unreadRefillThreshold = resolveUnreadRefillThreshold(
+    options.articlesPerPage ?? 0,
+  );
+
   return (
     options.preservePartialFilteredWindowAvailability === true &&
     options.previousHasMoreServerArticles &&
     options.currentFeedLength > 0 &&
-    options.currentFeedLength < options.requestedArticleLimit
+    currentFilteredFeedLength >= unreadRefillThreshold
   );
 }

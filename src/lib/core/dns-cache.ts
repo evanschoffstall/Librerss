@@ -12,22 +12,22 @@ import {
   resolveBlockedAddressWithCache,
 } from "@/lib/utils/dns";
 
+import { resolveDnsLookupTimeoutMs } from "./serverless-feed-refresh-limits";
+
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
 let _lookupFn: DnsLookupFn | null = null;
 
-/**
- * Process the clear dns cache for tests.
- */
+/** Clear cached DNS validation results between isolated tests. */
 export function clearDnsCacheForTests(): void {
   DNS_CACHE.clear();
 }
 
 /**
- * Process the s to blocked address.
- * @param hostname - The hostname.
- * @param deps - The deps.
- * @returns The s to blocked address.
+ * Resolve a feed hostname and report whether it maps to a blocked address range.
+ * @param hostname - Hostname extracted from a candidate feed URL.
+ * @param deps - Optional DNS runtime overrides used by tests.
+ * @returns Whether any resolved address is private, loopback, link-local, or otherwise blocked.
  */
 export async function resolvesToBlockedAddress(
   hostname: string,
@@ -44,13 +44,13 @@ export async function resolvesToBlockedAddress(
     deps,
     hostname,
     maxEntries: CONFIG.DNS_CACHE_MAX_ENTRIES,
-    timeoutMs: CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+    timeoutMs: resolveDnsLookupTimeoutMs(CONFIG.DNS_LOOKUP_TIMEOUT_MS),
   });
 }
 
 /**
- * Return the lookup fn.
- * @returns The lookup fn.
+ * Lazily import Node's DNS lookup implementation.
+ * @returns The cached DNS lookup function.
  */
 async function getLookupFn(): Promise<DnsLookupFn> {
   if (!_lookupFn) {

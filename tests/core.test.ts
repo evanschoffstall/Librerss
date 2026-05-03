@@ -521,6 +521,33 @@ describe("dns-cache", () => {
     expect(lookupFn).toHaveBeenCalledTimes(1);
   });
 
+  test("resolvesToBlockedAddress retries transient DNS timeouts before failing closed", async () => {
+    const { clearDnsCacheForTests, resolvesToBlockedAddress } =
+      await import("@/lib/core/dns-cache");
+
+    clearDnsCacheForTests();
+
+    const warnFn = mock(() => {});
+    const lookupFn = mock(async () => {
+      if (lookupFn.mock.calls.length === 1) {
+        throw new Error("DNS lookup timeout");
+      }
+
+      return [{ address: "8.8.8.8" }];
+    });
+
+    const result = await resolvesToBlockedAddress("transient.example", {
+      isBlockedResolvedAddressFn: () => false,
+      lookupFn: lookupFn as any,
+      nowFn: () => 20_000,
+      warnFn,
+    });
+
+    expect(result).toBe(false);
+    expect(warnFn).not.toHaveBeenCalled();
+    expect(lookupFn).toHaveBeenCalledTimes(2);
+  });
+
   test("resolvesToBlockedAddress handles timeout race and clears timeout handle", async () => {
     const { clearDnsCacheForTests, resolvesToBlockedAddress } =
       await import("@/lib/core/dns-cache");
@@ -529,6 +556,7 @@ describe("dns-cache", () => {
 
     const warnFn = mock(() => {});
     const clearTimeoutFn = mock(() => {});
+    const lookupFn = mock(() => new Promise(() => {}));
 
     const setTimeoutFn = ((callback: () => void) => {
       callback();
@@ -538,7 +566,7 @@ describe("dns-cache", () => {
     const result = await resolvesToBlockedAddress("timeout.example", {
       clearTimeoutFn: clearTimeoutFn as any,
       isBlockedResolvedAddressFn: () => false,
-      lookupFn: (() => new Promise(() => {})) as any,
+      lookupFn: lookupFn as any,
       nowFn: () => 50_000,
       setTimeoutFn,
       warnFn,
@@ -546,7 +574,20 @@ describe("dns-cache", () => {
 
     expect(result).toBe(true);
     expect(warnFn).toHaveBeenCalledTimes(1);
-    expect(clearTimeoutFn).toHaveBeenCalledTimes(1);
+    expect(lookupFn).toHaveBeenCalledTimes(2);
+    expect(clearTimeoutFn).toHaveBeenCalledTimes(2);
+
+    expect(
+      await resolvesToBlockedAddress("timeout.example", {
+        clearTimeoutFn: clearTimeoutFn as any,
+        isBlockedResolvedAddressFn: () => false,
+        lookupFn: lookupFn as any,
+        nowFn: () => 55_000,
+        setTimeoutFn,
+        warnFn,
+      }),
+    ).toBe(true);
+    expect(lookupFn).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -579,6 +620,58 @@ describe("feed-refresh", () => {
     expect(shouldForceRefreshFeed(new Date())).toBe(false);
   });
 
+  test("shouldRefreshFeed permits upstream refresh exactly at the configured cache TTL", async () => {
+    const previousCacheTtl = process.env.FEED_CACHE_TTL_MINUTES;
+    const originalDateNow = Date.now;
+
+    try {
+      process.env.FEED_CACHE_TTL_MINUTES = "15";
+      Date.now = mock(() => new Date("2026-05-02T12:00:00.000Z").getTime());
+
+      const { shouldRefreshFeed } = await importFeedRefresh();
+      const beforeThreshold = new Date("2026-05-02T11:45:00.001Z");
+      const atThreshold = new Date("2026-05-02T11:45:00.000Z");
+      const afterThreshold = new Date("2026-05-02T11:44:59.999Z");
+
+      expect(shouldRefreshFeed(beforeThreshold)).toBe(false);
+      expect(shouldRefreshFeed(atThreshold)).toBe(true);
+      expect(shouldRefreshFeed(afterThreshold)).toBe(true);
+    } finally {
+      Date.now = originalDateNow;
+      if (previousCacheTtl === undefined) {
+        delete process.env.FEED_CACHE_TTL_MINUTES;
+      } else {
+        process.env.FEED_CACHE_TTL_MINUTES = previousCacheTtl;
+      }
+    }
+  });
+
+  test("shouldForceRefreshFeed permits manual upstream refresh exactly at the configured force TTL", async () => {
+    const previousForceTtl = process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+    const originalDateNow = Date.now;
+
+    try {
+      process.env.FEED_FORCE_REFRESH_TTL_MINUTES = "15";
+      Date.now = mock(() => new Date("2026-05-02T12:00:00.000Z").getTime());
+
+      const { shouldForceRefreshFeed } = await importFeedRefresh();
+      const beforeThreshold = new Date("2026-05-02T11:45:00.001Z");
+      const atThreshold = new Date("2026-05-02T11:45:00.000Z");
+      const afterThreshold = new Date("2026-05-02T11:44:59.999Z");
+
+      expect(shouldForceRefreshFeed(beforeThreshold)).toBe(false);
+      expect(shouldForceRefreshFeed(atThreshold)).toBe(true);
+      expect(shouldForceRefreshFeed(afterThreshold)).toBe(true);
+    } finally {
+      Date.now = originalDateNow;
+      if (previousForceTtl === undefined) {
+        delete process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+      } else {
+        process.env.FEED_FORCE_REFRESH_TTL_MINUTES = previousForceTtl;
+      }
+    }
+  });
+
   test("refreshFeedFromUpstream upserts valid items and clears fetch error", async () => {
     const { refreshFeedFromUpstream } = await importFeedRefresh();
 
@@ -591,6 +684,8 @@ describe("feed-refresh", () => {
     const update = mock(() => ({ set }));
 
     const fixedNow = new Date("2026-02-24T00:00:00.000Z");
+    const fetchFeedXmlFn = mock(async () => "<rss />");
+    const parseFeedXmlFn = mock(async () => ({ items: [{ title: "A" }] }));
 
     const result = await refreshFeedFromUpstream(
       { insert, update } as unknown as any,
@@ -602,13 +697,13 @@ describe("feed-refresh", () => {
       },
       {
         dedupePendingArticlesFn: (rows) => rows,
-        fetchFeedXmlFn: async () => "<rss />",
+        fetchFeedXmlFn,
         getPublicationDateRangeFn: () => ({
           newestPublicationDate: fixedNow.toISOString(),
           oldestPublicationDate: fixedNow.toISOString(),
         }),
         nowFn: () => fixedNow,
-        parseFeedXmlFn: async () => ({ items: [{ title: "A" }] }),
+        parseFeedXmlFn,
         toPendingArticleFn: mock(() => ({
           content: "Body",
           feedId: 1,
@@ -621,6 +716,11 @@ describe("feed-refresh", () => {
     );
 
     expect(result).toEqual({ ok: true });
+    expect(fetchFeedXmlFn).toHaveBeenCalledWith(
+      "https://example.com/feed.xml",
+      undefined,
+    );
+    expect(parseFeedXmlFn).toHaveBeenCalledWith("<rss />");
     expect(insert).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledTimes(1);
 
@@ -1007,6 +1107,104 @@ describe("feed-batch-pipeline", () => {
     }
   });
 
+  test("buildRefreshPlan follows configured 15 minute cache and force refresh thresholds", async () => {
+    const previousCacheTtl = process.env.FEED_CACHE_TTL_MINUTES;
+    const previousForceTtl = process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+    const originalDateNow = Date.now;
+
+    try {
+      process.env.FEED_CACHE_TTL_MINUTES = "15";
+      process.env.FEED_FORCE_REFRESH_TTL_MINUTES = "15";
+      Date.now = mock(() => new Date("2026-05-02T12:00:00.000Z").getTime());
+
+      const { buildRefreshPlan } = await importFeedBatchHelpers();
+      const feedByUrl = new Map([
+        [
+          "https://errored.example.com/feed",
+          {
+            id: 3,
+            lastFetched: new Date("2026-05-02T11:59:00.000Z"),
+            lastFetchError: "previous upstream error",
+            url: "https://errored.example.com/feed",
+          },
+        ],
+        [
+          "https://fresh.example.com/feed",
+          {
+            id: 1,
+            lastFetched: new Date("2026-05-02T11:45:00.001Z"),
+            lastFetchError: null,
+            url: "https://fresh.example.com/feed",
+          },
+        ],
+        [
+          "https://stale.example.com/feed",
+          {
+            id: 2,
+            lastFetched: new Date("2026-05-02T11:45:00.000Z"),
+            lastFetchError: null,
+            url: "https://stale.example.com/feed",
+          },
+        ],
+      ]);
+
+      const normalPlan = buildRefreshPlan(
+        feedByUrl,
+        ["https://fresh.example.com/feed", "https://stale.example.com/feed"],
+        false,
+        false,
+      );
+      expect(
+        normalPlan.find(
+          (entry) => entry.url === "https://fresh.example.com/feed",
+        )?.decision,
+      ).toBe("use-cache");
+      expect(
+        normalPlan.find(
+          (entry) => entry.url === "https://stale.example.com/feed",
+        )?.decision,
+      ).toBe("refresh-stale");
+
+      const forcePlan = buildRefreshPlan(
+        feedByUrl,
+        [
+          "https://fresh.example.com/feed",
+          "https://stale.example.com/feed",
+          "https://errored.example.com/feed",
+        ],
+        false,
+        true,
+      );
+      expect(
+        forcePlan.find(
+          (entry) => entry.url === "https://fresh.example.com/feed",
+        )?.decision,
+      ).toBe("force-cooldown-use-cache");
+      expect(
+        forcePlan.find(
+          (entry) => entry.url === "https://stale.example.com/feed",
+        )?.decision,
+      ).toBe("refresh-force");
+      expect(
+        forcePlan.find(
+          (entry) => entry.url === "https://errored.example.com/feed",
+        )?.decision,
+      ).toBe("refresh-force");
+    } finally {
+      Date.now = originalDateNow;
+      if (previousCacheTtl === undefined) {
+        delete process.env.FEED_CACHE_TTL_MINUTES;
+      } else {
+        process.env.FEED_CACHE_TTL_MINUTES = previousCacheTtl;
+      }
+      if (previousForceTtl === undefined) {
+        delete process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+      } else {
+        process.env.FEED_FORCE_REFRESH_TTL_MINUTES = previousForceTtl;
+      }
+    }
+  });
+
   test("resolveAuthorizedFeedRecords handles ownership filtering and missing feed insertion", async () => {
     const { resolveAuthorizedFeedRecords } = await importFeedBatchHelpers();
 
@@ -1170,6 +1368,61 @@ describe("feed-batch-pipeline", () => {
     expect(serializedQuery).not.toContain("starred_candidates");
   });
 
+  test("queryTopArticlesPerFeed honors explicit large unread all-feeds windows", async () => {
+    const { CONFIG } = await import("@/lib/config");
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11, 12], {
+      articleFilter: "unread",
+      articleLimit: 10_000,
+      articleSortOrder: "newest",
+    });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+
+    const sqlQuery = execute.mock.calls.at(0)?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("selected_feed_ids");
+    expect(serializedQuery).toContain(
+      "COALESCE(status.is_read, false) = false",
+    );
+    expect(serializedQuery).toContain("LIMIT ");
+    expect(serializedQuery).toContain("10000");
+    expect(serializedQuery).not.toContain(
+      String(CONFIG.MAX_ALL_ARTICLES_LIMIT),
+    );
+  });
+
+  test("queryTopArticlesPerFeed keeps omitted article windows bounded by the fallback limit", async () => {
+    const { CONFIG } = await import("@/lib/config");
+    const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
+
+    const execute = mock(async (_query: unknown) => []);
+    const db = { execute };
+
+    await queryTopArticlesPerFeed(db as unknown as any, 7, [10, 11], {
+      articleFilter: "all",
+    });
+
+    const sqlQuery = execute.mock.calls.at(0)?.[0] as
+      | undefined
+      | {
+          queryChunks?: unknown[];
+        };
+    const serializedQuery = JSON.stringify(sqlQuery?.queryChunks ?? []);
+
+    expect(serializedQuery).toContain("LIMIT ");
+    expect(serializedQuery).toContain(String(CONFIG.MAX_ALL_ARTICLES_LIMIT));
+  });
+
   test("queryTopArticlesPerFeed searches article text, URLs, and feed metadata when searchTerm is present", async () => {
     const { queryTopArticlesPerFeed } = await importFeedBatchHelpers();
 
@@ -1272,6 +1525,193 @@ describe("feed-batch-pipeline", () => {
 
     expect(result.refreshedCount).toBe(1);
     expect(result.errors.has("not-a-url")).toBe(true);
+  });
+
+  test("executeParallelRefreshes starts normal upstream refreshes at the configured cache TTL only", async () => {
+    const previousCacheTtl = process.env.FEED_CACHE_TTL_MINUTES;
+    const originalDateNow = Date.now;
+
+    try {
+      process.env.FEED_CACHE_TTL_MINUTES = "15";
+      Date.now = mock(() => new Date("2026-05-02T12:00:00.000Z").getTime());
+
+      const { executeParallelRefreshes } = await importFeedBatchHelpers();
+      const urls = ["not-a-url-before-ttl", "not-a-url-at-ttl"];
+      const feedByUrl = new Map([
+        [
+          urls[0],
+          {
+            id: 50,
+            lastFetched: new Date("2026-05-02T11:45:00.001Z"),
+            lastFetchError: null,
+            url: urls[0],
+          },
+        ],
+        [
+          urls[1],
+          {
+            id: 51,
+            lastFetched: new Date("2026-05-02T11:45:00.000Z"),
+            lastFetchError: null,
+            url: urls[1],
+          },
+        ],
+      ]);
+      const insert = mock(() => ({
+        values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+      }));
+      const update = mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
+      }));
+      const db = {
+        insert,
+        update,
+      };
+
+      const result = await executeParallelRefreshes({
+        allowedUrls: urls,
+        db: db as unknown as any,
+        feedByUrl: feedByUrl as any,
+        forceRefresh: false,
+        skipRefresh: false,
+      });
+
+      expect(result.refreshedCount).toBe(1);
+      expect(result.refreshedUrls).toEqual(new Set([urls[1]]));
+      expect(result.errors.has(urls[0])).toBe(false);
+      expect(result.errors.has(urls[1])).toBe(true);
+      expect(insert).toHaveBeenCalledTimes(0);
+      expect(update).toHaveBeenCalledTimes(1);
+    } finally {
+      Date.now = originalDateNow;
+      if (previousCacheTtl === undefined) {
+        delete process.env.FEED_CACHE_TTL_MINUTES;
+      } else {
+        process.env.FEED_CACHE_TTL_MINUTES = previousCacheTtl;
+      }
+    }
+  });
+
+  test("executeParallelRefreshes honors the configured force refresh cooldown before starting upstream work", async () => {
+    const previousForceTtl = process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+    const originalDateNow = Date.now;
+
+    try {
+      process.env.FEED_FORCE_REFRESH_TTL_MINUTES = "15";
+      Date.now = mock(() => new Date("2026-05-02T12:00:00.000Z").getTime());
+
+      const { executeParallelRefreshes } = await importFeedBatchHelpers();
+      const urls = ["not-a-url-force-before-ttl", "not-a-url-force-at-ttl"];
+      const feedByUrl = new Map([
+        [
+          urls[0],
+          {
+            id: 60,
+            lastFetched: new Date("2026-05-02T11:45:00.001Z"),
+            lastFetchError: null,
+            url: urls[0],
+          },
+        ],
+        [
+          urls[1],
+          {
+            id: 61,
+            lastFetched: new Date("2026-05-02T11:45:00.000Z"),
+            lastFetchError: null,
+            url: urls[1],
+          },
+        ],
+      ]);
+      const insert = mock(() => ({
+        values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+      }));
+      const update = mock(() => ({
+        set: mock(() => ({ where: mock(async () => []) })),
+      }));
+      const db = {
+        insert,
+        update,
+      };
+
+      const result = await executeParallelRefreshes({
+        allowedUrls: urls,
+        db: db as unknown as any,
+        feedByUrl: feedByUrl as any,
+        forceRefresh: true,
+        skipRefresh: false,
+      });
+
+      expect(result.cooldownLimitedCount).toBe(1);
+      expect(result.refreshedCount).toBe(1);
+      expect(result.refreshedUrls).toEqual(new Set([urls[1]]));
+      expect(result.errors.has(urls[0])).toBe(false);
+      expect(result.errors.has(urls[1])).toBe(true);
+      expect(insert).toHaveBeenCalledTimes(0);
+      expect(update).toHaveBeenCalledTimes(1);
+    } finally {
+      Date.now = originalDateNow;
+      if (previousForceTtl === undefined) {
+        delete process.env.FEED_FORCE_REFRESH_TTL_MINUTES;
+      } else {
+        process.env.FEED_FORCE_REFRESH_TTL_MINUTES = previousForceTtl;
+      }
+    }
+  });
+
+  test("executeParallelRefreshes skips new feed refreshes when the serverless budget is exhausted", async () => {
+    const { BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE, executeParallelRefreshes } =
+      await importFeedBatchHelpers();
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+
+    try {
+      process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
+
+      const stale = new Date(Date.now() - 1000 * 60 * 120);
+      const urls = ["not-a-url-one", "not-a-url-two"];
+      const feedByUrl = new Map(
+        urls.map((url, index) => [
+          url,
+          {
+            id: index + 40,
+            lastFetched: stale,
+            lastFetchError: null,
+            url,
+          },
+        ]),
+      );
+      const db = {
+        insert: mock(() => ({
+          values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+        })),
+        update: mock(() => ({
+          set: mock(() => ({ where: mock(async () => []) })),
+        })),
+      };
+      const timestamps = [0, 0, 3_000];
+      let timestampIndex = 0;
+
+      const result = await executeParallelRefreshes({
+        allowedUrls: urls,
+        db: db as unknown as any,
+        feedByUrl: feedByUrl as any,
+        forceRefresh: true,
+        nowFn: () =>
+          timestamps[Math.min(timestampIndex++, timestamps.length - 1)] ?? 0,
+        skipRefresh: false,
+      });
+
+      expect(result.refreshedCount).toBe(1);
+      expect(result.refreshedUrls).toEqual(new Set(["not-a-url-one"]));
+      expect(result.errors.get("not-a-url-two")).toBe(
+        BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+      );
+    } finally {
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+      } else {
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
+      }
+    }
   });
 
   test("mapRowsToArticleMap maps rows by feed URL and coerces value types", async () => {

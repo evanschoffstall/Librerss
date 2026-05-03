@@ -49,6 +49,81 @@ test.describe("dashboard feed pagination", () => {
     await installDeterministicFeedBatchRoute(page);
   });
 
+  test("keeps browser batch article-window requests above the historical 500 article ceiling", async ({
+    page,
+  }) => {
+    const requestedArticleLimits: number[] = [];
+
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        articleLimit?: unknown;
+        urls?: string[];
+      };
+      if (typeof requestBody.articleLimit === "number") {
+        requestedArticleLimits.push(requestBody.articleLimit);
+      }
+
+      const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+      const boundedWindowSize = 20;
+      const sourceCount = Math.max(1, urls.length);
+      const payload = urls.map((url, feedIndex) => ({
+        articles: Array.from(
+          { length: Math.ceil(boundedWindowSize / sourceCount) },
+          (_ignored, articleIndex) => {
+            const articleNumber = articleIndex * sourceCount + feedIndex + 1;
+
+            if (articleNumber > boundedWindowSize) {
+              return null;
+            }
+
+            return {
+              content: `Large-window regression article ${articleNumber}`,
+              feedId: feedIndex + 1,
+              feedUrl: url,
+              hasFullContent: true,
+              id: articleNumber,
+              isRead: false,
+              isStarred: false,
+              lastChecked: "2026-03-13T10:00:00.000Z",
+              link: `https://example.com/large-window/${articleNumber}`,
+              publicationDate: new Date(
+                Date.UTC(2026, 2, 13, 9, 0, 0) - articleNumber * 1_000,
+              ).toISOString(),
+              title: `Large Window Article ${articleNumber}`,
+            };
+          },
+        ).filter((article) => article !== null),
+        ok: true,
+        url,
+      }));
+
+      await route.fulfill({
+        body: JSON.stringify(payload),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const responseStatus = await page.evaluate(async () => {
+      const response = await fetch("/api/feeds/batch", {
+        body: JSON.stringify({
+          articleFilter: "unread",
+          articleLimit: 600,
+          skipRefresh: true,
+          urls: ["https://example.com/feed"],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      return response.status;
+    });
+
+    expect(responseStatus).toBe(200);
+    expect(requestedArticleLimits).toContain(600);
+  });
+
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
     test(`does not render the entire explore corpus at once on ${viewportCase.name}`, async ({
       page,

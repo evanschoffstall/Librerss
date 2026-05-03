@@ -182,6 +182,35 @@ test("buildRefreshPlan returns refresh-upstream-override for the dev upstream ov
   ]);
 });
 
+test("executeParallelRefreshes records proxy materialization errors per proxied feed", async () => {
+  const { executeParallelRefreshes } = await loadPipelineModule();
+  const proxiedFeed: FeedRecord = {
+    id: 1,
+    lastFetched: new Date(0),
+    lastFetchError: null,
+    proxyEnabled: true,
+    url: "https://proxied.example/feed.xml",
+  };
+  const proxyTransportError =
+    "Saved proxy password could not be read. Update it in settings and try again.";
+
+  const result = await executeParallelRefreshes({
+    allowedUrls: [proxiedFeed.url],
+    db: {} as never,
+    feedByUrl: new Map([[proxiedFeed.url, proxiedFeed]]),
+    forceRefresh: true,
+    proxyTransportError,
+    skipRefresh: false,
+  });
+
+  expect(result).toEqual({
+    cooldownLimitedCount: 0,
+    errors: new Map([[proxiedFeed.url, proxyTransportError]]),
+    refreshedCount: 0,
+    refreshedUrls: new Set(),
+  });
+});
+
 // ─── mapRowsToArticleMap ─────────────────────────────────────────────────────
 
 describe("mapRowsToArticleMap", () => {

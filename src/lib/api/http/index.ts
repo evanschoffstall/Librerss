@@ -9,6 +9,7 @@ export {
   setApiClientForTesting,
   withRequestDeadline,
 } from "./client";
+export type { ApiClient } from "./client";
 export {
   buildApiFailureDiagnostics,
   isVerboseLoggingEnabled,

@@ -995,9 +995,12 @@ describe("useArticleActions - Article Hydration Integration", () => {
     const article = createMockArticle({
       id: 42,
       link: "https://example.com/reexpand",
-    });
+    }) as Article;
+    let feedState: Article[] = [article];
     let expandedArticleKey: null | string = null;
-    const setFeed = mock(() => {});
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
     const setExpandedArticleKey = mock((updater: any) => {
       expandedArticleKey =
         typeof updater === "function" ? updater(expandedArticleKey) : updater;
@@ -1008,7 +1011,7 @@ describe("useArticleActions - Article Hydration Integration", () => {
         useArticleActions({
           articleFilter: "all",
           expandedArticleKey: expandedKey,
-          feed: [article],
+          feed: feedState,
           setExpandedArticleKey,
           setFeed,
         }),
@@ -1024,15 +1027,17 @@ describe("useArticleActions - Article Hydration Integration", () => {
 
     await waitFor(() => {
       expect(ArticleService.extractArticleContent).toHaveBeenCalledTimes(1);
-    });
-
-    await runWithAct(async () => {
-      await result.current.handleArticleToggle(article);
+      expect(feedState[0]?.hasFullContent).toBe(true);
     });
     rerender({ expandedKey: expandedArticleKey });
 
     await runWithAct(async () => {
-      await result.current.handleArticleToggle(article);
+      await result.current.handleArticleToggle(feedState[0]!);
+    });
+    rerender({ expandedKey: expandedArticleKey });
+
+    await runWithAct(async () => {
+      await result.current.handleArticleToggle(feedState[0]!);
     });
     rerender({ expandedKey: expandedArticleKey });
 

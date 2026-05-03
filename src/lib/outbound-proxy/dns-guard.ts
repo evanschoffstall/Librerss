@@ -1,6 +1,7 @@
 import { lookup } from "node:dns/promises";
 
 import { CONFIG } from "@/lib/config";
+import { resolveDnsLookupTimeoutMs } from "@/lib/core";
 import { logger } from "@/lib/logger";
 import {
   type DnsCacheEntry,
@@ -12,10 +13,10 @@ import {
 const DNS_CACHE = new Map<string, DnsCacheEntry>();
 
 /**
- * Process the s to blocked address.
- * @param hostname - The hostname.
- * @param deps - The deps.
- * @returns The s to blocked address.
+ * Resolve a proxy target hostname and report whether it maps to a blocked address range.
+ * @param hostname - Hostname extracted from an outbound proxy target URL.
+ * @param deps - Optional DNS runtime overrides used by tests.
+ * @returns Whether any resolved address is private, loopback, link-local, or otherwise blocked.
  */
 export async function resolvesToBlockedAddress(
   hostname: string,
@@ -32,6 +33,6 @@ export async function resolvesToBlockedAddress(
     deps,
     hostname,
     maxEntries: CONFIG.DNS_CACHE_MAX_ENTRIES,
-    timeoutMs: CONFIG.DNS_LOOKUP_TIMEOUT_MS,
+    timeoutMs: resolveDnsLookupTimeoutMs(CONFIG.DNS_LOOKUP_TIMEOUT_MS),
   });
 }

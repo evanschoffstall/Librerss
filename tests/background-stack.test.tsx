@@ -135,15 +135,14 @@ describe("background stack", () => {
     mock.module(
       "@/app/dashboard/dashboard-components/BackgroundParticles",
       () => ({
-        default: ({ color }: { color: string }) => <div data-particles={color} />,
+        default: ({ color }: { color: string }) => (
+          <div data-particles={color} />
+        ),
       }),
     );
-    mock.module(
-      "@/app/dashboard/dashboard-components/BackgroundStars",
-      () => ({
-        default: ({ color }: { color: string }) => <div data-stars={color} />,
-      }),
-    );
+    mock.module("@/app/dashboard/dashboard-components/BackgroundStars", () => ({
+      default: ({ color }: { color: string }) => <div data-stars={color} />,
+    }));
 
     const { ParticlesBackground, StarsBackgroundLight } = await import(
       `@/app/dashboard/dashboard-components/Background?test=${Date.now()}-${Math.random()}`
@@ -151,24 +150,36 @@ describe("background stack", () => {
     const { useBackgroundCanvasAnimation } = await import(
       `@/app/dashboard/dashboard-components/background-hooks/useBackgroundCanvasAnimation?test=${Date.now()}-${Math.random()}`
     );
+    const { useBackgroundCanvasWindowEvents } = await import(
+      `@/app/dashboard/dashboard-components/background-hooks/useBackgroundCanvasWindowEvents?test=${Date.now()}-${Math.random()}`
+    );
 
     const particles = render(<ParticlesBackground quantity={12} />);
     expect(
-      particles.container.querySelector('[data-background-gradient-tone="dark"]'),
+      particles.container.querySelector(
+        '[data-background-gradient-tone="dark"]',
+      ),
     ).toBeTruthy();
     expect(
-      particles.container.querySelector('[data-background-animation-layer="particles"]'),
+      particles.container.querySelector(
+        '[data-background-animation-layer="particles"]',
+      ),
     ).toBeTruthy();
 
     const stars = render(<StarsBackgroundLight quantity={5} />);
     expect(
       stars.container.querySelector('[data-background-gradient-tone="light"]'),
     ).toBeTruthy();
-    expect(stars.container.querySelector('[data-background-animation-layer="stars"]')).toBeTruthy();
+    expect(
+      stars.container.querySelector(
+        '[data-background-animation-layer="stars"]',
+      ),
+    ).toBeTruthy();
 
     await waitFor(() => {
       expect(
-        stars.container.querySelector('[data-background-surface="true"]')?.className,
+        stars.container.querySelector('[data-background-surface="true"]')
+          ?.className,
       ).toContain("opacity-100");
     });
 
@@ -209,12 +220,66 @@ describe("background stack", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(onResume).toHaveBeenCalledTimes(1);
 
+    // The animation loop must keep ticking even when the user prefers reduced
+    // motion so the canvas remains visible and pointer parallax keeps
+    // responding. Reduced-motion semantics are honored inside the renderer
+    // by skipping autonomous motion only.
     reducedMotion = true;
     hook.rerender();
     frameCallback?.(140);
-    expect(onFrame).toHaveBeenCalledTimes(2);
+    expect(onFrame).toHaveBeenCalledTimes(3);
 
     hook.unmount();
+
+    const onMouseMove = mock();
+    const onResize = mock();
+    const eventHook = renderHook(() =>
+      useBackgroundCanvasWindowEvents({
+        onMouseMove,
+        onResize,
+      }),
+    );
+    const pointerEvent = new Event(
+      "PointerEvent" in window ? "pointermove" : "mousemove",
+    );
+    Object.defineProperties(pointerEvent, {
+      clientX: {
+        value: 32,
+      },
+      clientY: {
+        value: 48,
+      },
+    });
+    const mouseEvent = new Event("mousemove");
+    Object.defineProperties(mouseEvent, {
+      clientX: {
+        value: 96,
+      },
+      clientY: {
+        value: 112,
+      },
+    });
+    window.dispatchEvent(pointerEvent);
+    window.dispatchEvent(pointerEvent);
+    window.dispatchEvent(mouseEvent);
+    window.dispatchEvent(new Event("resize"));
+    expect(onMouseMove).toHaveBeenCalledTimes(2);
+    expect(onMouseMove.mock.calls[0]?.[0]).toMatchObject({
+      clientX: 32,
+      clientY: 48,
+    });
+    expect(onMouseMove.mock.calls[1]?.[0]).toMatchObject({
+      clientX: 96,
+      clientY: 112,
+    });
+    expect(onResize).toHaveBeenCalledTimes(1);
+    eventHook.unmount();
+    window.dispatchEvent(pointerEvent);
+    window.dispatchEvent(mouseEvent);
+    window.dispatchEvent(new Event("resize"));
+    expect(onMouseMove).toHaveBeenCalledTimes(2);
+    expect(onResize).toHaveBeenCalledTimes(1);
+
     if (visibilityDescriptor) {
       Object.defineProperty(document, "visibilityState", visibilityDescriptor);
     }
@@ -224,15 +289,14 @@ describe("background stack", () => {
     mock.module(
       "@/app/dashboard/dashboard-components/BackgroundParticles",
       () => ({
-        default: ({ color }: { color: string }) => <div data-particles={color} />,
+        default: ({ color }: { color: string }) => (
+          <div data-particles={color} />
+        ),
       }),
     );
-    mock.module(
-      "@/app/dashboard/dashboard-components/BackgroundStars",
-      () => ({
-        default: ({ color }: { color: string }) => <div data-stars={color} />,
-      }),
-    );
+    mock.module("@/app/dashboard/dashboard-components/BackgroundStars", () => ({
+      default: ({ color }: { color: string }) => <div data-stars={color} />,
+    }));
 
     const {
       ParticlesBackground,
@@ -248,18 +312,32 @@ describe("background stack", () => {
     const defaultStars = render(<StarsBackgroundLight />);
 
     expect(
-      particles.container.querySelector('[data-background-gradient-tone="light"]'),
+      particles.container.querySelector(
+        '[data-background-gradient-tone="light"]',
+      ),
     ).toBeTruthy();
     expect(
-      particles.container.querySelector('[data-background-animation-layer="particles"]'),
-    ).toBeTruthy();
-    expect(stars.container.querySelector('[data-background-gradient-tone="dark"]')).toBeTruthy();
-    expect(stars.container.querySelector('[data-background-animation-layer="stars"]')).toBeTruthy();
-    expect(
-      defaultParticles.container.querySelector('[data-background-animation-layer="particles"]'),
+      particles.container.querySelector(
+        '[data-background-animation-layer="particles"]',
+      ),
     ).toBeTruthy();
     expect(
-      defaultStars.container.querySelector('[data-background-animation-layer="stars"]'),
+      stars.container.querySelector('[data-background-gradient-tone="dark"]'),
+    ).toBeTruthy();
+    expect(
+      stars.container.querySelector(
+        '[data-background-animation-layer="stars"]',
+      ),
+    ).toBeTruthy();
+    expect(
+      defaultParticles.container.querySelector(
+        '[data-background-animation-layer="particles"]',
+      ),
+    ).toBeTruthy();
+    expect(
+      defaultStars.container.querySelector(
+        '[data-background-animation-layer="stars"]',
+      ),
     ).toBeTruthy();
   });
 
@@ -277,8 +355,12 @@ describe("background stack", () => {
       setTransform,
     } as unknown as CanvasRenderingContext2D;
     const getContext = mock(() => context);
-    const canvasPrototype = Object.getPrototypeOf(document.createElement("canvas"));
-    const elementPrototype = Object.getPrototypeOf(document.createElement("div"));
+    const canvasPrototype = Object.getPrototypeOf(
+      document.createElement("canvas"),
+    );
+    const elementPrototype = Object.getPrototypeOf(
+      document.createElement("div"),
+    );
     const originalGetContext = canvasPrototype.getContext;
     const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(
       elementPrototype,
@@ -310,18 +392,23 @@ describe("background stack", () => {
       get: () => 90,
     });
     canvasPrototype.getContext = getContext;
-    mock.module("@/app/dashboard/dashboard-components/background-hooks", () => ({
-      useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
-        animationOptions = options;
-      },
-      useBackgroundCanvasRefs: () => ({
-        canvasContainerRef: useRef<HTMLDivElement | null>(null),
-        canvasRef: useRef<HTMLCanvasElement | null>(null),
+    mock.module(
+      "@/app/dashboard/dashboard-components/background-hooks",
+      () => ({
+        useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
+          animationOptions = options;
+        },
+        useBackgroundCanvasRefs: () => ({
+          canvasContainerRef: useRef<HTMLDivElement | null>(null),
+          canvasRef: useRef<HTMLCanvasElement | null>(null),
+        }),
+        useBackgroundCanvasWindowEvents: (
+          options: typeof windowEventOptions,
+        ) => {
+          windowEventOptions = options;
+        },
       }),
-      useBackgroundCanvasWindowEvents: (options: typeof windowEventOptions) => {
-        windowEventOptions = options;
-      },
-    }));
+    );
 
     const { default: BackgroundParticles } = await import(
       `@/app/dashboard/dashboard-components/BackgroundParticles?test=${Date.now()}-${Math.random()}`
@@ -338,7 +425,9 @@ describe("background stack", () => {
     );
 
     expect(view.container.querySelector("canvas")).toBeTruthy();
-    expect(view.container.firstElementChild?.className).toContain("particle-layer");
+    expect(view.container.firstElementChild?.className).toContain(
+      "particle-layer",
+    );
     expect(setTransform).toHaveBeenCalledTimes(1);
     expect(windowEventOptions).toBeTruthy();
     expect(animationOptions).toBeTruthy();
@@ -353,9 +442,13 @@ describe("background stack", () => {
     windowEventOptions?.onResize();
     animationOptions?.onFrame(120, 16);
     expect(clearRect).toHaveBeenCalled();
-    expect(beginPath).toHaveBeenCalledTimes(4);
-    expect(arc).toHaveBeenCalledTimes(4);
-    expect(fill).toHaveBeenCalledTimes(4);
+    // The component paints one initial frame on init so particles are
+    // visible immediately on every browser, then paints another frame from
+    // the simulated animation tick above. Each frame iterates the seeded
+    // particle quantity once.
+    expect(beginPath).toHaveBeenCalledTimes(8);
+    expect(arc).toHaveBeenCalledTimes(8);
+    expect(fill).toHaveBeenCalledTimes(8);
 
     view.rerender(
       <BackgroundParticles
@@ -370,10 +463,18 @@ describe("background stack", () => {
     expect(setTransform.mock.calls.length).toBeGreaterThanOrEqual(2);
     canvasPrototype.getContext = originalGetContext;
     if (offsetWidthDescriptor) {
-      Object.defineProperty(elementPrototype, "offsetWidth", offsetWidthDescriptor);
+      Object.defineProperty(
+        elementPrototype,
+        "offsetWidth",
+        offsetWidthDescriptor,
+      );
     }
     if (offsetHeightDescriptor) {
-      Object.defineProperty(elementPrototype, "offsetHeight", offsetHeightDescriptor);
+      Object.defineProperty(
+        elementPrototype,
+        "offsetHeight",
+        offsetHeightDescriptor,
+      );
     }
   });
 
@@ -400,7 +501,9 @@ describe("background stack", () => {
       translate,
     } as unknown as CanvasRenderingContext2D;
     const getContext = mock(() => context);
-    const canvasPrototype = Object.getPrototypeOf(document.createElement("canvas"));
+    const canvasPrototype = Object.getPrototypeOf(
+      document.createElement("canvas"),
+    );
     const originalGetContext = canvasPrototype.getContext;
     let animationOptions:
       | undefined
@@ -415,18 +518,23 @@ describe("background stack", () => {
         };
 
     canvasPrototype.getContext = getContext;
-    mock.module("@/app/dashboard/dashboard-components/background-hooks", () => ({
-      useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
-        animationOptions = options;
-      },
-      useBackgroundCanvasRefs: () => ({
-        canvasContainerRef: useRef<HTMLDivElement | null>(null),
-        canvasRef: useRef<HTMLCanvasElement | null>(null),
+    mock.module(
+      "@/app/dashboard/dashboard-components/background-hooks",
+      () => ({
+        useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
+          animationOptions = options;
+        },
+        useBackgroundCanvasRefs: () => ({
+          canvasContainerRef: useRef<HTMLDivElement | null>(null),
+          canvasRef: useRef<HTMLCanvasElement | null>(null),
+        }),
+        useBackgroundCanvasWindowEvents: (
+          options: typeof windowEventOptions,
+        ) => {
+          windowEventOptions = options;
+        },
       }),
-      useBackgroundCanvasWindowEvents: (options: typeof windowEventOptions) => {
-        windowEventOptions = options;
-      },
-    }));
+    );
 
     const { default: BackgroundStars } = await import(
       `@/app/dashboard/dashboard-components/BackgroundStars?test=${Date.now()}-${Math.random()}`

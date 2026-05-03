@@ -266,6 +266,7 @@ describe("dashboard pure service coverage", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 8,
         shouldUseArticleWindow: true,
       }),
     ).toBe(true);
@@ -280,6 +281,7 @@ describe("dashboard pure service coverage", () => {
         isLoading: false,
         isLoadingMoreArticles: false,
         isRefillingDepletedUnreadWindow: false,
+        previousFilteredFeedLength: 1,
         shouldUseArticleWindow: true,
       }),
     ).toBe(false);

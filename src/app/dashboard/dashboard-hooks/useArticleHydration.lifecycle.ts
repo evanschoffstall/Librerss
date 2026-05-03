@@ -63,9 +63,7 @@ interface PrepareArticleHydrationOptions {
 interface ShouldHydrateArticleOptions {
   article: Article;
   forceHydration: boolean;
-  hydratedArticleLinks: Record<string, boolean>;
   inFlightCount: number;
-  link: string;
 }
 /**
  * Describes the options for start article hydration.
@@ -231,9 +229,7 @@ export function prepareArticleHydration(
     !shouldHydrateArticle({
       article,
       forceHydration,
-      hydratedArticleLinks: hydrationState.hydratedArticleLinks,
       inFlightCount,
-      link,
     })
   ) {
     return null;
@@ -273,24 +269,22 @@ export function resolveHydrationFailureMessage(
   return serverError ?? serverReason ?? fallbackMessage;
 }
 /**
- * Return whether should hydrate article.
- * @param options - The options used to return whether should hydrate article.
- * @returns Whether should hydrate article.
+ * Decide whether the current article object still needs a hydration request.
+ *
+ * The per-link hydration cache is only a duplicate-request guard for articles
+ * that are still known to contain full content. Feed refreshes can replace a
+ * previously hydrated article with a fresh excerpt for the same link, especially
+ * after partial upstream failures. In that state, the current article is no
+ * longer hydrated even though the link remains in the cache, so hydration must
+ * be allowed again without requiring a full browser reload.
+ * @param options - Article identity, request ownership, and cache state used to
+ * decide whether a new hydration request should start.
+ * @returns Whether the article should enter the hydration lifecycle.
  */
 export function shouldHydrateArticle(options: ShouldHydrateArticleOptions) {
-  const { article, forceHydration, hydratedArticleLinks, inFlightCount, link } =
-    options;
+  const { article, forceHydration, inFlightCount } = options;
   if (forceHydration) return true;
   if (article.hasFullContent) return false;
-  if (hydratedArticleLinks[link]) {
-    if (
-      process.env.NODE_ENV !== "test" ||
-      process.env.ENABLE_TEST_LOG_OUTPUT === "true"
-    ) {
-      console.info("[dashboard] Article hydration cache hit", { link });
-    }
-    return false;
-  }
 
   return inFlightCount <= 0;
 }

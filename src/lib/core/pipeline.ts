@@ -17,7 +17,11 @@ export {
   queryTopArticlesPerFeed,
 } from "./article-batches";
 export type { ArticleRow, RankedRow } from "./batch-types";
-export { buildRefreshPlan, executeParallelRefreshes } from "./refresh-plans";
+export {
+  BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+  buildRefreshPlan,
+  executeParallelRefreshes,
+} from "./refresh-plans";
 
 /**
  * Resolve the authorized feed records.

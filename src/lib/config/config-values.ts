@@ -8,7 +8,7 @@
  * Server-side CONFIG values are resolved lazily through a Proxy that reads
  * `process.env[key]` at access time — no values are captured at module load.
  * Build-time defaults from .env are baked in via next.config.ts `env:`
- * (DefinePlugin) so values are available on Vercel even when .env files
+ * (DefinePlugin) so values are available in serverless bundles even when .env files
  * are not loaded into process.env at runtime.
  */
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import {
   encryptStoredProxyPassword,
+  materializeStoredProxyPassword,
   resolveStoredProxyPassword,
 } from "@/lib/outbound-proxy/credentials";
 
@@ -34,6 +35,20 @@ describe("getProxyPasswordEncryptionKey fallback", () => {
 
     const resolved = resolveStoredProxyPassword(encrypted);
     expect(resolved.decryptedPassword).toBe("test-password");
+  });
+
+  test("keeps explicit-key passwords readable when DATABASE_URL changes", () => {
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = LONG_SECRET;
+    process.env.DATABASE_URL = ALT_SECRET;
+
+    const encrypted = encryptStoredProxyPassword("stable-password");
+    process.env.DATABASE_URL =
+      "postgres://changed-database-url-value.example/db";
+
+    const resolved = resolveStoredProxyPassword(encrypted);
+    expect(resolved.decryptedPassword).toBe("stable-password");
+    expect(resolved.needsWriteback).toBe(false);
+    expect(resolved.normalizedStoredPassword).toBe(encrypted);
   });
 
   test("falls back to DATABASE_URL when PROXY_CREDENTIAL_ENCRYPTION_KEY is empty string", () => {
@@ -109,6 +124,31 @@ describe("encrypt / decrypt round-trip", () => {
 
     expect(resolveStoredProxyPassword(a).decryptedPassword).toBe("password");
     expect(resolveStoredProxyPassword(b).decryptedPassword).toBe("password");
+  });
+
+  test("rewrites legacy DATABASE_URL ciphertext under the explicit key", async () => {
+    delete process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY;
+    process.env.DATABASE_URL = ALT_SECRET;
+    const legacyEncrypted = encryptStoredProxyPassword("legacy-db-password");
+    let rewrittenPassword: null | string = null;
+
+    process.env.PROXY_CREDENTIAL_ENCRYPTION_KEY = LONG_SECRET;
+    const materializedPassword = await materializeStoredProxyPassword(
+      legacyEncrypted,
+      async (normalizedPassword) => {
+        rewrittenPassword = normalizedPassword;
+      },
+    );
+
+    expect(materializedPassword).toBe("legacy-db-password");
+    expect(rewrittenPassword).toStartWith("enc-v1:");
+    expect(rewrittenPassword).not.toBe(legacyEncrypted);
+
+    process.env.DATABASE_URL =
+      "postgres://changed-database-url-value.example/db";
+    const resolved = resolveStoredProxyPassword(rewrittenPassword);
+    expect(resolved.decryptedPassword).toBe("legacy-db-password");
+    expect(resolved.needsWriteback).toBe(false);
   });
 });
 

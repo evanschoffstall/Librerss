@@ -12,14 +12,17 @@ import {
 import {
   dedupeArticleRecords,
   isValidUrl,
-  parseDateOrFallback,
+  parseDateOrNull,
   preferNewerArticleRecord,
 } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /**
- * Describes the pending article.
+ * Represents a sanitized article row that is ready for the upstream refresh
+ * upsert. Feed items do not always include a publication timestamp, so the
+ * refresh pipeline normalizes every accepted article to a concrete
+ * `publicationDate` before the database write.
  */
 export interface PendingArticle {
   content: string;
@@ -64,24 +67,21 @@ export function getPublicationDateRange(items: PendingArticle[]): {
 }
 
 /**
- * Parse the feed item date.
- * @param value - The value.
- * @param fallback - The fallback.
- * @returns The feed item date.
+ * Resolve the publication timestamp for an upstream feed item.
+ * @param value - Candidate timestamp from `isoDate`, `pubDate`, or another feed parser field.
+ * @param fallback - Current refresh timestamp to persist when the upstream item omits or malforms its date.
+ * @returns A valid publication date for the article database row.
  */
-export function parseFeedItemDate(
-  value: string | undefined,
-  fallback: Date,
-): Date {
-  return parseDateOrFallback(value, fallback);
+export function parseFeedItemDate(value: unknown, fallback: Date): Date {
+  return parseDateOrNull(value) ?? new Date(fallback);
 }
 
 /**
- * Process the to pending article.
- * @param item - The item.
- * @param feedId - The feed id.
- * @param now - The now.
- * @returns The to pending article.
+ * Convert a parsed upstream feed item into a sanitized pending article row.
+ * @param item - RSS parser item, including optional full-content fields.
+ * @param feedId - Database feed identifier that owns the article.
+ * @param now - Current refresh timestamp used for `lastChecked` and missing publication dates.
+ * @returns A pending article when title, link, and URL validation pass; otherwise `null`.
  */
 export function toPendingArticle(
   item: Parser.Item & { contentEncoded?: string },

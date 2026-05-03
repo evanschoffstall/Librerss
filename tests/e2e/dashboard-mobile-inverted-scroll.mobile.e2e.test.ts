@@ -7,6 +7,9 @@ import {
   openDashboardSettings,
   readFeedViewportMetrics,
   readRenderedArticleCount,
+  readVisibleFeedArticleCount,
+  scrollFeedViewportToTop,
+  triggerFeedViewportWheelIntent,
   waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -533,7 +536,7 @@ async function scrollFeedViewportWithIntent(
   page: Page,
   targetScrollTop: number,
 ) {
-  return await page.evaluate((nextScrollTop) => {
+  const resolvedScrollTop = await page.evaluate((nextScrollTop) => {
     const viewport =
       [
         ...document.querySelectorAll<HTMLElement>(
@@ -560,6 +563,12 @@ async function scrollFeedViewportWithIntent(
 
     return Math.round(viewport.scrollTop * 100) / 100;
   }, targetScrollTop);
+
+  await page.evaluate(
+    () => new Promise((resolve) => window.requestAnimationFrame(resolve)),
+  );
+
+  return resolvedScrollTop;
 }
 
 /** Injects a localStorage value before the app reads it. */
@@ -776,8 +785,7 @@ test.describe("dashboard mobile inverted scroll", () => {
         return (await readFeedViewportMetrics(page)).scrollHeight;
       })
       .toBeGreaterThan(0);
-    const baselineMetrics = await readFeedViewportMetrics(page);
-    const baselineScrollHeight = baselineMetrics.scrollHeight;
+    const baselineVisibleArticleCount = await readVisibleFeedArticleCount(page);
 
     const firstMoveTarget = Math.max(
       320,
@@ -787,45 +795,21 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     expect((await readVisibleArticleKeys(page)).length).toBeGreaterThan(0);
 
-    await scrollFeedViewportWithIntent(page, 0);
-    await page.evaluate(() => {
-      const viewport =
-        [
-          ...document.querySelectorAll<HTMLElement>(
-            "[data-radix-scroll-area-viewport]",
-          ),
-        ].find(
-          (candidate) =>
-            candidate.isConnected &&
-            candidate.getBoundingClientRect().height > 0 &&
-            candidate.getBoundingClientRect().width > 0 &&
-            window.getComputedStyle(candidate).visibility !== "hidden" &&
-            candidate.querySelector("article[data-article-key]") !== null,
-        ) ?? null;
-
-      if (!viewport) {
-        throw new Error("Expected a feed viewport before rearming pagination.");
-      }
-
-      viewport.dispatchEvent(
-        new WheelEvent("wheel", {
-          bubbles: true,
-          cancelable: true,
-          deltaY: -700,
-        }),
-      );
-    });
+    await scrollFeedViewportToTop(page);
+    await triggerFeedViewportWheelIntent(page, -240);
 
     await expect
       .poll(async () => {
-        const metrics = await readFeedViewportMetrics(page);
-        return metrics.scrollHeight > baselineScrollHeight;
+        return (
+          (await readVisibleFeedArticleCount(page)) >
+          baselineVisibleArticleCount
+        );
       })
       .toBe(true);
 
     const postHydrationMetrics = await readFeedViewportMetrics(page);
-    expect(postHydrationMetrics.scrollHeight).toBeGreaterThan(
-      baselineScrollHeight,
+    expect(await readVisibleFeedArticleCount(page)).toBeGreaterThan(
+      baselineVisibleArticleCount,
     );
     expect(postHydrationMetrics.scrollTop).toBeGreaterThanOrEqual(0);
   });
@@ -877,16 +861,6 @@ test.describe("dashboard mobile inverted scroll", () => {
           Math.max(320, Math.floor(currentMetrics.scrollHeight * 0.6)),
         );
         await scrollFeedViewportWithIntent(page, 0);
-        await expect
-          .poll(async () => {
-            const metrics = await readFeedViewportMetrics(page);
-
-            return metrics.scrollTop;
-          }, {
-            intervals: [40, 70, 90],
-            timeout: 300,
-          })
-          .toBeGreaterThanOrEqual(0);
       }
 
       await expect
@@ -1049,12 +1023,15 @@ test.describe("dashboard mobile inverted scroll", () => {
       .toBe("true");
 
     await expect
-      .poll(async () => {
-        return await readArticleExpandedState(page, targetArticleKey);
-      }, {
-        intervals: [50, 80, 100],
-        timeout: 500,
-      })
+      .poll(
+        async () => {
+          return await readArticleExpandedState(page, targetArticleKey);
+        },
+        {
+          intervals: [50, 80, 100],
+          timeout: 500,
+        },
+      )
       .toBe("true");
 
     const scrolledFar = await scrollFeedViewportWithIntent(
@@ -1062,12 +1039,15 @@ test.describe("dashboard mobile inverted scroll", () => {
       Math.max(0, before.scrollTop - 480),
     );
     await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      }, {
-        intervals: [60, 90, 120],
-        timeout: 500,
-      })
+      .poll(
+        async () => {
+          return (await readFeedViewportMetrics(page)).scrollTop;
+        },
+        {
+          intervals: [60, 90, 120],
+          timeout: 500,
+        },
+      )
       .toBeGreaterThanOrEqual(0);
     const settledFar = (await readFeedViewportMetrics(page)).scrollTop;
     expect(Math.abs(settledFar - before.scrollTop)).toBeGreaterThan(200);
@@ -1113,12 +1093,15 @@ test.describe("dashboard mobile inverted scroll", () => {
       .toBe("true");
 
     await expect
-      .poll(async () => {
-        return await readArticleExpandedState(page, secondTargetArticleKey);
-      }, {
-        intervals: [50, 80, 100],
-        timeout: 500,
-      })
+      .poll(
+        async () => {
+          return await readArticleExpandedState(page, secondTargetArticleKey);
+        },
+        {
+          intervals: [50, 80, 100],
+          timeout: 500,
+        },
+      )
       .toBe("true");
 
     const scrolledMidway = await scrollFeedViewportWithIntent(
@@ -1126,12 +1109,15 @@ test.describe("dashboard mobile inverted scroll", () => {
       Math.max(0, secondBefore.scrollTop - 320),
     );
     await expect
-      .poll(async () => {
-        return (await readFeedViewportMetrics(page)).scrollTop;
-      }, {
-        intervals: [60, 90, 120],
-        timeout: 500,
-      })
+      .poll(
+        async () => {
+          return (await readFeedViewportMetrics(page)).scrollTop;
+        },
+        {
+          intervals: [60, 90, 120],
+          timeout: 500,
+        },
+      )
       .toBeGreaterThanOrEqual(0);
     const settledMidway = (await readFeedViewportMetrics(page)).scrollTop;
     expect(Math.abs(settledMidway - secondBefore.scrollTop)).toBeGreaterThan(

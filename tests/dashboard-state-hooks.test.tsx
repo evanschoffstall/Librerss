@@ -559,6 +559,7 @@ describe("useDashboardHandlers", () => {
     expect(prefetchCategoryFeeds).toHaveBeenCalledWith(categoryNode, {
       requestSource: "sidebar-category-prefetch",
       searchTerm: "mars",
+      skipRefresh: true,
     });
     expect(fetchFeed).toHaveBeenCalledWith("https://example.com/feed-1.xml", {
       requestSource: "sidebar-feed-select",
@@ -569,6 +570,7 @@ describe("useDashboardHandlers", () => {
       {
         requestSource: "sidebar-feed-prefetch",
         searchTerm: "mars",
+        skipRefresh: true,
       },
     );
   });

@@ -196,6 +196,30 @@
 }
 
 @layer utilities {
+  [data-radix-scroll-area-viewport] ~ [data-orientation],
+  [data-dashboard-feed-scrollbar="true"] + [aria-hidden="true"] {
+    opacity: 0;
+    pointer-events: none;
+    transition-duration: var(--motion-duration-ui);
+    transition-property: opacity;
+    transition-timing-function: var(--motion-ease-ui);
+  }
+
+  :has(> [data-radix-scroll-area-viewport]):hover > [data-orientation],
+  :has(> [data-dashboard-feed-scrollbar="true"]):hover > [aria-hidden="true"] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none), (pointer: coarse), (width < 768px) {
+    [data-radix-scroll-area-viewport] ~ [data-orientation],
+    [data-dashboard-feed-scrollbar="true"] + [aria-hidden="true"] {
+      display: none;
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;

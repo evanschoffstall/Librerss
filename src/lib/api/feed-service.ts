@@ -5,7 +5,9 @@ import type {
   FeedSource,
 } from "@/lib/core";
 
+import { clientFeedBatchConcurrency } from "@/lib";
 import {
+  type ApiClient,
   type BatchFeedResponseItem,
   createLinkedAbortController,
   ensureArrayResponse,
@@ -49,6 +51,7 @@ function serializeKnownLastFetchedAtByUrl(
 }
 
 const feedServiceBaseUrl = "/api";
+
 /**
  * Describes the options for feeds batch.
  */
@@ -71,6 +74,270 @@ interface FeedsBatchOptions {
 interface FeedSettingsSettings {
   extractionDisabled?: boolean;
   proxyEnabled?: boolean;
+}
+
+/**
+ * Describes a normalized feeds batch request.
+ */
+interface NormalizedFeedsBatchRequest {
+  articleFilter: ArticleFilter;
+  articleLimit: number | undefined;
+  articleSortOrder: ArticleSortOrder;
+  forceRefresh: boolean;
+  forceResolveUpstream: boolean;
+  knownLastFetchedAtByUrl: Record<string, string> | undefined;
+  requestSource: string | undefined;
+  searchTerm: string | undefined;
+  skipRefresh: boolean;
+}
+
+/**
+ * Describes one batch endpoint request.
+ */
+interface RequestFeedsBatchOptions {
+  abort: () => void;
+  apiClient: ApiClient;
+  request: NormalizedFeedsBatchRequest;
+  signal: AbortSignal;
+  urls: string[];
+}
+
+/**
+ * Describes a fan-out batch endpoint request.
+ */
+interface RequestFeedsBatchPerFeedOptions {
+  apiClient: ApiClient;
+  request: NormalizedFeedsBatchRequest;
+  signal: AbortSignal;
+  urls: string[];
+}
+
+/**
+ * Describes one feed in a fan-out batch endpoint request.
+ */
+interface RequestSingleFeedBatchOptions {
+  apiClient: ApiClient;
+  request: NormalizedFeedsBatchRequest;
+  signal: AbortSignal;
+  url: string;
+}
+
+/**
+ * Build the request body for a feeds batch call.
+ * @param request - Normalized batch request state.
+ * @param urls - URLs to include in this HTTP request.
+ * @returns The JSON body accepted by the batch endpoint.
+ */
+function buildFeedsBatchRequestBody(
+  request: NormalizedFeedsBatchRequest,
+  urls: string[],
+) {
+  return {
+    articleFilter: request.articleFilter,
+    ...(typeof request.articleLimit === "number"
+      ? { articleLimit: request.articleLimit }
+      : {}),
+    articleSortOrder: request.articleSortOrder,
+    ...(request.forceResolveUpstream ? { forceResolveUpstream: true } : {}),
+    forceRefresh: request.forceRefresh,
+    ...(request.knownLastFetchedAtByUrl
+      ? { knownLastFetchedAtByUrl: request.knownLastFetchedAtByUrl }
+      : {}),
+    requestSource: request.requestSource,
+    ...(typeof request.searchTerm === "string" && request.searchTerm !== ""
+      ? { searchTerm: request.searchTerm }
+      : {}),
+    skipRefresh: request.skipRefresh,
+    urls,
+  };
+}
+
+/**
+ * Merge per-feed refresh errors into the aggregate cache-read response.
+ * @param aggregateResults - Cache-read response items for the requested window.
+ * @param refreshResults - Fan-out refresh response items.
+ * @returns Aggregate response items annotated with per-feed refresh failures.
+ */
+function mergeFanOutErrorsIntoAggregateResults(
+  aggregateResults: BatchFeedResponseItem[],
+  refreshResults: BatchFeedResponseItem[],
+): BatchFeedResponseItem[] {
+  const refreshErrorsByUrl = new Map(
+    refreshResults
+      .filter((item) => !item.ok && typeof item.error === "string")
+      .map((item) => [item.url, item.error] as const),
+  );
+
+  if (refreshErrorsByUrl.size === 0) {
+    return aggregateResults;
+  }
+
+  const resultUrls = new Set<string>();
+  const mergedResults = aggregateResults.map((item) => {
+    resultUrls.add(item.url);
+    const refreshError = refreshErrorsByUrl.get(item.url);
+    return refreshError
+      ? { ...item, error: refreshError, ok: false as const }
+      : item;
+  });
+
+  for (const [url, error] of refreshErrorsByUrl) {
+    if (!resultUrls.has(url)) {
+      mergedResults.push({ articles: [], error, ok: false, url });
+    }
+  }
+
+  return mergedResults;
+}
+
+/**
+ * Request the aggregate cache-only batch after per-feed refresh fan-out.
+ * @param options - API client, normalized request, URLs, and abort signal.
+ * @returns Normalized aggregate batch response items.
+ */
+async function requestAggregateFeedsBatch(
+  options: RequestFeedsBatchPerFeedOptions,
+): Promise<BatchFeedResponseItem[]> {
+  const { controller, dispose } = createLinkedAbortController(options.signal);
+  try {
+    return await requestFeedsBatch({
+      abort: controller.abort.bind(controller),
+      apiClient: options.apiClient,
+      request: { ...options.request, skipRefresh: true },
+      signal: controller.signal,
+      urls: options.urls,
+    });
+  } finally {
+    dispose();
+  }
+}
+
+/**
+ * Request one batch endpoint invocation.
+ * @param options - API client, normalized request, URLs, and abort signal.
+ * @returns Normalized batch response items.
+ */
+async function requestFeedsBatch(
+  options: RequestFeedsBatchOptions,
+): Promise<BatchFeedResponseItem[]> {
+  const response = await withRequestDeadline(
+    options.apiClient.post<unknown[]>(
+      `${feedServiceBaseUrl}/feeds/batch`,
+      buildFeedsBatchRequestBody(options.request, options.urls),
+      { signal: options.signal },
+    ),
+    resolveBatchRequestTimeoutMs(options.urls.length),
+    options.abort,
+  );
+
+  const batchItems = ensureArrayResponse(response.data);
+  return batchItems.map(normalizeBatchItem);
+}
+
+/**
+ * Request each feed in its own batch endpoint invocation.
+ * @param options - API client, normalized request, URLs, and abort signal.
+ * @returns Normalized batch response items in original URL order.
+ */
+async function requestFeedsBatchPerFeed(
+  options: RequestFeedsBatchPerFeedOptions,
+): Promise<BatchFeedResponseItem[]> {
+  const refreshResults = await runFeedBatchTasks(
+    options.urls.map(
+      (url) => () =>
+        requestSingleFeedBatch({
+          apiClient: options.apiClient,
+          request: options.request,
+          signal: options.signal,
+          url,
+        }),
+    ),
+    clientFeedBatchConcurrency(),
+  );
+
+  const aggregateResults = await requestAggregateFeedsBatch(options);
+
+  return mergeFanOutErrorsIntoAggregateResults(
+    aggregateResults,
+    refreshResults.flat(),
+  );
+}
+
+/**
+ * Request one feed in its own batch endpoint invocation.
+ * @param options - Single-feed request options.
+ * @returns Normalized batch response items for the feed.
+ */
+async function requestSingleFeedBatch(
+  options: RequestSingleFeedBatchOptions,
+): Promise<BatchFeedResponseItem[]> {
+  const { controller, dispose } = createLinkedAbortController(options.signal);
+  try {
+    return await requestFeedsBatch({
+      abort: controller.abort.bind(controller),
+      apiClient: options.apiClient,
+      request: options.request,
+      signal: controller.signal,
+      urls: [options.url],
+    });
+  } catch (error) {
+    return [
+      {
+        articles: [],
+        error:
+          error instanceof Error
+            ? error.message
+            : "Feed refresh request failed",
+        ok: false,
+        url: options.url,
+      },
+    ];
+  } finally {
+    dispose();
+  }
+}
+
+/**
+ * Run async tasks with a small bounded concurrency.
+ * @param tasks - Work items to run.
+ * @param concurrency - Maximum number of active tasks.
+ * @returns Results in task order.
+ */
+async function runFeedBatchTasks<T>(
+  tasks: (() => Promise<T>)[],
+  concurrency: number,
+): Promise<T[]> {
+  const results: T[] = [];
+  let nextIndex = 0;
+
+  const workers = Array.from(
+    { length: Math.min(Math.max(1, concurrency), tasks.length) },
+    async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= tasks.length) return;
+
+        results[index] = await tasks[index]();
+      }
+    },
+  );
+
+  await Promise.all(workers);
+  return results;
+}
+
+/**
+ * Return whether a batch should be split into one HTTP request per feed.
+ * @param request - Normalized batch request state.
+ * @param urlCount - Number of requested feed URLs.
+ * @returns Whether refresh-capable work should fan out by feed.
+ */
+function shouldFanOutFeedsBatch(
+  request: NormalizedFeedsBatchRequest,
+  urlCount: number,
+): boolean {
+  return urlCount > 1 && !request.skipRefresh;
 }
 
 export const FeedService = {
@@ -160,37 +427,34 @@ export const FeedService = {
     const serializedKnownLastFetchedAtByUrl = serializeKnownLastFetchedAtByUrl(
       knownLastFetchedAtByUrl,
     );
+    const normalizedRequest: NormalizedFeedsBatchRequest = {
+      articleFilter,
+      articleLimit,
+      articleSortOrder,
+      forceRefresh,
+      forceResolveUpstream,
+      knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl,
+      requestSource,
+      searchTerm: searchTerm?.trim(),
+      skipRefresh,
+    };
+    const apiClient = getApiClient();
 
     try {
-      const response = await withRequestDeadline(
-        getApiClient().post(
-          `${feedServiceBaseUrl}/feeds/batch`,
-          {
-            articleFilter,
-            ...(typeof articleLimit === "number" ? { articleLimit } : {}),
-            articleSortOrder,
-            ...(forceResolveUpstream ? { forceResolveUpstream: true } : {}),
-            forceRefresh,
-            ...(serializedKnownLastFetchedAtByUrl
-              ? { knownLastFetchedAtByUrl: serializedKnownLastFetchedAtByUrl }
-              : {}),
-            requestSource,
-            ...(typeof searchTerm === "string" && searchTerm.trim() !== ""
-              ? { searchTerm: searchTerm.trim() }
-              : {}),
-            skipRefresh,
+      return shouldFanOutFeedsBatch(normalizedRequest, normalizedUrls.length)
+        ? await requestFeedsBatchPerFeed({
+            apiClient,
+            request: normalizedRequest,
+            signal: controller.signal,
             urls: normalizedUrls,
-          },
-          { signal: controller.signal },
-        ),
-        resolveBatchRequestTimeoutMs(normalizedUrls.length),
-        () => {
-          controller.abort();
-        },
-      );
-
-      const batchItems = ensureArrayResponse(response.data);
-      return batchItems.map(normalizeBatchItem);
+          })
+        : await requestFeedsBatch({
+            abort: controller.abort.bind(controller),
+            apiClient,
+            request: normalizedRequest,
+            signal: controller.signal,
+            urls: normalizedUrls,
+          });
     } finally {
       dispose();
     }

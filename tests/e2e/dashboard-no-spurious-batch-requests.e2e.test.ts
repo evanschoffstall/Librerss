@@ -55,13 +55,24 @@ import { expect, test } from "./test";
 const BACKGROUND_SETTLE_TIMEOUT_MS = 1_200;
 
 /**
- * Records the `articleLimit` and wall-clock timestamp of every intercepted
+ * Records request shape and timing for every intercepted
  * `/api/feeds/batch` POST request so tests can assert on request patterns
  * without affecting the response (the deterministic route still fulfills it).
  */
 interface BatchRequestRecord {
   articleLimit: number;
+  skipRefresh: boolean;
   timestamp: number;
+  urls: string[];
+}
+
+/**
+ * Return whether a batch request is the aggregate article-window read.
+ * @param record - Captured batch request record.
+ * @returns Whether the request reads the multi-feed article window.
+ */
+function isAggregateBatchRead(record: BatchRequestRecord): boolean {
+  return record.skipRefresh || record.urls.length > 1;
 }
 
 test.describe("dashboard no spurious batch requests on initial load", () => {
@@ -80,11 +91,15 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
     await page.route("**/api/feeds/batch", async (route) => {
       const body = route.request().postDataJSON() as null | {
         articleLimit?: number;
+        skipRefresh?: boolean;
+        urls?: string[];
       };
 
       batchRequestLog.push({
         articleLimit: body?.articleLimit ?? -1,
+        skipRefresh: body?.skipRefresh === true,
         timestamp: Date.now(),
+        urls: Array.isArray(body?.urls) ? body.urls : [],
       });
 
       await route.continue();
@@ -105,40 +120,54 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
       // until request activity stops changing for at least one polling cycle.
       let previousBatchRequestCount = -1;
       await expect
-        .poll(() => {
-          const currentBatchRequestCount = batchRequestLog.length;
+        .poll(
+          () => {
+            const currentBatchRequestCount = batchRequestLog.length;
 
-          if (currentBatchRequestCount === previousBatchRequestCount) {
-            return currentBatchRequestCount;
-          }
+            if (currentBatchRequestCount === previousBatchRequestCount) {
+              return currentBatchRequestCount;
+            }
 
-          previousBatchRequestCount = currentBatchRequestCount;
-          return -1;
-        }, {
-          intervals: [120, 180, 220],
-          timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
-        })
+            previousBatchRequestCount = currentBatchRequestCount;
+            return -1;
+          },
+          {
+            intervals: [120, 180, 220],
+            timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
+          },
+        )
         .not.toBe(-1);
 
       // --- Network request assertions ---
 
-      // At most two batch requests: the initial load and at most one unread
-      // refill.  Three or more indicates the spurious-prefetch regression.
+      const aggregateReads = batchRequestLog.filter(isAggregateBatchRead);
+
+      // At most two aggregate article-window reads: the initial load and at
+      // most one unread refill. Per-feed refresh fan-out requests are expected
+      // and are not duplicate article-window reads.
       expect(
-        batchRequestLog.length,
-        `Expected ≤ 2 batch requests but got ${batchRequestLog.length}: ${JSON.stringify(
-          batchRequestLog.map((r) => r.articleLimit),
+        aggregateReads.length,
+        `Expected ≤ 2 aggregate batch reads but got ${aggregateReads.length}: ${JSON.stringify(
+          batchRequestLog.map((r) => ({
+            articleLimit: r.articleLimit,
+            skipRefresh: r.skipRefresh,
+            urls: r.urls,
+          })),
         )}`,
       ).toBeLessThanOrEqual(2);
 
       // No duplicate article limits: the same query key must never be fetched
       // twice.  If two entries share a limit, one was redundant.
       const seenLimits = new Set<number>();
-      for (const record of batchRequestLog) {
+      for (const record of aggregateReads) {
         expect(
           seenLimits.has(record.articleLimit),
-          `Duplicate batch request for articleLimit=${record.articleLimit}. Full log: ${JSON.stringify(
-            batchRequestLog.map((r) => r.articleLimit),
+          `Duplicate aggregate batch read for articleLimit=${record.articleLimit}. Full log: ${JSON.stringify(
+            batchRequestLog.map((r) => ({
+              articleLimit: r.articleLimit,
+              skipRefresh: r.skipRefresh,
+              urls: r.urls,
+            })),
           )}`,
         ).toBe(false);
         seenLimits.add(record.articleLimit);
@@ -168,11 +197,15 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
     await page.route("**/api/feeds/batch", async (route) => {
       const body = route.request().postDataJSON() as null | {
         articleLimit?: number;
+        skipRefresh?: boolean;
+        urls?: string[];
       };
 
       batchRequestLog.push({
         articleLimit: body?.articleLimit ?? -1,
+        skipRefresh: body?.skipRefresh === true,
         timestamp: Date.now(),
+        urls: Array.isArray(body?.urls) ? body.urls : [],
       });
 
       await route.continue();
@@ -191,36 +224,45 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
 
       let previousBatchRequestCount = -1;
       await expect
-        .poll(() => {
-          const currentBatchRequestCount = batchRequestLog.length;
+        .poll(
+          () => {
+            const currentBatchRequestCount = batchRequestLog.length;
 
-          if (currentBatchRequestCount === previousBatchRequestCount) {
-            return currentBatchRequestCount;
-          }
+            if (currentBatchRequestCount === previousBatchRequestCount) {
+              return currentBatchRequestCount;
+            }
 
-          previousBatchRequestCount = currentBatchRequestCount;
-          return -1;
-        }, {
-          intervals: [120, 180, 220],
-          timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
-        })
+            previousBatchRequestCount = currentBatchRequestCount;
+            return -1;
+          },
+          {
+            intervals: [120, 180, 220],
+            timeout: BACKGROUND_SETTLE_TIMEOUT_MS,
+          },
+        )
         .not.toBe(-1);
 
-      // With "all" filter there is no unread refill.  Only the initial load
-      // should fire.  The prefetch is suppressed by usePlaceholderData in
-      // explore mode, so the total must be exactly 1.
+      const aggregateReads = batchRequestLog.filter(isAggregateBatchRead);
+
+      // With "all" filter there is no unread refill.  Explore mode may serve
+      // placeholder data without a network read; if it does read, there should
+      // be no more than one aggregate article-window request.
       expect(
-        batchRequestLog.length,
-        `Expected exactly 1 batch request with "all" filter but got ${batchRequestLog.length}: ${JSON.stringify(
-          batchRequestLog.map((r) => r.articleLimit),
+        aggregateReads.length,
+        `Expected at most 1 aggregate batch read with "all" filter but got ${aggregateReads.length}: ${JSON.stringify(
+          batchRequestLog.map((r) => ({
+            articleLimit: r.articleLimit,
+            skipRefresh: r.skipRefresh,
+            urls: r.urls,
+          })),
         )}`,
-      ).toBeLessThanOrEqual(2);
+      ).toBeLessThanOrEqual(1);
 
       const seenLimits = new Set<number>();
-      for (const record of batchRequestLog) {
+      for (const record of aggregateReads) {
         expect(
           seenLimits.has(record.articleLimit),
-          `Duplicate batch request for articleLimit=${record.articleLimit}`,
+          `Duplicate aggregate batch read for articleLimit=${record.articleLimit}`,
         ).toBe(false);
         seenLimits.add(record.articleLimit);
       }

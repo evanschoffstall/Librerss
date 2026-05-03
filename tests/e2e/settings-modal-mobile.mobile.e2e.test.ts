@@ -8,6 +8,33 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
+/** Injects a mounted Radix-style rail so the mobile CSS contract can be measured directly. */
+async function injectMeasuredRadixScrollbar(dialog: Locator) {
+  return await dialog.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      '[role="dialog"] [data-radix-scroll-area-viewport]',
+    );
+    const root = viewport?.parentElement;
+
+    if (!viewport || !root) {
+      throw new Error("Expected the mobile settings ScrollArea viewport.");
+    }
+
+    const scrollbar = document.createElement("div");
+    scrollbar.dataset.orientation = "vertical";
+    scrollbar.dataset.mobileScrollbarProbe = "true";
+    root.append(scrollbar);
+
+    const style = getComputedStyle(scrollbar);
+
+    return {
+      display: style.display,
+      opacity: style.opacity,
+      pointerEvents: style.pointerEvents,
+    };
+  });
+}
+
 /** Open settings and wait for the preview-safe Network tab shell to render. */
 async function openSettingsAndWaitForNetworkPreview(page: Page) {
   await openDashboardSettingsTab(page, "Network");
@@ -123,6 +150,22 @@ test.describe("settings modal mobile tray", () => {
         `combobox[${i}]`,
       );
     }
+  });
+
+  test("keeps mounted shadcn ScrollArea rails completely hidden on mobile", async ({
+    page,
+  }) => {
+    await openDashboardSettingsTab(page, "Display");
+    const dialog = page.getByRole("dialog", { name: "Reader Settings" });
+    await expect(dialog).toBeVisible();
+
+    const measuredScrollbarStyle = await injectMeasuredRadixScrollbar(dialog);
+
+    expect(measuredScrollbarStyle).toEqual({
+      display: "none",
+      opacity: "0",
+      pointerEvents: "none",
+    });
   });
 
   test("every feed management control fits within the scroll viewport bounds", async ({
