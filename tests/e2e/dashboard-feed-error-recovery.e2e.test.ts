@@ -10,6 +10,9 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
+const BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE =
+  "Batch refresh budget exhausted before feed refresh started";
+
 interface E2ECredentials {
   email: string;
   password: string;
@@ -170,7 +173,7 @@ test.describe("dashboard feed error recovery", () => {
     });
   });
 
-  test("keeps successful all-feeds refresh results when one feed fails", async ({
+  test("keeps successful all-feeds refresh results when one feed exhausts the refresh budget", async ({
     page,
   }) => {
     await installDeterministicArticleExtractRoute(page);
@@ -184,7 +187,7 @@ test.describe("dashboard feed error recovery", () => {
         if (requestBody.forceRefresh === true && index === 0) {
           return {
             articles: [],
-            error: "Isolated upstream failure",
+            error: BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
             ok: false,
             url,
           };

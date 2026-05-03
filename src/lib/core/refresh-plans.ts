@@ -10,6 +10,14 @@ import {
   shouldRefreshFeed,
   type UpstreamRefreshResult,
 } from "./refresher";
+import {
+  resolveFeedBatchConcurrency,
+  resolveFeedBatchRefreshBudgetMs,
+  resolveFeedRequestTimeoutMs,
+} from "./serverless-feed-refresh-limits";
+
+export const BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE =
+  "Batch refresh budget exhausted before feed refresh started";
 
 /**
  * Defines the DB mod type.
@@ -28,8 +36,15 @@ interface ExecuteParallelRefreshesOptions {
   feedByUrl: Map<string, FeedRecord>;
   forceRefresh: boolean;
   forceResolveUpstream?: boolean;
+  nowFn?: () => number;
   proxyTransport?: FeedUpstreamTransport;
   skipRefresh: boolean;
+}
+
+/** Describes options for bounded task settlement. */
+interface SettledWithConcurrencyOptions {
+  createSkippedReason?: () => unknown;
+  shouldStartTask?: () => boolean;
 }
 
 /**
@@ -125,15 +140,20 @@ export async function executeParallelRefreshes(
       forceRefresh,
       forceResolveUpstream,
     );
-    trackRefreshedUrls(staleFeeds, refreshedUrls);
 
     if (staleFeeds.length > 0) {
       const results = await refreshCandidateFeeds(
         db,
         staleFeeds,
         proxyTransport,
+        options.nowFn ?? Date.now,
       );
-      recordRefreshSettlements(staleFeeds, results, upstreamErrors);
+      recordRefreshSettlements(
+        staleFeeds,
+        results,
+        upstreamErrors,
+        refreshedUrls,
+      );
     }
   }
   appendPersistedRefreshErrors(feedByUrl, allowedUrls, upstreamErrors);
@@ -198,21 +218,45 @@ function countCooldownLimitedFeeds(
 }
 
 /**
- * Process the record refresh settlements.
- * @param staleFeeds - The stale feeds.
- * @param results - The results.
- * @param upstreamErrors - The upstream errors.
+ * Return whether a refresh settlement represents an intentional budget skip.
+ * @param settlement - The refresh settlement to inspect.
+ * @returns Whether the refresh was skipped before starting.
+ */
+function isBatchRefreshBudgetSkipped(
+  settlement: PromiseSettledResult<UpstreamRefreshResult>,
+): boolean {
+  return (
+    settlement.status === "rejected" &&
+    settlement.reason instanceof Error &&
+    settlement.reason.message === BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE
+  );
+}
+
+/**
+ * Record refresh outcomes as successful starts, upstream errors, or budget skips.
+ * @param staleFeeds - Feed records aligned by index with the settlement array.
+ * @param results - Settled refresh results returned by the concurrency runner.
+ * @param upstreamErrors - Mutable map that receives per-feed refresh errors.
+ * @param refreshedUrls - Mutable set that receives URLs whose refresh work actually started.
  */
 function recordRefreshSettlements(
   staleFeeds: FeedRecord[],
   results: PromiseSettledResult<UpstreamRefreshResult>[],
   upstreamErrors: Map<string, string>,
+  refreshedUrls: Set<string>,
 ): void {
   for (const [index, settlement] of results.entries()) {
     const url = staleFeeds[index]?.url;
     if (!url) {
       continue;
     }
+
+    if (isBatchRefreshBudgetSkipped(settlement)) {
+      upstreamErrors.set(url, BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE);
+      continue;
+    }
+
+    refreshedUrls.add(url);
 
     if (settlement.status === "fulfilled") {
       if (!settlement.value.ok) {
@@ -234,17 +278,20 @@ function recordRefreshSettlements(
 }
 
 /**
- * Process the refresh candidate feeds.
- * @param db - The db.
- * @param staleFeeds - The stale feeds.
- * @param proxyTransport - The proxy transport.
- * @returns The refresh candidate feeds.
+ * Refresh candidate feeds while respecting runtime-specific start budgets.
+ * @param db - Database client used by individual feed refreshes.
+ * @param staleFeeds - Feed records selected for upstream refresh.
+ * @param proxyTransport - Optional proxy transport for proxy-enabled feeds.
+ * @param nowFn - Clock used to decide whether starting another refresh is still safe.
+ * @returns Settled refresh results aligned with the input feed order.
  */
 async function refreshCandidateFeeds(
   db: ReturnType<DbMod["getDb"]>,
   staleFeeds: FeedRecord[],
   proxyTransport: FeedUpstreamTransport | undefined,
+  nowFn: () => number,
 ): Promise<PromiseSettledResult<UpstreamRefreshResult>[]> {
+  const latestStartAt = resolveLatestBatchRefreshStartAt(nowFn());
   return settledWithConcurrency(
     staleFeeds.map(
       (feed) => () =>
@@ -252,7 +299,40 @@ async function refreshCandidateFeeds(
           proxyTransport,
         }),
     ),
-    CONFIG.FEED_BATCH_CONCURRENCY,
+    resolveFeedBatchConcurrency(CONFIG.FEED_BATCH_CONCURRENCY),
+    {
+      /**
+       * Return the standardized per-feed error for a skipped refresh.
+       * @returns Error used as the skipped refresh settlement reason.
+       */
+      createSkippedReason: () =>
+        new Error(BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE),
+      /**
+       * Return whether enough batch budget remains to start another refresh.
+       * @returns Whether a worker may start the next feed refresh.
+       */
+      shouldStartTask: () => nowFn() <= latestStartAt,
+    },
+  );
+}
+
+/**
+ * Resolve the latest safe wall-clock time for starting another feed refresh.
+ * @param startedAt - Batch refresh start timestamp.
+ * @returns The latest safe task start timestamp.
+ */
+function resolveLatestBatchRefreshStartAt(startedAt: number): number {
+  const budgetMs = resolveFeedBatchRefreshBudgetMs();
+  if (!Number.isFinite(budgetMs)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return (
+    startedAt +
+    Math.max(
+      0,
+      budgetMs - resolveFeedRequestTimeoutMs(CONFIG.FEED_REQUEST_TIMEOUT_MS),
+    )
   );
 }
 
@@ -280,14 +360,16 @@ function resolveRefreshCandidates(
 }
 
 /**
- * Process the settled with concurrency.
- * @param tasks - The callback that tasks.
- * @param concurrency - The concurrency.
- * @returns The settled with concurrency.
+ * Run promise-returning tasks with a bounded number of workers.
+ * @param tasks - Task factories to execute.
+ * @param concurrency - Maximum number of workers to run at once.
+ * @param options - Optional hooks for skipping work before a task starts.
+ * @returns Settled task results aligned with the input task order.
  */
 async function settledWithConcurrency<T>(
   tasks: (() => Promise<T>)[],
   concurrency: number,
+  options?: SettledWithConcurrencyOptions,
 ): Promise<PromiseSettledResult<T>[]> {
   const results = [] as PromiseSettledResult<T>[];
   results.length = tasks.length;
@@ -299,6 +381,16 @@ async function settledWithConcurrency<T>(
   async function worker() {
     while (nextIndex < tasks.length) {
       const taskIndex = nextIndex++;
+      if (options?.shouldStartTask && !options.shouldStartTask()) {
+        results[taskIndex] = {
+          reason:
+            options.createSkippedReason?.() ??
+            new Error(BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE),
+          status: "rejected",
+        };
+        continue;
+      }
+
       try {
         results[taskIndex] = {
           status: "fulfilled",
@@ -339,18 +431,4 @@ function shouldBatchRefreshFeed(
   }
 
   return shouldRefreshFeed(feed.lastFetched);
-}
-
-/**
- * Track the urls that were refreshed during the current batch.
- * @param staleFeeds - The feed records selected for upstream refresh.
- * @param refreshedUrls - The url set that records refreshed feeds.
- */
-function trackRefreshedUrls(
-  staleFeeds: FeedRecord[],
-  refreshedUrls: Set<string>,
-): void {
-  for (const { url } of staleFeeds) {
-    refreshedUrls.add(url);
-  }
 }

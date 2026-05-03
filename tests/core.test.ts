@@ -1329,6 +1329,64 @@ describe("feed-batch-pipeline", () => {
     expect(result.errors.has("not-a-url")).toBe(true);
   });
 
+  test("executeParallelRefreshes skips new feed refreshes when the Vercel budget is exhausted", async () => {
+    const {
+      BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+      executeParallelRefreshes,
+    } = await importFeedBatchHelpers();
+    const previousVercel = process.env.VERCEL;
+
+    try {
+      process.env.VERCEL = "1";
+
+      const stale = new Date(Date.now() - 1000 * 60 * 120);
+      const urls = ["not-a-url-one", "not-a-url-two"];
+      const feedByUrl = new Map(
+        urls.map((url, index) => [
+          url,
+          {
+            id: index + 40,
+            lastFetched: stale,
+            lastFetchError: null,
+            url,
+          },
+        ]),
+      );
+      const db = {
+        insert: mock(() => ({
+          values: mock(() => ({ onConflictDoUpdate: mock(async () => []) })),
+        })),
+        update: mock(() => ({
+          set: mock(() => ({ where: mock(async () => []) })),
+        })),
+      };
+      const timestamps = [0, 0, 3_000];
+      let timestampIndex = 0;
+
+      const result = await executeParallelRefreshes({
+        allowedUrls: urls,
+        db: db as unknown as any,
+        feedByUrl: feedByUrl as any,
+        forceRefresh: true,
+        nowFn: () =>
+          timestamps[Math.min(timestampIndex++, timestamps.length - 1)] ?? 0,
+        skipRefresh: false,
+      });
+
+      expect(result.refreshedCount).toBe(1);
+      expect(result.refreshedUrls).toEqual(new Set(["not-a-url-one"]));
+      expect(result.errors.get("not-a-url-two")).toBe(
+        BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+      );
+    } finally {
+      if (previousVercel === undefined) {
+        delete process.env.VERCEL;
+      } else {
+        process.env.VERCEL = previousVercel;
+      }
+    }
+  });
+
   test("mapRowsToArticleMap maps rows by feed URL and coerces value types", async () => {
     const { mapRowsToArticleMap } = await importFeedBatchHelpers();
 
