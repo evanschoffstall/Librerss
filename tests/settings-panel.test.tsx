@@ -549,16 +549,45 @@ describe("SettingsPanel", () => {
     expect(queryByRole("tab", { name: /network/i })).toBeDefined();
   });
 
-  test("keeps the Network tab mounted behind the preview overlay", async () => {
+  test("mounts only the selected preview tab content", async () => {
     useSettingsProxyStateMock.mockClear();
-    const { getByPlaceholderText, getByRole } = await renderPanel({
-      isPreviewMode: true,
-    });
+    const { getByPlaceholderText, getByRole, queryByPlaceholderText } =
+      await renderPanel({
+        isPreviewMode: true,
+      });
+
+    expect(queryByPlaceholderText(/proxy.*8080/i)).toBeNull();
 
     fireEvent.click(getByRole("tab", { name: /network/i }));
 
     expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
-    expect(useSettingsProxyStateMock).toHaveBeenCalled();
+    expect(useSettingsProxyStateMock).toHaveBeenCalledTimes(1);
+  });
+
+  test("unmounts inactive settings tab panels on desktop", async () => {
+    const { getByPlaceholderText, getByRole, getByText, queryByText } =
+      await renderPanel({
+        isPreviewMode: true,
+      });
+
+    expect(
+      getByText("Customize how articles are displayed in the list."),
+    ).toBeDefined();
+    expect(queryByText("Feeds section")).toBeNull();
+    expect(queryByText("Not available in demo mode")).toBeNull();
+
+    fireEvent.click(getByRole("tab", { name: /feeds/i }));
+
+    expect(
+      queryByText("Customize how articles are displayed in the list."),
+    ).toBeNull();
+    expect(getByText("Feeds section")).toBeDefined();
+    expect(getByText("Not available in demo mode")).toBeDefined();
+
+    fireEvent.click(getByRole("tab", { name: /network/i }));
+
+    expect(queryByText("Feeds section")).toBeNull();
+    expect(getByPlaceholderText(/proxy.*8080/i)).toBeDefined();
   });
 
   test("calls onClose when the dialog close button is clicked", async () => {

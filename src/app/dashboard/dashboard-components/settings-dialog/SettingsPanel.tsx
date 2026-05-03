@@ -370,7 +370,7 @@ function SettingsTabContent(
   } = props;
   return (
     <>
-      <TabsContent className="mt-0" forceMount value="display">
+      <TabsContent className="mt-0" value="display">
         <SettingsDisplaySection
           articlesPerPage={articlesPerPage}
           autoRefreshIntervalMinutes={autoRefreshIntervalMinutes}
@@ -387,7 +387,7 @@ function SettingsTabContent(
         />
       </TabsContent>
 
-      <TabsContent className="mt-0" forceMount value="feeds">
+      <TabsContent className="mt-0" value="feeds">
         <SettingsFeedManagementSection
           categories={categories}
           isPreviewMode={isPreviewMode}
@@ -398,7 +398,7 @@ function SettingsTabContent(
         />
       </TabsContent>
 
-      <TabsContent className="mt-0" forceMount value="network">
+      <TabsContent className="mt-0" value="network">
         <SettingsPreviewSection
           isPreviewMode={isPreviewMode}
           showOverlay={activeTab === "network"}
@@ -408,7 +408,7 @@ function SettingsTabContent(
       </TabsContent>
 
       {!isPreviewMode && (
-        <TabsContent className="mt-0" forceMount value="account">
+        <TabsContent className="mt-0" value="account">
           <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
         </TabsContent>
       )}
