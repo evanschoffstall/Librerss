@@ -209,11 +209,7 @@ mock.module("@/components/ui/tabs", () => {
 mock.module(
   "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
   () => ({
-    SettingsProxySection: ({
-      isPreviewMode,
-    }: {
-      isPreviewMode?: boolean;
-    }) => {
+    SettingsProxySection: ({ isPreviewMode }: { isPreviewMode?: boolean }) => {
       useSettingsProxyStateMock();
       return (
         <div>

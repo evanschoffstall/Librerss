@@ -1155,12 +1155,14 @@ describe("feed-batch-pipeline", () => {
         false,
       );
       expect(
-        normalPlan.find((entry) => entry.url === "https://fresh.example.com/feed")
-          ?.decision,
+        normalPlan.find(
+          (entry) => entry.url === "https://fresh.example.com/feed",
+        )?.decision,
       ).toBe("use-cache");
       expect(
-        normalPlan.find((entry) => entry.url === "https://stale.example.com/feed")
-          ?.decision,
+        normalPlan.find(
+          (entry) => entry.url === "https://stale.example.com/feed",
+        )?.decision,
       ).toBe("refresh-stale");
 
       const forcePlan = buildRefreshPlan(
@@ -1174,16 +1176,19 @@ describe("feed-batch-pipeline", () => {
         true,
       );
       expect(
-        forcePlan.find((entry) => entry.url === "https://fresh.example.com/feed")
-          ?.decision,
+        forcePlan.find(
+          (entry) => entry.url === "https://fresh.example.com/feed",
+        )?.decision,
       ).toBe("force-cooldown-use-cache");
       expect(
-        forcePlan.find((entry) => entry.url === "https://stale.example.com/feed")
-          ?.decision,
+        forcePlan.find(
+          (entry) => entry.url === "https://stale.example.com/feed",
+        )?.decision,
       ).toBe("refresh-force");
       expect(
-        forcePlan.find((entry) => entry.url === "https://errored.example.com/feed")
-          ?.decision,
+        forcePlan.find(
+          (entry) => entry.url === "https://errored.example.com/feed",
+        )?.decision,
       ).toBe("refresh-force");
     } finally {
       Date.now = originalDateNow;
@@ -1654,10 +1659,8 @@ describe("feed-batch-pipeline", () => {
   });
 
   test("executeParallelRefreshes skips new feed refreshes when the Vercel budget is exhausted", async () => {
-    const {
-      BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
-      executeParallelRefreshes,
-    } = await importFeedBatchHelpers();
+    const { BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE, executeParallelRefreshes } =
+      await importFeedBatchHelpers();
     const previousVercel = process.env.VERCEL;
 
     try {

@@ -381,9 +381,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     ]);
     const resolveAuthorizedFeedRecords = mock(async () => ({
       allowedUrls: ["https://example.com/feed"],
-      feedByUrl: new Map([
-        ["https://example.com/feed", createFeedRecord()],
-      ]),
+      feedByUrl: new Map([["https://example.com/feed", createFeedRecord()]]),
     }));
 
     setFeedFetcherDependenciesForTesting({
