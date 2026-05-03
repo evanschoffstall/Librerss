@@ -173,6 +173,68 @@ test.describe("dashboard feed error recovery", () => {
     });
   });
 
+  test("keeps the previous article list visible when proxy credentials cannot be read", async ({
+    page,
+  }) => {
+    const shouldFailNextBatchRequest = { current: false };
+    await installDeterministicArticleExtractRoute(page);
+    await installDeterministicFeedBatchRoute(page);
+    await page.route("**/api/feeds/batch", async (route) => {
+      if (!shouldFailNextBatchRequest.current) {
+        await route.fallback();
+        return;
+      }
+
+      shouldFailNextBatchRequest.current = false;
+      await route.fulfill({
+        body: JSON.stringify({
+          error:
+            "Saved proxy password could not be read. Update it in settings and try again.",
+          reason: "proxy-password-unreadable",
+        }),
+        contentType: "application/json",
+        status: 500,
+      });
+    });
+
+    await gotoAuthenticatedDashboard(page);
+
+    const visibleArticles = page.locator("article[data-article-key]:visible");
+    const firstArticle = visibleArticles.first();
+    const firstArticleKey = await firstArticle.getAttribute("data-article-key");
+
+    expect(firstArticleKey).toBeTruthy();
+
+    const initialArticleCount = await page.evaluate(() => {
+      return document.querySelectorAll("article[data-article-key]").length;
+    });
+    expect(initialArticleCount).toBeGreaterThan(0);
+
+    shouldFailNextBatchRequest.current = true;
+
+    await page
+      .getByRole("button", { exact: true, name: "Refresh selected feed" })
+      .last()
+      .click();
+
+    await expect(page.getByText("Proxy credentials unavailable.")).toBeVisible({
+      timeout: 10_000,
+    });
+    await expect(
+      page.getByText(
+        "Re-enter your proxy password in Settings to restore feed access.",
+      ),
+    ).toBeVisible();
+
+    await expect(firstArticle).toBeVisible();
+    await expect(visibleArticles).toHaveCount(initialArticleCount);
+    await expect(
+      page.locator(
+        `article[data-article-key="${String(firstArticleKey)}"]:visible`,
+      ),
+    ).toBeVisible();
+  });
+
   test("keeps successful all-feeds refresh results when one feed exhausts the refresh budget", async ({
     page,
   }) => {

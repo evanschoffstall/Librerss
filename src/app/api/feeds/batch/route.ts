@@ -282,6 +282,13 @@ async function executeBatchFetch(
       requestUrls: options.requestUrls,
     });
   } catch (error) {
+    if (
+      error instanceof ServerServiceErrorCtor &&
+      error.reason === "proxy-password-unreadable"
+    ) {
+      throw error;
+    }
+
     const fallbackResult = await executeIsolatedFeedBatchFallback({
       batchFetchOptions,
       db: routeDeps.db,
@@ -584,35 +591,15 @@ function resolveBatchIntentState(options: BatchIntentStateOptions) {
 
   logger.info(`Batch [0 feeds]: client=${intent} | empty request`);
   return NextResponse.json([]);
-} /**
+}
+
+/**
  * Resolve the batch proxy transport.
- * @param options - The options used to resolve the batch proxy transport.
- * @returns The batch proxy transport.
+ * @param options - Proxy resolver options.
+ * @returns The resolved proxy transport for this batch request.
  */
 async function resolveBatchProxyTransport(options: BatchProxyTransportOptions) {
-  let resolvedProxy;
-
-  try {
-    resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
-  } catch (error) {
-    if (
-      error instanceof ServerServiceErrorCtor &&
-      error.reason === "proxy-password-unreadable"
-    ) {
-      logger.warn(
-        "Feed batch refresh bypassed unreadable proxy credentials and retried direct egress",
-        {
-          userId: options.userId,
-        },
-      );
-      return {
-        allowInsecureTls: false,
-        proxyUrl: undefined,
-      };
-    }
-
-    throw error;
-  }
+  const resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
 
   return {
     allowInsecureTls: resolvedProxy.allowInsecureTls,

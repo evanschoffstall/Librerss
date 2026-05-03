@@ -340,16 +340,19 @@ describe("api/feeds/batch route", () => {
     expect(fetchAndCacheFeedArticlesBatch).not.toHaveBeenCalled();
   });
 
-  test("falls back to direct egress when lazy proxy resolution fails", async () => {
+  test("returns a proxy credential error instead of retrying through direct egress", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps } = createRouteDeps();
-    let resolvedProxyTransport:
-      | undefined
-      | { allowInsecureTls: boolean; proxyUrl: string | undefined };
+    const upstreamRefreshAttempt = mock(async () => {
+      throw new Error(
+        "The batch route must not bypass unreadable proxy credentials.",
+      );
+    });
 
     deps.fetchAndCacheFeedArticlesBatchFn = mock(
       async (_db, _userId, _feedUrls, options) => {
-        resolvedProxyTransport = await options?.resolveProxyTransport?.();
+        await options?.resolveProxyTransport?.();
+        await upstreamRefreshAttempt();
 
         return {
           articles: new Map([["https://example.com/feed", []]]),
@@ -372,7 +375,9 @@ describe("api/feeds/batch route", () => {
     };
 
     const request = new NextRequest("http://localhost/api/feeds/batch", {
-      body: JSON.stringify({ urls: ["https://example.com/feed"] }),
+      body: JSON.stringify({
+        urls: ["https://example.com/feed", "https://example.com/other-feed"],
+      }),
       headers: { "content-type": "application/json" },
       method: "POST",
     });
@@ -380,18 +385,14 @@ describe("api/feeds/batch route", () => {
     const response = await POST(request, deps);
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(resolvedProxyTransport).toEqual({
-      allowInsecureTls: false,
-      proxyUrl: undefined,
+    expect(response.status).toBe(500);
+    expect(data).toEqual({
+      error:
+        "Saved proxy password could not be read. Update it in settings and try again.",
+      reason: "proxy-password-unreadable",
     });
-    expect(data).toEqual([
-      {
-        articles: [],
-        ok: true,
-        url: "https://example.com/feed",
-      },
-    ]);
+    expect(deps.fetchAndCacheFeedArticlesBatchFn).toHaveBeenCalledTimes(1);
+    expect(upstreamRefreshAttempt).not.toHaveBeenCalled();
   });
 
   test("returns 207 for mixed invalid URLs and upstream errors", async () => {
