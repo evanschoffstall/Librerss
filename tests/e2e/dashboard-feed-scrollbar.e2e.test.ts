@@ -2,7 +2,7 @@ import {
   articleCard,
   expectArticleExpanded,
   gotoPreviewDashboard,
-  openDashboardSettings,
+  openDashboardSettingsTab,
   waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -116,7 +116,7 @@ test.describe("dashboard feed scrollbar", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await waitForPreviewDashboardHydration(page);
-    await openDashboardSettings(page);
+    await openDashboardSettingsTab(page, "Feeds");
 
     const scrollAreaRoot = settingsScrollAreaRoot(page);
     await expect(scrollAreaRoot).toBeVisible();
