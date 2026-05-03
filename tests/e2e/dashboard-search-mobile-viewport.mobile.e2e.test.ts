@@ -5,12 +5,38 @@ import {
   waitForPreviewDashboardHydration,
 } from "./helpers";
 
+interface SearchInputVisualStyle {
+  fontSize: number;
+  scale: string;
+  transform: string;
+}
+
 interface VisualViewportSnapshot {
   height: number;
   offsetLeft: number;
   offsetTop: number;
   scale: number;
   width: number;
+}
+
+/**
+ * Reads the search input styles that balance mobile focus safety with the
+ * compact toolbar presentation.
+ * @param page - The Playwright page under test.
+ * @returns The current computed font size and scale for the search input.
+ */
+async function readSearchInputVisualStyle(
+  page: Page,
+): Promise<SearchInputVisualStyle> {
+  return await searchInput(page).evaluate((element) => {
+    const style = window.getComputedStyle(element);
+
+    return {
+      fontSize: Number.parseFloat(style.fontSize),
+      scale: style.scale,
+      transform: style.transform,
+    };
+  });
 }
 
 /**
@@ -59,13 +85,12 @@ test.describe("dashboard mobile search viewport behavior", () => {
     );
     const afterTap = await readVisualViewportSnapshot(page);
 
-    await expect
-      .poll(async () =>
-        input.evaluate((element) =>
-          Number.parseFloat(getComputedStyle(element).fontSize),
-        ),
-      )
-      .toBeGreaterThanOrEqual(16);
+    const visualStyle = await readSearchInputVisualStyle(page);
+
+    expect(visualStyle.fontSize).toBeGreaterThanOrEqual(16);
+    expect([visualStyle.scale, visualStyle.transform].join(" ")).toContain(
+      "0.875",
+    );
     expect(afterTap.scale).toBe(beforeTap.scale);
     expect(afterTap.width).toBeCloseTo(beforeTap.width, 1);
     expect(afterTap.height).toBeCloseTo(beforeTap.height, 1);
