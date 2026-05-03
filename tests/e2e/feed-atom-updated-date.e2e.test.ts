@@ -11,7 +11,8 @@ import { articleCard } from "./helpers";
 import { expect, test } from "./test";
 
 const FIXED_REFRESH_NOW = "2026-05-03T17:10:00.000Z";
-const IFL_SCIENCE_FEED_URL = "https://www.iflscience.com/rss/ifls-latest-rss.xml";
+const IFL_SCIENCE_FEED_URL =
+  "https://www.iflscience.com/rss/ifls-latest-rss.xml";
 const IFL_SCIENCE_ATOM_UPDATED_ITEM_XML = `
 <rss version="2.0" xmlns:a10="http://www.w3.org/2005/Atom">
   <channel>

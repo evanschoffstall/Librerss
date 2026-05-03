@@ -40,11 +40,12 @@ describe("lib/core/feed-parser additional coverage", () => {
   });
 
   test("toPendingArticle uses namespaced Atom updated dates when RSS pubDate is absent", async () => {
-    const { FEED_PARSER_CUSTOM_FIELDS, toPendingArticle } = await import(
-      "@/lib/core/parser"
-    );
+    const { FEED_PARSER_CUSTOM_FIELDS, toPendingArticle } =
+      await import("@/lib/core/parser");
     const parser = new Parser({ customFields: FEED_PARSER_CUSTOM_FIELDS });
-    const parsedFeed = await parser.parseString(IFL_SCIENCE_ATOM_UPDATED_ITEM_XML);
+    const parsedFeed = await parser.parseString(
+      IFL_SCIENCE_ATOM_UPDATED_ITEM_XML,
+    );
 
     const result = toPendingArticle(
       parsedFeed.items[0]!,
