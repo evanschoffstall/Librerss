@@ -414,14 +414,19 @@ async function resolveNormalizedProxyUrl(
 async function resolveResponseProxyPassword(
   options: ResponseProxyPasswordOptions,
 ): Promise<null | Response | string> {
+  const persistedPassword = await resolveMaterializedProxyPassword(
+    options.userId,
+    options.persistedProxyPassword,
+  );
+  if (persistedPassword instanceof Response) {
+    return persistedPassword;
+  }
+
   if (options.effectiveProxyPassword !== undefined) {
     return options.effectiveProxyPassword;
   }
 
-  return resolveMaterializedProxyPassword(
-    options.userId,
-    options.persistedProxyPassword,
-  );
+  return persistedPassword;
 }
 /**
  * Resolve the routing check.
