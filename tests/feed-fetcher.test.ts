@@ -917,6 +917,68 @@ describe("Feed Fetcher - Batch Operations", () => {
     );
   });
 
+  test("fetchAndCacheFeedArticlesBatch keeps direct refreshes when proxy materialization fails", async () => {
+    const directUrl = "https://direct.example/feed";
+    const proxiedUrl = "https://proxied.example/feed";
+    const proxyTransportError =
+      "Saved proxy password could not be read. Update it in settings and try again.";
+    const directArticle = createArticleRow({ feedId: 1, title: "Direct" });
+    const executeParallelRefreshes = mock(async () => ({
+      cooldownLimitedCount: 0,
+      errors: new Map<string, string>([[proxiedUrl, proxyTransportError]]),
+      refreshedCount: 1,
+      refreshedUrls: new Set<string>([directUrl]),
+    }));
+    const resolveProxyTransport = mock(async () => {
+      throw new Error(proxyTransportError);
+    });
+
+    setFeedFetcherDependenciesForTesting({
+      executeParallelRefreshes,
+      mapRowsToArticleMap: mock(
+        () =>
+          new Map([
+            [directUrl, [directArticle]],
+            [proxiedUrl, []],
+          ]),
+      ),
+      queryTopArticlesPerFeed: mock(async () => [directArticle as RankedRow]),
+      resolveAuthorizedFeedRecords: mock(async () => ({
+        allowedUrls: [directUrl, proxiedUrl],
+        feedByUrl: new Map([
+          [directUrl, createFeedRecord({ id: 1, url: directUrl })],
+          [
+            proxiedUrl,
+            createFeedRecord({
+              id: 2,
+              proxyEnabled: true,
+              url: proxiedUrl,
+            }),
+          ],
+        ]),
+      })),
+    });
+
+    const result = await fetchAndCacheFeedArticlesBatch(
+      mockDb,
+      1,
+      [directUrl, proxiedUrl],
+      { forceRefresh: true, resolveProxyTransport },
+    );
+
+    expect(resolveProxyTransport).toHaveBeenCalledTimes(1);
+    expect(executeParallelRefreshes).toHaveBeenCalledWith(
+      expect.objectContaining({
+        allowedUrls: [directUrl, proxiedUrl],
+        proxyTransport: undefined,
+        proxyTransportError,
+      }),
+    );
+    expect(result.errors).toEqual(new Map([[proxiedUrl, proxyTransportError]]));
+    expect(result.refreshedCount).toBe(1);
+    expect(result.articles.get(directUrl)).toEqual([directArticle]);
+  });
+
   test("fetchAndCacheFeedArticlesBatch bypasses memory cache when forceResolveUpstream is enabled", async () => {
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,

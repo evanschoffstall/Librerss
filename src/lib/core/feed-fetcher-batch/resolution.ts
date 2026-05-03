@@ -45,6 +45,7 @@ export interface FeedFetcherBatchRuntimeDependencies {
     forceRefresh: boolean;
     forceResolveUpstream: boolean;
     proxyTransport?: FeedUpstreamTransport;
+    proxyTransportError?: string;
     skipRefresh: boolean;
   }) => Promise<BatchRefreshExecution>;
   getCachedBatch: (
@@ -155,7 +156,7 @@ export async function resolveBatchFeedResolution(
   return {
     allowedUrls: resolved.allowedUrls,
     feedByUrl: resolved.feedByUrl,
-    proxyTransport,
+    ...proxyTransport,
   };
 }
 
@@ -369,6 +370,7 @@ export async function runBatchRefreshExecution(
     forceRefresh: shouldForceRefresh,
     forceResolveUpstream: request.forceResolveUpstream,
     proxyTransport: batchFeeds.proxyTransport,
+    proxyTransportError: batchFeeds.proxyTransportError,
     skipRefresh: request.skipRefresh,
   });
 
@@ -550,9 +552,11 @@ async function queryChangedBatchArticles(
  */
 async function resolveRefreshProxyTransport(
   options: RefreshProxyTransportOptions,
-): Promise<FeedUpstreamTransport | undefined> {
+): Promise<
+  Pick<BatchFeedResolution, "proxyTransport" | "proxyTransportError">
+> {
   if (!options.resolveProxyTransport || options.skipRefresh) {
-    return undefined;
+    return {};
   }
 
   const requiresProxyTransport = options.allowedUrls.some((url) => {
@@ -572,5 +576,26 @@ async function resolveRefreshProxyTransport(
       : options.dependencies.shouldRefreshFeed(feed.lastFetched);
   });
 
-  return requiresProxyTransport ? options.resolveProxyTransport() : undefined;
+  if (!requiresProxyTransport) {
+    return {};
+  }
+
+  try {
+    return { proxyTransport: await options.resolveProxyTransport() };
+  } catch (error) {
+    return { proxyTransportError: toProxyTransportErrorMessage(error) };
+  }
+}
+
+/**
+ * Convert proxy setup failures into per-feed batch error text without importing app-level utilities.
+ * @param error - Error thrown while resolving the saved proxy transport.
+ * @returns User-visible error text for affected proxy-enabled feeds.
+ */
+function toProxyTransportErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return typeof error === "string" ? error : "Unknown error";
 }

@@ -38,7 +38,20 @@ interface ExecuteParallelRefreshesOptions {
   forceResolveUpstream?: boolean;
   nowFn?: () => number;
   proxyTransport?: FeedUpstreamTransport;
+  proxyTransportError?: string;
   skipRefresh: boolean;
+}
+
+/** Describes refresh candidates after removing feeds blocked by proxy configuration errors. */
+interface RefreshCandidatePartition {
+  blockedProxyFeeds: FeedRecord[];
+  refreshableFeeds: FeedRecord[];
+}
+
+/** Describes mutable refresh execution state accumulated for one batch. */
+interface RefreshExecutionState {
+  refreshedUrls: Set<string>;
+  upstreamErrors: Map<string, string>;
 }
 
 /** Describes options for bounded task settlement. */
@@ -117,11 +130,9 @@ export async function executeParallelRefreshes(
 }> {
   const {
     allowedUrls,
-    db,
     feedByUrl,
     forceRefresh,
     forceResolveUpstream = false,
-    proxyTransport,
     skipRefresh,
   } = options;
   const upstreamErrors = new Map<string, string>();
@@ -134,27 +145,10 @@ export async function executeParallelRefreshes(
   );
 
   if (!skipRefresh) {
-    const staleFeeds = resolveRefreshCandidates(
-      feedByUrl,
-      allowedUrls,
-      forceRefresh,
-      forceResolveUpstream,
-    );
-
-    if (staleFeeds.length > 0) {
-      const results = await refreshCandidateFeeds(
-        db,
-        staleFeeds,
-        proxyTransport,
-        options.nowFn ?? Date.now,
-      );
-      recordRefreshSettlements(
-        staleFeeds,
-        results,
-        upstreamErrors,
-        refreshedUrls,
-      );
-    }
+    await executeRefreshCandidates(options, {
+      refreshedUrls,
+      upstreamErrors,
+    });
   }
   appendPersistedRefreshErrors(feedByUrl, allowedUrls, upstreamErrors);
 
@@ -218,6 +212,49 @@ function countCooldownLimitedFeeds(
 }
 
 /**
+ * Execute stale feed refresh candidates and record per-feed outcomes.
+ * @param options - Batch refresh options.
+ * @param state - Mutable refresh outcome state.
+ */
+async function executeRefreshCandidates(
+  options: ExecuteParallelRefreshesOptions,
+  state: RefreshExecutionState,
+): Promise<void> {
+  const staleFeeds = resolveRefreshCandidates(
+    options.feedByUrl,
+    options.allowedUrls,
+    options.forceRefresh,
+    options.forceResolveUpstream ?? false,
+  );
+  if (staleFeeds.length === 0) return;
+
+  const { blockedProxyFeeds, refreshableFeeds } =
+    partitionRefreshCandidatesByProxyAvailability(
+      staleFeeds,
+      options.proxyTransport,
+      options.proxyTransportError,
+    );
+  recordProxyTransportErrors(
+    blockedProxyFeeds,
+    options.proxyTransportError,
+    state.upstreamErrors,
+  );
+
+  const results = await refreshCandidateFeeds(
+    options.db,
+    refreshableFeeds,
+    options.proxyTransport,
+    options.nowFn ?? Date.now,
+  );
+  recordRefreshSettlements(
+    refreshableFeeds,
+    results,
+    state.upstreamErrors,
+    state.refreshedUrls,
+  );
+}
+
+/**
  * Return whether a refresh settlement represents an intentional budget skip.
  * @param settlement - The refresh settlement to inspect.
  * @returns Whether the refresh was skipped before starting.
@@ -230,6 +267,57 @@ function isBatchRefreshBudgetSkipped(
     settlement.reason instanceof Error &&
     settlement.reason.message === BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE
   );
+}
+
+/**
+ * Split refresh candidates so a broken saved proxy cannot force proxy-enabled feeds onto direct egress.
+ * @param staleFeeds - Feed records selected for an upstream refresh.
+ * @param proxyTransport - Materialized proxy transport, when credentials are usable.
+ * @param proxyTransportError - Error captured while materializing saved proxy settings.
+ * @returns Refreshable feeds plus proxy-enabled feeds blocked by proxy setup failure.
+ */
+function partitionRefreshCandidatesByProxyAvailability(
+  staleFeeds: FeedRecord[],
+  proxyTransport: FeedUpstreamTransport | undefined,
+  proxyTransportError: string | undefined,
+): RefreshCandidatePartition {
+  if (proxyTransportError === undefined || proxyTransport !== undefined) {
+    return { blockedProxyFeeds: [], refreshableFeeds: staleFeeds };
+  }
+
+  const blockedProxyFeeds: FeedRecord[] = [];
+  const refreshableFeeds: FeedRecord[] = [];
+
+  for (const feed of staleFeeds) {
+    if (feed.proxyEnabled === true) {
+      blockedProxyFeeds.push(feed);
+      continue;
+    }
+
+    refreshableFeeds.push(feed);
+  }
+
+  return { blockedProxyFeeds, refreshableFeeds };
+}
+
+/**
+ * Record per-feed proxy setup failures without attempting unsafe direct fallback for those feeds.
+ * @param blockedProxyFeeds - Proxy-enabled feeds that could not receive materialized proxy credentials.
+ * @param proxyTransportError - User-actionable proxy setup error.
+ * @param upstreamErrors - Mutable batch error map keyed by feed URL.
+ */
+function recordProxyTransportErrors(
+  blockedProxyFeeds: FeedRecord[],
+  proxyTransportError: string | undefined,
+  upstreamErrors: Map<string, string>,
+): void {
+  if (proxyTransportError === undefined) {
+    return;
+  }
+
+  for (const feed of blockedProxyFeeds) {
+    upstreamErrors.set(feed.url, proxyTransportError);
+  }
 }
 
 /**

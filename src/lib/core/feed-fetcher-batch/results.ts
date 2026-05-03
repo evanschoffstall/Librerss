@@ -11,6 +11,7 @@ export interface BatchFeedResolution {
   allowedUrls: string[];
   feedByUrl: Map<string, FeedRecord>;
   proxyTransport?: FeedUpstreamTransport;
+  proxyTransportError?: string;
 }
 
 /**
