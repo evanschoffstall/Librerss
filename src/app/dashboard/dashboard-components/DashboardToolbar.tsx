@@ -131,7 +131,9 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
       />
     </DashboardToolbarShell>
   );
-} /**
+}
+
+/**
  * Render the dashboard toolbar search component.
  * @param props - The component props.
  * @returns The rendered dashboard toolbar search component.
