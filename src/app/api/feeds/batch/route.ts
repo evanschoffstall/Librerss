@@ -19,15 +19,16 @@ import { resolveUserProxy } from "@/lib/outbound-proxy";
 import {
   type BatchFetchExecutionResult,
   type BatchRequestBody,
-  type BatchRequestCompletedOptions,
   type BatchRequestState,
   type BatchUrlDescriptor,
   buildBatchFetchExecutionResult,
   buildBatchFetchRequestOptions,
   buildBatchIntent,
+  buildBatchSuccessResponseOptions,
   buildInvalidBatchResultResponse,
   createBatchSuccessResponse,
   ensureBatchUrlCount,
+  executeBatchBeforeRouteDeadline,
   executeIsolatedFeedBatchFallback,
   logBatchRequestReceivedWhenEnabled,
   parseBatchSearchTerm,
@@ -45,11 +46,14 @@ import {
  * Describes the batch route deps.
  */
 export interface BatchRouteDeps {
+  clearTimeoutFn?: typeof clearTimeout;
   fetchAndCacheFeedArticlesBatchFn?: typeof fetchAndCacheFeedArticlesBatch;
   getDbFn?: typeof getDb;
   logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
+  nowFn?: () => number;
   requireMutableAuthenticatedUserFn?: typeof serverApi.requireMutableAuthenticatedUser;
   resolveUserProxyFn?: typeof resolveUserProxy;
+  setTimeoutFn?: typeof setTimeout;
 }
 
 /**
@@ -81,6 +85,7 @@ interface BatchExecutionPreflightOptions {
   diagnosticsEnabled: boolean;
   requestState: ResolvedBatchRequestState;
 }
+
 /**
  * Describes the options for batch intent state.
  */
@@ -100,6 +105,7 @@ interface BatchProxyTransportOptions {
   >;
   userId: number;
 }
+
 /**
  * Describes the options for batch request state for post.
  */
@@ -114,26 +120,6 @@ interface BatchRequestStateForPostOptions {
 interface BatchRequestUrlsOptions {
   diagnosticsEnabled: boolean;
   urls: string[];
-  userId: number;
-}
-/**
- * Describes the options for batch success response options.
- */
-interface BatchSuccessResponseOptionsOptions {
-  articleFilter: ArticleFilter;
-  articleLimit: number | undefined;
-  articleSortOrder: ArticleSortOrder;
-  batchFetchResult: BatchFetchExecutionResult;
-  diagnosticsEnabled: boolean;
-  forceRefresh: boolean;
-  forceResolveUpstream: boolean;
-  intent: string;
-  invalidUrlCount: number;
-  normalizedUrls: string[];
-  requestSource: string;
-  requestStartedAt: number;
-  searchTerm: string | undefined;
-  skipRefresh: boolean;
   userId: number;
 }
 
@@ -178,7 +164,7 @@ export async function POST(
   depsOrContext: BatchRouteDeps | serverApi.RouteHandlerContext = {},
 ) {
   const deps = resolveRouteHandlerDeps<BatchRouteDeps>(depsOrContext);
-  const requestStartedAt = Date.now();
+  const requestStartedAt = (deps.nowFn ?? Date.now)();
   try {
     const diagnosticsEnabled = CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED;
     const requestState = await resolveBatchRequestStateForPost({
@@ -205,38 +191,6 @@ export async function POST(
       error,
     );
   }
-}
-
-/**
- * Build the batch success response options.
- * @param options - The options used to build the batch success response options.
- * @returns The batch success response options.
- */
-function buildBatchSuccessResponseOptions(
-  options: BatchSuccessResponseOptionsOptions,
-): BatchRequestCompletedOptions {
-  return {
-    articleFilter: options.articleFilter,
-    articleLimit: options.articleLimit,
-    articleSortOrder: options.articleSortOrder,
-    cachedCount: options.batchFetchResult.cachedCount,
-    cooldownLimitedCount: options.batchFetchResult.cooldownLimitedCount,
-    diagnosticsEnabled: options.diagnosticsEnabled,
-    forceRefresh: options.forceRefresh,
-    forceResolveUpstream: options.forceResolveUpstream,
-    intent: options.intent,
-    invalidUrlCount: options.invalidUrlCount,
-    normalizedUrls: options.normalizedUrls,
-    refreshedCount: options.batchFetchResult.refreshedCount,
-    requestSource: options.requestSource,
-    requestStartedAt: options.requestStartedAt,
-    resolution: options.batchFetchResult.resolution,
-    results: options.batchFetchResult.results,
-    searchTerm: options.searchTerm,
-    skipRefresh: options.skipRefresh,
-    upstreamErrors: options.batchFetchResult.upstreamErrors,
-    userId: options.userId,
-  };
 }
 
 /**
@@ -304,6 +258,29 @@ async function executeBatchFetch(
 }
 
 /**
+ * Execute the route batch fetch with a serverless-safe response deadline.
+ * @param options - The options used to process the execute batch fetch.
+ * @returns The completed batch result or a per-feed route-budget error result.
+ */
+async function executeBatchFetchWithRouteDeadline(
+  options: ExecuteBatchFetchOptions,
+): Promise<BatchFetchExecutionResult> {
+  return executeBatchBeforeRouteDeadline({
+    clearTimeoutFn: options.deps.clearTimeoutFn ?? clearTimeout,
+    /**
+     * Execute the route batch fetch when the response budget still allows it.
+     * @returns The batch fetch result.
+     */
+    execute: () => executeBatchFetch(options),
+    normalizedUrls: options.normalizedUrls,
+    nowFn: options.deps.nowFn ?? Date.now,
+    requestStartedAt: options.requestStartedAt,
+    requestUrls: options.requestUrls,
+    setTimeoutFn: options.deps.setTimeoutFn ?? setTimeout,
+  });
+}
+
+/**
  * Process the handle resolved batch post request.
  * @param options - The options used to process the handle resolved batch post request.
  * @returns The handle resolved batch post request.
@@ -333,7 +310,7 @@ async function handleResolvedBatchPostRequest(
 
   const { intent, invalidUrlCount, normalizedUrls, requestUrls } =
     batchExecutionPreflight;
-  const batchFetchResult = await executeBatchFetch({
+  const batchFetchResult = await executeBatchFetchWithRouteDeadline({
     articleFilter,
     articleLimit,
     articleSortOrder,

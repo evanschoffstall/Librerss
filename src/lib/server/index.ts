@@ -16,6 +16,7 @@ export { RateLimiter, rateLimiter } from "./rate-limit";
 export * as serverApi from "./server-api";
 export { logAndRespondError } from "./server-api";
 export {
+  BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
   type BatchFetchExecutionResult,
   type BatchRequestBody,
   type BatchRequestCompletedOptions,
@@ -26,9 +27,11 @@ export {
   buildBatchFetchResults,
   buildBatchIntent,
   buildBatchResultItem,
+  buildBatchSuccessResponseOptions,
   buildInvalidBatchResultResponse,
   createBatchSuccessResponse,
   ensureBatchUrlCount,
+  executeBatchBeforeRouteDeadline,
   executeIsolatedFeedBatchFallback,
   ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE,
   logBatchDiagnostics,

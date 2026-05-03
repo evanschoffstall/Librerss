@@ -1120,10 +1120,99 @@ describe("api/feeds/batch route", () => {
         },
       ]);
     } finally {
-      if (previousVercel === undefined) {
-        delete process.env.VERCEL;
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
       } else {
-        process.env.VERCEL = previousVercel;
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
+      }
+    }
+  });
+
+  test("returns per-feed errors when the serverless route response budget expires before the batch completes", async () => {
+    const previousServerlessLimits = process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+    const firstUrl = "https://example.com/feed-one";
+    const secondUrl = "https://example.com/feed-two";
+    const timeoutToken = setTimeout(() => undefined, 0);
+    clearTimeout(timeoutToken);
+    const scheduledTimeouts: number[] = [];
+    const clearedTimeouts: unknown[] = [];
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE } =
+      await import("@/lib/server");
+    const fetchAndCacheFeedArticlesBatch = mock(
+      (): Promise<FetchAndCacheFeedArticlesBatchResult> =>
+        new Promise<FetchAndCacheFeedArticlesBatchResult>(() => undefined),
+    );
+    const deps: BatchRouteDeps = {
+      clearTimeoutFn: ((timeoutId) => {
+        clearedTimeouts.push(timeoutId);
+      }) as typeof clearTimeout,
+      fetchAndCacheFeedArticlesBatchFn:
+        fetchAndCacheFeedArticlesBatch as FetchAndCacheFeedArticlesBatchFn,
+      getDbFn: () => ({ mocked: true }) as never,
+      logAndRespondErrorFn: (_message: string, _error: unknown) =>
+        new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
+      nowFn: () => 1_000,
+      requireMutableAuthenticatedUserFn: async () => user,
+      setTimeoutFn: ((
+        handler: Parameters<typeof setTimeout>[0],
+        timeout?: Parameters<typeof setTimeout>[1],
+      ) => {
+        scheduledTimeouts.push(timeout ?? 0);
+        queueMicrotask(() => {
+          if (typeof handler === "function") {
+            handler();
+          }
+        });
+        return timeoutToken;
+      }) as typeof setTimeout,
+    };
+
+    process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";
+
+    try {
+      const request = new NextRequest("http://localhost/api/feeds/batch", {
+        body: JSON.stringify({
+          forceRefresh: true,
+          requestSource: "manual-refresh",
+          urls: [firstUrl, "not-a-url", secondUrl],
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      });
+
+      const response = await POST(request, deps);
+      const data = await response.json();
+
+      expect(response.status).toBe(207);
+      expect(fetchAndCacheFeedArticlesBatch).toHaveBeenCalledTimes(1);
+      expect(scheduledTimeouts).toEqual([8_500]);
+      expect(clearedTimeouts).toEqual([timeoutToken]);
+      expect(data).toEqual([
+        {
+          articles: [],
+          error: BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: firstUrl,
+        },
+        {
+          articles: [],
+          error: "Invalid feed URL",
+          ok: false,
+          url: "not-a-url",
+        },
+        {
+          articles: [],
+          error: BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
+          ok: false,
+          url: secondUrl,
+        },
+      ]);
+    } finally {
+      if (previousServerlessLimits === undefined) {
+        delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;
+      } else {
+        process.env.FEED_SERVERLESS_LIMITS_ENABLED = previousServerlessLimits;
       }
     }
   });
