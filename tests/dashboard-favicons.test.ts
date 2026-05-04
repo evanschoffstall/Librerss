@@ -1,8 +1,7 @@
 /**
- * Pure-function tests for src/app/dashboard/services/favicons.ts
- * Covers: getHostnameLabel, getFaviconCacheKey, getMergedFaviconCandidates,
- *         getFaviconTintColors, getFaviconUrl, setCachedFaviconIndex,
- *         getCachedFaviconIndex
+ * Covers the dashboard favicon helpers that choose, tint, and cache feed icons.
+ * These tests keep provider fallbacks from masking direct site icons that are
+ * more likely to render visibly in the dark dashboard sidebar.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -95,6 +94,22 @@ describe("favicons – getMergedFaviconCandidates", () => {
   test("includes icon.horse service", () => {
     const result = getMergedFaviconCandidates("https://example.com");
     expect(result.some((url) => url.includes("icon.horse"))).toBe(true);
+  });
+
+  test("prefers the fast provider and keeps direct icons before weak fallbacks", () => {
+    const result = getMergedFaviconCandidates("https://www.abc27.com");
+    const firstDirectIndex = result.findIndex((url) =>
+      url.startsWith("https://www.abc27.com/favicon."),
+    );
+    const firstIconHorseIndex = result.findIndex((url) =>
+      url.includes("icon.horse"),
+    );
+
+    expect(result[0]).toBe(
+      "https://icons.duckduckgo.com/ip3/www.abc27.com.ico",
+    );
+    expect(firstDirectIndex).toBeGreaterThan(0);
+    expect(firstIconHorseIndex).toBeGreaterThan(firstDirectIndex);
   });
 
   test("returns empty array for undefined", () => {
