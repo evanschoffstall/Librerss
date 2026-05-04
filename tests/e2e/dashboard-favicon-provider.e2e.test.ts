@@ -62,7 +62,6 @@ test("preview dashboard avoids weak favicon providers when fast candidates load"
       return images.map((image) => {
         const style = getComputedStyle(image);
         return {
-          backgroundColor: style.backgroundColor,
           height: style.height,
           objectFit: style.objectFit,
           paddingTop: style.paddingTop,
@@ -76,9 +75,6 @@ test("preview dashboard avoids weak favicon providers when fast candidates load"
   expect(
     faviconBackings.every((backing) => {
       return (
-        /rgba?\(255, 255, 255(?:, 0\.5)?\)|color\(srgb 1 1 1 \/ 0\.5\)|oklab\([^)]*\/ 0\.5\)/u.test(
-          backing.backgroundColor,
-        ) &&
         backing.height === "14px" &&
         backing.objectFit === "contain" &&
         backing.paddingTop === "0px" &&

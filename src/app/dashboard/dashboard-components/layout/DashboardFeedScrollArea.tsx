@@ -233,6 +233,9 @@ export const DashboardFeedScrollArea = React.forwardRef<
             viewportClassName,
           )}
           data-dashboard-feed-scrollbar="true"
+          data-dashboard-feed-scrollbar-overflow={
+            scrollbarMetrics.isVisible ? "true" : "false"
+          }
           data-feed-scroll-viewport="true"
           data-radix-scroll-area-viewport=""
           ref={handleViewportRef}

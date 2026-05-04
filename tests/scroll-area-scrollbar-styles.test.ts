@@ -20,10 +20,10 @@ describe("global ScrollArea scrollbar styles", () => {
       '[data-dashboard-feed-scrollbar="true"] + [aria-hidden="true"]',
     );
     expect(stylesheet).toContain(
-      ":has(> [data-radix-scroll-area-viewport]):hover > [data-orientation]",
+      ':has(> [data-radix-scroll-area-viewport]):hover\n    > [data-orientation][data-state="visible"]',
     );
     expect(stylesheet).toContain(
-      ':has(> [data-dashboard-feed-scrollbar="true"]):hover',
+      '[data-dashboard-feed-scrollbar="true"][data-dashboard-feed-scrollbar-overflow="true"]',
     );
     expect(stylesheet).toContain("opacity: 0;");
     expect(stylesheet).toContain("opacity: 1;");
