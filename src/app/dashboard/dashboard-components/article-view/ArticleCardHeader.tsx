@@ -161,7 +161,7 @@ function ArticleHeaderFavicon(
   return (
     <img
       alt=""
-      className="size-3 rounded-sm"
+      className="size-3 rounded-sm bg-white/0 object-contain"
       decoding="sync"
       onError={() => {
         setFaviconIndex((current) => {
