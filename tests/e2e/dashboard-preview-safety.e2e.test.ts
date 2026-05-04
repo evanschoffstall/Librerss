@@ -36,10 +36,10 @@ async function readDashboardPersistence(
 async function readMaybeFeedViewportMetrics(page: Page) {
   return await page.evaluate(() => {
     const viewport =
-      document.querySelector<HTMLElement>('[data-feed-scroll-viewport="true"]') ??
       document.querySelector<HTMLElement>(
-        "[data-radix-scroll-area-viewport]",
-      );
+        '[data-feed-scroll-viewport="true"]',
+      ) ??
+      document.querySelector<HTMLElement>("[data-radix-scroll-area-viewport]");
 
     if (!viewport) {
       return null;
@@ -121,7 +121,6 @@ test.describe("dashboard preview safety", () => {
     await page.getByRole("switch", { name: "Show favicons" }).click();
     await page.keyboard.press("Escape");
     await configureArticlesPerPage(page, 4);
-    const expandedCount = await readVisibleFeedArticleCount(page);
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
@@ -151,13 +150,17 @@ test.describe("dashboard preview safety", () => {
         .nth(1),
     ).toContainText("4");
     await page.keyboard.press("Escape");
-    if (expandedCount > 0) {
-      await expect
-        .poll(async () => {
-          return await readVisibleFeedArticleCount(page);
-        })
-        .toBeLessThanOrEqual(expandedCount);
-    }
+    await expect
+      .poll(async () => {
+        return await readVisibleFeedArticleCount(page);
+      })
+      .toBeGreaterThan(0);
+
+    const resetViewportMetrics = await readMaybeFeedViewportMetrics(page);
+    expect(resetViewportMetrics).not.toBeNull();
+    expect(resetViewportMetrics?.scrollHeight ?? 0).toBeGreaterThan(
+      resetViewportMetrics?.clientHeight ?? Number.POSITIVE_INFINITY,
+    );
   });
 
   test("preview settings hide destructive account actions while leaving safe controls visible", async ({
