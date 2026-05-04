@@ -33,6 +33,7 @@ export interface ParsedFeedItem extends Parser.Item {
   atomPublished?: unknown;
   atomUpdated?: unknown;
   contentEncoded?: string;
+  id?: unknown;
 }
 
 /**
@@ -73,9 +74,10 @@ export const FEED_PARSER_CUSTOM_FIELDS: Parser.CustomFields<
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Process the dedupe pending articles.
- * @param items - The items.
- * @returns The dedupe pending articles.
+ * Collapse duplicate pending article rows by their canonical article URL.
+ * @param items - Sanitized article candidates produced during one refresh run.
+ * @returns One pending article per URL, preferring the newest candidate when
+ *   duplicates disagree.
  */
 export function dedupePendingArticles(
   items: PendingArticle[],
@@ -84,9 +86,10 @@ export function dedupePendingArticles(
 }
 
 /**
- * Return the publication date range.
- * @param items - The items.
- * @returns The publication date range.
+ * Calculate the inclusive publication-date range for a normalized article set.
+ * @param items - Pending article rows with concrete publication dates.
+ * @returns ISO timestamps for the oldest and newest article, or null bounds
+ *   when the set is empty.
  */
 export function getPublicationDateRange(items: PendingArticle[]): {
   newestPublicationDate: null | string;
@@ -125,7 +128,8 @@ export function toPendingArticle(
   feedId: number,
   now: Date,
 ): null | PendingArticle {
-  if (!item.title || !item.link || !isValidUrl(item.link)) return null;
+  const link = resolveFeedItemLink(item);
+  if (!item.title || link === null) return null;
 
   // Prefer content:encoded (full article) over content/contentSnippet (excerpt)
   // content:encoded is mapped to contentEncoded via rss-parser customFields
@@ -136,7 +140,7 @@ export function toPendingArticle(
     content: sanitizeAndTruncateArticleContent(rawContent),
     feedId,
     lastChecked: now,
-    link: item.link,
+    link,
     publicationDate: parseFeedItemDate(resolveFeedItemDateValue(item), now),
     title: sanitizeArticleTitle(item.title),
   };
@@ -149,4 +153,20 @@ export function toPendingArticle(
  */
 function resolveFeedItemDateValue(item: ParsedFeedItem): unknown {
   return item.isoDate ?? item.pubDate ?? item.atomPublished ?? item.atomUpdated;
+}
+
+/**
+ * Resolve the canonical article URL from RSS and Atom item fields.
+ * @param item - Parsed RSS or Atom-like item with possible URL candidates.
+ * @returns The first valid article URL candidate, or `null` when no candidate
+ *   is safe to persist.
+ */
+function resolveFeedItemLink(item: ParsedFeedItem): null | string {
+  for (const candidate of [item.link, item.id, item.guid]) {
+    if (typeof candidate === "string" && isValidUrl(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }

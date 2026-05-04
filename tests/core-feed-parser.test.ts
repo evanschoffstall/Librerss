@@ -14,6 +14,30 @@ const IFL_SCIENCE_ATOM_UPDATED_ITEM_XML = `
     </item>
   </channel>
 </rss>`;
+const JACOBIN_ATOM_ID_ONLY_ITEM_XML = `
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Jacobin</title>
+  <entry>
+    <id>https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha</id>
+    <title type="text">Tony Mazzocchi Embodied the Best of the Labor Movement</title>
+    <updated>2026-05-03T15:56:47.507815Z</updated>
+    <published>2026-05-03T15:56:47.507815Z</published>
+    <summary type="text">Labor history summary.</summary>
+  </entry>
+</feed>`;
+const OPEN_DEMOCRACY_NON_PERMALINK_GUID_ITEM_XML = `
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+  <channel>
+    <title><![CDATA[openDemocracy]]></title>
+    <item>
+      <title><![CDATA[Sex, power and backlash in Africa]]></title>
+      <link>https://www.opendemocracy.net/en/backlash-sex-power-africa-book-extract/</link>
+      <guid isPermaLink="false">69e88a1d3587c6000194538e</guid>
+      <pubDate>Tue, 21 Apr 2026 06:03:51 GMT</pubDate>
+      <content:encoded><![CDATA[<p>OpenDemocracy full article body.</p>]]></content:encoded>
+    </item>
+  </channel>
+</rss>`;
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());
@@ -77,6 +101,65 @@ describe("lib/core/feed-parser additional coverage", () => {
     expect(result?.publicationDate.toISOString()).toBe(
       "2026-05-01T12:00:00.000Z",
     );
+  });
+
+  test("toPendingArticle maps Atom id-only entries to article links", async () => {
+    const { FEED_PARSER_CUSTOM_FIELDS, toPendingArticle } =
+      await import("@/lib/core/parser");
+    const parser = new Parser({ customFields: FEED_PARSER_CUSTOM_FIELDS });
+    const parsedFeed = await parser.parseString(JACOBIN_ATOM_ID_ONLY_ITEM_XML);
+
+    const result = toPendingArticle(
+      parsedFeed.items[0]!,
+      37,
+      new Date("2026-05-04T00:07:42.253Z"),
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.link).toBe(
+      "https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha",
+    );
+    expect(result?.publicationDate.toISOString()).toBe(
+      "2026-05-03T15:56:47.507Z",
+    );
+  });
+
+  test("toPendingArticle keeps RSS links ahead of non-permalink guid values", async () => {
+    const { FEED_PARSER_CUSTOM_FIELDS, toPendingArticle } =
+      await import("@/lib/core/parser");
+    const parser = new Parser({ customFields: FEED_PARSER_CUSTOM_FIELDS });
+    const parsedFeed = await parser.parseString(
+      OPEN_DEMOCRACY_NON_PERMALINK_GUID_ITEM_XML,
+    );
+
+    const result = toPendingArticle(
+      parsedFeed.items[0]!,
+      38,
+      new Date("2026-05-04T00:07:42.253Z"),
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.link).toBe(
+      "https://www.opendemocracy.net/en/backlash-sex-power-africa-book-extract/",
+    );
+    expect(result?.content).toContain("OpenDemocracy full article body.");
+  });
+
+  test("toPendingArticle maps URL guid items when RSS link is absent", async () => {
+    const { toPendingArticle } = await import("@/lib/core/parser");
+
+    const result = toPendingArticle(
+      {
+        guid: "https://example.com/rss-guid-permalink",
+        pubDate: "2026-05-01T12:00:00.000Z",
+        title: "RSS guid permalink",
+      },
+      1,
+      new Date("2026-05-03T17:10:00.000Z"),
+    );
+
+    expect(result).not.toBeNull();
+    expect(result?.link).toBe("https://example.com/rss-guid-permalink");
   });
 
   test("toPendingArticle rejects items with invalid links", async () => {
