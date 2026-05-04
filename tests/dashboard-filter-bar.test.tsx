@@ -107,9 +107,48 @@ describe("DashboardFilterBar", () => {
     fireEvent.scroll(viewport!);
 
     await waitFor(() => {
+      expect(viewport?.dataset.dashboardFeedScrollbarOverflow).toBe("true");
       expect(
         container.querySelector('[data-dashboard-feed-scrollbar-thumb="true"]'),
       ).toBeTruthy();
+    });
+  });
+
+  test("keeps the feed scrollbar overflow gate closed without clipped content", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div>Feed row without overflow</div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 180;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 180;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      expect(viewport?.dataset.dashboardFeedScrollbarOverflow).toBe("false");
+      expect(
+        container.querySelector('[data-dashboard-feed-scrollbar-thumb="true"]'),
+      ).toBeNull();
     });
   });
 
@@ -403,9 +442,9 @@ describe("DashboardFilterBar", () => {
 
     const sortLabel = getByText("Oldest");
 
-    expect(
-      sortLabel.getAttribute("data-dashboard-filter-bar-sort-label"),
-    ).toBe("true");
+    expect(sortLabel.getAttribute("data-dashboard-filter-bar-sort-label")).toBe(
+      "true",
+    );
     expect(sortLabel.getAttribute("class") ?? "").toContain("hidden");
     expect(sortLabel.getAttribute("class") ?? "").toContain("sm:inline");
   });

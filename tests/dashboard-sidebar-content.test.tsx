@@ -4,10 +4,12 @@ import { describe, expect, mock, test } from "bun:test";
 function createCategory(
   key: string,
   label: string,
-  children: { key: string; label: string }[] = [],
+  children: { data?: { url: string }; key: string; label: string }[] = [],
+  data?: { url: string },
 ) {
   return {
     children,
+    data,
     key,
     label,
   };
@@ -95,5 +97,39 @@ describe("DashboardSidebarContent", () => {
       sidebarCategories[0].children[1],
     );
     expect(onFeedPrefetch).toHaveBeenCalledTimes(2);
+  });
+
+  test("renders provider favicons without an opaque backing", async () => {
+    const { DashboardSidebarContent } =
+      await import("@/app/dashboard/dashboard-components/layout");
+    const sidebarCategories = [
+      createCategory("cat-news", "News", [
+        createCategory("feed-usgs", "USGS News", [], {
+          url: "https://www.usgs.gov/news/rss.xml",
+        }),
+      ]),
+    ];
+
+    const { container } = render(
+      <DashboardSidebarContent
+        isCategoriesLoading={false}
+        isSidebarVisible={true}
+        onCategoryClick={() => {}}
+        onCategoryPrefetch={() => {}}
+        onFeedClick={() => {}}
+        onFeedPrefetch={() => {}}
+        selectedCategory="feed-usgs"
+        showFavicons={true}
+        sidebarCategories={sidebarCategories as never[]}
+      />,
+    );
+
+    const favicon = container.querySelector<HTMLImageElement>(
+      'button img[src*="icons.duckduckgo.com/ip3/"]',
+    );
+
+    expect(favicon).toBeTruthy();
+    expect(favicon?.getAttribute("class") ?? "").toContain("bg-white/0");
+    expect(favicon?.getAttribute("class") ?? "").toContain("object-contain");
   });
 });

@@ -104,7 +104,7 @@ export const FeedCategoryButton = memo(
         {shouldShowFavicon ? (
           <img
             alt=""
-            className="size-3.5 shrink-0 rounded-sm"
+            className="size-3.5 shrink-0 rounded-sm bg-white/0 object-contain"
             loading="lazy"
             onError={() => {
               setFaviconIndex((current: number) => {

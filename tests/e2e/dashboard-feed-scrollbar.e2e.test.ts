@@ -9,6 +9,21 @@ import { expect, test } from "./test";
 
 type DashboardPage = Parameters<typeof gotoPreviewDashboard>[0];
 
+/** Returns the dashboard feed's measured custom scrollbar overflow gate. */
+async function hasDashboardFeedScrollbarOverflow(page: DashboardPage) {
+  return await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+
+    if (!viewport) {
+      throw new Error("Expected the dashboard feed viewport.");
+    }
+
+    return viewport.dataset.dashboardFeedScrollbarOverflow === "true";
+  });
+}
+
 /** Returns whether the dashboard feed's custom shadcn-style rail is visually exposed. */
 async function isDashboardFeedScrollbarVisible(page: DashboardPage) {
   return await page.evaluate(() => {
@@ -106,6 +121,38 @@ test.describe("dashboard feed scrollbar", () => {
       .toBe(true);
 
     await page.mouse.move(1, 1);
+    await expect
+      .poll(async () => await isDashboardFeedScrollbarVisible(page))
+      .toBe(false);
+  });
+
+  test("does not reveal the dashboard feed overlay scrollbar without clipped content", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+
+    await page.evaluate(() => {
+      const viewport = document.querySelector<HTMLElement>(
+        '[data-feed-scroll-viewport="true"]',
+      );
+
+      if (!viewport) {
+        throw new Error("Expected the dashboard feed viewport.");
+      }
+
+      viewport.replaceChildren();
+    });
+
+    await expect
+      .poll(async () => await hasDashboardFeedScrollbarOverflow(page))
+      .toBe(false);
+
+    const feedScrollAreaRoot = page
+      .locator('[data-feed-scroll-viewport="true"]')
+      .locator("xpath=..");
+
+    await feedScrollAreaRoot.hover();
     await expect
       .poll(async () => await isDashboardFeedScrollbarVisible(page))
       .toBe(false);

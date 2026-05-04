@@ -26,6 +26,17 @@ const IFL_SCIENCE_ATOM_UPDATED_ITEM_XML = `
     </item>
   </channel>
 </rss>`;
+const JACOBIN_ATOM_ID_ONLY_ITEM_XML = `
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title type="text">Jacobin</title>
+  <entry>
+    <id>https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha</id>
+    <title type="text">Tony Mazzocchi Embodied the Best of the Labor Movement</title>
+    <updated>2026-05-03T15:56:47.507815Z</updated>
+    <published>2026-05-03T15:56:47.507815Z</published>
+    <summary type="text">Labor history summary.</summary>
+  </entry>
+</feed>`;
 
 /**
  * Freezes the browser clock so relative article labels produce deterministic
@@ -165,5 +176,113 @@ test.describe("feed Atom updated dates", () => {
     );
     await expect(firstArticle).toContainText("2 days ago");
     await expect(firstArticle).not.toContainText("Today");
+  });
+
+  test("renders an Atom id-only entry instead of dropping it as linkless", async ({
+    page,
+  }) => {
+    const parsedFeed = await new Parser({
+      customFields: FEED_PARSER_CUSTOM_FIELDS,
+    }).parseString(JACOBIN_ATOM_ID_ONLY_ITEM_XML);
+    const parsedItem = parsedFeed.items[0];
+
+    if (!parsedItem) {
+      throw new Error("Expected the Jacobin fixture to parse one Atom entry.");
+    }
+
+    const pendingArticle = toPendingArticle(
+      parsedItem,
+      1,
+      new Date(FIXED_REFRESH_NOW),
+    );
+
+    if (!pendingArticle) {
+      throw new Error(
+        "Expected the Jacobin Atom id fixture to map to an article.",
+      );
+    }
+
+    await page.addInitScript(buildFrozenDateInitScript(FIXED_REFRESH_NOW));
+    await page.route("**/api/auth/session", async (route) => {
+      await route.fulfill({
+        body: JSON.stringify({
+          allowSignup: false,
+          authenticated: true,
+          usePlaceholderData: false,
+          user: { email: "atom-id-only@example.test", id: 1 },
+        }),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+    await page.route("**/api/feeds", async (route) => {
+      await route.fulfill({
+        body: JSON.stringify([
+          {
+            category: "Politics",
+            enabled: true,
+            extractionDisabled: true,
+            id: 1,
+            name: "Jacobin",
+            proxyEnabled: false,
+            url: "https://jacobin.com/feed",
+          },
+        ]),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+    await page.route("**/api/feeds/category-order", async (route) => {
+      await route.fulfill({
+        body: JSON.stringify({ orderedLabels: ["Politics"] }),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as { urls?: string[] };
+      const urls = Array.isArray(requestBody.urls) ? requestBody.urls : [];
+
+      await route.fulfill({
+        body: JSON.stringify(
+          urls.map((url, feedIndex) => ({
+            articles:
+              feedIndex === 0
+                ? [
+                    {
+                      content: pendingArticle.content,
+                      feedId: 1,
+                      feedUrl: url,
+                      hasFullContent: false,
+                      id: 202_605_03,
+                      isRead: false,
+                      isStarred: false,
+                      lastChecked: FIXED_REFRESH_NOW,
+                      link: pendingArticle.link,
+                      publicationDate:
+                        pendingArticle.publicationDate.toISOString(),
+                      title: pendingArticle.title,
+                    },
+                  ]
+                : [],
+            ok: true,
+            url,
+          })),
+        ),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+
+    await gotoMockedDashboard(page);
+
+    const firstArticle = articleCard(page, 0);
+    await expect(firstArticle.getByRole("heading")).toHaveText(
+      "Tony Mazzocchi Embodied the Best of the Labor Movement",
+    );
+    await expect(firstArticle).toHaveAttribute(
+      "data-article-key",
+      "https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha",
+    );
   });
 });

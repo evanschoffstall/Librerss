@@ -1,9 +1,10 @@
 import { tryGetUrlHostname } from "@/lib/utils";
 
 /**
- * Return whether is i pv4.
- * @param hostname - The hostname.
- * @returns Whether is i pv4.
+ * Determine whether a hostname is an IPv4 address so parent-domain expansion
+ * does not treat address octets as registrable domain labels.
+ * @param hostname - Hostname extracted from a feed or article URL.
+ * @returns Whether the hostname is a syntactically valid IPv4 address.
  */
 const isIPv4 = (hostname: string) => {
   const octets = hostname.split(".");
@@ -23,9 +24,9 @@ const isIPv4 = (hostname: string) => {
 };
 
 /**
- * Parse the url.
- * @param raw - The raw.
- * @returns The url.
+ * Parse a URL candidate without throwing during favicon candidate generation.
+ * @param raw - Raw URL text from feed source or article metadata.
+ * @returns The parsed URL, or null when the input cannot be parsed.
  */
 const parseUrl = (raw: string) => {
   try {
@@ -36,9 +37,10 @@ const parseUrl = (raw: string) => {
 };
 
 /**
- * Return the host candidates.
- * @param hostname - The hostname.
- * @returns The host candidates.
+ * Build hostnames worth probing for icons, starting with the exact host and
+ * then walking toward parent domains for feed subdomains.
+ * @param hostname - Hostname extracted from the source URL.
+ * @returns Ordered hostnames that may own a usable site favicon.
  */
 const getHostCandidates = (hostname: string) => {
   const candidates = new Set<string>([hostname]);
@@ -61,9 +63,9 @@ const getHostCandidates = (hostname: string) => {
 };
 
 /**
- * Return the origin candidates.
- * @param url - The url.
- * @returns The origin candidates.
+ * Build the origin candidates carried by the original URL.
+ * @param url - Feed or article URL that may contain the canonical origin.
+ * @returns The parsed origin when the URL is valid.
  */
 const getOriginCandidates = (url?: string) => {
   if (!url) {
@@ -75,9 +77,9 @@ const getOriginCandidates = (url?: string) => {
 };
 
 /**
- * Return the direct icon candidates.
- * @param origin - The origin.
- * @returns The direct icon candidates.
+ * Build direct site favicon paths for a known origin.
+ * @param origin - Origin that should serve the favicon assets.
+ * @returns Ordered direct icon URLs for the origin.
  */
 const getDirectIconCandidates = (origin: string) => {
   const staticPaths = [
@@ -92,20 +94,22 @@ const getDirectIconCandidates = (origin: string) => {
 };
 
 /**
- * Return the provider candidates.
- * @param hostname - The hostname.
- * @returns The provider candidates.
+ * Build provider-backed favicon fallbacks for a hostname.
+ * @param hostname - Hostname to pass to favicon provider services.
+ * @returns Ordered provider icon URLs for the hostname.
  */
 const getProviderCandidates = (hostname: string) => [
-  `https://icon.horse/icon/${hostname}`,
   `https://icons.duckduckgo.com/ip3/${hostname}.ico`,
+  `https://icon.horse/icon/${hostname}`,
   `https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostname)}&sz=128`,
 ];
 
 /**
- * Return the favicon candidates.
- * @param url - The url.
- * @returns The favicon candidates.
+ * Build favicon candidates for one URL. DuckDuckGo is tried first because it
+ * resolves quickly for many feed hosts, then direct site assets get a chance
+ * before providers that may return a technically loaded but visually empty icon.
+ * @param url - Feed or article URL used to derive favicon locations.
+ * @returns Ordered favicon candidates for the URL.
  */
 const getFaviconCandidates = (url?: string) => {
   const hostname = tryGetUrlHostname(url);
@@ -127,16 +131,23 @@ const getFaviconCandidates = (url?: string) => {
 
   return [
     ...new Set([
-      ...hostCandidates.flatMap(getProviderCandidates),
+      ...hostCandidates.map(
+        (hostCandidate) =>
+          `https://icons.duckduckgo.com/ip3/${hostCandidate}.ico`,
+      ),
       ...[...originCandidates].flatMap(getDirectIconCandidates),
+      ...hostCandidates.flatMap((hostCandidate) =>
+        getProviderCandidates(hostCandidate).slice(1),
+      ),
     ]),
   ];
 };
 
 /**
- * Return the favicon cache key.
- * @param urls - The urls.
- * @returns The favicon cache key.
+ * Return the stable cache key used to remember the last working favicon
+ * candidate for a feed or article source.
+ * @param urls - Candidate source URLs ordered by ownership preference.
+ * @returns The first valid hostname, or null when no URL can be parsed.
  */
 export function getFaviconCacheKey(...urls: (string | undefined)[]) {
   for (const url of urls) {
@@ -151,9 +162,10 @@ export function getFaviconCacheKey(...urls: (string | undefined)[]) {
 }
 
 /**
- * Return the merged favicon candidates.
- * @param urls - The urls.
- * @returns The merged favicon candidates.
+ * Merge favicon candidates across feed and article URLs without changing the
+ * first-success ordering for each source.
+ * @param urls - Candidate source URLs ordered by ownership preference.
+ * @returns Deduplicated favicon candidates for the provided URLs.
  */
 export function getMergedFaviconCandidates(...urls: (string | undefined)[]) {
   return [...new Set(urls.flatMap((url) => getFaviconCandidates(url)))];

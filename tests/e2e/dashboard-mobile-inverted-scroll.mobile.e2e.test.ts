@@ -8,13 +8,13 @@ import {
   readFeedViewportMetrics,
   readRenderedArticleCount,
   readVisibleFeedArticleCount,
-  scrollFeedViewportToTop,
   triggerFeedViewportWheelIntent,
   waitForPreviewDashboardHydration,
 } from "./helpers";
 import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
+const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY = "librerss:articlesPerPage";
 const STABLE_HEADER_POSITION_TOLERANCE_PX = 8;
 
 interface ArticleHeaderViewportOffsets {
@@ -665,6 +665,12 @@ async function toggleArticleByKey(page: Page, articleKey: string) {
   }, articleKey);
 }
 
+/** Drives the inverted top-boundary load gesture with scroll and wheel intent. */
+async function triggerInvertedTopBoundaryLoadGesture(page: Page) {
+  await scrollFeedViewportWithIntent(page, 0);
+  await triggerFeedViewportWheelIntent(page, -240);
+}
+
 test.describe("dashboard mobile inverted scroll", () => {
   test("keeps inverted scroll off by default on mobile and anchors the feed at the top", async ({
     page,
@@ -761,16 +767,16 @@ test.describe("dashboard mobile inverted scroll", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await configureArticlesPerPage(page, 4);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-
-    await openDashboardSettings(page);
-    const invertedScrollSwitch = page.locator("#mobile-inverted-scroll");
-    if (!(await invertedScrollSwitch.isChecked())) {
-      await invertedScrollSwitch.click();
-      await expect(invertedScrollSwitch).toBeChecked();
-    }
-    await page.keyboard.press("Escape");
+    await setLocalStoragePreference(
+      page,
+      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+      "4",
+    );
+    await setLocalStoragePreference(
+      page,
+      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+      "true",
+    );
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -795,8 +801,7 @@ test.describe("dashboard mobile inverted scroll", () => {
 
     expect((await readVisibleArticleKeys(page)).length).toBeGreaterThan(0);
 
-    await scrollFeedViewportToTop(page);
-    await triggerFeedViewportWheelIntent(page, -240);
+    await triggerInvertedTopBoundaryLoadGesture(page);
 
     await expect
       .poll(async () => {

@@ -171,8 +171,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                document.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = document.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -236,8 +237,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                document.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = document.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return renderedRows >= 12 ? 1200 : 400;
             },
@@ -590,8 +592,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                document.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = document.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -657,8 +660,9 @@ describe("FeedList", () => {
           Object.defineProperty(viewport, "scrollHeight", {
             configurable: true,
             get() {
-              const renderedRows =
-                document.querySelectorAll("[data-scroll-restore-key]").length;
+              const renderedRows = document.querySelectorAll(
+                "[data-scroll-restore-key]",
+              ).length;
 
               return renderedRows >= 8 ? 1200 : 400;
             },
@@ -2296,41 +2300,40 @@ describe("FeedList", () => {
     const onLoadMore = mock(() => {});
     let scrollTop = 0;
 
+    const installViewportMetrics = (viewport: HTMLDivElement | null) => {
+      if (!viewport) {
+        return;
+      }
+
+      Object.defineProperty(viewport, "clientHeight", {
+        configurable: true,
+        get() {
+          return 400;
+        },
+      });
+      Object.defineProperty(viewport, "scrollHeight", {
+        configurable: true,
+        get() {
+          const renderedRows = container.querySelectorAll(
+            "[data-scroll-restore-key]",
+          ).length;
+
+          return Math.max(renderedRows, 8) * 140;
+        },
+      });
+      Object.defineProperty(viewport, "scrollTop", {
+        configurable: true,
+        get() {
+          return scrollTop;
+        },
+        set(nextValue: number) {
+          scrollTop = nextValue;
+        },
+      });
+    };
+
     const { container, rerender } = renderFeedList(
-      <div
-        data-radix-scroll-area-viewport=""
-        ref={(viewport) => {
-          if (!viewport) {
-            return;
-          }
-
-          Object.defineProperty(viewport, "clientHeight", {
-            configurable: true,
-            get() {
-              return 400;
-            },
-          });
-          Object.defineProperty(viewport, "scrollHeight", {
-            configurable: true,
-            get() {
-              const renderedRows = container.querySelectorAll(
-                "[data-scroll-restore-key]",
-              ).length;
-
-              return Math.max(renderedRows, 8) * 140;
-            },
-          });
-          Object.defineProperty(viewport, "scrollTop", {
-            configurable: true,
-            get() {
-              return scrollTop;
-            },
-            set(nextValue: number) {
-              scrollTop = nextValue;
-            },
-          });
-        }}
-      >
+      <div data-radix-scroll-area-viewport="" ref={installViewportMetrics}>
         <FeedList
           articleFilter="all"
           articlesPerPage={8}
@@ -2373,7 +2376,7 @@ describe("FeedList", () => {
 
     rerender(
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-        <div data-radix-scroll-area-viewport="">
+        <div data-radix-scroll-area-viewport="" ref={installViewportMetrics}>
           <FeedList
             articleFilter="all"
             articlesPerPage={8}
@@ -3315,8 +3318,9 @@ describe("FeedList", () => {
       Object.defineProperty(viewport, "scrollHeight", {
         configurable: true,
         get() {
-          const renderedRows =
-            document.querySelectorAll("[data-scroll-restore-key]").length;
+          const renderedRows = document.querySelectorAll(
+            "[data-scroll-restore-key]",
+          ).length;
 
           return renderedRows >= 8 ? 1200 : 400;
         },

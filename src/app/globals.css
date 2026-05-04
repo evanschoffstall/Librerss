@@ -205,8 +205,12 @@
     transition-timing-function: var(--motion-ease-ui);
   }
 
-  :has(> [data-radix-scroll-area-viewport]):hover > [data-orientation],
-  :has(> [data-dashboard-feed-scrollbar="true"]):hover > [aria-hidden="true"] {
+  :has(> [data-radix-scroll-area-viewport]):hover
+    > [data-orientation][data-state="visible"],
+  :has(
+      > [data-dashboard-feed-scrollbar="true"][data-dashboard-feed-scrollbar-overflow="true"]
+    ):hover
+    > [aria-hidden="true"] {
     opacity: 1;
     pointer-events: auto;
   }
