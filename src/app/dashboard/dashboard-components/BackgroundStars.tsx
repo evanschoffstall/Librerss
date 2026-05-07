@@ -156,7 +156,13 @@ export default function BackgroundStars(props: StarsProps) {
     onMouseMove: runtime.handleMouseMove,
     onResize: runtime.onResize,
   });
-  useBackgroundCanvasAnimation({ onFrame: runtime.animate });
+  useBackgroundCanvasAnimation({
+    onFrame: runtime.animate,
+    onResume: useCallback(() => {
+      runtime.onResize();
+      runtime.animate(performance.now(), 0);
+    }, [runtime]),
+  });
 
   useEffect(() => {
     if (refresh) {

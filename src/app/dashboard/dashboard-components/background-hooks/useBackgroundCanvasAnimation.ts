@@ -3,6 +3,21 @@
 import { useAnimationFrame } from "motion/react";
 import { useEffect, useRef } from "react";
 
+/** Listener callbacks registered against document and page lifecycle events. */
+interface BackgroundCanvasAnimationListenerOptions {
+  lastFrameAtRef: { current: number };
+  pauseAnimation: () => void;
+  resumeAnimation: () => void;
+  syncAnimationState: () => void;
+}
+
+/** Mutable ref shape used by the canvas animation lifecycle helpers. */
+interface BackgroundCanvasAnimationRefs {
+  lastFrameAtRef: { current: number };
+  motionEnabledRef: { current: boolean };
+  onResumeRef: { current: (() => void) | undefined };
+}
+
 /**
  * Describes the options for use background canvas animation.
  */
@@ -40,36 +55,15 @@ export function useBackgroundCanvasAnimation(
   onFrameRef.current = onFrame;
   onResumeRef.current = onResume;
 
-  useEffect(() => {
-    /**
-     * Synchronize the animation enabled state with the current document
-     * visibility, resuming the loop and notifying consumers when the tab
-     * becomes visible again so timing references can be re-seeded.
-     */
-    const syncAnimationState = () => {
-      const nextEnabled = document.visibilityState !== "hidden";
-      const wasEnabled = motionEnabledRef.current;
-      motionEnabledRef.current = nextEnabled;
-
-      if (!nextEnabled) {
-        lastFrameAtRef.current = 0;
-        return;
-      }
-
-      if (!wasEnabled) {
-        lastFrameAtRef.current = 0;
-        onResumeRef.current?.();
-      }
-    };
-
-    syncAnimationState();
-    document.addEventListener("visibilitychange", syncAnimationState);
-
-    return () => {
-      lastFrameAtRef.current = 0;
-      document.removeEventListener("visibilitychange", syncAnimationState);
-    };
-  }, []);
+  useEffect(
+    () =>
+      registerBackgroundCanvasAnimationLifecycle({
+        lastFrameAtRef,
+        motionEnabledRef,
+        onResumeRef,
+      }),
+    [],
+  );
 
   useAnimationFrame((now) => {
     if (!motionEnabledRef.current) {
@@ -84,6 +78,80 @@ export function useBackgroundCanvasAnimation(
     lastFrameAtRef.current = now;
     onFrameRef.current(now, delta);
   });
+}
+
+/**
+ * Register page lifecycle listeners that keep canvas animation timing bounded.
+ * @param refs - Mutable animation refs shared with the render loop.
+ * @returns A cleanup callback that removes all registered lifecycle listeners.
+ */
+function registerBackgroundCanvasAnimationLifecycle(
+  refs: BackgroundCanvasAnimationRefs,
+) {
+  const { lastFrameAtRef, motionEnabledRef, onResumeRef } = refs;
+  /** Pause rendering and clear the previous frame timestamp. */
+  const pauseAnimation = () => {
+    motionEnabledRef.current = false;
+    lastFrameAtRef.current = 0;
+  };
+  /** Resume rendering when the page is visible and notify canvas owners. */
+  const resumeAnimation = () => {
+    if (document.visibilityState === "hidden") {
+      pauseAnimation();
+      return;
+    }
+
+    const wasEnabled = motionEnabledRef.current;
+    motionEnabledRef.current = true;
+    lastFrameAtRef.current = 0;
+
+    if (!wasEnabled) {
+      onResumeRef.current?.();
+    }
+  };
+  /** Mirror the animation state to the current document visibility. */
+  const syncAnimationState = () => {
+    if (document.visibilityState === "hidden") {
+      pauseAnimation();
+      return;
+    }
+
+    resumeAnimation();
+  };
+
+  return registerBackgroundCanvasAnimationListeners({
+    lastFrameAtRef,
+    pauseAnimation,
+    resumeAnimation,
+    syncAnimationState,
+  });
+}
+
+/**
+ * Attach page lifecycle listeners for background canvas animation recovery.
+ * @param options - Listener callbacks and frame timestamp ref to clean up.
+ * @returns A cleanup callback that removes the listeners and clears timing.
+ */
+function registerBackgroundCanvasAnimationListeners(
+  options: BackgroundCanvasAnimationListenerOptions,
+) {
+  const {
+    lastFrameAtRef,
+    pauseAnimation,
+    resumeAnimation,
+    syncAnimationState,
+  } = options;
+  syncAnimationState();
+  document.addEventListener("visibilitychange", syncAnimationState);
+  window.addEventListener("pagehide", pauseAnimation);
+  window.addEventListener("pageshow", resumeAnimation);
+
+  return () => {
+    lastFrameAtRef.current = 0;
+    document.removeEventListener("visibilitychange", syncAnimationState);
+    window.removeEventListener("pagehide", pauseAnimation);
+    window.removeEventListener("pageshow", resumeAnimation);
+  };
 }
 
 /**

@@ -220,6 +220,12 @@ describe("background stack", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(onResume).toHaveBeenCalledTimes(1);
 
+    window.dispatchEvent(new Event("pagehide"));
+    frameCallback?.(120);
+    expect(onFrame).toHaveBeenCalledTimes(2);
+    window.dispatchEvent(new Event("pageshow"));
+    expect(onResume).toHaveBeenCalledTimes(2);
+
     // The animation loop must keep ticking even when the user prefers reduced
     // motion so the canvas remains visible and pointer parallax keeps
     // responding. Reduced-motion semantics are honored inside the renderer

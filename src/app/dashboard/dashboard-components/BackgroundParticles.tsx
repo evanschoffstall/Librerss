@@ -221,6 +221,8 @@ export default function BackgroundParticles(props: ParticlesProps) {
     onFrame: runtime.renderFrame,
     onResume: useCallback(() => {
       runtime.startedAtRef.current = performance.now();
+      runtime.onResize();
+      runtime.renderFrame(performance.now(), 0);
     }, [runtime]),
   });
 
