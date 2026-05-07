@@ -58,7 +58,7 @@ async function waitForBrowserPaint(page: Parameters<typeof articleCard>[0]) {
 }
 
 test.describe("dashboard article hydration", () => {
-  test("expands extraction-disabled feed excerpts without showing a hydration skeleton", async ({
+  test("hydrates extraction-disabled explore feed excerpts from bundled snapshots", async ({
     page,
   }) => {
     let extractRequests = 0;
@@ -97,7 +97,7 @@ test.describe("dashboard article hydration", () => {
     await expect(
       article.locator('[data-article-hydration-state="loading"]'),
     ).toHaveCount(0);
-    await expect(article).toContainText("ESA highlights epsilon");
-    expect(extractRequests).toBe(0);
+    await expect(article).toContainText("Unexpected extract");
+    expect(extractRequests).toBe(1);
   });
 });

@@ -201,9 +201,10 @@ export function markHydratedArticleLink(
 /**
  * Resolve whether an article expansion should enter the client hydration
  * lifecycle. Extraction-disabled feeds that already shipped a feed-provided
- * body should keep that authoritative content instead of replacing it with a
- * temporary loading state. When the body is still absent, the hook may use
- * either the stored-content path or the placeholder-snapshot extract path.
+ * body should keep that authoritative content in live mode, while bundled
+ * placeholder snapshots are still allowed through the extraction endpoint so
+ * explore mode renders the same processed full-article surface as normal
+ * expanded articles.
  * @param options - Hydration inputs for the article and feed settings lookup.
  * @returns The request metadata when hydration should run, otherwise null.
  */
@@ -216,11 +217,15 @@ export function prepareArticleHydration(
   const feedUrl =
     typeof article.feedUrl === "string" ? article.feedUrl.trim() : "";
   const settings = feedUrl ? getFeedSettings?.(feedUrl) : undefined;
-  if (settings?.extractionDisabled === true && article.content.trim()) {
+  const placeholderSnapshotPath = getPlaceholderSnapshotPathByArticleUrl(link);
+  if (
+    settings?.extractionDisabled === true &&
+    article.content.trim() &&
+    placeholderSnapshotPath === null
+  ) {
     return null;
   }
 
-  const placeholderSnapshotPath = getPlaceholderSnapshotPathByArticleUrl(link);
   const shouldLoadStoredContent =
     settings?.extractionDisabled === true && placeholderSnapshotPath === null;
   const inFlightCount =
