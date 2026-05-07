@@ -220,6 +220,12 @@ describe("background stack", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     expect(onResume).toHaveBeenCalledTimes(1);
 
+    window.dispatchEvent(new Event("pagehide"));
+    frameCallback?.(120);
+    expect(onFrame).toHaveBeenCalledTimes(2);
+    window.dispatchEvent(new Event("pageshow"));
+    expect(onResume).toHaveBeenCalledTimes(2);
+
     // The animation loop must keep ticking even when the user prefers reduced
     // motion so the canvas remains visible and pointer parallax keeps
     // responding. Reduced-motion semantics are honored inside the renderer
@@ -383,13 +389,16 @@ describe("background stack", () => {
           onResize: () => void;
         };
 
+    let containerWidth = 160;
+    let containerHeight = 90;
+
     Object.defineProperty(elementPrototype, "offsetWidth", {
       configurable: true,
-      get: () => 160,
+      get: () => containerWidth,
     });
     Object.defineProperty(elementPrototype, "offsetHeight", {
       configurable: true,
-      get: () => 90,
+      get: () => containerHeight,
     });
     canvasPrototype.getContext = getContext;
     mock.module(
@@ -433,10 +442,26 @@ describe("background stack", () => {
     expect(animationOptions).toBeTruthy();
 
     const canvas = view.container.querySelector("canvas") as HTMLCanvasElement;
+    const initialCanvasHeight = canvas.height;
+    const initialCanvasWidth = canvas.width;
     Object.defineProperty(canvas, "getBoundingClientRect", {
       configurable: true,
       value: () => ({ left: 0, top: 0 }),
     });
+
+    containerWidth = 0;
+    containerHeight = 0;
+    windowEventOptions?.onResize();
+    expect(canvas.width).toBe(initialCanvasWidth);
+    expect(canvas.height).toBe(initialCanvasHeight);
+    expect(setTransform).toHaveBeenCalledTimes(1);
+
+    containerWidth = 220;
+    containerHeight = 140;
+    animationOptions?.onResume?.();
+    expect(canvas.width).toBe(220);
+    expect(canvas.height).toBe(140);
+    expect(setTransform).toHaveBeenCalledTimes(2);
 
     windowEventOptions?.onMouseMove({ clientX: 90, clientY: 60 } as MouseEvent);
     windowEventOptions?.onResize();
@@ -446,9 +471,9 @@ describe("background stack", () => {
     // visible immediately on every browser, then paints another frame from
     // the simulated animation tick above. Each frame iterates the seeded
     // particle quantity once.
-    expect(beginPath).toHaveBeenCalledTimes(8);
-    expect(arc).toHaveBeenCalledTimes(8);
-    expect(fill).toHaveBeenCalledTimes(8);
+    expect(beginPath).toHaveBeenCalledTimes(12);
+    expect(arc).toHaveBeenCalledTimes(12);
+    expect(fill).toHaveBeenCalledTimes(12);
 
     view.rerender(
       <BackgroundParticles
@@ -504,11 +529,25 @@ describe("background stack", () => {
     const canvasPrototype = Object.getPrototypeOf(
       document.createElement("canvas"),
     );
+    const elementPrototype = Object.getPrototypeOf(
+      document.createElement("div"),
+    );
     const originalGetContext = canvasPrototype.getContext;
+    const offsetWidthDescriptor = Object.getOwnPropertyDescriptor(
+      elementPrototype,
+      "offsetWidth",
+    );
+    const offsetHeightDescriptor = Object.getOwnPropertyDescriptor(
+      elementPrototype,
+      "offsetHeight",
+    );
+    let containerWidth = 180;
+    let containerHeight = 100;
     let animationOptions:
       | undefined
       | {
           onFrame: (now: number, delta: number) => void;
+          onResume?: () => void;
         };
     let windowEventOptions:
       | undefined
@@ -518,6 +557,14 @@ describe("background stack", () => {
         };
 
     canvasPrototype.getContext = getContext;
+    Object.defineProperty(elementPrototype, "offsetWidth", {
+      configurable: true,
+      get: () => containerWidth,
+    });
+    Object.defineProperty(elementPrototype, "offsetHeight", {
+      configurable: true,
+      get: () => containerHeight,
+    });
     mock.module(
       "@/app/dashboard/dashboard-components/background-hooks",
       () => ({
@@ -556,10 +603,26 @@ describe("background stack", () => {
     expect(createRadialGradient).toHaveBeenCalled();
 
     const canvas = view.container.querySelector("canvas") as HTMLCanvasElement;
+    const initialCanvasHeight = canvas.height;
+    const initialCanvasWidth = canvas.width;
     Object.defineProperty(canvas, "getBoundingClientRect", {
       configurable: true,
       value: () => ({ left: 0, top: 0 }),
     });
+
+    containerWidth = 0;
+    containerHeight = 0;
+    windowEventOptions?.onResize();
+    expect(canvas.width).toBe(initialCanvasWidth);
+    expect(canvas.height).toBe(initialCanvasHeight);
+    expect(setTransform).toHaveBeenCalledTimes(1);
+
+    containerWidth = 210;
+    containerHeight = 130;
+    animationOptions?.onResume?.();
+    expect(canvas.width).toBe(210);
+    expect(canvas.height).toBe(130);
+    expect(setTransform).toHaveBeenCalledTimes(2);
 
     windowEventOptions?.onMouseMove({ clientX: 80, clientY: 45 } as MouseEvent);
     windowEventOptions?.onResize();
@@ -582,5 +645,19 @@ describe("background stack", () => {
     );
     expect(setTransform.mock.calls.length).toBeGreaterThanOrEqual(2);
     canvasPrototype.getContext = originalGetContext;
+    if (offsetWidthDescriptor) {
+      Object.defineProperty(
+        elementPrototype,
+        "offsetWidth",
+        offsetWidthDescriptor,
+      );
+    }
+    if (offsetHeightDescriptor) {
+      Object.defineProperty(
+        elementPrototype,
+        "offsetHeight",
+        offsetHeightDescriptor,
+      );
+    }
   });
 });

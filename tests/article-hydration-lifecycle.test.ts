@@ -45,6 +45,26 @@ describe("prepareArticleHydration", () => {
     expect(hydration).toBeNull();
   });
 
+  test("hydrates explore placeholder articles from local snapshots even when source extraction is disabled", () => {
+    const hydration = prepareArticleHydration({
+      article: buildArticle({
+        content: "Feed excerpt that should be replaced by processed content.",
+        feedUrl: "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+        link: "https://www.nasa.gov/image-article/hello-world/",
+      }),
+      forceHydration: false,
+      getFeedSettings: () => ({ extractionDisabled: true }),
+      hydrationState: createHydrationState(),
+    });
+
+    expect(hydration).toEqual({
+      inFlightCount: 0,
+      link: "https://www.nasa.gov/image-article/hello-world/",
+      settings: { extractionDisabled: true },
+      shouldLoadStoredContent: false,
+    });
+  });
+
   test("allows extraction-enabled feed articles to enter hydration", () => {
     const hydration = prepareArticleHydration({
       article: buildArticle({ content: "Excerpt awaiting extraction." }),

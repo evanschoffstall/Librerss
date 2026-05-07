@@ -11,7 +11,9 @@ import {
 } from "@/app/dashboard/dashboard-components/background-hooks";
 import {
   BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  getBackgroundCanvasLerpFactor,
   getBackgroundCanvasScale,
+  getVisibleBackgroundCanvasElementSize,
 } from "@/app/dashboard/dashboard-components/background-internals";
 import {
   buildBackgroundStar,
@@ -98,7 +100,7 @@ interface BuildBackgroundStarOptions {
  */
 interface RescaleBackgroundStarPositionsOptions {
   canvasSize: React.RefObject<{ h: number; w: number }>;
-  resizeCanvas: () => void;
+  resizeCanvas: () => boolean | undefined;
   starsRef: React.RefObject<Star[]>;
 }
 /**
@@ -154,7 +156,13 @@ export default function BackgroundStars(props: StarsProps) {
     onMouseMove: runtime.handleMouseMove,
     onResize: runtime.onResize,
   });
-  useBackgroundCanvasAnimation({ onFrame: runtime.animate });
+  useBackgroundCanvasAnimation({
+    onFrame: runtime.animate,
+    onResume: useCallback(() => {
+      runtime.onResize();
+      runtime.animate(performance.now(), 0);
+    }, [runtime]),
+  });
 
   useEffect(() => {
     if (refresh) {
@@ -229,9 +237,11 @@ function renderBackgroundStarsFrame(options: BackgroundStarsFrameOptions) {
   }
 
   context.clearRect(0, 0, canvasSize.current.w, canvasSize.current.h);
-  const dtScale =
-    delta > 0 ? Math.min(delta, 100) / BACKGROUND_CANVAS_BASELINE_FRAME_MS : 1;
-  const lerpFactor = 1 - Math.pow(1 - 1 / ease, dtScale);
+  const lerpFactor = getBackgroundCanvasLerpFactor(
+    ease,
+    delta,
+    BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  );
 
   for (const star of starsRef.current) {
     updateSceneBackgroundStar(star, lerpFactor, mouseRef.current, staticity);
@@ -265,6 +275,7 @@ function rescaleBackgroundStarPositions(
 /**
  * Process the resize background star canvas.
  * @param options - The options used to process the resize background star canvas.
+ * @returns Whether the canvas committed a visible non-zero size.
  */
 function resizeBackgroundStarCanvas(
   options: ResizeBackgroundStarCanvasOptions,
@@ -277,15 +288,21 @@ function resizeBackgroundStarCanvas(
     return;
   }
 
+  const visibleSize = getVisibleBackgroundCanvasElementSize(container);
+  if (!visibleSize) {
+    return false;
+  }
+
   const dpr = getBackgroundCanvasScale(window.devicePixelRatio);
-  const width = container.offsetWidth;
-  const height = container.offsetHeight;
+  const { height, width } = visibleSize;
   canvasSize.current = { h: height, w: width };
   canvas.width = width * dpr;
   canvas.height = height * dpr;
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return true;
 } /**
  * Manage the background star canvas setup.
  * @param options - The options used to manage the background star canvas setup.
@@ -304,7 +321,7 @@ function useBackgroundStarCanvasSetup(
     starsRef,
   } = options;
   const resizeCanvas = useCallback(() => {
-    resizeBackgroundStarCanvas({
+    return resizeBackgroundStarCanvas({
       canvasContainerRef,
       canvasRef,
       canvasSize,
@@ -312,7 +329,10 @@ function useBackgroundStarCanvasSetup(
     });
   }, [canvasContainerRef, canvasRef, canvasSize, contextRef]);
   const initStars = useCallback(() => {
-    resizeCanvas();
+    if (!resizeCanvas()) {
+      return;
+    }
+
     starsRef.current = Array.from({ length: quantity }, buildStar);
     drawBackgroundStars({
       contextRef,

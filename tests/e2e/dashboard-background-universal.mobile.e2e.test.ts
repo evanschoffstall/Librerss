@@ -3,6 +3,7 @@ import {
   type DashboardBackgroundTestMode,
   expectDashboardBackgroundAmbientMotion,
   expectDashboardBackgroundHydrated,
+  expectDashboardBackgroundSuspensionRecovery,
   expectDashboardBackgroundTouchInteractivity,
   gotoDashboardWithBackgroundMode,
 } from "./dashboard-background-universal-support";
@@ -33,6 +34,7 @@ test.describe("dashboard background universal mobile rendering", () => {
         canvas,
         animatedSignature,
       );
+      await expectDashboardBackgroundSuspensionRecovery(page, canvas);
     });
   }
 });
