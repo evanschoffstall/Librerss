@@ -9,7 +9,9 @@ import {
 } from "@/app/dashboard/dashboard-components/background-hooks";
 import {
   BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  getBackgroundCanvasLerpFactor,
   getBackgroundCanvasScale,
+  getVisibleBackgroundCanvasElementSize,
 } from "@/app/dashboard/dashboard-components/background-internals";
 
 /**
@@ -159,7 +161,7 @@ interface ParticlesProps {
 interface RescaleBackgroundParticleOriginsOptions {
   canvasSize: React.RefObject<{ height: number; width: number }>;
   circles: React.RefObject<Circle[]>;
-  resizeCanvas: () => void;
+  resizeCanvas: () => boolean | undefined;
 }
 
 /**
@@ -345,9 +347,11 @@ function renderBackgroundParticleFrame(
 
   const elapsed = (now - startedAtRef.current) / 1000;
   const { height, width } = canvasSize.current;
-  const dtScale =
-    delta > 0 ? Math.min(delta, 100) / BACKGROUND_CANVAS_BASELINE_FRAME_MS : 1;
-  const lerpFactor = 1 - Math.pow(1 - 1 / ease, dtScale);
+  const lerpFactor = getBackgroundCanvasLerpFactor(
+    ease,
+    delta,
+    BACKGROUND_CANVAS_BASELINE_FRAME_MS,
+  );
   ctx.clearRect(0, 0, width, height);
 
   renderBackgroundParticleCircles({
@@ -389,6 +393,7 @@ function rescaleBackgroundParticleOrigins(
 /**
  * Process the resize background particle canvas.
  * @param options - The options used to process the resize background particle canvas.
+ * @returns Whether the canvas committed a visible non-zero size.
  */
 function resizeBackgroundParticleCanvas(
   options: ResizeBackgroundParticleCanvasOptions,
@@ -399,15 +404,21 @@ function resizeBackgroundParticleCanvas(
   const ctx = ctxRef.current;
   if (!canvas || !container || !ctx) return;
 
+  const visibleSize = getVisibleBackgroundCanvasElementSize(container);
+  if (!visibleSize) {
+    return false;
+  }
+
   const dpr = getBackgroundCanvasScale(window.devicePixelRatio);
-  const width = container.offsetWidth;
-  const height = container.offsetHeight;
+  const { height, width } = visibleSize;
   canvasSize.current = { height, width };
   canvas.width = Math.floor(width * dpr);
   canvas.height = Math.floor(height * dpr);
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  return true;
 }
 
 /**
@@ -482,7 +493,7 @@ function useBackgroundParticleCanvasSetup(
     startedAtRef,
   } = options;
   const resizeCanvas = useCallback(() => {
-    resizeBackgroundParticleCanvas({
+    return resizeBackgroundParticleCanvas({
       canvasContainerRef,
       canvasRef,
       canvasSize,
@@ -490,7 +501,9 @@ function useBackgroundParticleCanvasSetup(
     });
   }, [canvasContainerRef, canvasRef, canvasSize, ctxRef]);
   const initParticles = useCallback(() => {
-    resizeCanvas();
+    if (!resizeCanvas()) {
+      return;
+    }
     circles.current = seedParticles(
       quantity,
       canvasSize.current.width,

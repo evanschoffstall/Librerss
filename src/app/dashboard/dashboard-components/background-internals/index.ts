@@ -5,6 +5,9 @@ export {
   getBackgroundCanvasLerpFactor,
   getBackgroundCanvasScale,
   getBackgroundParallaxOffset,
+  getVisibleBackgroundCanvasElementSize,
   shouldRenderBackgroundCanvasFrame,
   shouldRunBackgroundAnimation,
 } from "./background-canvas";
+
+export type { BackgroundCanvasElementSize } from "./background-canvas";

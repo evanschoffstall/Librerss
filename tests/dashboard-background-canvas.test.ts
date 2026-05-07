@@ -7,6 +7,7 @@ import {
   getBackgroundCanvasLerpFactor,
   getBackgroundCanvasScale,
   getBackgroundParallaxOffset,
+  getVisibleBackgroundCanvasElementSize,
   shouldRenderBackgroundCanvasFrame,
   shouldRunBackgroundAnimation,
 } from "../src/app/dashboard/dashboard-components/background-internals/background-canvas";
@@ -17,6 +18,38 @@ describe("dashboard background canvas helpers", () => {
     expect(getBackgroundCanvasScale(0.5)).toBe(1);
     expect(getBackgroundCanvasScale(1.25)).toBe(1.25);
     expect(getBackgroundCanvasScale(4)).toBe(BACKGROUND_CANVAS_MAX_DPR);
+  });
+
+  test("rejects suspended-page zero-size canvas measurements", () => {
+    const container = document.createElement("div");
+    Object.defineProperties(container, {
+      offsetHeight: {
+        configurable: true,
+        value: 0,
+      },
+      offsetWidth: {
+        configurable: true,
+        value: 0,
+      },
+    });
+
+    expect(getVisibleBackgroundCanvasElementSize(container)).toBeNull();
+
+    Object.defineProperties(container, {
+      offsetHeight: {
+        configurable: true,
+        value: 120,
+      },
+      offsetWidth: {
+        configurable: true,
+        value: 240,
+      },
+    });
+
+    expect(getVisibleBackgroundCanvasElementSize(container)).toEqual({
+      height: 120,
+      width: 240,
+    });
   });
 
   test("throttles frames to the configured budget", () => {
