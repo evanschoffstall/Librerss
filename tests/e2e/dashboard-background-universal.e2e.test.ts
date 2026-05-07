@@ -4,6 +4,7 @@ import {
   expectDashboardBackgroundAmbientMotion,
   expectDashboardBackgroundHydrated,
   expectDashboardBackgroundMouseInteractivity,
+  expectDashboardBackgroundSuspensionRecovery,
   gotoDashboardWithBackgroundMode,
 } from "./dashboard-background-universal-support";
 import { test } from "./test";
@@ -33,6 +34,7 @@ test.describe("dashboard background universal desktop rendering", () => {
         canvas,
         animatedSignature,
       );
+      await expectDashboardBackgroundSuspensionRecovery(page, canvas);
     });
   }
 });

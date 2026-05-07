@@ -132,6 +132,89 @@ export async function expectDashboardBackgroundMouseInteractivity(
 }
 
 /**
+ * Assert that a dashboard background keeps its last valid canvas geometry when
+ * mobile WebKit-style suspension temporarily reports the canvas container as
+ * `0x0`, then remeasures and continues painting after page resume.
+ * @param page - The Playwright page containing the dashboard.
+ * @param canvas - The canvas locator to inspect.
+ */
+export async function expectDashboardBackgroundSuspensionRecovery(
+  page: Page,
+  canvas: Locator,
+) {
+  const result = await canvas.evaluate(async (canvasElement) => {
+    const backgroundCanvas = canvasElement as HTMLCanvasElement;
+    const container = backgroundCanvas.parentElement;
+    if (!container) {
+      throw new Error("Background canvas container is unavailable.");
+    }
+
+    const before = {
+      cssHeight: backgroundCanvas.style.height,
+      cssWidth: backgroundCanvas.style.width,
+      height: backgroundCanvas.height,
+      width: backgroundCanvas.width,
+    };
+    const restoredWidth = Number.parseFloat(before.cssWidth);
+    const restoredHeight = Number.parseFloat(before.cssHeight);
+
+    Object.defineProperty(container, "offsetWidth", {
+      configurable: true,
+      get: () => 0,
+    });
+    Object.defineProperty(container, "offsetHeight", {
+      configurable: true,
+      get: () => 0,
+    });
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("resize"));
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+
+    const duringSuspension = {
+      cssHeight: backgroundCanvas.style.height,
+      cssWidth: backgroundCanvas.style.width,
+      height: backgroundCanvas.height,
+      width: backgroundCanvas.width,
+    };
+
+    Object.defineProperty(container, "offsetWidth", {
+      configurable: true,
+      get: () => restoredWidth,
+    });
+    Object.defineProperty(container, "offsetHeight", {
+      configurable: true,
+      get: () => restoredHeight,
+    });
+    window.dispatchEvent(new Event("pageshow"));
+    await new Promise((resolve) => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(resolve));
+    });
+
+    return {
+      afterResume: {
+        cssHeight: backgroundCanvas.style.height,
+        cssWidth: backgroundCanvas.style.width,
+        height: backgroundCanvas.height,
+        width: backgroundCanvas.width,
+      },
+      before,
+      duringSuspension,
+    };
+  });
+
+  expect(result.before.width).toBeGreaterThan(0);
+  expect(result.before.height).toBeGreaterThan(0);
+  expect(result.duringSuspension).toEqual(result.before);
+  expect(result.afterResume.width).toBe(result.before.width);
+  expect(result.afterResume.height).toBe(result.before.height);
+  expect(result.afterResume.cssWidth).toBe(result.before.cssWidth);
+  expect(result.afterResume.cssHeight).toBe(result.before.cssHeight);
+
+  const resumedSignature = await expectDashboardBackgroundHydrated(canvas);
+  expect(resumedSignature.nonBlankPixelCount).toBeGreaterThan(0);
+}
+
+/**
  * Tap the mobile viewport and assert the background canvas changes afterward,
  * proving touch-style pointer input reaches the same parallax path on iOS and
  * other touch-first browser profiles.
