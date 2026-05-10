@@ -305,6 +305,17 @@ describe("article extract cleanup", () => {
     expect(cleaned).not.toContain("<script>");
   });
 
+  test("sanitizeRawContent normalizes invisible publisher whitespace in html", () => {
+    const cleaned = sanitizeRawContent(
+      "<p>First&nbsp;sentence.\u00A0Second\u202Fsentence.\u200B</p>",
+    );
+
+    expect(cleaned).toBe("<p>First sentence. Second sentence.</p>");
+    expect(cleaned).not.toContain("\u00A0");
+    expect(cleaned).not.toContain("\u202F");
+    expect(cleaned).not.toContain("\u200B");
+  });
+
   test("sanitizeRawContent preserves figures and promotes lazy image sources", () => {
     const cleaned = sanitizeRawContent(
       '<figure><img data-src="/images/article.jpg" alt="Hero" width="800" height="600" /></figure>',

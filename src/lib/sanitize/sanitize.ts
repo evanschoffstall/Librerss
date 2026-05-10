@@ -45,6 +45,9 @@ const NON_CONTENT_IMAGE_SOURCE_PATTERN =
 
 const NON_CONTENT_IMAGE_TEXT_PATTERN =
   /\b(?:avatar|logo|icon|menu|search|toggle|button|close|share|social|badge|placeholder|pixel|spacer|sprite)\b/i;
+const INVISIBLE_INLINE_FORMATTING_PATTERN =
+  /[\u00AD\u200B-\u200D\u2060\uFEFF]/g;
+const NON_STANDARD_SPACE_PATTERN = /[\u00A0\u2007\u202F]/g;
 
 /**
  * Return whether has likely content descriptor.
@@ -340,11 +343,26 @@ export function sanitizeArticleHtml(raw: string): string {
     stripEmbeddedMediaBlocks(stripApJunkBlocks(purified)),
     ARTICLE_SANITIZE_OPTIONS,
   );
-  return normalizeArticleHtmlSpacing(
-    stripOrphanedInlineContent(
-      stripOrphanedRelatedBlocks(stripEmptyAnchors(sanitized)),
+  return normalizeInvisibleArticleWhitespace(
+    normalizeArticleHtmlSpacing(
+      stripOrphanedInlineContent(
+        stripOrphanedRelatedBlocks(stripEmptyAnchors(sanitized)),
+      ),
     ),
   );
+}
+
+/**
+ * Normalize invisible spacing artifacts that publishers often encode as HTML
+ * entities. Keep visible editorial Unicode punctuation intact while removing
+ * copy-hostile whitespace such as no-break spaces and zero-width format marks.
+ * @param html - Sanitized article HTML.
+ * @returns Article HTML without invisible formatting whitespace.
+ */
+function normalizeInvisibleArticleWhitespace(html: string): string {
+  return html
+    .replace(NON_STANDARD_SPACE_PATTERN, " ")
+    .replace(INVISIBLE_INLINE_FORMATTING_PATTERN, "");
 }
 
 /**
