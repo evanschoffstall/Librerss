@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
+import type { BatchFeedError } from "@/lib/core/feed-fetcher-batch";
 
 import { CONFIG, logger } from "@/lib";
 
@@ -44,7 +45,7 @@ export interface BatchRequestCompletedOptions {
   results: { articles: unknown[]; ok: boolean }[];
   searchTerm: string | undefined;
   skipRefresh: boolean;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
   userId: number;
 }
 
@@ -128,7 +129,7 @@ interface LogBatchDiagnosticsOptions {
   results: { articles: unknown[]; ok: boolean }[];
   searchTerm: string | undefined;
   skipRefresh: boolean;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
   userId: number;
 }
 
@@ -182,7 +183,7 @@ interface LogBatchStatusSummaryOptions {
  */
 interface LogBatchWarningsOptions {
   invalidUrlCount: number;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
 }
 
 /**
@@ -385,7 +386,7 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
 export function logBatchWarnings(options: LogBatchWarningsOptions) {
   if (options.upstreamErrors.size > 0) {
     const failures = [...options.upstreamErrors.entries()].map(
-      ([url, err]) => `  • ${url}: ${err}`,
+      ([url, err]) => `  • ${url}: ${err.message}`,
     );
     logger.warn(
       `Returning 207 Multi-Status — ${options.upstreamErrors.size} feed(s) have upstream errors:\n${failures.join("\n")}`,

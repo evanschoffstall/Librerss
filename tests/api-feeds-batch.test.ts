@@ -198,6 +198,45 @@ describe("api/feeds/batch route", () => {
     ]);
   });
 
+  test("returns upstream status codes alongside per-feed upstream errors", async () => {
+    const normalizedUrl = "https://example.com/feed";
+    const { POST } = await import("@/app/api/feeds/batch/route");
+    const { deps } = createRouteDeps({
+      batchResult: {
+        articles: new Map(),
+        cachedCount: 0,
+        cooldownLimitedCount: 0,
+        errors: new Map([
+          [normalizedUrl, { message: "Upstream responded with status 504", statusCode: 504 }],
+        ]),
+        lastFetchedByUrl: new Map(),
+        refreshedCount: 1,
+        resolution: "upstream",
+        unchangedUrls: new Set(),
+      },
+    });
+
+    const request = new NextRequest("http://localhost/api/feeds/batch", {
+      body: JSON.stringify({ urls: [normalizedUrl] }),
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    const response = await POST(request, deps);
+    expect(response.status).toBe(207);
+
+    const data = await response.json();
+    expect(data).toEqual([
+      {
+        articles: [],
+        error: "Upstream responded with status 504",
+        ok: false,
+        statusCode: 504,
+        url: normalizedUrl,
+      },
+    ]);
+  });
+
   test("returns an empty array for an empty batch request without calling the fetcher", async () => {
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { deps, fetchAndCacheFeedArticlesBatch } = createRouteDeps();
@@ -420,7 +459,7 @@ describe("api/feeds/batch route", () => {
         articles: new Map([[validUrl, [{ id: 1, title: "Article" } as never]]]),
         cachedCount: 0,
         cooldownLimitedCount: 0,
-        errors: new Map([[validUrl, "Upstream timed out"]]),
+        errors: new Map([[validUrl, { message: "Upstream timed out" }]]),
         lastFetchedByUrl: new Map([[validUrl, timestamp]]),
         refreshedCount: 1,
         resolution: "upstream",

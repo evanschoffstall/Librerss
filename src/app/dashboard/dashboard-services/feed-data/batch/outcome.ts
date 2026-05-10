@@ -60,12 +60,28 @@ export function formatFeedFailureLabel(
   failedFeeds: BatchFeedResponseItem[],
   sourceNamesByUrl: Map<string, string | undefined>,
 ): string {
-  const failedNames = failedFeeds.map((item) => {
-    const sourceName = sourceNamesByUrl.get(item.url);
-    return sourceName ?? item.url;
-  });
+  const failedNames = failedFeeds.map((item) =>
+    formatFailedFeedLabel(item, sourceNamesByUrl),
+  );
 
   return failedNames.length <= 3
     ? failedNames.join(", ")
     : `${failedNames.slice(0, 3).join(", ")} and ${failedNames.length - 3} more`;
+}
+
+/**
+ * Build the display label for one failed feed, appending the upstream HTTP code when available.
+ * @param failedFeed - The failed feed batch item.
+ * @param sourceNamesByUrl - Source-name lookup keyed by feed URL.
+ * @returns The display label shown inside the partial-failure toast description.
+ */
+function formatFailedFeedLabel(
+  failedFeed: BatchFeedResponseItem,
+  sourceNamesByUrl: Map<string, string | undefined>,
+): string {
+  const sourceName = sourceNamesByUrl.get(failedFeed.url) ?? failedFeed.url;
+
+  return typeof failedFeed.statusCode === "number"
+    ? `${sourceName} (HTTP ${failedFeed.statusCode})`
+    : sourceName;
 }

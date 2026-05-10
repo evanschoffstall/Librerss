@@ -165,7 +165,13 @@ function mergeFanOutErrorsIntoAggregateResults(
   const refreshErrorsByUrl = new Map(
     refreshResults
       .filter((item) => !item.ok && typeof item.error === "string")
-      .map((item) => [item.url, item.error] as const),
+      .map(
+        (item) =>
+          [
+            item.url,
+            { error: item.error, statusCode: item.statusCode },
+          ] as const,
+      ),
   );
 
   if (refreshErrorsByUrl.size === 0) {
@@ -177,13 +183,28 @@ function mergeFanOutErrorsIntoAggregateResults(
     resultUrls.add(item.url);
     const refreshError = refreshErrorsByUrl.get(item.url);
     return refreshError
-      ? { ...item, error: refreshError, ok: false as const }
+      ? {
+          ...item,
+          error: refreshError.error,
+          ok: false as const,
+          ...(typeof refreshError.statusCode === "number"
+            ? { statusCode: refreshError.statusCode }
+            : {}),
+        }
       : item;
   });
 
   for (const [url, error] of refreshErrorsByUrl) {
     if (!resultUrls.has(url)) {
-      mergedResults.push({ articles: [], error, ok: false, url });
+      mergedResults.push({
+        articles: [],
+        error: error.error,
+        ok: false,
+        ...(typeof error.statusCode === "number"
+          ? { statusCode: error.statusCode }
+          : {}),
+        url,
+      });
     }
   }
 
@@ -289,12 +310,36 @@ async function requestSingleFeedBatch(
             ? error.message
             : "Feed refresh request failed",
         ok: false,
+        ...(resolveBatchRequestStatusCode(error)
+          ? { statusCode: resolveBatchRequestStatusCode(error) }
+          : {}),
         url: options.url,
       },
     ];
   } finally {
     dispose();
   }
+}
+
+/**
+ * Resolve the HTTP status attached to a failed batch request when the API client provided one.
+ * @param error - The thrown request error.
+ * @returns The numeric status code when present.
+ */
+function resolveBatchRequestStatusCode(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+
+  const response = "response" in error ? error.response : undefined;
+  if (!response || typeof response !== "object") {
+    return undefined;
+  }
+
+  const status = "status" in response ? response.status : undefined;
+  return typeof status === "number" && Number.isFinite(status)
+    ? status
+    : undefined;
 }
 
 /**

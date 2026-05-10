@@ -12,6 +12,7 @@ export interface BatchFeedResponseItem {
   error?: string;
   lastFetchedAt?: Date;
   ok: boolean;
+  statusCode?: number;
   unchanged?: boolean;
   url: string;
 }
@@ -80,6 +81,10 @@ export function normalizeBatchItem(item: unknown): BatchFeedResponseItem {
       ? candidate.articles.map((article) => normalizeArticleResponse(article))
       : [],
     ok: Boolean(candidate.ok),
+    ...(typeof candidate.statusCode === "number" &&
+    Number.isFinite(candidate.statusCode)
+      ? { statusCode: candidate.statusCode }
+      : {}),
     ...(candidate.unchanged === true ? { unchanged: true } : {}),
     url: typeof candidate.url === "string" ? candidate.url : "",
     ...(typeof candidate.error === "string" ? { error: candidate.error } : {}),

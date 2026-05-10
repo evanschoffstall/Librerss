@@ -1,3 +1,5 @@
+import type { BatchFeedError } from "@/lib/core/feed-fetcher-batch";
+
 import type { BatchUrlDescriptor } from "./endpoint";
 
 /**
@@ -8,7 +10,7 @@ interface BatchResultItemOptions {
   item: BatchUrlDescriptor;
   lastFetchedByUrl: ReadonlyMap<string, Date>;
   unchangedUrls: ReadonlySet<string>;
-  upstreamErrors: ReadonlyMap<string, string>;
+  upstreamErrors: ReadonlyMap<string, BatchFeedError>;
 }
 
 /**
@@ -27,6 +29,8 @@ export function buildBatchResultItem(options: BatchResultItemOptions) {
   }
 
   const normalizedUrl = options.item.url;
+  const upstreamError = options.upstreamErrors.get(normalizedUrl);
+
   return {
     articles: options.batchMap.get(normalizedUrl) ?? [],
     ok:
@@ -42,8 +46,13 @@ export function buildBatchResultItem(options: BatchResultItemOptions) {
             ?.toISOString(),
         }
       : {}),
-    ...(options.upstreamErrors.has(normalizedUrl)
-      ? { error: options.upstreamErrors.get(normalizedUrl) }
+    ...(upstreamError
+      ? {
+          error: upstreamError.message,
+          ...(typeof upstreamError.statusCode === "number"
+            ? { statusCode: upstreamError.statusCode }
+            : {}),
+        }
       : {}),
   };
 }
