@@ -205,7 +205,7 @@ test("executeParallelRefreshes records proxy materialization errors per proxied 
 
   expect(result).toEqual({
     cooldownLimitedCount: 0,
-    errors: new Map([[proxiedFeed.url, proxyTransportError]]),
+    errors: new Map([[proxiedFeed.url, { message: proxyTransportError }]]),
     refreshedCount: 0,
     refreshedUrls: new Set(),
   });

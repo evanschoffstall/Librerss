@@ -1,8 +1,9 @@
-import type { ArticleRow } from "@/lib/core";
+import type { ArticleRow, BatchFeedError } from "@/lib/core";
 
 import { CONFIG } from "@/lib/config";
 
 export type { ArticleRow } from "@/lib/core";
+export type { BatchFeedError } from "@/lib/core";
 
 /**
  * Describes the batch feed resolution.
@@ -21,7 +22,7 @@ export interface BatchFeedResult {
   articles: Map<string, ArticleRow[]>;
   cachedCount: number;
   cooldownLimitedCount: number;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   lastFetchedByUrl: Map<string, Date>;
   refreshedCount: number;
   resolution: "cache" | "memory" | "upstream";
@@ -69,7 +70,7 @@ export interface BatchFetchRequest {
  */
 export interface BatchRefreshExecution {
   cooldownLimitedCount: number;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   refreshedCount: number;
   refreshedUrls: Set<string>;
 }
@@ -79,7 +80,7 @@ export interface BatchRefreshExecution {
  */
 export interface CachedBatchPayload {
   articles: Map<string, ArticleRow[]>;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   lastFetchedByUrl: Map<string, Date>;
 }
 

@@ -1,4 +1,5 @@
 export type { ArticleRow, RankedRow, RefreshDecision } from "./batch-types";
+export type { BatchFeedError } from "./feed-batch-error";
 export {
   ARTICLE_FILTERS,
   ARTICLE_SORT_ORDERS,

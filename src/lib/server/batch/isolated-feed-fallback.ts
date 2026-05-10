@@ -1,3 +1,4 @@
+import type { BatchFeedError } from "@/lib/core/feed-fetcher-batch";
 import type { fetchAndCacheFeedArticlesBatch } from "@/lib/core/server";
 
 import { CONFIG, logger } from "@/lib";
@@ -38,7 +39,7 @@ type BatchFetchResponse = Awaited<
 /** Describes mutable maps that receive one isolated batch response. */
 interface BatchResponseMapTargets {
   articles: Map<string, BatchArticleList>;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   lastFetchedByUrl: Map<string, Date>;
   response: BatchFetchResponse;
   unchangedUrls: Set<string>;
@@ -75,7 +76,7 @@ interface IsolatedFeedBatchRetryTask {
 
 /** Describes the isolated fallback settlement summary. */
 interface IsolatedFeedBatchSettlementSummary {
-  failedUrls: Map<string, string>;
+  failedUrls: Map<string, BatchFeedError>;
   successes: IsolatedFeedBatchSuccess[];
 }
 
@@ -194,7 +195,7 @@ function buildIsolatedFeedBatchRetryTasks(
  */
 function combineIsolatedFeedBatchResponses(
   successes: IsolatedFeedBatchSuccess[],
-  failedUrls: Map<string, string>,
+  failedUrls: Map<string, BatchFeedError>,
 ): BatchFetchResponse {
   const articles = new Map<string, BatchArticleList>();
   const errors = new Map(failedUrls);
@@ -364,7 +365,7 @@ function summarizeIsolatedFeedBatchSettlements(
   normalizedUrls: string[],
 ): IsolatedFeedBatchSettlementSummary {
   const successes: IsolatedFeedBatchSuccess[] = [];
-  const failedUrls = new Map<string, string>();
+  const failedUrls = new Map<string, BatchFeedError>();
 
   for (const [index, settlement] of settlements.entries()) {
     const url = normalizedUrls[index];
@@ -375,7 +376,7 @@ function summarizeIsolatedFeedBatchSettlements(
       continue;
     }
 
-    failedUrls.set(url, toErrorMessage(settlement.reason));
+    failedUrls.set(url, { message: toErrorMessage(settlement.reason) });
   }
 
   return { failedUrls, successes };

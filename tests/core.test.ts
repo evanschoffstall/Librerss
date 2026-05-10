@@ -757,7 +757,10 @@ describe("feed-refresh", () => {
       },
     );
 
-    expect(result).toEqual({ error: "normalized-error", ok: false });
+    expect(result).toEqual({
+      error: { message: "normalized-error" },
+      ok: false,
+    });
     expect(update).toHaveBeenCalledTimes(1);
   });
 
@@ -964,7 +967,10 @@ describe("feed-refresh", () => {
         },
       );
 
-      expect(result).toEqual({ error: "normalized-error", ok: false });
+      expect(result).toEqual({
+        error: { message: "normalized-error" },
+        ok: false,
+      });
       expect(update).toHaveBeenCalledTimes(1);
     } finally {
       (CONFIG as any).FEED_REFRESH_DIAGNOSTICS_ENABLED = previousDiag;
@@ -1487,7 +1493,9 @@ describe("feed-batch-pipeline", () => {
     });
 
     expect(result.refreshedCount).toBe(0);
-    expect(result.errors.get("https://a.com/feed")).toBe("persisted-error");
+    expect(result.errors.get("https://a.com/feed")).toEqual({
+      message: "persisted-error",
+    });
   });
 
   test("executeParallelRefreshes records upstream failures for stale feeds", async () => {
@@ -1702,9 +1710,9 @@ describe("feed-batch-pipeline", () => {
 
       expect(result.refreshedCount).toBe(1);
       expect(result.refreshedUrls).toEqual(new Set(["not-a-url-one"]));
-      expect(result.errors.get("not-a-url-two")).toBe(
-        BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
-      );
+      expect(result.errors.get("not-a-url-two")).toEqual({
+        message: BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+      });
     } finally {
       if (previousServerlessLimits === undefined) {
         delete process.env.FEED_SERVERLESS_LIMITS_ENABLED;

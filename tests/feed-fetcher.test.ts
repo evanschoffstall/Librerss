@@ -95,7 +95,7 @@ function registerModuleMocks() {
     ensureFeedRecordByUrl: mock(async () => createFeedRecord()),
     executeParallelRefreshes: mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 1,
       refreshedUrls: new Set<string>(["https://example.com/feed"]),
     })),
@@ -250,7 +250,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         refreshedCount: 2,
         refreshedUrls: new Set<string>([
           "https://example.com/feed1",
@@ -299,7 +299,9 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map([["https://example.com/feed", "Network error"]]),
+        errors: new Map([
+          ["https://example.com/feed", { message: "Network error" }],
+        ]),
         refreshedCount: 0,
         refreshedUrls: new Set<string>(),
       })),
@@ -328,7 +330,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     const getCachedBatch = mock(() => ({
       articles: new Map([["https://example.com/feed", []]]),
       cachedAt: Date.now(),
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       lastFetchedByUrl: new Map([
         ["https://example.com/feed", new Date("2026-03-14T12:00:00.000Z")],
       ]),
@@ -365,14 +367,14 @@ describe("Feed Fetcher - Batch Operations", () => {
     });
     const getCachedBatch = mock(() => ({
       articles: new Map([["https://example.com/feed", [cachedArticle]]]),
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       lastFetchedByUrl: new Map([
         ["https://example.com/feed", cachedArticle.lastChecked],
       ]),
     }));
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 1,
       refreshedUrls: new Set<string>(["https://example.com/feed"]),
     }));
@@ -415,7 +417,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     const getCachedBatch = mock(() => null);
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 0,
       refreshedUrls: new Set<string>(),
     }));
@@ -476,7 +478,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     const refreshedRow = refreshedArticle as unknown as RankedRow;
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 1,
       refreshedUrls: new Set<string>(["https://example.com/feed"]),
     }));
@@ -556,7 +558,7 @@ describe("Feed Fetcher - Batch Operations", () => {
           ],
         ]),
         cachedAt: Date.now(),
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         lastFetchedByUrl: new Map([
           ["https://example.com/feed", lastFetchedAt],
         ]),
@@ -626,7 +628,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         refreshedCount: 1,
         refreshedUrls: new Set<string>(["https://example.com/feed-b"]),
       })),
@@ -684,7 +686,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         refreshedCount: 0,
         refreshedUrls: new Set<string>(),
       })),
@@ -729,7 +731,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         refreshedCount: 0,
         refreshedUrls: new Set<string>(),
       })),
@@ -842,7 +844,7 @@ describe("Feed Fetcher - Batch Operations", () => {
     setFeedFetcherDependenciesForTesting({
       executeParallelRefreshes: mock(async () => ({
         cooldownLimitedCount: 0,
-        errors: new Map<string, string>(),
+        errors: new Map<string, { message: string }>(),
         refreshedCount: 0,
         refreshedUrls: new Set<string>(),
       })),
@@ -864,7 +866,7 @@ describe("Feed Fetcher - Batch Operations", () => {
   test("fetchAndCacheFeedArticlesBatch resolves proxy transport only for stale proxied feeds", async () => {
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 1,
       refreshedUrls: new Set<string>(["https://example.com/feed"]),
     }));
@@ -925,7 +927,9 @@ describe("Feed Fetcher - Batch Operations", () => {
     const directArticle = createArticleRow({ feedId: 1, title: "Direct" });
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>([[proxiedUrl, proxyTransportError]]),
+      errors: new Map<string, { message: string }>([
+        [proxiedUrl, { message: proxyTransportError }],
+      ]),
       refreshedCount: 1,
       refreshedUrls: new Set<string>([directUrl]),
     }));
@@ -974,7 +978,9 @@ describe("Feed Fetcher - Batch Operations", () => {
         proxyTransportError,
       }),
     );
-    expect(result.errors).toEqual(new Map([[proxiedUrl, proxyTransportError]]));
+    expect(result.errors).toEqual(
+      new Map([[proxiedUrl, { message: proxyTransportError }]]),
+    );
     expect(result.refreshedCount).toBe(1);
     expect(result.articles.get(directUrl)).toEqual([directArticle]);
   });
@@ -982,14 +988,14 @@ describe("Feed Fetcher - Batch Operations", () => {
   test("fetchAndCacheFeedArticlesBatch bypasses memory cache when forceResolveUpstream is enabled", async () => {
     const executeParallelRefreshes = mock(async () => ({
       cooldownLimitedCount: 0,
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       refreshedCount: 1,
       refreshedUrls: new Set<string>(["https://example.com/feed"]),
     }));
     const getCachedBatch = mock(() => ({
       articles: new Map([["https://example.com/feed", []]]),
       cachedAt: Date.now(),
-      errors: new Map<string, string>(),
+      errors: new Map<string, { message: string }>(),
       lastFetchedByUrl: new Map([["https://example.com/feed", new Date()]]),
     }));
 
@@ -1144,7 +1150,7 @@ describe("Feed Fetcher - Single Feed Operations", () => {
         }),
       ),
       refreshFeedFromUpstream: mock(async () => ({
-        error: "Network timeout",
+        error: { message: "Network timeout" },
         ok: false,
       })),
       shouldRefreshFeed: mock(() => true),

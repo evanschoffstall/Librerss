@@ -9,7 +9,11 @@
  * path and should age out together under the same freshness budget.
  */
 
-import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
+import type {
+  ArticleFilter,
+  ArticleSortOrder,
+  BatchFeedError,
+} from "@/lib/core";
 import type { ArticleRow } from "@/lib/core/feed-batch-pipeline";
 import type { FeedSourceListRow } from "@/lib/types";
 
@@ -34,7 +38,7 @@ interface CachedBatchResult {
   articles: Map<string, ArticleRow[]>;
   /** Epoch-ms when this entry was written. */
   cachedAt: number;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   lastFetchedByUrl: Map<string, Date>;
 }
 

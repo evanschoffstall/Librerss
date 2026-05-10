@@ -7,6 +7,7 @@ export {
   runBatchRefreshExecution,
 } from "./resolution";
 export type {
+  BatchFeedError,
   BatchFeedResolution,
   BatchFeedResult,
   BatchFetchOptions,
