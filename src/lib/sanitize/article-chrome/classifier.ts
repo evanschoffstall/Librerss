@@ -103,6 +103,7 @@ const TRAILING_CHROME_HEADING_TOKENS = new Set([
   "further",
   "information",
   "latest",
+  "media",
   "more",
   "news",
   "read",
@@ -279,6 +280,29 @@ function hasSubjectHeavyPromoSignal(
 }
 
 /**
+ * Returns whether a trailing section has enough non-paragraph chrome structure
+ * to behave like a recommendation or taxonomy rail.
+ * @param imageCount - Number of images in the trailing section.
+ * @param listCount - Number of wrapped ordered or unordered lists in the trailing section.
+ * @param listItemCount - Number of bare list items in the trailing section.
+ * @param shortHeadingCount - Number of short subordinate headings in the trailing section.
+ * @returns Whether the tail includes enough supporting chrome structure.
+ */
+function hasSupportingChromeStructure(
+  imageCount: number,
+  listCount: number,
+  listItemCount: number,
+  shortHeadingCount: number,
+): boolean {
+  return (
+    imageCount >= 1 ||
+    listCount >= 1 ||
+    listItemCount >= 2 ||
+    shortHeadingCount >= 1
+  );
+}
+
+/**
  * Detects whether the section after a candidate heading looks like related or
  * taxonomy chrome instead of continued article prose.
  * @param html - HTML that starts at a candidate trailing section heading.
@@ -288,6 +312,7 @@ function hasTrailingChromeStructure(html: string): boolean {
   const linkCount = (html.match(/<a\b/gi) ?? []).length;
   const imageCount = (html.match(/<img\b/gi) ?? []).length;
   const listCount = (html.match(/<(?:ul|ol)\b/gi) ?? []).length;
+  const listItemCount = (html.match(/<li\b/gi) ?? []).length;
   const paragraphCount = (html.match(/<p\b/gi) ?? []).length;
   const headingMatches = [
     ...html.matchAll(/<h([2-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi),
@@ -299,7 +324,12 @@ function hasTrailingChromeStructure(html: string): boolean {
 
   return (
     linkCount >= 2 &&
-    (imageCount >= 1 || listCount >= 1 || shortHeadingCount >= 1) &&
+    hasSupportingChromeStructure(
+      imageCount,
+      listCount,
+      listItemCount,
+      shortHeadingCount,
+    ) &&
     paragraphCount <= linkCount + 2
   );
 }
