@@ -160,6 +160,48 @@ describe("lib/distill/librerss", () => {
       expect(result?.content).not.toContain("account settings");
     });
 
+    test("does not widen to sidebar metadata rails that precede the true entry body", async () => {
+      const html = `
+        <html>
+          <body>
+            <article>
+              <section class="sidebar-rail">
+                <img src="https://example.com/images/unrelated-promo.jpg" alt="Unrelated promo image" />
+                <p>The February 2026 eruption at Piton de la Fournaise has lasted longer and produced a larger volume of lava than recent eruptions from this frequently active volcano.</p>
+                <p>NASA Earth Observatory</p>
+                <a href="https://example.com/explorer"><img src="https://example.com/images/location-map.png" alt="Location map" /></a>
+                <a href="https://example.com/previous"><img src="https://example.com/images/previous-card.jpg" alt="Previous related card" /></a>
+                <a href="https://example.com/next"><img src="https://example.com/images/next-card.jpg" alt="Next related card" /></a>
+                <ul>
+                  <li><a href="https://example.com/topics/volcanoes">Volcanoes</a></li>
+                </ul>
+              </section>
+              <div class="entry-content">
+                <p><img src="https://example.com/images/reunion-main.jpg" alt="Thermal image of the eruption" /></p>
+                <p>Located 700 kilometers east of Madagascar, Reunion Island remains active today with frequent eruptions from Piton de la Fournaise.</p>
+                <p>Since the 17th century, the volcano has had more than 150 documented eruptions and the most recent began in February 2026.</p>
+                <p>This thermal satellite image shows lava flowing east toward the ocean while warmer areas appear in yellow.</p>
+              </div>
+            </article>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/earth-observatory/reunion-island-lava-reaches-the-sea/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("reunion-main.jpg");
+      expect(result?.content).toContain(
+        "Located 700 kilometers east of Madagascar",
+      );
+      expect(result?.content).not.toContain("unrelated-promo.jpg");
+      expect(result?.content).not.toContain("location-map.png");
+      expect(result?.content).not.toContain("Previous related card");
+    });
+
     test("prefers camel case article body over sponsored callout copy", async () => {
       const html = `
         <html>

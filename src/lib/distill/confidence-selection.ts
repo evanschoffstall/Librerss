@@ -1,3 +1,4 @@
+import { countBoilerplateSignals } from "@/lib/distill/chrome";
 import {
   countUtilityLeadParagraphs,
   isLikelyUtilityLeadParagraph,
@@ -31,10 +32,6 @@ const ACCORDION_PANEL_RE = /\bpanel\s+panel-default\b/gi;
 
 /** Repeated explainer items can form one multi-section article body. */
 const EXPLAINER_ITEM_RE = /\bexplainer-item\b/gi;
-
-/** Generic interface and engagement words that should lower body confidence. */
-const BOILERPLATE_PHRASE_RE =
-  /\b(?:accept all cookies|already liked|cookie settings|download|explore case|learn more about|media contact|next press release|press releases?|related|sharing functionality|spokesperson|status|thank you for liking|views?)\b/gi;
 
 /** Class and id patterns that strongly identify the article text itself. */
 const EXACT_CONTENT_ATTR_PATTERNS = [
@@ -341,13 +338,35 @@ function hasMeaningfulLeadProse(
   const childOffset = child.openIndex - parent.openIndex;
   const leadingHtml = parent.html.slice(0, Math.max(0, childOffset));
   const paragraphs = [...leadingHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)];
-
-  return paragraphs.some((paragraph) => {
+  const substantiveParagraphs = paragraphs.filter((paragraph) => {
     const text = createVisibleText(paragraph[1]);
     if (isLikelyUtilityLeadParagraph(text)) return false;
     return text.length >= 120 && text.split(/\s+/).filter(Boolean).length >= 20;
   });
+
+  if (substantiveParagraphs.length === 0) {
+    return false;
+  }
+
+  const imageCount = countMatches(leadingHtml, IMAGE_TAG_RE);
+  const listItemCount = countMatches(leadingHtml, LIST_ITEM_TAG_RE);
+  if (
+    imageCount >= 2 ||
+    (imageCount >= 1 && listItemCount >= 1) ||
+    countUtilityLeadParagraphs(leadingHtml, createVisibleText) >= 1
+  ) {
+    return false;
+  }
+
+  return true;
 }
+
+/**
+ * Returns whether a normalized word list contains any token from a signal set.
+ * @param words - Normalized candidate words.
+ * @param signals - Signal tokens that increase chrome confidence.
+ * @returns Whether any normalized word belongs to the signal set.
+ */
 
 /**
  * Applies minimum confidence gates so the fallback does not select tiny cards,
@@ -404,7 +423,7 @@ function readArticleBodySignals(
   );
 
   return {
-    boilerplateHits: countMatches(visibleText, BOILERPLATE_PHRASE_RE),
+    boilerplateHits: countBoilerplateSignals(visibleText),
     controlCount: countMatches(candidate.html, CONTROL_TAG_RE),
     hasChromeAttributeSignal: CHROME_ATTR_SIGNAL_RE.test(candidate.attrs),
     hasContentAttributeSignal: CONTENT_ATTR_SIGNAL_RE.test(candidate.attrs),

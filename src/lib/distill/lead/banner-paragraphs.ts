@@ -26,17 +26,24 @@ const UTILITY_LEAD_TOKENS = new Set([
   "window",
 ]);
 
-/** Multi-word notice patterns that commonly appear in utility banners. */
-const UTILITY_LEAD_PHRASES = [
-  "account settings",
-  "cookie settings",
-  "learn more",
-  "official website",
-  "privacy settings",
-  "secure website",
-  "share sensitive information",
-  "site is secure",
-] as const;
+/** Utility-state words that commonly cluster inside service banners. */
+const UTILITY_STATE_TOKENS = new Set([
+  "account",
+  "cookie",
+  "cookies",
+  "notice",
+  "official",
+  "portal",
+  "privacy",
+  "secure",
+  "security",
+  "sensitive",
+  "settings",
+  "share",
+  "sharing",
+  "website",
+  "websites",
+]);
 
 /**
  * Counts banner-like utility paragraphs inside a candidate wrapper so broad
@@ -73,19 +80,51 @@ export function isLikelyUtilityLeadParagraph(text: string): boolean {
   const tokenHits = words.filter((word) =>
     UTILITY_LEAD_TOKENS.has(word),
   ).length;
-  const phraseHits = UTILITY_LEAD_PHRASES.filter((phrase) =>
-    normalized.includes(phrase),
+  const utilityStateHits = words.filter((word) =>
+    UTILITY_STATE_TOKENS.has(word),
   ).length;
   const startsWithUtilityVerb =
     /^(?:accept|allow|click|learn|read|review|share|sign|use|view|visit)\b/.test(
       normalized,
     );
+  if (utilityStateHits >= 4 || tokenHits >= 5) {
+    return true;
+  }
 
+  if (hasUtilityVerbLead(startsWithUtilityVerb, utilityStateHits)) {
+    return true;
+  }
+
+  return hasUtilityNoticeLead(words, tokenHits);
+}
+
+/**
+ * Detects notice-style banner leads that begin with a utility framing token.
+ * @param words - Normalized paragraph words.
+ * @param tokenHits - Total count of utility tokens in the paragraph.
+ * @returns Whether the paragraph begins like a notice banner.
+ */
+function hasUtilityNoticeLead(words: string[], tokenHits: number): boolean {
+  const firstWord = words[0];
   return (
-    phraseHits >= 2 ||
-    tokenHits >= 5 ||
-    (startsWithUtilityVerb && tokenHits >= 3)
+    tokenHits >= 4 &&
+    (firstWord === "notice" ||
+      firstWord === "official" ||
+      firstWord === "secure")
   );
+}
+
+/**
+ * Detects action-led service prompts such as privacy or security instructions.
+ * @param startsWithUtilityVerb - Whether the paragraph opens with a utility verb.
+ * @param utilityStateHits - Count of utility-state tokens in the paragraph.
+ * @returns Whether the paragraph looks like a service instruction prompt.
+ */
+function hasUtilityVerbLead(
+  startsWithUtilityVerb: boolean,
+  utilityStateHits: number,
+): boolean {
+  return startsWithUtilityVerb && utilityStateHits >= 3;
 }
 
 /**
