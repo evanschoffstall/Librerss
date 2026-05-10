@@ -1061,6 +1061,7 @@ describe("api/feeds/batch route", () => {
     const firstUrl = "https://example.com/feed-one";
     const secondUrl = "https://example.com/feed-two";
     const startedCalls: string[][] = [];
+    const nowValues = [1_000, 1_000, 3_501, 3_501];
     const { POST } = await import("@/app/api/feeds/batch/route");
     const { ISOLATED_FEED_BATCH_FALLBACK_BUDGET_EXHAUSTED_MESSAGE } =
       await import("@/lib/server");
@@ -1081,10 +1082,8 @@ describe("api/feeds/batch route", () => {
       getDbFn: () => ({ mocked: true }) as never,
       logAndRespondErrorFn: (_message: string, _error: unknown) =>
         new Response(JSON.stringify({ error: "internal" }), { status: 500 }),
-      requireMutableAuthenticatedUserFn: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 2_750));
-        return user;
-      },
+      nowFn: () => nowValues.shift() ?? 3_501,
+      requireMutableAuthenticatedUserFn: async () => user,
     };
 
     process.env.FEED_SERVERLESS_LIMITS_ENABLED = "true";

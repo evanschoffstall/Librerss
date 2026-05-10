@@ -244,6 +244,7 @@ async function executeBatchFetch(
         routeDeps.fetchAndCacheFeedArticlesBatchForRoute,
       initialError: error,
       normalizedUrls: options.normalizedUrls,
+      nowFn: options.deps.nowFn ?? Date.now,
       requestStartedAt: options.requestStartedAt,
       requestUrls: options.requestUrls,
       userId: options.userId,
