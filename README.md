@@ -97,14 +97,13 @@ You should be able to open the dashboard, sign in, add a feed, and see articles 
 
 ### Core commands
 
-| Command             | Purpose                                               |
-| ------------------- | ----------------------------------------------------- |
-| `bun dev`           | Start the standard local Next.js development server.  |
-| `bun run dev:local` | Bind the dev server to `0.0.0.0:3000` for LAN access. |
-| `bun run build`     | Create a production build.                            |
-| `bun run start`     | Run the production server after building.             |
-| `bun check summary` | Run the repository quality summary.                   |
-| `bun check --junit` | Run the Bun unit and integration test suite.          |
+| Command             | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `bun dev`           | Start the standard local Next.js development server. |
+| `bun run build`     | Create a production build.                           |
+| `bun run start`     | Run the production server after building.            |
+| `bun check summary` | Run the repository quality summary.                  |
+| `bun check --junit` | Run the Bun unit and integration test suite.         |
 
 ### Quality tooling
 

@@ -6,7 +6,6 @@
   "scripts": {
     "setup:playwright": "bunx playwright install chromium firefox webkit",
     "dev": "next dev --turbopack",
-    "dev:local": "bun dev --turbopack -H 0.0.0.0 -p 3000",
     "dev:playwright": "sh -c 'PLAYWRIGHT_NEXT_DIST_DIR=\"${PLAYWRIGHT_NEXT_DIST_DIR:-.next-playwright}\" next dev --turbopack -H 127.0.0.1 -p \"${PLAYWRIGHT_PORT:-3100}\"'",
     "build": "next build",
     "clean": "rm -rf .next .cache .coverage",
