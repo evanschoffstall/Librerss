@@ -119,6 +119,54 @@ function createCmsFeaturedImageFixture(): string {
 }
 
 /**
+ * Builds a short article paragraph followed by a stripped download CTA that
+ * would otherwise leave duplicate sentence punctuation behind.
+ * @returns HTML fixture that must collapse punctuation after CTA removal.
+ */
+function createDownloadCtaPunctuationFixture(): string {
+  return `
+    <html>
+      <body>
+        <main class="article-content">
+          <p>
+            The report is available as a single PDF file, which can be viewed using Adobe Acrobat Reader.
+            <a href="https://example.com/download">Follow this link to download the report</a>.
+          </p>
+          <p>The publication summarizes the historical record and the current findings in one document.</p>
+        </main>
+      </body>
+    </html>
+  `;
+}
+
+/**
+ * Builds a long metadata preamble before the real body paragraph, matching
+ * public-sector release pages that place title, dek, factsheet CTA, and byline
+ * above the lead paragraph.
+ * @returns HTML fixture that must strip the metadata preamble.
+ */
+function createLongLeadingPreambleFixture(): string {
+  return `
+    <html>
+      <body>
+        <main class="main-content">
+          <h2>USGS releases assessment of undiscovered oil and gas resources in Woodford and Barnett shales</h2>
+          <h3>28.3 trillion cubic feet of gas, 1.6 billion barrels of oil estimated in New Mexico, Texas</h3>
+          <a href="https://example.com/factsheet">Read the factsheet on undiscovered oil and gas in the Woodford Shale and Barnett</a>
+          By <a href="https://example.com/team">Communications and Publishing</a>
+          January 14, 2026
+          <div class="body-content">
+            <p><strong>RESTON, Va.</strong> The U.S. Geological Survey released its assessment of undiscovered gas and oil in the Woodford and Barnett shales in the Permian Basin.</p>
+            <p>Since production began in the late 1990s, the Woodford and Barnett shales have produced millions of barrels of oil and remain an important source of domestic energy.</p>
+            <p>The agency said the assessment provides context for land managers and planners reviewing long-term resource conditions.</p>
+          </div>
+        </main>
+      </body>
+    </html>
+  `;
+}
+
+/**
  * Builds an exact article-content page with enough media cards to exercise the
  * lower confidence gate for explicitly marked article bodies.
  * @returns HTML fixture that must prefer exact article content over a summary header.
@@ -305,6 +353,39 @@ function createServiceBannerArticleFixture(): string {
 }
 
 /**
+ * Builds an article where a sidebar metadata rail sits before the real entry
+ * content inside a broader wrapper.
+ * @returns HTML fixture that must not widen to the metadata rail.
+ */
+function createSidebarMetadataRailFixture(): string {
+  return `
+    <html>
+      <body>
+        <article>
+          <section class="sidebar-rail">
+            <img src="https://example.com/images/unrelated-promo.jpg" alt="Unrelated promo image" />
+            <p>The February 2026 eruption at Piton de la Fournaise has lasted longer and produced a larger volume of lava than recent eruptions from this frequently active volcano.</p>
+            <p>NASA Earth Observatory</p>
+            <a href="https://example.com/explorer"><img src="https://example.com/images/location-map.png" alt="Location map" /></a>
+            <a href="https://example.com/previous"><img src="https://example.com/images/previous-card.jpg" alt="Previous related card" /></a>
+            <a href="https://example.com/next"><img src="https://example.com/images/next-card.jpg" alt="Next related card" /></a>
+            <ul>
+              <li><a href="https://example.com/topics/volcanoes">Volcanoes</a></li>
+            </ul>
+          </section>
+          <div class="entry-content">
+            <p><img src="https://example.com/images/reunion-main.jpg" alt="Thermal image of the eruption" /></p>
+            <p>Located 700 kilometers east of Madagascar, Reunion Island remains active today with frequent eruptions from Piton de la Fournaise.</p>
+            <p>Since the 17th century, the volcano has had more than 150 documented eruptions and the most recent began in February 2026.</p>
+            <p>This thermal satellite image shows lava flowing east toward the ocean while warmer areas appear in yellow.</p>
+          </div>
+        </article>
+      </body>
+    </html>
+  `;
+}
+
+/**
  * Builds a CMS article where the lead paragraph is a sibling before the nested
  * body field, matching public-sector pages that split summaries from body text.
  * @returns HTML fixture that must keep the lead paragraph and body together.
@@ -435,6 +516,56 @@ test.describe("article extraction distillation", () => {
     expect(cleaned).not.toContain("Communications Team");
     expect(cleaned).not.toContain("Source/Credit");
     expect(cleaned).not.toContain("View Media Details");
+  });
+
+  test("does not widen to sidebar metadata rails before the true entry content", async () => {
+    const result = librerssDistill(
+      preCleanHtml(createSidebarMetadataRailFixture()),
+      "https://example.com/earth-observatory/reunion-island-lava-reaches-the-sea/",
+      { contentLengthThreshold: 120 },
+    );
+
+    expect(result?.content).toContain("reunion-main.jpg");
+    expect(result?.content).toContain(
+      "Located 700 kilometers east of Madagascar",
+    );
+    expect(result?.content).not.toContain("unrelated-promo.jpg");
+    expect(result?.content).not.toContain("location-map.png");
+    expect(result?.content).not.toContain("Previous related card");
+  });
+
+  test("removes long leading metadata preambles before release body prose", async () => {
+    const result = librerssDistill(
+      preCleanHtml(createLongLeadingPreambleFixture()),
+      "https://example.com/news/woodford-barnett-assessment/",
+      { contentLengthThreshold: 120 },
+    );
+    const cleaned = cleanSanitizedHtml(
+      sanitizeRawContent(result?.content ?? ""),
+      "https://example.com/news/woodford-barnett-assessment/",
+    );
+
+    expect(cleaned).toContain("RESTON, Va.");
+    expect(cleaned).toContain("important source of domestic energy");
+    expect(cleaned).not.toContain("Read the factsheet");
+    expect(cleaned).not.toContain("Communications and Publishing");
+    expect(cleaned).not.toContain("January 14, 2026");
+  });
+
+  test("collapses punctuation gaps after download cta removal", async () => {
+    const result = librerssDistill(
+      preCleanHtml(createDownloadCtaPunctuationFixture()),
+      "https://example.com/report/downloads/",
+      { contentLengthThreshold: 120 },
+    );
+    const cleaned = cleanSanitizedHtml(
+      sanitizeRawContent(result?.content ?? ""),
+      "https://example.com/report/downloads/",
+    );
+
+    expect(cleaned).toContain("Adobe Acrobat Reader.");
+    expect(cleaned).not.toContain("Reader. .");
+    expect(cleaned).not.toContain("Follow this link to download");
   });
 
   test("keeps repeated explainer sections together", async () => {

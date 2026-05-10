@@ -237,6 +237,29 @@ describe("article extract cleanup", () => {
     expect(cleaned).toContain("assessment-map.png");
   });
 
+  test("removes long leading metadata preambles before the first article paragraph", () => {
+    const longLeadingPreamble = `
+      <h2>USGS releases assessment of undiscovered oil and gas resources in Woodford and Barnett shales</h2>
+      <h3>28.3 trillion cubic feet of gas, 1.6 billion barrels of oil estimated in New Mexico, Texas</h3>
+      <a href="https://example.com/factsheet">Read the factsheet on undiscovered oil and gas in the Woodford Shale and Barnett</a>
+      By <a href="https://example.com/team">Communications and Publishing</a>
+      January 14, 2026
+      <p><strong>RESTON, Va.</strong> The U.S. Geological Survey released its assessment of undiscovered gas and oil in the Woodford and Barnett shales in the Permian Basin.</p>
+      <p>Since production began in the late 1990s, the Woodford and Barnett shales have produced millions of barrels of oil and remain an important source of domestic energy.</p>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      longLeadingPreamble,
+      "https://example.com/news/woodford-barnett-assessment/",
+    );
+
+    expect(cleaned).toContain("RESTON, Va.");
+    expect(cleaned).toContain("important source of domestic energy");
+    expect(cleaned).not.toContain("Read the factsheet");
+    expect(cleaned).not.toContain("Communications and Publishing");
+    expect(cleaned).not.toContain("January 14, 2026");
+  });
+
   test("removes trailing related-news chrome while preserving article sections and images", () => {
     const extractedArticle = `
       <p>The habitat team described restoration work across several wetlands and community projects.</p>
@@ -265,6 +288,24 @@ describe("article extract cleanup", () => {
     expect(cleaned).not.toContain("related-card.jpg");
     expect(cleaned).not.toContain("Last updated by");
     expect(cleaned).not.toContain("/tags/wetlands");
+  });
+
+  test("collapses punctuation gaps left by stripped download ctas", () => {
+    const extractedArticle = `
+      <p>
+        The report is available as a single PDF file, which can be viewed using Adobe Acrobat Reader.
+        <a href="https://example.com/download">Follow this link to download the report</a>.
+      </p>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      extractedArticle,
+      "https://example.com/report/downloads/",
+    );
+
+    expect(cleaned).toContain("Adobe Acrobat Reader.");
+    expect(cleaned).not.toContain("Reader. .");
+    expect(cleaned).not.toContain("Follow this link to download");
   });
 
   describe("preCleanHtml", () => {
