@@ -31,19 +31,11 @@ export const EXTRACTION_PROOF_EXPECTED_DIR = join(
   "tests/regen-extraction-proof",
 );
 
-/** Metadata needed to run one placeholder snapshot through the proof pipeline. */
-interface PlaceholderProofInput {
-  articleUrl: string;
-  displayTitle: string;
-  inputPath: string;
-  relativeInputPath: string;
-}
-
-/** Server extraction payload returned by the article extraction route. */
-interface ExtractedArticlePayload {
-  content?: string;
-  source?: null | string;
-  title?: null | string;
+/** A detected mismatch between generated and checked-in proof outputs. */
+export interface ExtractionProofDiff {
+  expectedFileName: string;
+  kind: "changed" | "created" | "stale";
+  relativeInputPath?: string;
 }
 
 /** Generated proof output for one placeholder article snapshot. */
@@ -54,33 +46,22 @@ export interface ExtractionProofOutput {
   title: string;
 }
 
-/** A detected mismatch between generated and checked-in proof outputs. */
-export interface ExtractionProofDiff {
-  expectedFileName: string;
-  kind: "changed" | "created" | "stale";
-  relativeInputPath?: string;
+/** Server extraction payload returned by the article extraction route. */
+interface ExtractedArticlePayload {
+  content?: string;
+  source?: null | string;
+  title?: null | string;
 }
 
 /** Manifest lookup keyed by placeholder snapshot path relative to public/placeholder-articles. */
 type PlaceholderManifestByPath = Map<string, { title: string; url: string }>;
 
-/**
- * Format generated HTML with the repository Prettier configuration.
- * @param outputPath - The output path used to resolve Prettier settings.
- * @param extractedHtml - The generated HTML document or fragment.
- * @returns The formatted HTML with a trailing newline.
- */
-export async function formatExpectedReadingOutput(
-  outputPath: string,
-  extractedHtml: string,
-): Promise<string> {
-  const prettierConfig = (await resolveConfig(outputPath)) ?? {};
-  const formattedHtml = await formatWithPrettier(extractedHtml, {
-    ...prettierConfig,
-    filepath: outputPath,
-  });
-
-  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
+/** Metadata needed to run one placeholder snapshot through the proof pipeline. */
+interface PlaceholderProofInput {
+  articleUrl: string;
+  displayTitle: string;
+  inputPath: string;
+  relativeInputPath: string;
 }
 
 /**
@@ -132,6 +113,25 @@ export function compareExtractionProofOutputs(
       `${b.kind}:${b.expectedFileName}`,
     ),
   );
+}
+
+/**
+ * Format generated HTML with the repository Prettier configuration.
+ * @param outputPath - The output path used to resolve Prettier settings.
+ * @param extractedHtml - The generated HTML document or fragment.
+ * @returns The formatted HTML with a trailing newline.
+ */
+export async function formatExpectedReadingOutput(
+  outputPath: string,
+  extractedHtml: string,
+): Promise<string> {
+  const prettierConfig = (await resolveConfig(outputPath)) ?? {};
+  const formattedHtml = await formatWithPrettier(extractedHtml, {
+    ...prettierConfig,
+    filepath: outputPath,
+  });
+
+  return formattedHtml.endsWith("\n") ? formattedHtml : `${formattedHtml}\n`;
 }
 
 /**
@@ -290,6 +290,19 @@ async function generateExtractionProofOutput(
 }
 
 /**
+ * List checked-in expected proof file names in deterministic order.
+ * @returns Flat expected proof HTML file names.
+ */
+function listExpectedProofFileNames(): string[] {
+  if (!existsSync(EXTRACTION_PROOF_EXPECTED_DIR)) return [];
+
+  return readdirSync(EXTRACTION_PROOF_EXPECTED_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+    .map((entry) => entry.name)
+    .sort();
+}
+
+/**
  * Recursively list HTML files under the placeholder article snapshot root.
  * @param directoryPath - Directory to inspect.
  * @returns Absolute HTML file paths in deterministic order.
@@ -305,16 +318,18 @@ function listHtmlFiles(directoryPath: string): string[] {
 }
 
 /**
- * List checked-in expected proof file names in deterministic order.
- * @returns Flat expected proof HTML file names.
+ * Load manifest-backed snapshots through the runtime placeholder reader so
+ * relative asset URLs are normalized exactly as runtime extraction sees them.
+ * @param proofInput - The placeholder proof input.
+ * @returns HTML to submit to the extraction route.
  */
-function listExpectedProofFileNames(): string[] {
-  if (!existsSync(EXTRACTION_PROOF_EXPECTED_DIR)) return [];
+async function resolvePlaceholderHtml(
+  proofInput: PlaceholderProofInput,
+): Promise<string> {
+  const snapshot = await readPlaceholderSnapshotHtml(proofInput.articleUrl);
+  if (snapshot) return snapshot.html;
 
-  return readdirSync(EXTRACTION_PROOF_EXPECTED_DIR, { withFileTypes: true })
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
-    .map((entry) => entry.name)
-    .sort();
+  return readFileSync(proofInput.inputPath, "utf8");
 }
 
 /**
@@ -354,19 +369,4 @@ function resolvePlaceholderProofInputs(): PlaceholderProofInput[] {
  */
 function resolveProofOutputFileName(relativeInputPath: string): string {
   return relativeInputPath.split("/").join("__");
-}
-
-/**
- * Load manifest-backed snapshots through the runtime placeholder reader so
- * relative asset URLs are normalized exactly as runtime extraction sees them.
- * @param proofInput - The placeholder proof input.
- * @returns HTML to submit to the extraction route.
- */
-async function resolvePlaceholderHtml(
-  proofInput: PlaceholderProofInput,
-): Promise<string> {
-  const snapshot = await readPlaceholderSnapshotHtml(proofInput.articleUrl);
-  if (snapshot) return snapshot.html;
-
-  return readFileSync(proofInput.inputPath, "utf8");
 }

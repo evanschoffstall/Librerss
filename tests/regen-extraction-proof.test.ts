@@ -2,16 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import {
   compareExtractionProofOutputs,
+  type ExtractionProofDiff,
   generateExtractionProofOutputs,
   writeExtractionProofOutputs,
-  type ExtractionProofDiff,
 } from "./regen-extraction-proof-support";
 
-const REVIEW_NOTE =
-  "Confirm extraction proof changes do not show regressions before accepting them.";
-
 describe("regen extraction proof", () => {
-  test("matches checked-in sanitized extraction proof outputs", async () => {
+  test("matches checked-in sanitized extraction proof outputs.", async () => {
     const generatedOutputs = await generateExtractionProofOutputs();
 
     if (shouldUpdateExtractionProofFixtures(Bun.env)) {
@@ -48,7 +45,7 @@ function formatExtractionProofDiffMessage(
 
   return [
     "Extraction proof fixtures differ from the full in-code extraction and sanitization pipeline.",
-    REVIEW_NOTE,
+    "Confirm extraction proof changes do not show regressions before accepting them.",
     "Run `bun run test:regen` to refresh the expected fixtures after review.",
     diffLines,
   ].join("\n");
