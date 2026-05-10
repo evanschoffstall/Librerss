@@ -1,3 +1,4 @@
+export { assertExtractableArticleHtml } from "./content-resolution";
 export { getHostname } from "./extract-endpoint";
 export {
   consumeFatalServerError,

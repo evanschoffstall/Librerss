@@ -22,6 +22,7 @@ import type {
 } from "./payload-primitives";
 
 import {
+  assertExtractableArticleHtml,
   createExtractPayload,
   createExtractRequestContext,
   EarlyResponseError,
@@ -149,6 +150,7 @@ async function buildExtractPayload(
       : await decodeTextBody(rawHtml, undefined, {
           maxOutputBytes: CONFIG.MAX_FEED_RESPONSE_SIZE_BYTES,
         });
+  assertExtractableArticleHtml(html);
   const safeUrl = redactUrlForLogs(requestResolution.articleUrl);
   const extractableHtml = preCleanHtml(html);
   const extracted = await deps.extractArticle(
@@ -176,7 +178,7 @@ async function buildExtractPayload(
   }
 
   const payload = createExtractPayload(content, extracted);
-  if (deps.shouldUseCache()) {
+  if (payload.content.trim() && deps.shouldUseCache()) {
     setCachedExtractPayload(requestResolution.articleUrl, payload);
   }
 
