@@ -4,6 +4,7 @@ import { distillArticle } from "@/lib/distill";
 import { distillWithDefuddle } from "@/lib/distill/defuddle";
 import { librerssDistill } from "@/lib/distill/librerss";
 import { readabilityDistill } from "@/lib/distill/readability";
+import { preCleanHtml } from "@/lib/sanitize";
 
 beforeEach(() => {
   mock.restore();
@@ -63,6 +64,459 @@ describe("lib/distill/librerss", () => {
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Article body content");
+    });
+
+    test("preserves a nearby featured image before a CMS text container", async () => {
+      const html = `
+        <html>
+          <head><title>Research notes from the observation deck</title></head>
+          <body>
+            <figure class="wp-block-post-featured-image">
+              <img
+                width="1024"
+                height="786"
+                src="https://example.com/wp-content/uploads/sites/2/2026/04/lead-observation.jpg?w=1024"
+                class="attachment-post-thumbnail size-post-thumbnail wp-post-image"
+                alt="A field illustration showing an observation platform beside a research vessel."
+              />
+            </figure>
+            <div class="entry-content wp-block-post-content is-layout-flow wp-block-post-content-is-layout-flow">
+              <p>A field illustration from the observation team.</p>
+              <p><strong>Related | <a href="https://example.com/stories/2026/4/29/800029953/research/observation-methods/">Observation methods used during the coastal survey</a></strong></p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        html,
+        "https://example.com/stories/2026/5/3/800030229/research/observation-deck-notes/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toContain("lead-observation.jpg?w=1024");
+      expect(result?.content).toContain(
+        "A field illustration from the observation team.",
+      );
+      expect(result?.content).toContain("Observation methods used");
+    });
+
+    test("preserves nearby close-up lead images", async () => {
+      const metadataSpacer = `<div>${"Photo metadata and share controls. ".repeat(260)}</div>`;
+      const html = `
+        <html>
+          <body>
+            <img src="https://example.com/images/Close-up_field_exam.jpg" alt="Close-up photograph of a field exam showing a researcher reviewing measurements with a participant." />
+            ${metadataSpacer}
+            <div class="body-content">
+              <p>The research team reported that the field exam helped identify patterns across several participant groups.</p>
+              <p>Follow-up analysis will compare those observations with longer term measurements gathered during the next study phase.</p>
+              <p>The investigators said the approach could help teams prioritize resources while keeping review steps consistent.</p>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/news/field-exam/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("Close-up_field_exam.jpg");
+      expect(result?.content).toContain("field exam helped identify patterns");
+    });
+
+    test("rejects generic service banners when preserving lead prose", async () => {
+      const html = `
+        <html>
+          <body>
+            <div class="shell">
+              <section class="site-banner">
+                <p>Official website notice: secure websites protect account settings and service information before you continue.</p>
+                <p>Review privacy settings and share sensitive information only through the secure service portal.</p>
+              </section>
+              <main class="main-content">
+                <div class="body-content">
+                  <p>A research team funded by a public institute developed an automated scan analysis system for clinical assessment.</p>
+                  <p>The team said the model can identify patterns across imaging records and help clinicians prioritize follow-up review.</p>
+                  <p>Researchers are continuing to validate the system with additional datasets before it is considered for operational use.</p>
+                </div>
+              </main>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/news/automated-scan-analysis/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("automated scan analysis system");
+      expect(result?.content).not.toContain("secure service portal");
+      expect(result?.content).not.toContain("account settings");
+    });
+
+    test("prefers camel case article body over sponsored callout copy", async () => {
+      const html = `
+        <html>
+          <head><title>Learning platform confirms data exposure</title></head>
+          <body>
+            <article>
+              <div class="article_section">
+                <h1>Learning platform confirms data exposure</h1>
+                <div class="articleBody">
+                  <p><img alt="Learning platform dashboard" src="https://example.com/images/platform-dashboard.jpg" /></p>
+                  <p>A learning platform provider confirmed that account data was exposed during a recent security incident.</p>
+                  <p>The provider said the affected records include names, email addresses, course enrollments, and classroom messages.</p>
+                  <p>Investigators continue to review the event while the provider rotates application keys and increases monitoring.</p>
+                </div>
+                <div class="article-callout">
+                  <div class="article-media"><img src="https://example.com/ads/autonomous-validation2.jpg" alt="article image" /></div>
+                  <div class="article-body">
+                    <h2><a href="https://example.com/summit">Validation workshop registration</a></h2>
+                    <p>A vendor workshop explains how autonomous validation finds exploitable issues.</p>
+                    <p>Join the session to see workflow examples and remediation reporting.</p>
+                    <a href="https://example.com/summit">Claim Your Spot</a>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/news/security/learning-platform-data-exposure/",
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toContain("platform-dashboard.jpg");
+      expect(result?.content).toContain("account data was exposed");
+      expect(result?.content).toContain("application keys");
+      expect(result?.content).not.toContain("autonomous-validation2.jpg");
+      expect(result?.content).not.toContain("Claim Your Spot");
+    });
+
+    test("selects prose-dense multimedia descriptions without engagement chrome", async () => {
+      const html = `
+        <html>
+          <head><title>Publisher - instrument image</title></head>
+          <body>
+            <div class="modal">
+              <div class="modal__item">
+                <img src="https://cdn.example.com/instrument.jpg" alt="A detailed image of a field instrument captured during a calibration exercise." />
+              </div>
+              <div class="modal__info">
+                <div class="modal__header">
+                  <span>Applications</span>
+                  <span>03/04/2026</span>
+                  <span>1000 views</span>
+                  <span>32 likes</span>
+                  <span>519338 ID</span>
+                </div>
+                <button>Like</button>
+                <button>Download</button>
+                <p>Thank you for liking</p>
+                <p>You have already liked this page, you can only like it once!</p>
+                <div id="cookie_alert">COOKIES To enable the sharing functionality, please accept all cookies.</div>
+                <div class="modal__tabs"><button>Details</button><button>Related</button></div>
+                <div class="modal__tab-description">
+                  <p>The field instrument team captures this unusual image of a steady reference target for calibration.</p>
+                  <p>The stable intensity of the reference light helps engineers detect and correct small instrument changes throughout the mission.</p>
+                  <p>These observations keep measurement data accurate for applications that depend on consistent readings.</p>
+                </div>
+                <div class="modal__related">
+                  <a href="/related"><img src="https://cdn.example.com/card.jpg" alt="Related card" />Related image</a>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(html, "https://example.com/moon");
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toContain("cdn.example.com/instrument.jpg");
+      expect(result?.content).toContain("field instrument team");
+      expect(result?.content).toContain("measurement data accurate");
+      expect(result?.content).not.toContain("Thank you for liking");
+      expect(result?.content).not.toContain("accept all cookies");
+      expect(result?.content).not.toContain("Related image");
+    });
+
+    test("selects the release body without surrounding contact and case modules", async () => {
+      const html = `
+        <html>
+          <head><title>Regional board updates medication delivery guidance</title></head>
+          <body>
+            <article>
+              <a href="/press-releases">Press Releases</a>
+              <h2>The decision changes how time-sensitive care is delivered across several regions</h2>
+              Case: <a href="https://example.com/cases/regional-board-guidance">Regional Board Guidance</a>
+              <hr />
+              <section class="release-contact-card">
+                <h2>Spokesperson</h2>
+                <a href="https://example.com/bios/staff-member">
+                  <img src="https://example.com/images/staff-member.jpg" alt="Staff member headshot" />
+                  Staff Member
+                </a>
+                <h2>Media Contact</h2>
+                <a href="mailto:media@example.com">media@example.com</a>
+                <a href="tel:+15550101010">(555) 010-1010</a>
+              </section>
+              <div class="body-content">
+                <p>LAKE CITY - A regional appeals panel today ordered a temporary change to a long-standing care delivery policy while the review proceeds.</p>
+                <p>The order reverses an earlier pause and requires patients to complete an in-person pickup step that had previously been available through remote care.</p>
+                <p>Program staff said the change will make routine access harder for patients who live far from clinics, have limited transportation, or need confidential care.</p>
+                <p>The panel's order could affect providers across the country unless a higher court blocks it before the new requirements take effect.</p>
+                <p>Medical organizations have said the removed remote option had been supported by a large body of safety data and practical experience.</p>
+              </div>
+              <section class="case-card-grid">
+                <p>Public Services</p>
+                <h3>Regional Board Guidance</h3>
+                <p>This related case summary repeats background information and should not be included in the article body.</p>
+                <b>Status:</b> Ongoing
+                <a href="https://example.com/cases/regional-board-guidance">Explore case</a>
+              </section>
+              <a href="https://example.com/press-releases/previous-guidance">Next press release about this case</a>
+              <h2>Learn More About the Issues in This Press Release</h2>
+            </article>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/press-releases/regional-board-updates-guidance/",
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toContain("ordered a temporary change");
+      expect(result?.content).toContain(
+        "supported by a large body of safety data",
+      );
+      expect(result?.content).not.toContain("Media Contact");
+      expect(result?.content).not.toContain("Explore case");
+      expect(result?.content).not.toContain("Next press release");
+      expect(result?.content).not.toContain("Learn More About the Issues");
+    });
+
+    test("prefers a near-tie parent when it preserves an omitted lead paragraph", async () => {
+      const html = `
+        <html>
+          <body>
+            <main class="main-content">
+              <h2>Regional resource assessment published</h2>
+              <h3>Summary values and supporting material</h3>
+              <a href="https://example.com/report">Read the fact sheet</a>
+              By <a href="https://example.com/team">Communications Team</a>
+              January 15, 2026
+              <p><strong>RIVER CITY.</strong> A public research office released a new assessment describing recoverable resources across several adjoining basins and state-managed areas.</p>
+              <div class="body-content">
+                <p>The assessment reviews historical production, recent exploration, and the technical assumptions used to estimate remaining resources.</p>
+                <p>Researchers said the findings provide context for land managers, planners, and communities reviewing long-term infrastructure needs.</p>
+                <p>The report also describes how modern measurement methods changed the assessment model and narrowed uncertainty around the estimate.</p>
+              </div>
+            </main>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/news/regional-resource-assessment/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("A public research office released");
+      expect(result?.content).toContain("modern measurement methods");
+    });
+
+    test("does not treat official-site banners as article leads", async () => {
+      const html = `
+        <html>
+          <body>
+            <div class="dialog-off-canvas-main-canvas">
+              <section class="usa-banner">
+                <p>Official websites use .gov A .gov website belongs to an official government organization in the United States.</p>
+                <p>Secure .gov websites use HTTPS. Share sensitive information only on official, secure websites.</p>
+              </section>
+              <main id="main-content" class="main-content">
+                <div class="block block-system block-system-main-block">
+                  <p>Wednesday, March 4, 2026</p>
+                  <p>A research team funded by a public institute developed an automated scan analysis system for clinical assessment.</p>
+                  <p>The team said the model can identify patterns across imaging records and help clinicians prioritize follow-up review.</p>
+                  <p>Researchers are continuing to validate the system with additional datasets before it is considered for operational use.</p>
+                </div>
+              </main>
+              <footer><p>Looking for U.S. government information and services? Visit USA.gov</p></footer>
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/news/automated-scan-analysis/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("automated scan analysis system");
+      expect(result?.content).not.toContain("Official websites use .gov");
+      expect(result?.content).not.toContain("Visit USA.gov");
+    });
+
+    test("keeps repeated explainer sections together", async () => {
+      const sectionParagraphs = [
+        [
+          "The opening section introduces a preparedness guide for communities reviewing seasonal hazards and planning decisions.",
+          "It explains how early outlooks help residents understand whether a developing system could strengthen near land.",
+        ],
+        [
+          "Storm surge guidance describes how persistent winds can push water over normally dry ground during coastal events.",
+          "The section includes examples that help readers compare depth, duration, and local geography when assessing risk.",
+        ],
+        [
+          "Inland flooding guidance explains why heavy rain remains dangerous long after a storm weakens over land.",
+          "It also describes how terrain, drainage, and urban development can turn repeated rainfall into emergency conditions.",
+        ],
+        [
+          "Wind guidance describes how building materials, trees, and unsecured outdoor objects can become hazards.",
+          "The section encourages readers to prepare before warnings arrive and conditions make travel unsafe.",
+        ],
+      ];
+      const html = `
+        <html>
+          <body>
+            <main class="c-main">
+              <div class="explainer clearfix explainer-bodies">
+                ${sectionParagraphs
+                  .map(
+                    (paragraphs, index) => `
+                      <section class="explainer-item explainer-item-intro-body" id="section-${index}">
+                        ${paragraphs.map((paragraph) => `<p>${paragraph}</p>`).join("")}
+                      </section>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </main>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/explainers/seasonal-hazards/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("opening section introduces");
+      expect(result?.content).toContain("Storm surge guidance");
+      expect(result?.content).toContain("Inland flooding guidance");
+      expect(result?.content).toContain("Wind guidance");
+    });
+
+    test("keeps repeated accordion release panels together", async () => {
+      const releases = [
+        [
+          "Updated hazard maps released for several counties",
+          "The survey released updated hazard maps for planning offices that review development near mapped zones.",
+          "The announcement explains how local agencies can download reports, compare layers, and review affected parcels.",
+        ],
+        [
+          "New aggregate resource report published",
+          "The report summarizes permitted reserves, projected construction demand, and the regional assumptions used by planners.",
+          "It explains why nearby resources reduce transportation costs and help communities plan long-term infrastructure work.",
+        ],
+        [
+          "Regional geologic map added to catalog",
+          "The map compiles field observations and historical data into one reference for engineers and public agencies.",
+          "The announcement describes how the map supports seismic, mineral, and groundwater studies across the region.",
+        ],
+        [
+          "Digital data package now available",
+          "The package includes geospatial files, documentation, and report links for researchers who need reproducible data.",
+          "Staff said the updated package helps agencies compare current information with earlier published releases.",
+        ],
+      ];
+      const html = `
+        <html>
+          <body>
+            <div class="panel-group" id="release-index">
+              ${releases
+                .map(
+                  ([heading, firstParagraph, secondParagraph], index) => `
+                    <div class="panel panel-default">
+                      <div class="panel-heading"><h2>${heading}</h2></div>
+                      <div id="release-${index}" class="panel-collapse collapse">
+                        <div class="panel-body">
+                          <p>${firstParagraph}</p>
+                          <p>${secondParagraph}</p>
+                        </div>
+                      </div>
+                    </div>
+                  `,
+                )
+                .join("")}
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/releases/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("Updated hazard maps");
+      expect(result?.content).toContain("aggregate resource report");
+      expect(result?.content).toContain("Regional geologic map");
+      expect(result?.content).toContain("Digital data package");
+    });
+
+    test("keeps media-rich exact article content", async () => {
+      const featureItems = Array.from(
+        { length: 6 },
+        (_, index) => `
+        <h3>Feature ${index + 1}: Coastal monitoring update</h3>
+        <p>Researchers describe monitoring work that helps coastal communities understand changing conditions and plan future field operations.</p>
+        <p><a href="https://example.com/features/${index}">Read the feature update</a></p>
+        <img src="https://example.com/images/feature-${index}.jpg" alt="Feature ${index + 1} image" />
+      `,
+      ).join("");
+      const html = `
+        <html>
+          <body>
+            <div class="content-header hr">
+              <p>March 23, 2026</p>
+              <p>Short summary text that should not replace the article body.</p>
+            </div>
+            <div class="article__content article__content--news">
+              <p>The feature package introduces a week of reporting about marine wildlife research, conservation methods, and public guidance.</p>
+              ${featureItems}
+            </div>
+          </body>
+        </html>
+      `;
+
+      const result = await librerssDistill(
+        preCleanHtml(html),
+        "https://example.com/features/marine-wildlife-week/",
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result?.content).toContain("feature package introduces");
+      expect(result?.content).toContain("Feature 6");
+      expect(result?.content).toContain("feature-5.jpg");
+      expect(result?.content).not.toContain("Short summary text");
     });
 
     test("extracts article from article tag", async () => {
