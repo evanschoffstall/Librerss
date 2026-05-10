@@ -353,19 +353,6 @@ export function sanitizeArticleHtml(raw: string): string {
 }
 
 /**
- * Normalize invisible spacing artifacts that publishers often encode as HTML
- * entities. Keep visible editorial Unicode punctuation intact while removing
- * copy-hostile whitespace such as no-break spaces and zero-width format marks.
- * @param html - Sanitized article HTML.
- * @returns Article HTML without invisible formatting whitespace.
- */
-function normalizeInvisibleArticleWhitespace(html: string): string {
-  return html
-    .replace(NON_STANDARD_SPACE_PATTERN, " ")
-    .replace(INVISIBLE_INLINE_FORMATTING_PATTERN, "");
-}
-
-/**
  * Process the sanitize article title.
  * @param title - The title.
  * @returns The sanitize article title.
@@ -387,4 +374,17 @@ export function sanitizeArticleTitle(title: null | string | undefined): string {
   // Slice to MAX-1 to leave room for the ellipsis so the result stays within
   // CONFIG.MAX_ARTICLE_TITLE_LENGTH.
   return `${cleaned.slice(0, CONFIG.MAX_ARTICLE_TITLE_LENGTH - 1).trim()}\u2026`;
+}
+
+/**
+ * Normalize invisible spacing artifacts that publishers often encode as HTML
+ * entities. Keep visible editorial Unicode punctuation intact while removing
+ * copy-hostile whitespace such as no-break spaces and zero-width format marks.
+ * @param html - Sanitized article HTML.
+ * @returns Article HTML without invisible formatting whitespace.
+ */
+function normalizeInvisibleArticleWhitespace(html: string): string {
+  return html
+    .replace(NON_STANDARD_SPACE_PATTERN, " ")
+    .replace(INVISIBLE_INLINE_FORMATTING_PATTERN, "");
 }

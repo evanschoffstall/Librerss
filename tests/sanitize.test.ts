@@ -166,11 +166,11 @@ describe("lib/utils/sanitize comprehensive", () => {
   test("sanitizeArticleTitle strips HTML from titles", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
-    const title = "Breaking: <script>alert(1)</script> News!";
+    const title = "Update: <script>alert(1)</script> Notes";
     const result = sanitizeArticleTitle(title);
 
-    expect(result).toContain("Breaking:");
-    expect(result).toContain("News!");
+    expect(result).toContain("Update:");
+    expect(result).toContain("Notes");
     expect(result).not.toContain("<script>");
     expect(result).not.toContain("alert");
   });
@@ -190,20 +190,20 @@ describe("lib/utils/sanitize comprehensive", () => {
   test("sanitizeArticleTitle decodes named entities", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
-    const title = "Cartoon: Stocks &amp; Bondis";
+    const title = "Research: Stocks &amp; Bonds";
     const result = sanitizeArticleTitle(title);
 
-    expect(result).toBe("Cartoon: Stocks & Bondis");
+    expect(result).toBe("Research: Stocks & Bonds");
     expect(result).not.toContain("&amp;");
   });
 
   test("sanitizeArticleTitle decodes numeric entities", async () => {
     const { sanitizeArticleTitle } = await import("@/lib/sanitize");
 
-    const title = "Cartoon &#38; Politics &#x26; Markets";
+    const title = "Research &#38; Methods &#x26; Markets";
     const result = sanitizeArticleTitle(title);
 
-    expect(result).toBe("Cartoon & Politics & Markets");
+    expect(result).toBe("Research & Methods & Markets");
   });
 
   test("sanitizeArticleTitle strips unknown entities", async () => {
@@ -361,7 +361,7 @@ describe("lib/utils/sanitize comprehensive", () => {
       await import("@/lib/sanitize");
 
     const html =
-      '<img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="placeholder" /><p>Body content</p>';
+      '<img src="https://example.com/core/grey-placeholder.png" alt="placeholder" /><p>Body content</p>';
     const result = sanitizeAndTruncateArticleContent(html);
 
     expect(result).not.toContain("grey-placeholder.png");
@@ -584,11 +584,11 @@ describe("sanitize – toPlainText", () => {
 
   test("removes embedded media fallback placeholder text", () => {
     const html =
-      '<p>Before</p><iframe src="https://www.youtube.com/embed/abc">YouTube Video</iframe><p>After</p>';
+      '<p>Before</p><iframe src="https://example.com/embed/abc">Embedded Video</iframe><p>After</p>';
     const result = toPlainText(html);
     expect(result).toContain("Before");
     expect(result).toContain("After");
-    expect(result).not.toContain("YouTube Video");
+    expect(result).not.toContain("Embedded Video");
   });
 
   test("decodes &lt; and &gt; entities", () => {
@@ -698,11 +698,11 @@ describe("sanitize – sanitizeArticleHtml", () => {
 
   test("strips iframe fallback placeholder text", () => {
     const result = sanitizeArticleHtml(
-      '<p>Main</p><iframe src="https://www.youtube.com/embed/abc">YouTube Video</iframe><p>After</p>',
+      '<p>Main</p><iframe src="https://example.com/embed/abc">Embedded Video</iframe><p>After</p>',
     );
     expect(result).toContain("Main");
     expect(result).toContain("After");
-    expect(result).not.toContain("YouTube Video");
+    expect(result).not.toContain("Embedded Video");
     expect(result).not.toContain("<iframe");
   });
 
@@ -747,7 +747,7 @@ describe("sanitize – sanitizeArticleHtml", () => {
 
 describe("sanitize – sanitizeArticleTitle", () => {
   test("strips all HTML from title", () => {
-    expect(sanitizeArticleTitle("<b>Breaking</b> News")).toBe("Breaking News");
+    expect(sanitizeArticleTitle("<b>Update</b> Notes")).toBe("Update Notes");
   });
 
   test("returns Untitled for null", () => {
@@ -1005,7 +1005,7 @@ describe("lib/sanitize/content-validation – stripShareEngagementToolbars branc
     const html =
       `<p>Real content here.</p>` +
       `<ul>` +
-      `<li><a href="https://twitter.com/share?text=foo">Share on X</a></li>` +
+      `<li><a href="mailto:?subject=foo">Share by email</a></li>` +
       `</ul>`;
     const result = cleanSanitizedHtml(html, "https://example.com/");
     expect(result).toContain("Real content");
@@ -1040,13 +1040,13 @@ describe("lib/sanitize/cleaners – preCleanHtml social share list removal", () 
     const html =
       `<div><p>Article content.</p>` +
       `<ul>` +
-      `<li><a href="https://twitter.com/share?url=x">Twitter</a></li>` +
-      `<li><a href="https://facebook.com/sharer?u=x">Facebook</a></li>` +
-      `<li><a href="https://reddit.com/submit?url=x">Reddit</a></li>` +
+      `<li><a href="mailto:?subject=a">Share A</a></li>` +
+      `<li><a href="mailto:?subject=b">Share B</a></li>` +
+      `<li><a href="mailto:?subject=c">Share C</a></li>` +
       `</ul></div>`;
     const result = preCleanHtml(html);
-    expect(result).not.toContain("Twitter");
-    expect(result).not.toContain("Facebook");
+    expect(result).not.toContain("Share A");
+    expect(result).not.toContain("Share B");
   });
 
   test("strips ul where 8+ items are all bare links (any target)", async () => {
@@ -1236,20 +1236,20 @@ describe("Image Sanitization", () => {
 
   test("should keep dimensionless images with strong content signals", () => {
     const input =
-      '<img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket">';
+      '<img src="https://example.com/images/mission-photo.jpg" alt="Mission photo from a small launch vehicle">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).toContain("<img");
-    expect(result).toContain("liftoff_for_celeste.jpg");
+    expect(result).toContain("mission-photo.jpg");
   });
 
   test("should remove dimensionless chrome images without size signal", () => {
     const input =
-      '<img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo">';
+      '<img src="https://example.com/assets/images/site-logo@2x.png" alt="Site logo">';
     const result = sanitizeArticleHtml(input);
 
     expect(result).not.toContain("<img");
-    expect(result).not.toContain("nasa-logo@2x.png");
+    expect(result).not.toContain("site-logo@2x.png");
   });
 
   test("should keep images that have srcset but no explicit width/height", () => {
@@ -1371,9 +1371,9 @@ describe("sanitize – full content preview pipeline preserves characters", () =
 
   test("preserves all characters in realistic article content", () => {
     const html =
-      "<p>NASA&rsquo;s Artemis program &mdash; its most ambitious mission since Apollo &mdash; aims to send astronauts back to the Moon&rsquo;s surface. Scientists suggest the mission&rsquo;s success depends on several key systems.</p>";
+      "<p>The field study&rsquo;s launch plan &mdash; its most detailed mission since the initial trial &mdash; aims to send observers back to the survey site. Scientists suggest the mission&rsquo;s success depends on several key systems.</p>";
     const result = collapsedPreview(html);
-    expect(result).toContain("NASA\u2019s Artemis");
+    expect(result).toContain("study\u2019s launch plan");
     expect(result).toContain("mission\u2019s success");
     expect(result).toContain("Scientists");
     expect(result).toContain("systems");

@@ -1,4 +1,9 @@
 import {
+  isMediaUtilityLinkText,
+  stripStandaloneMediaAttributionText,
+} from "@/lib/sanitize/media-widget";
+
+import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
   stripLeadingInlineBioBlock,
@@ -146,15 +151,59 @@ function stripFileDownloadBoilerplate(content: string): string {
   );
 }
 
-/** Promotional / call-to-action pattern (cross-site generic). */
-const PROMO_CTA_RE =
-  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
+/** Promotional / call-to-action phrases (cross-site generic). */
+const PROMO_CTA_PHRASES = [
+  "add as preferred source",
+  "consider becoming a subscriber",
+  "essential reads",
+  "preferred source on google",
+  "read the fact sheet",
+  "reader supported publication",
+  "reader-supported publication",
+  "to receive new posts",
+  "you may like to watch",
+  "you need javascript enabled",
+] as const;
+
+/** Metadata and utility labels that identify non-body lead chrome. */
+const LEADING_ARTICLE_CHROME_PHRASES = [
+  "by",
+  "communications and publishing",
+  "communication and publishing",
+  "date",
+  "fact sheet",
+  "press release",
+  "read the",
+] as const;
 
 /**
- * Process the clean sanitized html.
- * @param sanitizedContent - The sanitized content.
- * @param _articleUrl - The article url.
- * @returns The clean sanitized html.
+ * Matches standalone media-control labels that serve as UI affordances rather
+ * than article content. Anchors whose entire non-image text matches this pattern
+ * are collapsed to their image tag alone; anchors that carry a real caption or
+ * attribution alongside an image are left intact.
+ *
+ * The pattern is intentionally broad so it generalises across publishers and
+ * does not require an exhaustive enumeration of every possible label variant.
+ */
+/** Standalone media labels that describe embedded widgets, not article prose. */
+const MEDIA_UTILITY_HEADING_TEXTS = new Set(["video file"]);
+
+/** Section headings that commonly introduce related-content and taxonomy chrome. */
+const TRAILING_ARTICLE_CHROME_HEADINGS = [
+  "<h2>more information</h2>",
+  "<h2>recent news</h2>",
+  "<h3>more information</h3>",
+  "<h3>recent news</h3>",
+] as const;
+
+/**
+ * Applies final reader-content cleanup after the structural sanitizer has made
+ * the HTML safe. This pass removes generic publisher chrome such as share
+ * controls, lead metadata, and media utility labels while preserving actual
+ * article prose, links, and images.
+ * @param sanitizedContent - Safe article HTML produced by the sanitizer.
+ * @param _articleUrl - Canonical article URL reserved for future generic rules.
+ * @returns Cleaned article HTML ready for reader display.
  */
 export function cleanSanitizedHtml(
   sanitizedContent: string,
@@ -167,21 +216,31 @@ export function cleanSanitizedHtml(
     return "";
   }
 
-  const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
+  const withoutLeadingChrome = stripLeadingArticleChrome(sanitizedContent);
+
+  const withoutShareToolbars =
+    stripShareEngagementToolbars(withoutLeadingChrome);
 
   const withoutFileBoilerplate =
     stripFileDownloadBoilerplate(withoutShareToolbars);
 
-  const withoutEngagementPrompts = stripCommentEngagementBoilerplate(
+  const withoutMediaUtilities = stripMediaUtilityBoilerplate(
     withoutFileBoilerplate,
+  );
+
+  const withoutEngagementPrompts = stripCommentEngagementBoilerplate(
+    withoutMediaUtilities,
   );
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
   const withoutLeadingBio = stripLeadingInlineBioBlock(withoutPromos);
 
-  const withoutDuplicateLeadImage =
-    removeLeadingDuplicateImage(withoutLeadingBio);
+  const withoutTrailingChrome = stripTrailingArticleChrome(withoutLeadingBio);
+
+  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(
+    withoutTrailingChrome,
+  );
 
   const withoutMediaHeadings = stripLeadMediaBoilerplateHeadings(
     withoutDuplicateLeadImage,
@@ -279,8 +338,91 @@ function isPromoCta(inner: string): boolean {
   const text = inner
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
-  return PROMO_CTA_RE.test(text);
+    .trim()
+    .toLowerCase();
+  return (
+    PROMO_CTA_PHRASES.some((phrase) => text.includes(phrase)) ||
+    (text.startsWith("follow ") && text.includes(" on whatsapp"))
+  );
+}
+
+/**
+ * Removes title, byline, date, and CTA fragments that appear before the first
+ * article paragraph when confidence selection intentionally chooses a broader
+ * CMS article wrapper to preserve lead prose.
+ * @param content - Sanitized article HTML to inspect.
+ * @returns HTML with generic leading chrome removed when detected.
+ */
+function stripLeadingArticleChrome(content: string): string {
+  const firstParagraphIndex = content.search(/<p\b/i);
+  if (firstParagraphIndex <= 0) return content;
+
+  const leadingChunk = content.slice(0, firstParagraphIndex);
+  if (/<img\b/i.test(leadingChunk)) return content;
+
+  const leadingText = toPlainText(leadingChunk).replace(/\s+/g, " ").trim();
+  const normalizedLeadingText = leadingText.toLowerCase();
+  if (
+    !LEADING_ARTICLE_CHROME_PHRASES.some((phrase) =>
+      normalizedLeadingText.includes(phrase),
+    )
+  ) {
+    return content;
+  }
+
+  return content.slice(firstParagraphIndex);
+}
+
+/**
+ * Removes media-widget labels and download/detail links while preserving image
+ * anchors and any meaningful caption or attribution text alongside them.
+ *
+ * For image-containing anchors the surrounding non-image text is inspected:
+ * - Empty non-image text → collapse to the bare image anchor (formatting only).
+ * - Text that matches the generic media utility classifier → strip the UI label, keep the image.
+ * - Any other text → preserve the whole anchor intact so genuine captions,
+ *   photographer credits, and alt descriptions reach the reader.
+ * @param content - Sanitized article HTML to inspect.
+ * @returns HTML without generic media utility widget text.
+ */
+function stripMediaUtilityBoilerplate(content: string): string {
+  return content
+    .replace(
+      /<h([2-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi,
+      (match, _level: string, inner: string) => {
+        const headingText = toPlainText(inner)
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        return MEDIA_UTILITY_HEADING_TEXTS.has(headingText) ? "" : match;
+      },
+    )
+    .replace(
+      /<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
+      (match, attrs: string, inner: string) => {
+        const imageMatch = /<img\b[\s\S]*?>/i.exec(inner);
+        if (imageMatch) {
+          // Determine what text surrounds the image inside this anchor.
+          const nonImageText = toPlainText(inner.replace(imageMatch[0], ""))
+            .replace(/\s+/g, " ")
+            .trim();
+          // Collapse to the bare image only when there is no accompanying text
+          // or the text is a recognised UI control label. Real captions and
+          // photographer attributions must survive so readers see them.
+          if (!nonImageText || isMediaUtilityLinkText(nonImageText)) {
+            return `<a${attrs}>${imageMatch[0]}</a>`;
+          }
+          return match;
+        }
+
+        const linkText = toPlainText(inner)
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        return isMediaUtilityLinkText(linkText) ? "" : match;
+      },
+    )
+    .replace(/\s*\|\s*/g, " | ");
 }
 
 /**
@@ -289,13 +431,51 @@ function isPromoCta(inner: string): boolean {
  * @returns The strip promotional cta blocks.
  */
 function stripPromotionalCtaBlocks(content: string): string {
-  return content
-    .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
-      isPromoCta(inner) ? "" : m,
-    )
-    .replace(
-      // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
-      /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
-      (m, inner: string) => (isPromoCta(inner) ? "" : m),
-    );
+  return stripStandaloneMediaAttributionText(
+    content
+      .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
+        isPromoCta(inner) ? "" : m,
+      )
+      .replace(
+        // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
+        /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
+        (m, inner: string) => (isPromoCta(inner) ? "" : m),
+      ),
+  );
+}
+
+/**
+ * Removes trailing related-news, taxonomy, and last-updated sections that follow
+ * an otherwise complete article body. This keeps publisher recommendation cards
+ * from entering reader content while preserving article headings and media above
+ * the first chrome boundary.
+ * @param content - Sanitized article HTML to inspect for a trailing chrome block.
+ * @returns HTML before the first confirmed trailing chrome heading.
+ */
+function stripTrailingArticleChrome(content: string): string {
+  const lowerContent = content.toLowerCase();
+  const chromeStart = TRAILING_ARTICLE_CHROME_HEADINGS.reduce<null | number>(
+    (earliest, heading) => {
+      const index = lowerContent.indexOf(heading);
+      if (index < 0) return earliest;
+
+      const tail = lowerContent.slice(index);
+      const hasChromeTail =
+        tail.includes("feature story") ||
+        tail.includes("last updated by") ||
+        tail.includes("more news") ||
+        tail.includes("/tags/");
+      if (!hasChromeTail) return earliest;
+
+      return earliest === null ? index : Math.min(earliest, index);
+    },
+    null,
+  );
+
+  if (chromeStart === null) return content;
+
+  const retained = content.slice(0, chromeStart).trimEnd();
+  const hasArticleBeforeChrome =
+    (retained.match(/<p\b/gi)?.length ?? 0) >= 2 || /<img\b/i.test(retained);
+  return hasArticleBeforeChrome ? retained : content;
 }
