@@ -16,6 +16,7 @@ import {
   resolveFeedScrollMode,
   resolveFeedScrollModeArticles,
   resolveFeedVirtualListOverscanCount,
+  resolveInvertedExpansionLockTargetScrollTop,
   resolveInvertedExpansionLockViewport,
   resolveInvertedPaginationAnchorScrollTop,
   resolveNextVisibleCount,
@@ -473,5 +474,66 @@ describe("feed DOM helpers", () => {
       globalThis.ResizeObserver = originalResizeObserver;
       globalThis.MutationObserver = originalMutationObserver;
     }
+  });
+
+  test("restore mode uses the captured header offset after the user scrolls away", () => {
+    const viewport = document.createElement("div");
+    viewport.dataset.radixScrollAreaViewport = "";
+    viewport.getBoundingClientRect = () => createRect(100, 240);
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      value: 240,
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      value: 1200,
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 220,
+      writable: true,
+    });
+
+    const { headerElement } = appendArticle(
+      viewport,
+      "article-1",
+      360,
+      96,
+      360,
+      44,
+    );
+    document.body.append(viewport);
+
+    expect(
+      resolveInvertedExpansionLockTargetScrollTop({
+        anchorViewportOffsetTop: 120,
+        animationFrameId: 0,
+        articleKey: "article-1",
+        baselineScrollTop: 700,
+        disconnectLayoutObservers: null,
+        mode: "restore",
+        pinToBottom: false,
+        releaseAt: performance.now() + 1000,
+        viewport,
+        viewportOverflowAnchor: "auto",
+      }),
+    ).toBe(360);
+
+    headerElement.remove();
+
+    expect(
+      resolveInvertedExpansionLockTargetScrollTop({
+        anchorViewportOffsetTop: 120,
+        animationFrameId: 0,
+        articleKey: "article-1",
+        baselineScrollTop: 700,
+        disconnectLayoutObservers: null,
+        mode: "restore",
+        pinToBottom: false,
+        releaseAt: performance.now() + 1000,
+        viewport,
+        viewportOverflowAnchor: "auto",
+      }),
+    ).toBe(700);
   });
 });
