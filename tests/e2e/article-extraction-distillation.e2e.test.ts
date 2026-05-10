@@ -6,6 +6,12 @@ import {
 } from "@/lib/sanitize";
 import { assertExtractableArticleHtml } from "@/lib/server";
 
+import {
+  createMultiArticleOwnershipFixture,
+  MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE,
+  MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+  MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+} from "../article-extraction-fixtures";
 import { expect, test } from "./test";
 
 /**
@@ -480,6 +486,19 @@ test.describe("article extraction distillation", () => {
     expect(result?.content).toContain("application keys");
     expect(result?.content).not.toContain("autonomous-validation2.jpg");
     expect(result?.content).not.toContain("Claim Your Spot");
+  });
+
+  test("prefers the page-owning body when data-headline contains apostrophes", async () => {
+    const result = librerssDistill(
+      preCleanHtml(createMultiArticleOwnershipFixture()),
+      MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+      { contentLengthThreshold: 120 },
+    );
+
+    expect(result?.content).toContain(MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE);
+    expect(result?.content).not.toContain(
+      MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+    );
   });
 
   test("keeps release content separate from contact and related-case modules", async () => {

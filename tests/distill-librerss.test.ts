@@ -6,6 +6,13 @@ import { librerssDistill } from "@/lib/distill/librerss";
 import { readabilityDistill } from "@/lib/distill/readability";
 import { preCleanHtml } from "@/lib/sanitize";
 
+import {
+  createMultiArticleOwnershipFixture,
+  MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE,
+  MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+  MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+} from "./article-extraction-fixtures";
+
 beforeEach(() => {
   mock.restore();
 });
@@ -242,6 +249,22 @@ describe("lib/distill/librerss", () => {
       expect(result?.content).toContain("application keys");
       expect(result?.content).not.toContain("autonomous-validation2.jpg");
       expect(result?.content).not.toContain("Claim Your Spot");
+    });
+
+    test("prefers the page-owning body when data-headline contains apostrophes", async () => {
+      const result = await librerssDistill(
+        preCleanHtml(createMultiArticleOwnershipFixture()),
+        MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+        { contentLengthThreshold: 120 },
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.content).toContain(
+        MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE,
+      );
+      expect(result?.content).not.toContain(
+        MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+      );
     });
 
     test("selects prose-dense multimedia descriptions without engagement chrome", async () => {

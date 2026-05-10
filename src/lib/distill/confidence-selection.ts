@@ -1,16 +1,19 @@
+import {
+  hasExactContentAttributeSignal,
+  readCandidateStructureMetrics,
+} from "@/lib/distill/candidate-signals";
 import { countBoilerplateSignals } from "@/lib/distill/chrome";
+import { readPageHeadlineSignals } from "@/lib/distill/headline-ownership";
 import {
   countUtilityLeadParagraphs,
-  isLikelyUtilityLeadParagraph,
+  findLeadPreservingContainingCandidate,
   prependNearbyLeadImage,
+  readMeaningfulLeadProse,
 } from "@/lib/distill/lead";
-import { decodeHtmlEntities, readAttrValue } from "@/lib/sanitize";
+import { decodeHtmlEntities, parsePageTitle } from "@/lib/sanitize";
 
 /** Candidate tags that commonly wrap standalone article prose. */
 const CANDIDATE_CONTAINER_TAG_RE = /<(article|main|section|div)\b([^>]*)>/gi;
-
-/** HTML tags that represent readable prose blocks inside a candidate body. */
-const PROSE_BLOCK_RE = /<(?:p|blockquote)\b/gi;
 
 /** HTML tags that represent publisher controls or low-signal media cards. */
 const CONTROL_TAG_RE = /<(?:button|form|input|select|textarea)\b/gi;
@@ -18,39 +21,11 @@ const CONTROL_TAG_RE = /<(?:button|form|input|select|textarea)\b/gi;
 /** HTML tags that carry outbound or related-card link density. */
 const LINK_TAG_RE = /<a\b[^>]*>([\s\S]*?)<\/a>/gi;
 
-/** HTML tags that often indicate metadata, taxonomy, or related-card lists. */
-const LIST_ITEM_TAG_RE = /<li\b/gi;
-
-/** HTML tags that introduce section headings inside related-card modules. */
-const HEADING_TAG_RE = /<h[2-6]\b/gi;
-
-/** HTML tags that may represent media inside a candidate body. */
-const IMAGE_TAG_RE = /<img\b[^>]*>/gi;
-
 /** Repeated accordion panels can form a complete index-style content surface. */
 const ACCORDION_PANEL_RE = /\bpanel\s+panel-default\b/gi;
 
 /** Repeated explainer items can form one multi-section article body. */
 const EXPLAINER_ITEM_RE = /\bexplainer-item\b/gi;
-
-/** Class and id patterns that strongly identify the article text itself. */
-const EXACT_CONTENT_ATTR_PATTERNS = [
-  "articlebody",
-  "article-body",
-  "article__body",
-  "article-content",
-  "article__content",
-  "body-content",
-  "content-body",
-  "entry-content",
-  "entry__content",
-  "field--name-body",
-  "field-name-body",
-  "post-content",
-  "post__content",
-  "story-content",
-  "story__content",
-] as const;
 
 /** Class and id words that usually identify useful article text containers. */
 const CONTENT_ATTR_SIGNAL_RE =
@@ -88,6 +63,9 @@ interface ArticleBodySignals {
   hasChromeAttributeSignal: boolean;
   hasContentAttributeSignal: boolean;
   hasExactContentAttributeSignal: boolean;
+  hasExactMatchingPageHeadlineAttribute: boolean;
+  hasMatchingPageHeadline: boolean;
+  hasMismatchedPageHeadline: boolean;
   headingCount: number;
   imageCount: number;
   linkCount: number;
@@ -107,9 +85,6 @@ interface ScoredArticleBodyCandidate {
   signals: ArticleBodySignals;
 }
 
-/** Lowest score ratio allowed when a parent preserves real lead prose. */
-const CONTAINING_LEAD_PARENT_SCORE_RATIO = 0.3;
-
 /**
  * Selects a high-confidence article body when semantic selectors cannot find
  * one. The scorer favors prose-dense, low-link containers over whole-page
@@ -123,9 +98,11 @@ export function findConfidentArticleBody(
   html: string,
   minLength: number,
 ): null | string {
+  const pageTitle = parsePageTitle(html);
   const selectedCandidate = selectBestCandidate(
     collectArticleBodyCandidates(html),
     minLength,
+    pageTitle,
   );
 
   return selectedCandidate
@@ -272,103 +249,6 @@ function findContainingRepeatedGroup(
 }
 
 /**
- * Finds a near-tie ancestor that adds a real introductory paragraph before the
- * highest-scoring child. CMS pages often split the lead and body into sibling
- * fields, so using the child alone can remove the actual opening paragraph.
- * @param scoredCandidates - Usable candidates sorted by confidence.
- * @param bestCandidate - Highest-scoring candidate before containment review.
- * @returns Near-tie parent candidate when it preserves meaningful lead prose.
- */
-function findLeadPreservingContainingCandidate(
-  scoredCandidates: ScoredArticleBodyCandidate[],
-  bestCandidate: ScoredArticleBodyCandidate,
-): null | ScoredArticleBodyCandidate {
-  const minimumScore = bestCandidate.score * CONTAINING_LEAD_PARENT_SCORE_RATIO;
-
-  return (
-    scoredCandidates.find((scored) => {
-      if (scored === bestCandidate || scored.score < minimumScore) {
-        return false;
-      }
-
-      const parent = scored.candidate;
-      const child = bestCandidate.candidate;
-      return (
-        parent.openIndex < child.openIndex &&
-        parent.closeIndex > child.closeIndex &&
-        hasMeaningfulLeadProse(parent, child)
-      );
-    }) ?? null
-  );
-}
-
-/**
- * Detects schema and CMS markers that identify the actual article text node,
- * not merely a broad page wrapper that happens to contain article-like words.
- * @param attrs - Raw opening-tag attributes for a candidate container.
- * @returns Whether the candidate carries a high-confidence body marker.
- */
-function hasExactContentAttributeSignal(attrs: string): boolean {
-  if (readAttrValue(attrs, "itemprop") === "articleBody") return true;
-
-  const classValue = normalizeAttributeTokens(readAttrValue(attrs, "class"));
-  const idValue = normalizeAttributeTokens(readAttrValue(attrs, "id"));
-
-  return EXACT_CONTENT_ATTR_PATTERNS.some(
-    (pattern) =>
-      classValue.includes(pattern) ||
-      idValue.includes(pattern) ||
-      classValue.includes(pattern.replaceAll("-", "")) ||
-      idValue.includes(pattern.replaceAll("-", "")),
-  );
-}
-
-/**
- * Detects whether a containing candidate contributes a substantive lead
- * paragraph before the selected child rather than just headings, bylines, or
- * navigation links.
- * @param parent - Candidate that may wrap the best child candidate.
- * @param child - Best child candidate nested inside the parent.
- * @returns Whether the parent adds a meaningful paragraph before the child.
- */
-function hasMeaningfulLeadProse(
-  parent: ArticleBodyCandidate,
-  child: ArticleBodyCandidate,
-): boolean {
-  const childOffset = child.openIndex - parent.openIndex;
-  const leadingHtml = parent.html.slice(0, Math.max(0, childOffset));
-  const paragraphs = [...leadingHtml.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)];
-  const substantiveParagraphs = paragraphs.filter((paragraph) => {
-    const text = createVisibleText(paragraph[1]);
-    if (isLikelyUtilityLeadParagraph(text)) return false;
-    return text.length >= 120 && text.split(/\s+/).filter(Boolean).length >= 20;
-  });
-
-  if (substantiveParagraphs.length === 0) {
-    return false;
-  }
-
-  const imageCount = countMatches(leadingHtml, IMAGE_TAG_RE);
-  const listItemCount = countMatches(leadingHtml, LIST_ITEM_TAG_RE);
-  if (
-    imageCount >= 2 ||
-    (imageCount >= 1 && listItemCount >= 1) ||
-    countUtilityLeadParagraphs(leadingHtml, createVisibleText) >= 1
-  ) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Returns whether a normalized word list contains any token from a signal set.
- * @param words - Normalized candidate words.
- * @param signals - Signal tokens that increase chrome confidence.
- * @returns Whether any normalized word belongs to the signal set.
- */
-
-/**
  * Applies minimum confidence gates so the fallback does not select tiny cards,
  * captions, or list-heavy related modules just because they have a class match.
  * @param scored - Scored candidate body to check.
@@ -394,32 +274,44 @@ function isUsableCandidate(
 }
 
 /**
- * Normalizes class and id text so camel-case publisher markers such as
- * `articleBody` and kebab-case markers such as `article-body` compare evenly.
- * @param value - Raw attribute value read from a candidate container.
- * @returns Lowercase searchable attribute text with stable whitespace.
+ * Returns whether a normalized word list contains any token from a signal set.
+ * @param words - Normalized candidate words.
+ * @param signals - Signal tokens that increase chrome confidence.
+ * @returns Whether any normalized word belongs to the signal set.
  */
-function normalizeAttributeTokens(value: null | string): string {
-  return ` ${(value ?? "").replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase()} `;
-}
 
 /**
  * Reads the structural and textual evidence used by the body confidence model.
  * @param candidate - Candidate body container to inspect.
  * @param visibleText - Plain visible text for the candidate body.
  * @param linkText - Plain visible text inside links within the candidate body.
+ * @param pageTitle - Normalized page title signal used to identify the owning article.
  * @returns Scoring signals for the candidate body.
  */
 function readArticleBodySignals(
   candidate: ArticleBodyCandidate,
   visibleText: string,
   linkText: string,
+  pageTitle: null | string,
 ): ArticleBodySignals {
-  const words = visibleText.split(/\s+/).filter(Boolean);
+  const wordCount = visibleText.split(/\s+/).filter(Boolean).length;
   const textLength = visibleText.length;
   const utilityParagraphCount = countUtilityLeadParagraphs(
     candidate.html,
     createVisibleText,
+  );
+  const hasExactBodySignal = hasExactContentAttributeSignal(candidate.attrs);
+  const headlineSignals = readPageHeadlineSignals(
+    candidate.attrs,
+    candidate.html,
+    pageTitle,
+    hasExactBodySignal,
+  );
+  const structuralMetrics = readCandidateStructureMetrics(
+    candidate.html,
+    visibleText,
+    linkText,
+    textLength,
   );
 
   return {
@@ -427,19 +319,12 @@ function readArticleBodySignals(
     controlCount: countMatches(candidate.html, CONTROL_TAG_RE),
     hasChromeAttributeSignal: CHROME_ATTR_SIGNAL_RE.test(candidate.attrs),
     hasContentAttributeSignal: CONTENT_ATTR_SIGNAL_RE.test(candidate.attrs),
-    hasExactContentAttributeSignal: hasExactContentAttributeSignal(
-      candidate.attrs,
-    ),
-    headingCount: countMatches(candidate.html, HEADING_TAG_RE),
-    imageCount: countMatches(candidate.html, IMAGE_TAG_RE),
-    linkCount: countMatches(candidate.html, LINK_TAG_RE),
-    linkDensity: textLength > 0 ? linkText.length / textLength : 1,
-    listItemCount: countMatches(candidate.html, LIST_ITEM_TAG_RE),
-    paragraphCount: countMatches(candidate.html, PROSE_BLOCK_RE),
-    sentenceCount: countMatches(visibleText, /[.!?](?:\s|$)/g),
+    hasExactContentAttributeSignal: hasExactBodySignal,
+    ...headlineSignals,
+    ...structuralMetrics,
     textLength,
     utilityParagraphCount,
-    wordCount: words.length,
+    wordCount,
   };
 }
 
@@ -453,11 +338,14 @@ function scoreArticleBodySignals(signals: ArticleBodySignals): number {
     Math.min(signals.wordCount, PROSE_WORD_SCORE_CAP) +
     Math.min(signals.paragraphCount, PROSE_PARAGRAPH_SCORE_CAP) * 30 +
     Math.min(signals.sentenceCount, PROSE_SENTENCE_SCORE_CAP) * 8 +
+    (signals.hasExactMatchingPageHeadlineAttribute ? 320 : 0) +
+    (signals.hasMatchingPageHeadline ? 520 : 0) +
     (signals.hasExactContentAttributeSignal ? 180 : 0) +
     (signals.hasContentAttributeSignal ? 60 : 0);
   const boilerplatePenalty = signals.boilerplateHits * 80;
   const chromePenalty =
     (signals.hasChromeAttributeSignal ? 320 : 0) +
+    (signals.hasMismatchedPageHeadline ? 180 : 0) +
     signals.controlCount * 45 +
     signals.headingCount * 14 +
     signals.imageCount * 12 +
@@ -472,16 +360,23 @@ function scoreArticleBodySignals(signals: ArticleBodySignals): number {
 /**
  * Converts text and structure signals into one confidence score.
  * @param candidate - Candidate body container to measure.
+ * @param pageTitle - Normalized page title signal used during ownership scoring.
  * @returns Candidate with normalized evidence and score.
  */
 function scoreCandidate(
   candidate: ArticleBodyCandidate,
+  pageTitle: null | string,
 ): ScoredArticleBodyCandidate {
   const visibleText = createVisibleText(candidate.html);
   const linkText = [...candidate.html.matchAll(LINK_TAG_RE)]
     .map((match) => createVisibleText(match[1]))
     .join(" ");
-  const signals = readArticleBodySignals(candidate, visibleText, linkText);
+  const signals = readArticleBodySignals(
+    candidate,
+    visibleText,
+    linkText,
+    pageTitle,
+  );
 
   return {
     candidate,
@@ -494,17 +389,23 @@ function scoreCandidate(
  * Finds the highest-scoring candidate that clears the minimum confidence gates.
  * @param candidates - Candidate article containers in source order.
  * @param minLength - Minimum visible text length required by the caller.
+ * @param pageTitle - Normalized page title signal used to prefer the owning article wrapper.
  * @returns The candidate that should own Librerss extraction, if any.
  */
 function selectBestCandidate(
   candidates: ArticleBodyCandidate[],
   minLength: number,
+  pageTitle: null | string,
 ): ArticleBodyCandidate | null {
   const scoredCandidates = candidates
-    .map(scoreCandidate)
+    .map((candidate) => scoreCandidate(candidate, pageTitle))
     .filter((scored) => isUsableCandidate(scored, minLength))
     .sort(
       (left, right) =>
+        Number(right.signals.hasExactMatchingPageHeadlineAttribute) -
+          Number(left.signals.hasExactMatchingPageHeadlineAttribute) ||
+        Number(right.signals.hasMatchingPageHeadline) -
+          Number(left.signals.hasMatchingPageHeadline) ||
         Number(right.signals.hasExactContentAttributeSignal) -
           Number(left.signals.hasExactContentAttributeSignal) ||
         right.score - left.score ||
@@ -532,8 +433,24 @@ function selectBestCandidate(
   );
   if (repeatedExplainerGroup) return repeatedExplainerGroup;
 
-  return (
-    findLeadPreservingContainingCandidate(scoredCandidates, bestCandidate)
-      ?.candidate ?? bestCandidate.candidate
+  const leadPreservingParent = findLeadPreservingContainingCandidate(
+    candidates,
+    bestCandidate.candidate,
+    createVisibleText,
   );
+  if (leadPreservingParent !== null) {
+    const preservedLeadProse = readMeaningfulLeadProse(
+      leadPreservingParent,
+      bestCandidate.candidate,
+      createVisibleText,
+    );
+    if (preservedLeadProse !== null) {
+      return {
+        ...bestCandidate.candidate,
+        html: `${preservedLeadProse}${bestCandidate.candidate.html}`,
+      };
+    }
+  }
+
+  return bestCandidate.candidate;
 }
