@@ -6,7 +6,6 @@
   "scripts": {
     "setup:playwright": "bunx playwright install chromium firefox webkit",
     "dev": "next dev --turbopack",
-    "dev:local": "bun dev --turbopack -H 0.0.0.0 -p 3000",
     "dev:playwright": "sh -c 'PLAYWRIGHT_NEXT_DIST_DIR=\"${PLAYWRIGHT_NEXT_DIST_DIR:-.next-playwright}\" next dev --turbopack -H 127.0.0.1 -p \"${PLAYWRIGHT_PORT:-3100}\"'",
     "build": "next build",
     "clean": "rm -rf .next .cache .coverage",
@@ -18,7 +17,7 @@
     "test:e2e:coverage": "PLAYWRIGHT_COVERAGE_ENABLED=1 PLAYWRIGHT_COVERAGE_OUTPUT_DIR=coverage/playwright-raw PLAYWRIGHT_COVERAGE_REPORT_DIR=coverage/playwright PLAYWRIGHT_HTML_REPORT_DIR=coverage/playwright/html PLAYWRIGHT_JUNIT_REPORT_PATH=coverage/playwright-junit.xml bun scripts/playwright.ts test",
     "test:e2e:headed": "bun scripts/playwright.ts test --headed",
     "test:e2e:ui": "bun scripts/playwright.ts test --ui",
-    "test:regen": "bun run scripts/test-reading-pipeline-regen-results.ts",
+    "test:regen": "UPDATE_EXTRACTION_PROOF=1 bun test tests/regen-extraction-proof.test.ts",
     "db:provision": "bun scripts/db-provision.ts",
     "db:create-user": "bun scripts/db-create-user.ts",
     "db:generate": "bunx drizzle-kit generate",
@@ -146,7 +145,9 @@
   "overrides": {
     "@xmldom/xmldom": "0.9.10",
     "brace-expansion": "1.1.13",
+    "fast-uri": "3.1.2",
     "flatted": "3.4.2",
+    "ip-address": "10.2.0",
     "lodash": "4.18.1",
     "minimatch": "3.1.4",
     "postcss": "8.5.10",

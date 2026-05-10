@@ -4,6 +4,20 @@ import type { ArticleHydrationState } from "@/app/dashboard/dashboard-hooks/useA
 import type { Article } from "@/lib/core";
 
 import { prepareArticleHydration } from "@/app/dashboard/dashboard-hooks/useArticleHydration.lifecycle";
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+
+const getBundledPlaceholderArticle = () => {
+  const definition = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+    (sourceDefinition) => sourceDefinition.seeds.length > 0,
+  );
+  const seed = definition?.seeds[0];
+
+  if (!definition || !seed) {
+    throw new Error("Expected at least one bundled placeholder article.");
+  }
+
+  return { feedUrl: definition.source.url, link: seed.url };
+};
 
 function buildArticle(overrides: Partial<Article> = {}): Article {
   return {
@@ -46,11 +60,12 @@ describe("prepareArticleHydration", () => {
   });
 
   test("hydrates explore placeholder articles from local snapshots even when source extraction is disabled", () => {
+    const bundledArticle = getBundledPlaceholderArticle();
     const hydration = prepareArticleHydration({
       article: buildArticle({
         content: "Feed excerpt that should be replaced by processed content.",
-        feedUrl: "https://www.nasa.gov/rss/dyn/breaking_news.rss",
-        link: "https://www.nasa.gov/image-article/hello-world/",
+        feedUrl: bundledArticle.feedUrl,
+        link: bundledArticle.link,
       }),
       forceHydration: false,
       getFeedSettings: () => ({ extractionDisabled: true }),
@@ -59,7 +74,7 @@ describe("prepareArticleHydration", () => {
 
     expect(hydration).toEqual({
       inFlightCount: 0,
-      link: "https://www.nasa.gov/image-article/hello-world/",
+      link: bundledArticle.link,
       settings: { extractionDisabled: true },
       shouldLoadStoredContent: false,
     });

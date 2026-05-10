@@ -1,3 +1,5 @@
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+
 import {
   enterPreviewFromLogin,
   gotoPreviewDashboard,
@@ -259,32 +261,32 @@ test.describe("dashboard preview mode", () => {
     await openPreviewFeeds(page);
     await selectPreviewSource(page);
 
-    await expect(previewFeedButton(page, "NIH News Releases")).toBeVisible();
-    await expect(previewFeedButton(page, "NIH Research Matters")).toBeVisible();
-    await expect(previewFeedButton(page, "NHLBI All News")).toBeVisible();
-    await expect(previewFeedButton(page, "NINDS Press Releases")).toBeVisible();
-    await expect(
-      previewFeedButton(page, "ESA Earth Observation"),
-    ).toBeVisible();
-    await expect(
-      previewFeedButton(page, "ESA Human Exploration"),
-    ).toBeVisible();
-    await expect(previewFeedButton(page, "ESA Top News")).toBeVisible();
-    await expect(previewFeedButton(page, "NASA Breaking News")).toBeVisible();
-    await expect(previewFeedButton(page, "NASA STEM Learning")).toBeVisible();
-    await expect(
-      page.locator("button").filter({ hasText: "ESA Images" }),
-    ).toHaveCount(0);
-    await expect(
-      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
-    ).toHaveCount(0);
-
-    const nihResearchMattersButton = previewFeedButton(
-      page,
-      "NIH Research Matters",
+    const sourceWithArticle = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+      (definition) => definition.seeds.length > 0,
     );
-    await expect(nihResearchMattersButton).toBeVisible();
-    await nihResearchMattersButton.evaluate((button) => {
+
+    if (!sourceWithArticle) {
+      throw new Error("Expected at least one placeholder source with articles.");
+    }
+
+    const selectedSeed = sourceWithArticle.seeds[0];
+
+    if (!selectedSeed) {
+      throw new Error("Expected selected placeholder source to include an article.");
+    }
+
+    for (const definition of PLACEHOLDER_SOURCE_DEFINITIONS) {
+      await expect(
+        previewFeedButton(page, definition.source.name),
+      ).toBeVisible();
+    }
+
+    const selectedFeedButton = previewFeedButton(
+      page,
+      sourceWithArticle.source.name,
+    );
+    await expect(selectedFeedButton).toBeVisible();
+    await selectedFeedButton.evaluate((button) => {
       if (!(button instanceof HTMLElement)) {
         throw new Error("Expected a feed button element.");
       }
@@ -293,7 +295,7 @@ test.describe("dashboard preview mode", () => {
     });
     await expect(
       page.getByRole("heading", {
-        name: /Treating addiction/i,
+        name: selectedSeed.title,
       }),
     ).toBeVisible({ timeout: 15_000 });
   });

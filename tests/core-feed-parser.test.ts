@@ -6,35 +6,35 @@ const IFL_SCIENCE_ATOM_UPDATED_ITEM_XML = `
   <channel>
     <item>
       <guid isPermaLink="false">the-moon-illusion-still-hasnt-been-solved-after-thousands-of-years-83384</guid>
-      <link>https://www.iflscience.com/the-moon-illusion-still-hasnt-been-solved-after-thousands-of-years-83384</link>
+      <link>https://example.com/the-moon-illusion-study</link>
       <title>The Moon Illusion Still Hasn't Been Solved After Thousands Of Years</title>
-      <description>NASA takes a surprisingly chill approach to the dilemma.</description>
+      <description>Researchers describe calibration methods used for the observation.</description>
       <a10:updated>2026-05-01T15:28:44Z</a10:updated>
       <a10:content type="html"><![CDATA[ ]]></a10:content>
     </item>
   </channel>
 </rss>`;
-const JACOBIN_ATOM_ID_ONLY_ITEM_XML = `
+const EXAMPLE_ATOM_ID_ONLY_ITEM_XML = `
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title type="text">Jacobin</title>
+  <title type="text">Example Journal</title>
   <entry>
-    <id>https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha</id>
-    <title type="text">Tony Mazzocchi Embodied the Best of the Labor Movement</title>
+    <id>https://example.com/2026/05/workplace-safety-standards</id>
+    <title type="text">Workplace Safety Standards Updated for Field Teams</title>
     <updated>2026-05-03T15:56:47.507815Z</updated>
     <published>2026-05-03T15:56:47.507815Z</published>
-    <summary type="text">Labor history summary.</summary>
+    <summary type="text">Safety standards summary.</summary>
   </entry>
 </feed>`;
-const OPEN_DEMOCRACY_NON_PERMALINK_GUID_ITEM_XML = `
+const EXAMPLE_NON_PERMALINK_GUID_ITEM_XML = `
 <rss xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
   <channel>
-    <title><![CDATA[openDemocracy]]></title>
+    <title><![CDATA[Example Review]]></title>
     <item>
-      <title><![CDATA[Sex, power and backlash in Africa]]></title>
-      <link>https://www.opendemocracy.net/en/backlash-sex-power-africa-book-extract/</link>
+      <title><![CDATA[Research methods in field studies]]></title>
+      <link>https://example.com/research/field-study-methods/</link>
       <guid isPermaLink="false">69e88a1d3587c6000194538e</guid>
       <pubDate>Tue, 21 Apr 2026 06:03:51 GMT</pubDate>
-      <content:encoded><![CDATA[<p>OpenDemocracy full article body.</p>]]></content:encoded>
+      <content:encoded><![CDATA[<p>Example Review full article body.</p>]]></content:encoded>
     </item>
   </channel>
 </rss>`;
@@ -107,7 +107,7 @@ describe("lib/core/feed-parser additional coverage", () => {
     const { FEED_PARSER_CUSTOM_FIELDS, toPendingArticle } =
       await import("@/lib/core/parser");
     const parser = new Parser({ customFields: FEED_PARSER_CUSTOM_FIELDS });
-    const parsedFeed = await parser.parseString(JACOBIN_ATOM_ID_ONLY_ITEM_XML);
+    const parsedFeed = await parser.parseString(EXAMPLE_ATOM_ID_ONLY_ITEM_XML);
 
     const result = toPendingArticle(
       parsedFeed.items[0]!,
@@ -117,7 +117,7 @@ describe("lib/core/feed-parser additional coverage", () => {
 
     expect(result).not.toBeNull();
     expect(result?.link).toBe(
-      "https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha",
+      "https://example.com/2026/05/workplace-safety-standards",
     );
     expect(result?.publicationDate.toISOString()).toBe(
       "2026-05-03T15:56:47.507Z",
@@ -129,7 +129,7 @@ describe("lib/core/feed-parser additional coverage", () => {
       await import("@/lib/core/parser");
     const parser = new Parser({ customFields: FEED_PARSER_CUSTOM_FIELDS });
     const parsedFeed = await parser.parseString(
-      OPEN_DEMOCRACY_NON_PERMALINK_GUID_ITEM_XML,
+      EXAMPLE_NON_PERMALINK_GUID_ITEM_XML,
     );
 
     const result = toPendingArticle(
@@ -140,9 +140,9 @@ describe("lib/core/feed-parser additional coverage", () => {
 
     expect(result).not.toBeNull();
     expect(result?.link).toBe(
-      "https://www.opendemocracy.net/en/backlash-sex-power-africa-book-extract/",
+      "https://example.com/research/field-study-methods/",
     );
-    expect(result?.content).toContain("OpenDemocracy full article body.");
+    expect(result?.content).toContain("Example Review full article body.");
   });
 
   test("toPendingArticle maps URL guid items when RSS link is absent", async () => {

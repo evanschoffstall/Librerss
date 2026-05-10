@@ -9,7 +9,10 @@ import {
   type ExtractRequestContext,
   type ExtractResponsePayload,
 } from "@/lib/extract";
-import { pickDiagnosticHeaders } from "@/lib/fetch";
+import {
+  detectResponseCompatibilitySignal,
+  pickDiagnosticHeaders,
+} from "@/lib/fetch";
 import {
   buildMetadataImageFallbackHtml,
   hasReadableArticleBody,
@@ -46,6 +49,23 @@ export class EarlyResponseError extends Error {
   constructor(public readonly response: Response) {
     super("early-response");
   }
+}
+
+/**
+ * Rejects successful upstream responses that are vendor access interstitials
+ * rather than article documents, preventing false-success empty extraction.
+ * @param html - Decoded upstream HTML body about to enter distillation.
+ */
+export function assertExtractableArticleHtml(html: string): void {
+  const compatibility = detectResponseCompatibilitySignal(200, undefined, html);
+
+  if (!compatibility.signal.detected) {
+    return;
+  }
+
+  throw new Error(
+    `Upstream request received a source access response (${compatibility.signal.provider}) [HTTP 200]`,
+  );
 }
 
 /**
@@ -105,7 +125,8 @@ export function getCachedExtractResponse(
     return null;
   }
 
-  return getCachedExtractPayload(articleUrl);
+  const cachedPayload = getCachedExtractPayload(articleUrl);
+  return cachedPayload?.content.trim() ? cachedPayload : null;
 }
 
 /**
@@ -140,10 +161,10 @@ export function prependMetadataLeadImageWhenMissing(
     return content;
   }
 
-  if (
-    !hasImageDownloadLinkInContent(content) ||
-    !IMAGE_ARTICLE_MARKER_RE.test(content)
-  ) {
+  const hasImageDownloadLink = Array.from(
+    content.matchAll(ANCHOR_HREF_RE),
+  ).some((match) => IMAGE_DOWNLOAD_HREF_RE.test(match[1]));
+  if (!hasImageDownloadLink && !IMAGE_ARTICLE_MARKER_RE.test(content)) {
     return content;
   }
 
@@ -336,21 +357,6 @@ function extractLeadImageBlock(content: string): string {
   }
 
   return LEAD_IMAGE_TAG_RE.exec(content)?.[0] ?? "";
-}
-
-/**
- * Return whether has image download link in content.
- * @param content - The content.
- * @returns Whether has image download link in content.
- */
-function hasImageDownloadLinkInContent(content: string): boolean {
-  for (const match of content.matchAll(ANCHOR_HREF_RE)) {
-    if (IMAGE_DOWNLOAD_HREF_RE.test(match[1])) {
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /**

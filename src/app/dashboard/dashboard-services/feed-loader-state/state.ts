@@ -48,7 +48,9 @@ export function isFreshFeedBatchQuery(
  * @param failedFeeds - The failed feeds.
  * @param totalFeedCount - The total feed count value.
  * @param sourceNamesByUrl - The source names by url.
- * @param formatFeedFailureLabel - The callback that format feed failure label.
+ * @param formatFeedFailureLabel - The callback that formats the partial-outage
+ *   toast description, including per-feed upstream HTTP status codes when the
+ *   batch response exposed them.
  */
 export function notifyFeedFailures(
   failedFeeds: FeedBatchResult[],
@@ -70,9 +72,12 @@ export function notifyFeedFailures(
     return;
   }
 
-  const failureLabel = formatFeedFailureLabel(failedFeeds, sourceNamesByUrl);
+  const failureDescription = formatFeedFailureLabel(
+    failedFeeds,
+    sourceNamesByUrl,
+  );
   toast.warning(`Some feeds failed to update`, {
-    description: failureLabel,
+    description: failureDescription,
   });
 }
 

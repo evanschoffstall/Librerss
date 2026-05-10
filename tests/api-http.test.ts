@@ -636,6 +636,7 @@ describe("responses", () => {
       error: "timeout",
       lastFetchedAt: "2024-02-03T04:05:06.000Z",
       ok: 1,
+      statusCode: 504,
       unchanged: true,
       url: "https://example.com/feed.xml",
     });
@@ -644,6 +645,7 @@ describe("responses", () => {
       articles: [{ id: 1 }],
       error: "timeout",
       ok: true,
+      statusCode: 504,
       unchanged: true,
       url: "https://example.com/feed.xml",
     });

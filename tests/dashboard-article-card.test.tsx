@@ -372,10 +372,9 @@ describe("ArticleCard", () => {
     // Simulate the feed extraction + sanitization pipeline that stores content
     const { sanitizeArticleHtml } = require("@/lib/sanitize");
     const rawFeedContent = `
-      <p>NASA&rsquo;s Artemis program &mdash; its most ambitious mission
-      since Apollo &mdash; aims to send astronauts to the Moon&rsquo;s surface.
-      Scientists suggest the mission&rsquo;s success depends on systems
-      &amp; processes working together.</p>
+      <p>The study&rsquo;s plan &mdash; its most detailed mission &mdash; sends
+      observers to the site. Scientists suggest the mission&rsquo;s success
+      depends on systems &amp; processes working together.</p>
     `;
     // This is what gets stored in the DB after extraction
     const storedContent = sanitizeArticleHtml(rawFeedContent);
@@ -407,8 +406,8 @@ describe("ArticleCard", () => {
     const preview = collapsedPreview?.textContent ?? "";
 
     // Every "s" character must survive the pipeline (sanitize-html decodes &rsquo; to literal ')
-    expect(preview).toContain("NASA\u2019s Artemis");
-    expect(preview).toContain("astronauts");
+    expect(preview).toContain("study\u2019s plan");
+    expect(preview).toContain("observers");
     expect(preview).toContain("Scientists");
     expect(preview).toContain("suggest");
     expect(preview).toContain("mission\u2019s success depends on");
@@ -919,9 +918,9 @@ describe("ArticleCard", () => {
       expect(articleSurface?.getAttribute("data-swipe-active")).toBe("true");
       expect(articleSurface?.getAttribute("data-swipe-direction")).toBe("read");
       // At-threshold flag must be set before pointer-up.
-      expect(
-        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
-      ).toBe("true");
+      expect(articleSurface?.getAttribute("data-swipe-read-at-threshold")).toBe(
+        "true",
+      );
     });
 
     // Release the pointer so the gesture resets properly between tests.
@@ -981,9 +980,9 @@ describe("ArticleCard", () => {
     await waitFor(() => {
       expect(articleSurface?.getAttribute("data-swipe-active")).toBe("true");
       // Below threshold: at-threshold attribute must be "false".
-      expect(
-        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
-      ).toBe("false");
+      expect(articleSurface?.getAttribute("data-swipe-read-at-threshold")).toBe(
+        "false",
+      );
     });
 
     fireEvent.pointerUp(articleSurface as HTMLElement, {
@@ -1044,13 +1043,13 @@ describe("ArticleCard", () => {
       // because the read gesture also enters swiping phase with offsetX=0 (its
       // direction check zeroes out the negative delta). The star-at-threshold
       // flag is the canonical signal for star-swipe visual state.
-      expect(
-        articleSurface?.getAttribute("data-swipe-star-at-threshold"),
-      ).toBe("true");
+      expect(articleSurface?.getAttribute("data-swipe-star-at-threshold")).toBe(
+        "true",
+      );
       // The read indicator must NOT be in at-threshold state during a left swipe.
-      expect(
-        articleSurface?.getAttribute("data-swipe-read-at-threshold"),
-      ).toBe("false");
+      expect(articleSurface?.getAttribute("data-swipe-read-at-threshold")).toBe(
+        "false",
+      );
     });
 
     fireEvent.pointerUp(articleSurface as HTMLElement, {

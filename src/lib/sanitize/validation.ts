@@ -1,4 +1,15 @@
 import {
+  findTrailingChromeBoundary,
+  isLikelyLeadingChromeText,
+  isLikelyMediaWidgetHeadingText,
+  isLikelyPromoCtaText,
+} from "@/lib/sanitize/article-chrome";
+import {
+  isMediaUtilityLinkText,
+  stripStandaloneMediaAttributionText,
+} from "@/lib/sanitize/media-widget";
+
+import {
   normalizeArticleHtmlSpacing,
   SOCIAL_SHARE_LINK_RE,
   stripLeadingInlineBioBlock,
@@ -21,8 +32,17 @@ function isSocialShareListItem(li: string): boolean {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return /^(copy\s*link|facebook|twitter|whatsapp|reddit|x|email|linkedin|flipboard|pinterest)$/i.test(
-    text,
+  const words = text.split(/\s+/).filter(Boolean);
+
+  return (
+    words.length > 0 &&
+    words.length <= 4 &&
+    (text === "copy link" ||
+      words.includes("share") ||
+      words.includes("save") ||
+      words.includes("email") ||
+      words.includes("listen") ||
+      words.includes("comment"))
   );
 }
 
@@ -99,62 +119,22 @@ const FILE_DOWNLOAD_EXTENSIONS = new Set([
 const FILE_SIZE_SUFFIX_RE = /^([a-z0-9]{2,5})\s*\(\d[\d.]*\s*[KMGT]?B\)$/i;
 
 /**
- * Return whether is file type size text.
- * @param text - The text.
- * @returns Whether is file type size text.
+ * Matches standalone media-control labels that serve as UI affordances rather
+ * than article content. Anchors whose entire non-image text matches this pattern
+ * are collapsed to their image tag alone; anchors that carry a real caption or
+ * attribution alongside an image are left intact.
+ *
+ * The pattern is intentionally broad so it generalises across publishers and
+ * does not require an exhaustive enumeration of every possible label variant.
  */
-function isFileTypeSizeText(text: string): boolean {
-  const m = FILE_SIZE_SUFFIX_RE.exec(text);
-  return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1].toLowerCase());
-}
-
 /**
- * Return whether is short heading label.
- * @param text - The text.
- * @returns Whether is short heading label.
- */
-function isShortHeadingLabel(text: string): boolean {
-  const normalized = text.trim();
-  if (!normalized || normalized.length > 72) return false;
-  if (/[.!?;:]/.test(normalized)) return false;
-  return normalized.split(/\s+/).filter(Boolean).length <= 6;
-}
-
-/**
- * Normalize the heading text.
- * @param value - The value.
- * @returns The heading text.
- */
-function normalizeHeadingText(value: string): string {
-  return value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Process the strip file download boilerplate.
- * @param content - The content.
- * @returns The strip file download boilerplate.
- */
-function stripFileDownloadBoilerplate(content: string): string {
-  return content.replace(
-    /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
-    (match, inner: string) =>
-      isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
-  );
-}
-
-/** Promotional / call-to-action pattern (cross-site generic). */
-const PROMO_CTA_RE =
-  /add\s+as\s+preferred\s+source|follow\s+\S+\s+on\s+whatsapp|you\s+need\s+javascript\s+enabled|you\s+may\s+like\s+to\s+watch|essential\s+reads|preferred\s+source\s+on\s+google|reader[-\s]supported\s+publication|to\s+receive\s+new\s+posts|consider\s+becoming\s+a\s+subscriber/i;
-
-/**
- * Process the clean sanitized html.
- * @param sanitizedContent - The sanitized content.
- * @param _articleUrl - The article url.
- * @returns The clean sanitized html.
+ * Applies final reader-content cleanup after the structural sanitizer has made
+ * the HTML safe. This pass removes generic publisher chrome such as share
+ * controls, lead metadata, and media utility labels while preserving actual
+ * article prose, links, and images.
+ * @param sanitizedContent - Safe article HTML produced by the sanitizer.
+ * @param _articleUrl - Canonical article URL reserved for future generic rules.
+ * @returns Cleaned article HTML ready for reader display.
  */
 export function cleanSanitizedHtml(
   sanitizedContent: string,
@@ -167,21 +147,31 @@ export function cleanSanitizedHtml(
     return "";
   }
 
-  const withoutShareToolbars = stripShareEngagementToolbars(sanitizedContent);
+  const withoutLeadingChrome = stripLeadingArticleChrome(sanitizedContent);
+
+  const withoutShareToolbars =
+    stripShareEngagementToolbars(withoutLeadingChrome);
 
   const withoutFileBoilerplate =
     stripFileDownloadBoilerplate(withoutShareToolbars);
 
-  const withoutEngagementPrompts = stripCommentEngagementBoilerplate(
+  const withoutMediaUtilities = stripMediaUtilityBoilerplate(
     withoutFileBoilerplate,
+  );
+
+  const withoutEngagementPrompts = stripCommentEngagementBoilerplate(
+    withoutMediaUtilities,
   );
 
   const withoutPromos = stripPromotionalCtaBlocks(withoutEngagementPrompts);
 
   const withoutLeadingBio = stripLeadingInlineBioBlock(withoutPromos);
 
-  const withoutDuplicateLeadImage =
-    removeLeadingDuplicateImage(withoutLeadingBio);
+  const withoutTrailingChrome = stripTrailingArticleChrome(withoutLeadingBio);
+
+  const withoutDuplicateLeadImage = removeLeadingDuplicateImage(
+    withoutTrailingChrome,
+  );
 
   const withoutMediaHeadings = stripLeadMediaBoilerplateHeadings(
     withoutDuplicateLeadImage,
@@ -271,6 +261,16 @@ export function stripCommentEngagementBoilerplate(content: string): string {
 }
 
 /**
+ * Return whether is file type size text.
+ * @param text - The text.
+ * @returns Whether is file type size text.
+ */
+function isFileTypeSizeText(text: string): boolean {
+  const m = FILE_SIZE_SUFFIX_RE.exec(text);
+  return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1].toLowerCase());
+}
+
+/**
  * Return whether is promo cta.
  * @param inner - The inner.
  * @returns Whether is promo cta.
@@ -279,8 +279,121 @@ function isPromoCta(inner: string): boolean {
   const text = inner
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  return isLikelyPromoCtaText(text);
+}
+
+/**
+ * Return whether is short heading label.
+ * @param text - The text.
+ * @returns Whether is short heading label.
+ */
+function isShortHeadingLabel(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized || normalized.length > 72) return false;
+  if (/[.!?;:]/.test(normalized)) return false;
+  return normalized.split(/\s+/).filter(Boolean).length <= 6;
+}
+
+/**
+ * Normalize the heading text.
+ * @param value - The value.
+ * @returns The heading text.
+ */
+function normalizeHeadingText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/\s+/g, " ")
     .trim();
-  return PROMO_CTA_RE.test(text);
+}
+
+/**
+ * Process the strip file download boilerplate.
+ * @param content - The content.
+ * @returns The strip file download boilerplate.
+ */
+function stripFileDownloadBoilerplate(content: string): string {
+  return content.replace(
+    /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
+    (match, inner: string) =>
+      isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
+  );
+}
+
+/**
+ * Removes title, byline, date, and CTA fragments that appear before the first
+ * article paragraph when confidence selection intentionally chooses a broader
+ * CMS article wrapper to preserve lead prose.
+ * @param content - Sanitized article HTML to inspect.
+ * @returns HTML with generic leading chrome removed when detected.
+ */
+function stripLeadingArticleChrome(content: string): string {
+  const firstParagraphIndex = content.search(/<p\b/i);
+  if (firstParagraphIndex <= 0) return content;
+
+  const leadingChunk = content.slice(0, firstParagraphIndex);
+  if (/<img\b/i.test(leadingChunk)) return content;
+
+  const leadingText = toPlainText(leadingChunk).replace(/\s+/g, " ").trim();
+  if (!isLikelyLeadingChromeText(leadingText)) {
+    return content;
+  }
+
+  return content.slice(firstParagraphIndex);
+}
+
+/**
+ * Removes media-widget labels and download/detail links while preserving image
+ * anchors and any meaningful caption or attribution text alongside them.
+ *
+ * For image-containing anchors the surrounding non-image text is inspected:
+ * - Empty non-image text → collapse to the bare image anchor (formatting only).
+ * - Text that matches the generic media utility classifier → strip the UI label, keep the image.
+ * - Any other text → preserve the whole anchor intact so genuine captions,
+ *   photographer credits, and alt descriptions reach the reader.
+ * @param content - Sanitized article HTML to inspect.
+ * @returns HTML without generic media utility widget text.
+ */
+function stripMediaUtilityBoilerplate(content: string): string {
+  return content
+    .replace(
+      /<h([2-6])\b[^>]*>([\s\S]*?)<\/h\1>/gi,
+      (match, _level: string, inner: string) => {
+        const headingText = toPlainText(inner)
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        return isLikelyMediaWidgetHeadingText(headingText) ? "" : match;
+      },
+    )
+    .replace(
+      /<a\b([^>]*)>([\s\S]*?)<\/a>/gi,
+      (match, attrs: string, inner: string) => {
+        const imageMatch = /<img\b[\s\S]*?>/i.exec(inner);
+        if (imageMatch) {
+          // Determine what text surrounds the image inside this anchor.
+          const nonImageText = toPlainText(inner.replace(imageMatch[0], ""))
+            .replace(/\s+/g, " ")
+            .trim();
+          // Collapse to the bare image only when there is no accompanying text
+          // or the text is a recognised UI control label. Real captions and
+          // photographer attributions must survive so readers see them.
+          if (!nonImageText || isMediaUtilityLinkText(nonImageText)) {
+            return `<a${attrs}>${imageMatch[0]}</a>`;
+          }
+          return match;
+        }
+
+        const linkText = toPlainText(inner)
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+        return isMediaUtilityLinkText(linkText) ? "" : match;
+      },
+    )
+    .replace(/\s*\|\s*/g, " | ");
 }
 
 /**
@@ -289,13 +402,34 @@ function isPromoCta(inner: string): boolean {
  * @returns The strip promotional cta blocks.
  */
 function stripPromotionalCtaBlocks(content: string): string {
-  return content
-    .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
-      isPromoCta(inner) ? "" : m,
-    )
-    .replace(
-      // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
-      /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
-      (m, inner: string) => (isPromoCta(inner) ? "" : m),
-    );
+  return stripStandaloneMediaAttributionText(
+    content
+      .replace(/<p\b[^>]*>([\s\S]*?)<\/p>/gi, (m, inner: string) =>
+        isPromoCta(inner) ? "" : m,
+      )
+      .replace(
+        // eslint-disable-next-line security/detect-unsafe-regex -- Pre-sanitized HTML input; lazy quantifiers prevent excessive backtracking
+        /(?:<br\s*\/?>\s*)*<a\b[^>]*>([\s\S]*?)<\/a>(?:\s*<br\s*\/?>\s*)*/gi,
+        (m, inner: string) => (isPromoCta(inner) ? "" : m),
+      ),
+  );
+}
+
+/**
+ * Removes trailing related-news, taxonomy, and last-updated sections that follow
+ * an otherwise complete article body. This keeps publisher recommendation cards
+ * from entering reader content while preserving article headings and media above
+ * the first chrome boundary.
+ * @param content - Sanitized article HTML to inspect for a trailing chrome block.
+ * @returns HTML before the first confirmed trailing chrome heading.
+ */
+function stripTrailingArticleChrome(content: string): string {
+  const chromeStart = findTrailingChromeBoundary(content);
+
+  if (chromeStart === null) return content;
+
+  const retained = content.slice(0, chromeStart).trimEnd();
+  const hasArticleBeforeChrome =
+    (retained.match(/<p\b/gi)?.length ?? 0) >= 2 || /<img\b/i.test(retained);
+  return hasArticleBeforeChrome ? retained : content;
 }

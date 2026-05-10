@@ -104,8 +104,8 @@ describe("DashboardSidebarContent", () => {
       await import("@/app/dashboard/dashboard-components/layout");
     const sidebarCategories = [
       createCategory("cat-news", "News", [
-        createCategory("feed-usgs", "USGS News", [], {
-          url: "https://www.usgs.gov/news/rss.xml",
+        createCategory("feed-example", "Example News", [], {
+          url: "https://example.com/news/rss.xml",
         }),
       ]),
     ];
@@ -118,7 +118,7 @@ describe("DashboardSidebarContent", () => {
         onCategoryPrefetch={() => {}}
         onFeedClick={() => {}}
         onFeedPrefetch={() => {}}
-        selectedCategory="feed-usgs"
+        selectedCategory="feed-example"
         showFavicons={true}
         sidebarCategories={sidebarCategories as never[]}
       />,

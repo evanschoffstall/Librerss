@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatExpectedReadingOutput } from "../scripts/test-reading-pipeline-regen-results";
+import { formatExpectedReadingOutput } from "./regen-extraction-proof-support";
 
 describe("reading pipeline expectation regeneration", () => {
   test("formats extracted HTML fragments with Prettier before writing fixtures", async () => {

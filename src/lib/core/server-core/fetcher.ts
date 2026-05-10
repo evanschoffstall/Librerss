@@ -321,7 +321,7 @@ async function refreshSingleFeedIfNeeded(
   );
 
   if (!result.ok) {
-    throw new UpstreamFeedError(feedUrl, result.error);
+    throw new UpstreamFeedError(feedUrl, result.error.message);
   }
 
   feedFetcherDependencies.diagInfo("Single feed refreshed", { url: feedUrl });

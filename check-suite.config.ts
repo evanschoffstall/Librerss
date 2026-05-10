@@ -16,13 +16,11 @@ import { hasPackageScript } from "check-suite/config";
 import { defineCheckSuiteConfig } from "check-suite/config-schema";
 import {
   createSpawnComplexityAdapter,
-  discoverDefaultCodeRoots,
   parseCsvComplexityRows,
   runArchitectureCheck,
   runComplexityCheck,
 } from "check-suite/quality";
 import { createSafeRegExp, isSafeRegExpPattern } from "check-suite/regex";
-import { defineStep, runGitFileScan } from "check-suite/step";
 
 /**
  * Describes the architecture code targets configuration.
@@ -33,6 +31,27 @@ interface ArchitectureCodeTargetsConfig {
   resolutionEntrypointNames: string[];
   resolutionExtensions: string[];
   testFilePatterns: string[];
+}
+/**
+ * Captures every lightweight step definition shape supported by this config.
+ */
+type CheckStepDefinition =
+  | CommandStepDefinition
+  | InlineStepDefinition
+  | LintStepDefinition;
+/**
+ * Describes a direct subprocess-backed step before defaults are applied.
+ */
+interface CommandStepDefinition extends Omit<
+  StepConfig,
+  "cmd" | "handler" | "key" | "summary"
+> {
+  args: string[];
+  cmd?: string;
+  handler?: never;
+  key?: string;
+  label: string;
+  summary?: StepConfig["summary"];
 }
 /**
  * Describes the options for coverage command step.
@@ -99,6 +118,7 @@ interface CoverageState {
  * Describes the options for coverage step.
  */
 interface CoverageStepOptions {
+  allowSuiteFlagArgs?: boolean;
   enabled?: boolean;
   failMsg?: string;
   parseConsoleCoverage?: (output: string) => CoverageTotals | null;
@@ -127,6 +147,34 @@ interface ExecutionReport {
   skippedItems: string[];
 }
 /**
+ * Describes an inline TypeScript step before it is wrapped for check-suite.
+ */
+interface InlineStepDefinition {
+  data?: Record<string, unknown>;
+  enabled?: boolean;
+  failMsg?: string;
+  key?: string;
+  label: string;
+  passMsg?: string;
+  source: InlineTypeScriptConfig<InlineTypeScriptContext, Command>["source"];
+  summary?: StepConfig["summary"];
+}
+/**
+ * Describes the lint step inputs needed by this repository's config.
+ */
+interface LintStepDefinition {
+  args: string[];
+  concurrencyArgs?: string[];
+  concurrencyEnvVar?: string;
+  enabled?: boolean;
+  failMsg?: string;
+  handler: "lint";
+  key?: string;
+  label: string;
+  passMsg?: string;
+  summary?: StepConfig["summary"];
+}
+/**
  * Defines the pattern summary type.
  */
 type PatternSummary = Extract<Summary, { type: "pattern" }>;
@@ -144,6 +192,133 @@ interface PurgeCssConfig {
   cssFiles: string[];
   safelists: string[];
   selectorPrefix: string;
+}
+
+const DEFAULT_GLOB_EXTENSIONS = ["js", "mjs", "cjs", "ts", "jsx", "tsx"];
+const STANDARD_LINT_SKIP_DIRS = [
+  ".cache",
+  ".next",
+  ".nuxt",
+  ".output",
+  ".svelte-kit",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "out",
+  "tmp",
+];
+
+/**
+ * Builds the narrow subset of check-suite step declarations used by this repo.
+ * Keeping this local avoids importing the heavy `check-suite/step` runtime
+ * barrel while the CLI is still parsing arguments and selecting a step.
+ * @param definition - Repository step definition with check-suite defaults omitted.
+ * @returns A complete check-suite step config entry.
+ */
+function defineCheckStep(definition: CheckStepDefinition): StepConfig {
+  if ("handler" in definition && definition.handler === "lint") {
+    return defineLintCheckStep(definition);
+  }
+  if ("source" in definition) {
+    return defineInlineCheckStep(definition);
+  }
+  return defineCommandCheckStep(definition);
+}
+
+/**
+ * Builds a subprocess-backed check-suite step without importing the package
+ * helper that also loads runtime-only lint execution code.
+ * @param definition - Command step details supplied by this config.
+ * @returns A command step with the same defaults as check-suite's factory.
+ */
+function defineCommandCheckStep(definition: CommandStepDefinition): StepConfig {
+  return {
+    allowSuiteFlagArgs: definition.allowSuiteFlagArgs,
+    args: definition.args,
+    cmd: definition.cmd ?? "bunx",
+    enabled: definition.enabled ?? true,
+    ensureDirs: definition.ensureDirs,
+    failMsg: definition.failMsg ?? `${definition.label} failed`,
+    key: definition.key ?? definition.label,
+    label: definition.label,
+    outputFilter: definition.outputFilter,
+    passMsg: definition.passMsg ?? "",
+    preRun: definition.preRun,
+    serialGroup: definition.serialGroup,
+    summary: definition.summary ?? { type: "simple" },
+    timeoutDrainMs: definition.timeoutDrainMs,
+    timeoutEnvVar: definition.timeoutEnvVar,
+    timeoutMs: definition.timeoutMs,
+    tokens: definition.tokens,
+  };
+}
+
+/**
+ * Builds an inline TypeScript check-suite step using the config shape consumed
+ * directly by the inline runner.
+ * @param definition - Inline runner source and metadata supplied by this config.
+ * @returns An inline step with the same defaults as check-suite's factory.
+ */
+function defineInlineCheckStep(definition: InlineStepDefinition): StepConfig {
+  return {
+    config: {
+      ...(definition.data !== undefined && { data: definition.data }),
+      source: definition.source,
+    },
+    enabled: definition.enabled ?? true,
+    failMsg: definition.failMsg ?? `${definition.label} failed`,
+    handler: "inline-ts",
+    key: definition.key ?? definition.label,
+    label: definition.label,
+    passMsg: definition.passMsg ?? "",
+    summary: definition.summary ?? { type: "simple" },
+  };
+}
+
+/**
+ * Builds the lint-handler step while preserving check-suite's runtime config
+ * contract for auto-derived ESLint concurrency.
+ * @param definition - Lint command metadata supplied by this config.
+ * @returns A lint-handler step that check-suite can execute without config-time imports.
+ */
+function defineLintCheckStep(definition: LintStepDefinition): StepConfig {
+  return {
+    config: {
+      args: definition.args,
+      concurrencyArgs: definition.concurrencyArgs,
+      concurrencyEnvVar: definition.concurrencyEnvVar,
+      globExtensions: DEFAULT_GLOB_EXTENSIONS,
+      maxFiles: 5_000,
+      skipDirs: STANDARD_LINT_SKIP_DIRS,
+    },
+    enabled: definition.enabled ?? true,
+    failMsg: definition.failMsg ?? "lint failed",
+    handler: "lint",
+    key: definition.key ?? "lint",
+    label: definition.label,
+    passMsg: definition.passMsg ?? "",
+    summary: definition.summary ?? { type: "simple" },
+  };
+}
+
+/**
+ * Loads Git-file scanning only for the secretlint step that needs it.
+ * @param cwd - Workspace root passed by the inline TypeScript runner.
+ * @param options - Scanner command, fallback, and batching options.
+ * @returns The command result produced by the check-suite scanner helper.
+ */
+async function runLazyGitFileScan(
+  cwd: string,
+  options: GitFileScanOptions,
+): Promise<Command> {
+  const stepModule = (await import("check-suite/step")) as {
+    runGitFileScan: (
+      cwd: string,
+      options: GitFileScanOptions,
+    ) => Promise<Command>;
+  };
+  return stepModule.runGitFileScan(cwd, options);
 }
 
 // ── Helper functions ──────────────────────────────────────────────────────────
@@ -464,10 +639,7 @@ function buildCoverageReportPostProcess(
       output: helpers.compactDomAssertionNoise(displayOutput),
       sections,
       status,
-      summary: buildExecutionSummary(
-        executionReport,
-        command.exitCode,
-      ),
+      summary: buildExecutionSummary(executionReport, command.exitCode),
     };
   };
 }
@@ -565,7 +737,7 @@ function createCoverageStep(
   options: CoverageStepOptions = {},
 ): StepConfig {
   return defineCoverageCommandStep({
-    allowSuiteFlagArgs: key === "junit",
+    allowSuiteFlagArgs: options.allowSuiteFlagArgs ?? key === "junit",
     args,
     cmd: "bun",
     coverage,
@@ -596,7 +768,7 @@ function createCoverageStep(
 function defineCoverageCommandStep(
   input: CoverageCommandStepOptions,
 ): StepConfig {
-  const step = defineStep({
+  const step = defineCheckStep({
     allowSuiteFlagArgs: input.allowSuiteFlagArgs,
     args: input.args,
     cmd: input.cmd,
@@ -995,77 +1167,59 @@ const jscpdSummary = pat("no duplicate stats detected", [
 
 // ── Step declarations ─────────────────────────────────────────────────────────
 
-const knip = defineStep({
+const knip = defineCheckStep({
   args: ["knip", "--config", "knip.json", "--cache"],
   failMsg: "knip failed",
   label: "knip",
 });
-const architecture = defineStep({
+const architecture = defineCheckStep({
   data: {
     discovery: {
-      ...(() => {
-        const discovery = {
-          codeTargets: {
-            declarationFilePatterns: [
-              "**/*.d.cjs",
-              "**/*.d.js",
-              "**/*.d.jsx",
-              "**/*.d.mjs",
-              "**/*.d.ts",
-              "**/*.d.tsx",
-            ],
-            includePatterns: [
-              "**/*.cjs",
-              "**/*.js",
-              "**/*.jsx",
-              "**/*.mjs",
-              "**/*.ts",
-              "**/*.tsx",
-            ],
-            resolutionEntrypointNames: ["index", "main", "mod"],
-            resolutionExtensions: [
-              ".cjs",
-              ".js",
-              ".jsx",
-              ".mjs",
-              ".ts",
-              ".tsx",
-            ],
-            testFilePatterns: ["**/*.spec.*", "**/*.test.*"],
-          } satisfies ArchitectureCodeTargetsConfig,
-          ignoredDirectories: [
-            "**/.*",
-            "**/__generated__",
-            "**/build",
-            "**/coverage",
-            "**/dist",
-            "**/generated",
-            "**/node_modules",
-            "**/out",
-            "**/scripts",
-            "**/tmp",
-            "**/ui",
-            "**/vendor",
-          ],
-          testDirectories: [
-            "**/__fixtures__",
-            "**/__mocks__",
-            "**/__tests__",
-            "**/fixtures",
-            "**/mocks",
-            "**/test",
-            "**/tests",
-          ],
-        } as const;
-        const { directories } = discoverDefaultCodeRoots(
-          process.cwd(),
-          discovery,
-        );
-        return {
-          ...discovery,
-          rootDirectories: directories.includes("src") ? ["src"] : directories,
-        };
-      })(),
+      codeTargets: {
+        declarationFilePatterns: [
+          "**/*.d.cjs",
+          "**/*.d.js",
+          "**/*.d.jsx",
+          "**/*.d.mjs",
+          "**/*.d.ts",
+          "**/*.d.tsx",
+        ],
+        includePatterns: [
+          "**/*.cjs",
+          "**/*.js",
+          "**/*.jsx",
+          "**/*.mjs",
+          "**/*.ts",
+          "**/*.tsx",
+        ],
+        resolutionEntrypointNames: ["index", "main", "mod"],
+        resolutionExtensions: [".cjs", ".js", ".jsx", ".mjs", ".ts", ".tsx"],
+        testFilePatterns: ["**/*.spec.*", "**/*.test.*"],
+      } satisfies ArchitectureCodeTargetsConfig,
+      ignoredDirectories: [
+        "**/.*",
+        "**/__generated__",
+        "**/build",
+        "**/coverage",
+        "**/dist",
+        "**/generated",
+        "**/node_modules",
+        "**/out",
+        "**/scripts",
+        "**/tmp",
+        "**/ui",
+        "**/vendor",
+      ],
+      rootDirectories: ["src"],
+      testDirectories: [
+        "**/__fixtures__",
+        "**/__mocks__",
+        "**/__tests__",
+        "**/fixtures",
+        "**/mocks",
+        "**/test",
+        "**/tests",
+      ],
     },
     policy: {
       dependencyPolicies: [],
@@ -1127,7 +1281,7 @@ const srcDirs = Array.isArray(architectureRootDirectories)
       (directory): directory is string => typeof directory === "string",
     )
   : ["."];
-const madge = defineStep({
+const madge = defineCheckStep({
   args: ["madge@8", "--circular", "--extensions", "ts,tsx", ...srcDirs],
   failMsg: "circular dependencies found",
   label: "madge",
@@ -1137,7 +1291,7 @@ const madge = defineStep({
   },
   summary: madgeSummary,
 });
-const purgeCss = defineStep({
+const purgeCss = defineCheckStep({
   data: {
     contentGlobs: ["src/**/*.{css,ts,tsx}"],
     cssFiles: ["src/app/globals.css"],
@@ -1167,7 +1321,7 @@ const purgeCss = defineStep({
       : fail(formatUnusedSelectorOutput(result.unusedSelectors));
   },
 });
-const secretlint = defineStep({
+const secretlint = defineCheckStep({
   failMsg: "secretlint failed",
   label: "secretlint",
   /**
@@ -1176,7 +1330,7 @@ const secretlint = defineStep({
    * @returns The command result consumed by the check-suite runner.
    */
   source: async (context: InlineTypeScriptContext) =>
-    runGitFileScan(context.cwd, {
+    runLazyGitFileScan(context.cwd, {
       command: "bunx",
       fallbackArgs: [
         "secretlint",
@@ -1194,7 +1348,7 @@ const secretlint = defineStep({
         "No tracked or non-ignored files matched for secretlint\n",
     } satisfies GitFileScanOptions),
 });
-const semgrep = defineStep({
+const semgrep = defineCheckStep({
   args: [
     "scan",
     "--config",
@@ -1214,13 +1368,13 @@ const semgrep = defineStep({
   failMsg: "semgrep failed",
   label: "semgrep",
 });
-const audit = defineStep({
+const audit = defineCheckStep({
   args: ["audit"],
   cmd: "bun",
   failMsg: "bun audit failed",
   label: "audit",
 });
-const gitleaks = defineStep({
+const gitleaks = defineCheckStep({
   args: [
     "@0xts/gitleaks-cli",
     "detect",
@@ -1233,12 +1387,12 @@ const gitleaks = defineStep({
   failMsg: "gitleaks failed",
   label: "@0xts/gitleaks-cli",
 });
-const tsd = defineStep({
+const tsd = defineCheckStep({
   args: ["tsd", "--typings", "next-env.d.ts", "--files", "next-env.test-d.ts"],
   failMsg: "tsd failed",
   label: "tsd",
 });
-const typeCoverage = defineStep({
+const typeCoverage = defineCheckStep({
   args: [
     "type-coverage",
     "--at-least",
@@ -1254,14 +1408,14 @@ const typeCoverage = defineStep({
     typeCoverageThreshold: 98,
   },
 });
-const tsc = defineStep({
+const tsc = defineCheckStep({
   args: ["tsc", "--noEmit"],
   failMsg: "typecheck failed",
   key: "types",
   label: "tsc",
   summary: typeSummary,
 });
-const eslint = defineStep({
+const eslint = defineCheckStep({
   args: [
     "eslint",
     ".",
@@ -1278,13 +1432,13 @@ const eslint = defineStep({
   label: "eslint",
   summary: lintSummary,
 });
-const prettier = defineStep({
+const prettier = defineCheckStep({
   args: ["prettier", "-w", "src/"],
   failMsg: "prettier failed",
   label: "prettier",
 });
 
-const lizard = defineStep({
+const lizard = defineCheckStep({
   failMsg: "complexity limits exceeded",
   label: "lizard",
   /**
@@ -1358,7 +1512,7 @@ const lizard = defineStep({
   },
   summary: lizardSummary,
 });
-const jscpd = defineStep({
+const jscpd = defineCheckStep({
   args: ["jscpd", "--config", ".jscpd.json"],
   failMsg: "duplicates found",
   label: "jscpd",
@@ -1401,6 +1555,7 @@ const playwright = createCoverageStep(
   },
   55,
   {
+    allowSuiteFlagArgs: true,
     enabled: hasPackageScript("test:e2e:coverage"),
     failMsg: "playwright e2e failed",
     /**

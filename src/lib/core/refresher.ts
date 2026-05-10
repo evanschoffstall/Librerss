@@ -7,8 +7,11 @@
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
 
+import type { BatchFeedError } from "@/lib/core/feed-batch-error";
+
 import { CONFIG, logger } from "@/lib";
 import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
+import { HttpCloakUpstreamError } from "@/lib/utils/httpcloak";
 
 import { type FeedUpstreamTransport, fetchFeedXml } from "./http-client";
 import {
@@ -69,7 +72,9 @@ export interface FeedRecord {
 /**
  * Describes the upstream refresh result.
  */
-export type UpstreamRefreshResult = { error: string; ok: false } | { ok: true };
+export type UpstreamRefreshResult =
+  | { error: BatchFeedError; ok: false }
+  | { ok: true };
 
 /**
  * Describes the parsed refresh items.
@@ -143,6 +148,10 @@ export async function refreshFeedFromUpstream(
     return { ok: true };
   } catch (err) {
     const errorMessage = refreshDeps.toErrorMessageFn(err);
+    const errorDetails: BatchFeedError =
+      err instanceof HttpCloakUpstreamError
+        ? { message: errorMessage, statusCode: err.statusCode }
+        : { message: errorMessage };
 
     diagWarn("Upstream feed refresh failed", {
       error: errorMessage,
@@ -153,7 +162,7 @@ export async function refreshFeedFromUpstream(
     // otherwise every request retries the upstream on a consistently-failing feed.
     await applyRefreshFailureCooldown(db, feed, now, errorMessage);
 
-    return { error: errorMessage, ok: false };
+    return { error: errorDetails, ok: false };
   }
 }
 

@@ -58,6 +58,12 @@ interface HttpCloakStageOptions {
  */
 type ProxyMode = "direct" | "http" | "socks";
 
+/** Compatibility failure handling result for one upstream attempt. */
+interface StageCompatibilityFailureResult {
+  preferredError?: Error;
+  shouldRetry: boolean;
+}
+
 /**
  * Describes the stage log context.
  */
@@ -199,19 +205,61 @@ function createCompatibilityError(provider: string, statusCode: number): Error {
 }
 
 /**
- * Process the finish stage success.
- * @param options - The options used to process the finish stage success.
- * @param attempt - The attempt.
- * @param result - The result.
- * @returns The finish stage success.
+ * Wraps a nominally successful HTTPCloak response that contains a vendor access
+ * interstitial so the extraction pipeline does not treat the challenge shell as
+ * empty article content.
+ * @param result - Successful transport response whose body still needs content validation.
+ * @param options - Stage options needed for diagnostics and proxy context.
+ * @returns Upstream error metadata when the body is a detected access challenge.
+ */
+function createSuccessCompatibilityError(
+  result: Awaited<ReturnType<typeof fetchHtmlWithHttpCloak>>,
+  options: StageOptionsBase,
+): HttpCloakUpstreamError | null {
+  const compatibility = detectResponseCompatibilitySignal(
+    result.statusCode,
+    result.diagnosticHeaders,
+    result.html,
+  );
+
+  if (!compatibility.signal.detected) {
+    return null;
+  }
+
+  const statusCode = result.statusCode ?? 200;
+
+  return new HttpCloakUpstreamError(
+    {
+      allowInsecureTls: options.allowInsecureTls,
+      proxyAddress: options.redactProxyUrl,
+      proxyMode: options.proxyMode,
+      redirectHop: result.redirectHop ?? 0,
+      requestHeaders: result.requestHeaders,
+      responseBody: result.html,
+      responseHeaders: result.diagnosticHeaders as Record<
+        string,
+        string | string[] | undefined
+      >,
+      statusCode,
+    },
+    `Upstream request received a source access response (${compatibility.signal.provider}) [HTTP ${statusCode}]`,
+  );
+}
+
+/**
+ * Records a successful upstream fetch and returns the HTML payload.
+ * @param options - Current upstream stage options used for structured logging.
+ * @param attempt - Zero-based upstream attempt index.
+ * @param result - Successful HTTPCloak response returned by the upstream fetcher.
+ * @returns Successful fetch stage result consumed by the extraction pipeline.
  */
 function finishStageSuccess(
   options: StageOptionsBase,
   attempt: number,
   result: Awaited<ReturnType<typeof fetchHtmlWithHttpCloak>>,
 ): FetchStageResult {
-  logStageSuccess(
-    options.label,
+  logger.info(
+    `${options.label} attempt ${attempt + 1}/${options.attempts} succeeded`,
     buildStageLogContext(options, attempt, {
       diagnosticHeaders: result.diagnosticHeaders,
       headers: result.requestHeaders,
@@ -222,6 +270,32 @@ function finishStageSuccess(
   );
 
   return { html: result.html, ok: true };
+}
+
+/**
+ * Logs a vendor compatibility failure and converts it into retry metadata.
+ * @param options - Current upstream stage options used for retry and logging context.
+ * @param attempt - Zero-based upstream attempt index.
+ * @param error - Error or synthetic compatibility error raised by the stage.
+ * @returns Preferred user-facing error metadata and whether another attempt should run.
+ */
+function handleStageCompatibilityFailure(
+  options: HttpCloakStageOptions,
+  attempt: number,
+  error: unknown,
+): StageCompatibilityFailureResult {
+  const compatibility = resolveCompatibilityOutcome(error);
+
+  return {
+    preferredError: compatibility.preferredError,
+    shouldRetry: handleStageFailure(
+      options,
+      attempt,
+      compatibility.retryable,
+      error,
+      resolveStageFailureExtras(options, compatibility),
+    ),
+  };
 }
 
 /**
@@ -280,18 +354,6 @@ function logStageFailure(
 ): void {
   logger.error(
     `${label} attempt ${context.attempt}/${context.attempts} failed${willRetry ? " (will retry)" : " (final)"}`,
-    context,
-  );
-}
-
-/**
- * Process the log stage success.
- * @param label - The label.
- * @param context - The context used to process the log stage success.
- */
-function logStageSuccess(label: string, context: StageLogContext): void {
-  logger.info(
-    `${label} attempt ${context.attempt}/${context.attempts} succeeded`,
     context,
   );
 }
@@ -411,17 +473,10 @@ async function runHttpCloakStage(
 ): Promise<FetchStageResult> {
   let lastError: unknown;
   let preferredError: Error | undefined;
-  /**
-   * Return the delay ms.
-   * @param attempt - The attempt.
-   * @returns The delay ms.
-   */
-  const getDelayMs = (attempt: number) =>
-    800 * attempt + Math.floor(Math.random() * 400);
 
   for (let attempt = 0; attempt < options.attempts; attempt += 1) {
     if (attempt !== 0) {
-      await options.delayFn(getDelayMs(attempt));
+      await options.delayFn(800 * attempt + Math.floor(Math.random() * 400));
     }
 
     try {
@@ -434,24 +489,30 @@ async function runHttpCloakStage(
         },
       );
 
+      const successCompatibilityError = createSuccessCompatibilityError(
+        result,
+        options,
+      );
+      if (successCompatibilityError) {
+        lastError = successCompatibilityError;
+        const failure = handleStageCompatibilityFailure(
+          options,
+          attempt,
+          successCompatibilityError,
+        );
+        preferredError ??= failure.preferredError;
+
+        break;
+      }
+
       return finishStageSuccess(options, attempt, result);
     } catch (error) {
       lastError = error;
 
-      const compatibility = resolveCompatibilityOutcome(error);
-      if (compatibility.preferredError) {
-        preferredError ??= compatibility.preferredError;
-      }
+      const failure = handleStageCompatibilityFailure(options, attempt, error);
+      preferredError ??= failure.preferredError;
 
-      if (
-        handleStageFailure(
-          options,
-          attempt,
-          compatibility.retryable,
-          error,
-          resolveStageFailureExtras(options, compatibility),
-        )
-      ) {
+      if (failure.shouldRetry) {
         continue;
       }
 

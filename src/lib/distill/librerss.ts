@@ -1,8 +1,9 @@
 /**
  * Librerss distillation strategy — built-in heuristic body selection.
  *
- * Finds the article body container via semantic selectors and common CMS
- * class patterns, then extracts title and description from meta tags.
+ * Scores article-shaped containers first so prose-dense body sections can beat
+ * noisy whole-page wrappers, then falls back to deterministic selector matches
+ * for tiny or unusual pages. Title and description come from page metadata.
  */
 
 import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
@@ -10,15 +11,16 @@ import { parsePageTitle, readMetaTagContent } from "@/lib/sanitize";
 import type { DistilledArticle, DistillOptions } from "./types";
 
 import { findArticleBody } from "./body-selection";
+import { findConfidentArticleBody } from "./confidence-selection";
 
 const DEFAULT_MIN_BODY_LENGTH = 100;
 
 /**
- * Process the librerss distill.
- * @param html - The html.
- * @param url - The url.
- * @param options - The options used to process the librerss distill.
- * @returns The librerss distill.
+ * Distills a page with Librerss' built-in HTML heuristics.
+ * @param html - Pre-cleaned or raw page HTML to distill.
+ * @param url - Canonical article URL to preserve on the distilled result.
+ * @param options - Optional distillation thresholds and strategy settings.
+ * @returns Distilled article content and metadata, or null when no body is credible.
  */
 export function librerssDistill(
   html: string,
@@ -27,7 +29,9 @@ export function librerssDistill(
 ): DistilledArticle | null {
   const threshold = options?.contentLengthThreshold ?? DEFAULT_MIN_BODY_LENGTH;
 
-  const body = findArticleBody(html, threshold);
+  const body =
+    findConfidentArticleBody(html, threshold) ??
+    findArticleBody(html, threshold);
   if (!body) return null;
 
   const title = parsePageTitle(html);

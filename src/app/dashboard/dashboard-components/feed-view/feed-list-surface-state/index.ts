@@ -9,6 +9,7 @@ export {
 export { useFeedPagination } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPagination";
 export type { UseFeedPaginationOptions } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPagination";
 export { useFeedViewportState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedViewportState";
+export { resolveInvertedExpansionLockTargetScrollTop } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedExpansionLockMachine";
 export { useInvertedExpansionScrollLock } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedExpansionScrollLock";
 export {
   type InvertedPaginationAnchorState,

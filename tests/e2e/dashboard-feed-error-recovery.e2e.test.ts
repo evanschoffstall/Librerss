@@ -193,6 +193,7 @@ test.describe("dashboard feed error recovery", () => {
             error:
               "Saved proxy password could not be read. Update it in settings and try again.",
             ok: false,
+            statusCode: 504,
             url,
           };
         }
@@ -247,6 +248,9 @@ test.describe("dashboard feed error recovery", () => {
     await expect(page.getByText("Some feeds failed to update")).toBeVisible({
       timeout: 10_000,
     });
+    await expect(
+      page.getByText("Deterministic World (HTTP 504)"),
+    ).toBeVisible({ timeout: 10_000 });
     await expect(
       page.locator("article[data-article-key]:visible"),
     ).not.toHaveCount(0);

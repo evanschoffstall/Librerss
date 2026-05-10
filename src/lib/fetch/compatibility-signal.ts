@@ -5,7 +5,12 @@ export type SourceCompatibilitySignal =
   | {
       challengeCookies: string[];
       detected: true;
-      provider: "Cloudflare" | "DataDome" | "PerimeterX" | "reCAPTCHA";
+      provider:
+        | "Akamai"
+        | "Cloudflare"
+        | "DataDome"
+        | "PerimeterX"
+        | "reCAPTCHA";
     }
   | { detected: false };
 
@@ -13,6 +18,7 @@ export type SourceCompatibilitySignal =
  * Defines the compatibility provider type.
  */
 type CompatibilityProvider =
+  | "Akamai"
   | "Cloudflare"
   | "DataDome"
   | "PerimeterX"
@@ -30,13 +36,15 @@ export function detectResponseCompatibilitySignal(
   headers: Record<string, unknown> | undefined,
   responseBody: string,
 ): { retryable: boolean; signal: SourceCompatibilitySignal } {
-  if (responseStatus !== 403 && responseStatus !== 429) {
-    return { retryable: false, signal: { detected: false } };
-  }
-
   const challengeCookies = getChallengeCookies(headers);
   const responseBodyLower = responseBody.toLowerCase();
   const responseHeaderKeys = getLowercaseHeaderKeys(headers);
+
+  if (responseStatus !== 403 && responseStatus !== 429) {
+    return isAkamaiChallenge(responseBody)
+      ? createDetectedResponse("Akamai", challengeCookies)
+      : { retryable: false, signal: { detected: false } };
+  }
 
   if (isDataDomeChallenge(headers)) {
     return createDetectedResponse("DataDome", challengeCookies);
@@ -52,6 +60,10 @@ export function detectResponseCompatibilitySignal(
 
   if (isRecaptchaChallenge(responseBody, responseBodyLower)) {
     return createDetectedResponse("reCAPTCHA", []);
+  }
+
+  if (isAkamaiChallenge(responseBody)) {
+    return createDetectedResponse("Akamai", challengeCookies);
   }
 
   return { retryable: true, signal: { detected: false } };
@@ -113,6 +125,18 @@ function headerText(headers: Record<string, unknown> | undefined, key: string) {
     : typeof value === "string"
       ? value.toLowerCase()
       : "";
+}
+
+/**
+ * Detects Akamai interstitials that can arrive with HTTP 200 even though the
+ * body is an access challenge rather than publisher article HTML.
+ * @param responseBody - Decoded upstream response body.
+ * @returns Whether the body contains Akamai challenge markers.
+ */
+function isAkamaiChallenge(responseBody: string): boolean {
+  return /sec-if-cpt-container|scf-akamai-logo|errors\.edgesuite\.net|powered and protected by/i.test(
+    responseBody,
+  );
 }
 
 /**

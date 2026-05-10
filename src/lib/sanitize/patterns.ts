@@ -1,4 +1,5 @@
 const AP_JUNK_CLASS_MARKERS = [
+  "article callout",
   "hub peek",
   "related stories",
   "related content",
@@ -25,9 +26,11 @@ const RELATED_HEADING_RELATED_PREFIXES = [
 ] as const;
 
 /**
- * Return whether has ap junk class.
- * @param attrs - The attrs.
- * @returns Whether has ap junk class.
+ * Detects class names that wrap publisher inserts rather than reader content,
+ * allowing cleanup to remove the whole block before tag-level sanitization would
+ * flatten its links, images, and CTA text into the article body.
+ * @param attrs - Raw opening-tag attributes to inspect.
+ * @returns Whether the element should be treated as non-article junk.
  */
 export function hasApJunkClass(attrs: string): boolean {
   const normalized = normalizePhrase(attrs);
@@ -76,10 +79,10 @@ export function readAttrValue(
   attrsStr: string,
   attrName: string,
 ): null | string {
-  const re = /\b([a-z][a-z0-9:-]*)=["']([^"']*)['"]/gi;
+  const re = /\b([a-z][a-z0-9:-]*)=(['"])([\s\S]*?)\2/gi;
   let m: null | RegExpExecArray;
   while ((m = re.exec(attrsStr)) !== null) {
-    if (m[1].toLowerCase() === attrName) return m[2];
+    if (m[1].toLowerCase() === attrName) return m[3];
   }
   return null;
 }

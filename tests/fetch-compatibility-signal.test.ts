@@ -68,6 +68,52 @@ describe("fetch/compatibility-signal", () => {
     }
   });
 
+  test("detects Akamai challenge bodies returned with HTTP 200", () => {
+    const result = detectResponseCompatibilitySignal(
+      200,
+      { "content-type": "text/html" },
+      `
+        <!doctype html>
+        <html>
+          <body>
+            <div id="sec-if-cpt-container" role="main" style="display: none">
+              <div class="scf-akamai-logo-sec-abc">
+                <p>Powered and protected by</p>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+    );
+
+    expect(result.retryable).toBe(false);
+    expect(result.signal).toEqual({
+      challengeCookies: [],
+      detected: true,
+      provider: "Akamai",
+    });
+  });
+
+  test("does not reject normal HTTP 200 article pages that embed challenge scripts", () => {
+    const result = detectResponseCompatibilitySignal(
+      200,
+      { "content-type": "text/html" },
+      `
+        <html>
+          <body>
+            <article>
+              <p>This article includes a contact form script but still has readable publisher content.</p>
+              <p>The extraction pipeline must not treat every embedded challenge script as a blocked response.</p>
+            </article>
+            <script src="https://www.google.com/recaptcha/api.js"></script>
+          </body>
+        </html>
+      `,
+    );
+
+    expect(result).toEqual({ retryable: false, signal: { detected: false } });
+  });
+
   test("detects reCAPTCHA challenge bodies", () => {
     const result = detectResponseCompatibilitySignal(
       403,

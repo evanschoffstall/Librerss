@@ -16,20 +16,7 @@ _A modern RSS reader for people who want precious signal, not sludge._
 
 </div>
 
-LibreRSS is an open-source, self-hostable RSS reader built for focused reading. It pulls feeds from across the open web, organizes them into a fast dashboard, and keeps the experience calm: no algorithmic feed shaping, no engagement traps, and no platform lock-in.
-
-It is for people who still want the web to feel readable. If you want one place to follow publications, blogs, research, release notes, and long-form writing without surrendering your attention or your data, LibreRSS is the product.
-
-> [!TIP]
-> LibreRSS is a strong fit for personal deployments, research reading, private team dashboards, and any setup where you want a quieter alternative to platform-driven feeds.
-
-## Why it exists
-
-- Read the web without an engagement treadmill.
-- Keep your subscriptions, history, and access rules on infrastructure you control.
-- Turn a noisy stream of sources into a clean, durable reading system.
-- Move from inbox-style triage to article-first reading.
-- Run it privately for yourself or open it up selectively.
+LibreRSS is an open-source, self-hostable RSS reader built for focused reading. Subscribe to RSS, Atom, and JSON feeds, organize them into a fast dashboard, and read without algorithmic interference, engagement traps, or platform lock-in. Run it privately for yourself or open it selectively to a team.
 
 ## Highlights
 
@@ -59,10 +46,7 @@ bun install
 
 ### 2. Configure local overrides
 
-LibreRSS ships with a committed `.env` full of documented defaults. Put machine-specific settings in `.env.local` so you can preserve the defaults and override only what you need.
-
-> [!NOTE]
-> Keep secrets and machine-specific values in `.env.local`. The committed `.env` is meant to document defaults, not to hold your local credentials.
+LibreRSS ships with a committed `.env` full of documented defaults. Put machine-specific settings in `.env.local`; keep secrets and credentials out of the committed file.
 
 ```env
 DATABASE_URL="postgres://user:password@host:5432/dbname"
@@ -72,25 +56,12 @@ NODE_ENV="development"
 LOG_LEVEL="warn"
 ```
 
-Common settings:
-
 - `DATABASE_URL`: your Postgres connection string.
 - `DB_DRIVER`: `pg` for pooled TCP connections, or `neon` for fetch-backed Neon mode.
-- `ALLOW_SIGNUP`: set to `true` if you want public registration.
+- `ALLOW_SIGNUP`: set to `true` for public registration; leave `false` for a private setup and use `bun run db:create-user` to create accounts.
 - `LOG_LEVEL`: one of `none`, `error`, `warn`, `info`, or `verbose`.
 
-> [!TIP]
-> Leave `ALLOW_SIGNUP=false` if you want a private or invite-only reader and create accounts with `bun run db:create-user` instead.
-
-<details>
-<summary>More useful configuration knobs</summary>
-
-- `LEGAL_PROFILE`: switch between generic self-hosted legal copy and a branded hosted deployment.
-- `LOG_COLORS_ENABLED`: enable colored logs locally.
-- `ARTICLE_EXTRACT_CACHE_ENABLED`: control article extraction caching.
-- `PLAYWRIGHT_BASE_URL`: point Playwright at a specific running environment when needed.
-
-</details>
+Additional knobs: `LEGAL_PROFILE` (switch legal copy), `LOG_COLORS_ENABLED` (colored dev logs), `ARTICLE_EXTRACT_CACHE_ENABLED` (extraction caching), `PLAYWRIGHT_BASE_URL` (point Playwright at a custom host).
 
 ### 3. Provision the database
 
@@ -120,27 +91,19 @@ Open [http://localhost:3000](http://localhost:3000) and sign in.
 
 ### 6. Verify the install
 
-You should be able to:
-
-- open the dashboard without runtime setup errors
-- sign in with the user you created
-- add a feed and see articles populate in the reading view
-
-> [!IMPORTANT]
-> If the app boots but feed refresh fails, check your `DATABASE_URL`, database reachability, and whether your selected `DB_DRIVER` matches the connection you are using.
+You should be able to open the dashboard, sign in, add a feed, and see articles populate. If feed refresh fails, check your `DATABASE_URL`, database reachability, and whether `DB_DRIVER` matches the connection you are using.
 
 ## Development
 
 ### Core commands
 
-| Command             | Purpose                                               |
-| ------------------- | ----------------------------------------------------- |
-| `bun dev`           | Start the standard local Next.js development server.  |
-| `bun run dev:local` | Bind the dev server to `0.0.0.0:3000` for LAN access. |
-| `bun run build`     | Create a production build.                            |
-| `bun run start`     | Run the production server after building.             |
-| `bun check summary` | Run the repository quality summary.                   |
-| `bun check --junit` | Run the Bun unit and integration test suite.          |
+| Command             | Purpose                                              |
+| ------------------- | ---------------------------------------------------- |
+| `bun dev`           | Start the standard local Next.js development server. |
+| `bun run build`     | Create a production build.                           |
+| `bun run start`     | Run the production server after building.            |
+| `bun check summary` | Run the repository quality summary.                  |
+| `bun check --junit` | Run the Bun unit and integration test suite.         |
 
 ### Quality tooling
 
@@ -154,13 +117,7 @@ python3 -m pip install -r requirements-dev.txt
 
 ### End-to-end testing
 
-The Playwright workflow is isolated by design. It starts a dedicated Next.js dev server on port `3100`, uses its own `.next-playwright` build directory, and cleans up afterward so your regular development session stays untouched.
-
-> [!IMPORTANT]
-> This separation is intentional. It prevents Playwright runs from clobbering your normal development server or `.next` output.
-
-> [!NOTE]
-> Playwright is optional. LibreRSS does not install browsers or OS-level dependencies during `bun install`, so deployments and local setups stay environment-agnostic. If you want to try the Playwright suite, install the browser binaries explicitly on a machine that supports them.
+The Playwright workflow is isolated by design: it runs on port `3100` with its own `.next-playwright` build directory and cleans up afterward, leaving your normal dev session untouched. Browser binaries are not installed during `bun install` — run `bun run setup:playwright` first on any machine where you want to run the suite.
 
 ```bash
 bun run setup:playwright
@@ -220,27 +177,6 @@ librerss/
 ├── public/               # Static assets
 └── tests/                # Bun and Playwright coverage for product behavior
 ```
-
-## Configuration notes
-
-- `.env` is committed and documents the full default configuration surface.
-- `.env.local` is the right place for machine-specific secrets and deployment overrides.
-- `ALLOW_SIGNUP=false` gives you a private or invite-only setup.
-- `LEGAL_PROFILE` and related variables let you switch between generic self-hosted copy and a branded hosted deployment.
-- `PLAYWRIGHT_BASE_URL` can point Playwright at a specific running environment when needed.
-
-> [!CAUTION]
-> Do not treat the committed `.env` as a deployment secret store. Production secrets and local credentials should come from your environment or `.env.local`.
-
-## Design principle
-
-LibreRSS is built around a simple idea: the best feed reader should disappear behind the reading. The interface should help you move through information with intent, not trap you in an infinite loop of updates, nudges, and synthetic urgency.
-
-That principle shapes the app from the bottom up. Feed fetching, content extraction, sanitization, dashboard flow, and self-hosted control all exist to make the reading experience calmer, faster, and more trustworthy.
-
-## License
-
-LibreRSS is released under the [MIT License](LICENSE).
 
 <div align="center">
 

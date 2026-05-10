@@ -715,7 +715,7 @@ describe("dashboard OPML and feed-source operations", () => {
             }),
           ]),
         ]),
-        name: "Daily News",
+        name: "Example Feed",
         setSelectedCategory:
           selectedCategory.setter as unknown as React.Dispatch<
             React.SetStateAction<string>

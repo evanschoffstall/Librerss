@@ -608,12 +608,19 @@ describe("feed-batch-outcome", () => {
   test("formats a compact failure label for long upstream failure lists", () => {
     const failureLabel = formatFeedFailureLabel(
       [
-        { articles: [], error: "down", ok: false, url: "https://one.example" },
+        {
+          articles: [],
+          error: "down",
+          ok: false,
+          statusCode: 504,
+          url: "https://one.example",
+        },
         { articles: [], error: "down", ok: false, url: "https://two.example" },
         {
           articles: [],
           error: "down",
           ok: false,
+          statusCode: 403,
           url: "https://three.example",
         },
         { articles: [], error: "down", ok: false, url: "https://four.example" },
@@ -626,7 +633,7 @@ describe("feed-batch-outcome", () => {
       ]),
     );
 
-    expect(failureLabel).toBe("One, Two, Three and 1 more");
+    expect(failureLabel).toBe("One (HTTP 504), Two, Three (HTTP 403) and 1 more");
   });
 });
 

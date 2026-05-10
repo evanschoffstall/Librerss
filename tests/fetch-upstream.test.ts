@@ -287,6 +287,40 @@ describe("fetchHtml", () => {
     expect(attemptCount).toBe(1);
   });
 
+  test("rejects Akamai access interstitials returned with HTTP 200", async () => {
+    const httpCloakFetchFn = mock(async () => ({
+      diagnosticHeaders: { "content-type": ["text/html"] },
+      html: `
+        <!doctype html>
+        <html>
+          <body>
+            <script src="/CtzWON35h/qtzwJC/FOg/tNEwwtOV/HQMKMBYB/FlkOWmx/CBFYr"></script>
+            <div id="sec-if-cpt-container" role="main" style="display: none">
+              <div class="behavioral-content">
+                <div class="scf-akamai-logo-sec-abc">
+                  <p class="scf-akamai-protected-by">Powered and protected by</p>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+      redirectHop: 0,
+      requestHeaders: {},
+      statusCode: 200,
+    }));
+
+    await expect(
+      fetchHtml(TEST_URL, {
+        delayFn: async () => {},
+        httpCloakFetchFn,
+        isAllowedFeedUrlFn: async () => true,
+      }),
+    ).rejects.toThrow("Akamai");
+
+    expect(httpCloakFetchFn).toHaveBeenCalledTimes(1);
+  });
+
   test("rethrows the last error after the single extract attempt", async () => {
     const httpCloakFetchFn = mock(async () => {
       throw createHttpCloakUpstreamError(403, "blocked");

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { ArticleFilter, ArticleSortOrder } from "@/lib/core";
+import type { BatchFeedError } from "@/lib/core/feed-fetcher-batch";
 
 import { CONFIG, logger } from "@/lib";
 
@@ -44,7 +45,7 @@ export interface BatchRequestCompletedOptions {
   results: { articles: unknown[]; ok: boolean }[];
   searchTerm: string | undefined;
   skipRefresh: boolean;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
   userId: number;
 }
 
@@ -89,6 +90,7 @@ interface BatchIntentOptions {
   forceResolveUpstream: boolean;
   skipRefresh: boolean;
 }
+
 /**
  * Describes the batch request state parsers.
  */
@@ -127,7 +129,7 @@ interface LogBatchDiagnosticsOptions {
   results: { articles: unknown[]; ok: boolean }[];
   searchTerm: string | undefined;
   skipRefresh: boolean;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
   userId: number;
 }
 
@@ -181,7 +183,7 @@ interface LogBatchStatusSummaryOptions {
  */
 interface LogBatchWarningsOptions {
   invalidUrlCount: number;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
 }
 
 /**
@@ -205,6 +207,7 @@ interface ValidatedBatchRequestStateOptions {
   normalizeDistinctUrlList: (value: unknown) => string[];
   searchTerm: string | undefined;
 }
+
 /**
  * Build the batch intent.
  * @param options - The options used to build the batch intent.
@@ -358,7 +361,6 @@ export function logBatchRequestReceivedWhenEnabled(
     userId: options.userId,
   });
 }
-
 /**
  * Process the log batch status summary.
  * @param options - The options used to process the log batch status summary.
@@ -376,6 +378,7 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
     `Batch [${n} feed${plural}]: client=${options.intent} resolved=${options.resolution} | ${options.refreshedCount} refreshed, ${options.cachedCount} cached${cooldownNote} in ${durationMs}ms`,
   );
 }
+
 /**
  * Process the log batch warnings.
  * @param options - The options used to process the log batch warnings.
@@ -383,7 +386,7 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
 export function logBatchWarnings(options: LogBatchWarningsOptions) {
   if (options.upstreamErrors.size > 0) {
     const failures = [...options.upstreamErrors.entries()].map(
-      ([url, err]) => `  • ${url}: ${err}`,
+      ([url, err]) => `  • ${url}: ${err.message}`,
     );
     logger.warn(
       `Returning 207 Multi-Status — ${options.upstreamErrors.size} feed(s) have upstream errors:\n${failures.join("\n")}`,

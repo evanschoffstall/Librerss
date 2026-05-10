@@ -6,11 +6,13 @@
  * (a distillation concern) from HTML formatting (a sanitize concern).
  */
 
+import { prependNearbyLeadImage } from "@/lib/distill/lead";
 import { readAttrValue } from "@/lib/sanitize";
 
 /** Content-indicative CSS class/id patterns ordered by specificity. */
 const CONTENT_CLASS_PATTERNS = [
   "article-content",
+  "articlebody",
   "article-body",
   "article__body",
   "article__content",
@@ -40,10 +42,13 @@ const CONTENT_CLASS_PATTERNS = [
 ] as const;
 
 /**
- * Process the find article body.
- * @param html - The html.
- * @param minLength - The min length value.
- * @returns The find article body.
+ * Finds the first trustworthy article body using high-signal semantic markers
+ * before falling back to larger generic containers. Selector order is
+ * intentionally conservative because sponsored modules often reuse broad class
+ * names such as `article-body` for callout copy.
+ * @param html - Pre-cleaned document HTML to inspect.
+ * @param minLength - Minimum raw fragment length required for a selected body.
+ * @returns Selected body HTML, or null when no candidate is strong enough.
  */
 export function findArticleBody(
   html: string,
@@ -77,10 +82,11 @@ export function findArticleBody(
 }
 
 /**
- * Process the class or id contains.
- * @param attrsStr - The attrs str.
- * @param segment - The segment.
- * @returns Whether class or id contains.
+ * Checks class and id attributes for a content marker while tolerating publisher
+ * casing differences such as `articleBody` versus `articlebody`.
+ * @param attrsStr - Raw opening-tag attribute string.
+ * @param segment - Class or id segment to match exactly.
+ * @returns Whether either attribute contains the requested segment.
  */
 function classOrIdContains(attrsStr: string, segment: string): boolean {
   const classVal = readAttrValue(attrsStr, "class") ?? "";
@@ -89,12 +95,12 @@ function classOrIdContains(attrsStr: string, segment: string): boolean {
 }
 
 /**
- * Process the extract inner html.
- * @param html - The html.
- * @param startIdx - The start idx.
- * @param openTagLength - The open tag length value.
- * @param tagName - The tag name.
- * @returns The extract inner html.
+ * Extracts a balanced element body from an opening tag position.
+ * @param html - Source HTML containing the container.
+ * @param startIdx - Index of the opening tag in the source HTML.
+ * @param openTagLength - Length of the opening tag text.
+ * @param tagName - Container tag name whose matching close tag ends the body.
+ * @returns Inner HTML for the balanced element, or null for malformed markup.
  */
 function extractInnerHtml(
   html: string,
@@ -118,10 +124,11 @@ function extractInnerHtml(
 }
 
 /**
- * Process the find all by tag.
- * @param html - The html.
- * @param tagName - The tag name.
- * @returns The find all by tag.
+ * Finds all balanced bodies for a tag so generic container fallback can choose
+ * the broadest article-shaped region.
+ * @param html - Source HTML to inspect.
+ * @param tagName - Tag name to collect.
+ * @returns Inner HTML fragments for each balanced matching element.
  */
 function findAllByTag(html: string, tagName: string): string[] {
   const results: string[] = [];
@@ -137,11 +144,12 @@ function findAllByTag(html: string, tagName: string): string[] {
 }
 
 /**
- * Process the find first by attr.
- * @param html - The html.
- * @param attr - The attr.
- * @param value - The value.
- * @returns The find first by attr.
+ * Finds the first element with an exact attribute value, preserving nearby lead
+ * media when the selected body itself does not already begin with media.
+ * @param html - Source HTML to inspect.
+ * @param attr - Attribute name to match.
+ * @param value - Exact attribute value required for selection.
+ * @returns Selected body HTML, or null when no balanced match exists.
  */
 function findFirstByAttr(
   html: string,
@@ -152,17 +160,22 @@ function findFirstByAttr(
   let m: null | RegExpExecArray;
   while ((m = re.exec(html)) !== null) {
     if (readAttrValue(m[2], attr) !== value) continue;
-    return extractInnerHtml(html, m.index, m[0].length, m[1]);
+    const innerHtml = extractInnerHtml(html, m.index, m[0].length, m[1]);
+    return innerHtml === null
+      ? null
+      : prependNearbyLeadImage(html, innerHtml, m.index);
   }
   return null;
 }
 
 /**
- * Process the find first by class contains.
- * @param html - The html.
- * @param patterns - The patterns.
- * @param minLength - The min length value.
- * @returns The find first by class contains.
+ * Finds the first class/id body matching the ordered content patterns. Pattern
+ * order carries meaning: high-confidence article-body variants run before
+ * broader CMS body markers that can appear inside unrelated modules.
+ * @param html - Source HTML to inspect.
+ * @param patterns - Ordered class/id markers that indicate article content.
+ * @param minLength - Minimum raw fragment length required for selection.
+ * @returns Selected body HTML, or null when no candidate is long enough.
  */
 function findFirstByClassContains(
   html: string,
@@ -175,18 +188,20 @@ function findFirstByClassContains(
     while ((m = re.exec(html)) !== null) {
       if (!classOrIdContains(m[2], pattern)) continue;
       const content = extractInnerHtml(html, m.index, m[0].length, m[1]);
-      if (content && content.trim().length >= minLength) return content;
+      if (content && content.trim().length >= minLength) {
+        return prependNearbyLeadImage(html, content, m.index);
+      }
     }
   }
   return null;
 }
 
 /**
- * Process the find largest tag body.
- * @param html - The html.
- * @param tagName - The tag name.
- * @param minLength - The min length value.
- * @returns The find largest tag body.
+ * Selects the largest balanced generic container as a last resort.
+ * @param html - Source HTML to inspect.
+ * @param tagName - Generic container tag name such as `article` or `main`.
+ * @param minLength - Minimum raw fragment length required for selection.
+ * @returns Largest matching body HTML, or null when none is long enough.
  */
 function findLargestTagBody(
   html: string,
@@ -206,10 +221,11 @@ function findLargestTagBody(
 }
 
 /**
- * Process the meets min length.
- * @param value - The value.
- * @param minLength - The min length value.
- * @returns Whether meets min length.
+ * Checks whether a candidate has enough raw content to avoid tiny navigation,
+ * teaser, or CTA fragments.
+ * @param value - Candidate body HTML.
+ * @param minLength - Minimum trimmed character count required.
+ * @returns Whether the candidate is non-null and long enough.
  */
 function meetsMinLength(
   value: null | string,
@@ -219,22 +235,26 @@ function meetsMinLength(
 }
 
 /**
- * Process the segment match.
- * @param attrValue - The attr value.
- * @param segment - The segment.
- * @returns Whether segment match.
+ * Matches a class/id token without allowing partial words to satisfy the
+ * selector. This keeps broad patterns from matching unrelated BEM modifiers
+ * while still allowing exact camel-case tokens after normalization.
+ * @param attrValue - Raw class or id attribute value.
+ * @param segment - Lowercase selector segment to find.
+ * @returns Whether the normalized attribute contains the segment as a token.
  */
 function segmentMatch(attrValue: string, segment: string): boolean {
+  const normalizedAttrValue = attrValue.toLowerCase();
+  const normalizedSegment = segment.toLowerCase();
   let start = 0;
-  while (start <= attrValue.length - segment.length) {
-    const idx = attrValue.indexOf(segment, start);
+  while (start <= normalizedAttrValue.length - normalizedSegment.length) {
+    const idx = normalizedAttrValue.indexOf(normalizedSegment, start);
     if (idx < 0) return false;
-    const leftOk = idx === 0 || /\s/.test(attrValue[idx - 1]);
-    const end = idx + segment.length;
+    const leftOk = idx === 0 || /\s/.test(normalizedAttrValue[idx - 1]);
+    const end = idx + normalizedSegment.length;
     const rightOk =
-      end >= attrValue.length ||
-      /\s/.test(attrValue[end]) ||
-      attrValue.startsWith("--", end);
+      end >= normalizedAttrValue.length ||
+      /\s/.test(normalizedAttrValue[end]) ||
+      normalizedAttrValue.startsWith("--", end);
     if (leftOk && rightOk) return true;
     start = idx + 1;
   }

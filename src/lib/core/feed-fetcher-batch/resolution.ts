@@ -396,7 +396,7 @@ function logBatchFetchCompletion(
   request: BatchFetchRequest,
   articleMap: Map<string, ArticleRow[]>,
   totalArticles: number,
-  errors: ReadonlyMap<string, string>,
+  errors: ReadonlyMap<string, { message: string; statusCode?: number }>,
 ): void {
   dependencies.diagInfo("Batch feed fetch completed", {
     articleFilter: request.articleFilter,
@@ -405,7 +405,7 @@ function logBatchFetchCompletion(
       articleCount: items.length,
       newestReturnedPublicationDate:
         items.length > 0 ? items[0].publicationDate.toISOString() : null,
-      upstreamError: errors.get(url) ?? null,
+      upstreamError: errors.get(url)?.message ?? null,
       url,
     })),
     feedCount: articleMap.size,

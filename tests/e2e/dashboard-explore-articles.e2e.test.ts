@@ -1,3 +1,13 @@
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+import { librerssDistill } from "@/lib/distill/librerss";
+import { preCleanHtml } from "@/lib/sanitize";
+
+import {
+  createMultiArticleOwnershipFixture,
+  MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE,
+  MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+  MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+} from "../article-extraction-fixtures";
 import {
   articleCard,
   articleCardByKey,
@@ -115,6 +125,47 @@ test.describe("dashboard explore article interactions", () => {
     await expect(article.getByText("Deterministic extract")).toBeVisible();
     await expect(article).toContainText("Stable extracted content for");
     expect(await article.innerText()).not.toBe(collapsedText);
+  });
+
+  test("renders the page-owning extract when the ownership headline contains an apostrophe", async ({
+    page,
+  }) => {
+    await page.unroute("**/api/articles/extract");
+    await page.route("**/api/articles/extract", async (route) => {
+      const extracted = librerssDistill(
+        preCleanHtml(createMultiArticleOwnershipFixture()),
+        MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
+        { contentLengthThreshold: 120 },
+      );
+
+      if (!extracted?.content) {
+        throw new Error("Expected the synthetic ownership fixture to distill.");
+      }
+
+      await route.fulfill({
+        body: JSON.stringify({ content: extracted.content }),
+        contentType: "application/json",
+        status: 200,
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const article = articleCard(page, 0);
+
+    await toggleArticle(article);
+
+    await expectArticleExpanded(article, true);
+    await expect(
+      article.locator('[data-article-hydration-state="loading"]'),
+    ).toHaveCount(0);
+    await expect(article).toContainText(
+      MULTI_ARTICLE_OWNERSHIP_CURRENT_SENTENCE,
+    );
+    await expect(article).not.toContainText(
+      MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
+    );
   });
 
   test("keeps lower-card expand and collapse interactions within the active feed viewport", async ({
@@ -357,16 +408,15 @@ test.describe("dashboard explore article interactions", () => {
     ).toBeVisible();
   });
 
-  test("does not surface removed image placeholder feeds in explore mode", async ({
+  test("surfaces the configured placeholder feeds in explore mode", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
 
-    await expect(
-      page.locator("button").filter({ hasText: "ESA Images" }),
-    ).toHaveCount(0);
-    await expect(
-      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
-    ).toHaveCount(0);
+    for (const definition of PLACEHOLDER_SOURCE_DEFINITIONS) {
+      await expect(
+        page.locator("button").filter({ hasText: definition.source.name }),
+      ).toBeVisible();
+    }
   });
 });

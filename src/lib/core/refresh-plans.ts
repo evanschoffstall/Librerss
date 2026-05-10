@@ -1,3 +1,5 @@
+import type { BatchFeedError } from "@/lib/core/feed-batch-error";
+
 import { CONFIG, logger } from "@/lib";
 
 import type { FeedUpstreamTransport } from "./http-client";
@@ -51,7 +53,7 @@ interface RefreshCandidatePartition {
 /** Describes mutable refresh execution state accumulated for one batch. */
 interface RefreshExecutionState {
   refreshedUrls: Set<string>;
-  upstreamErrors: Map<string, string>;
+  upstreamErrors: Map<string, BatchFeedError>;
 }
 
 /** Describes options for bounded task settlement. */
@@ -124,7 +126,7 @@ export async function executeParallelRefreshes(
   options: ExecuteParallelRefreshesOptions,
 ): Promise<{
   cooldownLimitedCount: number;
-  errors: Map<string, string>;
+  errors: Map<string, BatchFeedError>;
   refreshedCount: number;
   refreshedUrls: Set<string>;
 }> {
@@ -135,7 +137,7 @@ export async function executeParallelRefreshes(
     forceResolveUpstream = false,
     skipRefresh,
   } = options;
-  const upstreamErrors = new Map<string, string>();
+  const upstreamErrors = new Map<string, BatchFeedError>();
   const refreshedUrls = new Set<string>();
   const cooldownLimitedCount = countCooldownLimitedFeeds(
     feedByUrl,
@@ -169,7 +171,7 @@ export async function executeParallelRefreshes(
 function appendPersistedRefreshErrors(
   feedByUrl: Map<string, FeedRecord>,
   allowedUrls: string[],
-  upstreamErrors: Map<string, string>,
+  upstreamErrors: Map<string, BatchFeedError>,
 ): void {
   for (const url of allowedUrls) {
     if (upstreamErrors.has(url)) {
@@ -178,7 +180,7 @@ function appendPersistedRefreshErrors(
 
     const feed = feedByUrl.get(url);
     if (feed?.lastFetchError) {
-      upstreamErrors.set(url, feed.lastFetchError);
+      upstreamErrors.set(url, { message: feed.lastFetchError });
     }
   }
 }
@@ -309,14 +311,14 @@ function partitionRefreshCandidatesByProxyAvailability(
 function recordProxyTransportErrors(
   blockedProxyFeeds: FeedRecord[],
   proxyTransportError: string | undefined,
-  upstreamErrors: Map<string, string>,
+  upstreamErrors: Map<string, BatchFeedError>,
 ): void {
   if (proxyTransportError === undefined) {
     return;
   }
 
   for (const feed of blockedProxyFeeds) {
-    upstreamErrors.set(feed.url, proxyTransportError);
+    upstreamErrors.set(feed.url, { message: proxyTransportError });
   }
 }
 
@@ -330,7 +332,7 @@ function recordProxyTransportErrors(
 function recordRefreshSettlements(
   staleFeeds: FeedRecord[],
   results: PromiseSettledResult<UpstreamRefreshResult>[],
-  upstreamErrors: Map<string, string>,
+  upstreamErrors: Map<string, BatchFeedError>,
   refreshedUrls: Set<string>,
 ): void {
   for (const [index, settlement] of results.entries()) {
@@ -340,7 +342,9 @@ function recordRefreshSettlements(
     }
 
     if (isBatchRefreshBudgetSkipped(settlement)) {
-      upstreamErrors.set(url, BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE);
+      upstreamErrors.set(url, {
+        message: BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
+      });
       continue;
     }
 
@@ -357,7 +361,7 @@ function recordRefreshSettlements(
       settlement.reason instanceof Error
         ? settlement.reason.message
         : String(settlement.reason);
-    upstreamErrors.set(url, reason);
+    upstreamErrors.set(url, { message: reason });
     logger.warn("Unexpected refresh settlement rejection", {
       reason,
       url,

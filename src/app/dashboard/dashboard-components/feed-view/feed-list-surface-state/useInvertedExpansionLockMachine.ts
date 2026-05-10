@@ -57,6 +57,53 @@ interface UseInvertedExpansionLockMachineOptions {
 }
 
 /**
+ * Resolve the lock target scroll top.
+ * @param lockState - The lock state.
+ * @returns The lock target scroll top.
+ */
+/**
+ * Resolve the scroll position the active inverted expansion lock should drive
+ * the viewport toward on the current sync pass.
+ *
+ * During the collapsing animation we keep the pre-expand scrollTop fixed so the
+ * shrinking row cannot drift the viewport. Once collapse settles and the lock
+ * enters restore mode, the header anchor becomes authoritative again: the user
+ * may have scrolled far away while the article was expanded, so converging on
+ * the captured header offset is the only reliable way to put the row back where
+ * it started.
+ *
+ * @param lockState - The active inverted expansion scroll lock state.
+ * @returns The scrollTop the viewport should be moved toward for this lock pass.
+ */
+export function resolveInvertedExpansionLockTargetScrollTop(
+  lockState: InvertedExpansionScrollLockState,
+) {
+  if (lockState.articleKey !== null && lockState.mode === "collapsing") {
+    return lockState.baselineScrollTop;
+  }
+
+  const anchor = findInvertedExpansionHeaderAnchor(
+    lockState.articleKey,
+    lockState.viewport,
+  );
+  const anchoredScrollTop = anchor
+    ? lockState.viewport.scrollTop +
+      getViewportOffsetTop(anchor, lockState.viewport) -
+      lockState.anchorViewportOffsetTop
+    : null;
+
+  return (
+    anchoredScrollTop ??
+    (lockState.pinToBottom
+      ? Math.max(
+          0,
+          lockState.viewport.scrollHeight - lockState.viewport.clientHeight,
+        )
+      : lockState.baselineScrollTop)
+  );
+}
+
+/**
  * Manage the inverted expansion lock machine.
  * @param options - The options used to manage the inverted expansion lock machine.
  * @returns The inverted expansion lock machine state and callbacks.
@@ -378,42 +425,6 @@ function resolveBaselineScrollTop(
 }
 
 /**
- * Resolve the lock target scroll top.
- * @param lockState - The lock state.
- * @returns The lock target scroll top.
- */
-function resolveLockTargetScrollTop(
-  lockState: InvertedExpansionScrollLockState,
-) {
-  if (
-    lockState.articleKey !== null &&
-    (lockState.mode === "collapsing" || lockState.mode === "restore")
-  ) {
-    return lockState.baselineScrollTop;
-  }
-
-  const anchor = findInvertedExpansionHeaderAnchor(
-    lockState.articleKey,
-    lockState.viewport,
-  );
-  const anchoredScrollTop = anchor
-    ? lockState.viewport.scrollTop +
-      getViewportOffsetTop(anchor, lockState.viewport) -
-      lockState.anchorViewportOffsetTop
-    : null;
-
-  return (
-    anchoredScrollTop ??
-    (lockState.pinToBottom
-      ? Math.max(
-          0,
-          lockState.viewport.scrollHeight - lockState.viewport.clientHeight,
-        )
-      : lockState.baselineScrollTop)
-  );
-}
-
-/**
  * Process the schedule expansion lock sync.
  * @param invertedExpansionScrollLockRef - The ref that stores the inverted expansion scroll lock ref.
  * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
@@ -490,7 +501,9 @@ function shouldSchedulePersistentExpansionLock(
  * @param options - The active lock state together with the release and resync callbacks.
  */
 function syncResolvedExpansionLock(options: ExpansionLockSyncOptions) {
-  const targetScrollTop = resolveLockTargetScrollTop(options.lockState);
+  const targetScrollTop = resolveInvertedExpansionLockTargetScrollTop(
+    options.lockState,
+  );
 
   if (Math.abs(options.lockState.viewport.scrollTop - targetScrollTop) > 0.5) {
     options.lockState.viewport.scrollTop = targetScrollTop;

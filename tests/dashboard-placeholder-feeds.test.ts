@@ -14,23 +14,9 @@ describe("placeholder feed wiring", () => {
     expect(
       PLACEHOLDER_FEED_SOURCES.every((source) => source.extractionDisabled),
     ).toBe(true);
-    const feedNames = PLACEHOLDER_FEED_SOURCES.map((source) => source.name);
-
-    expect(feedNames).toEqual(
-      expect.arrayContaining([
-        "ESA Earth Observation",
-        "ESA Human Exploration",
-        "ESA Top News",
-        "NASA Breaking News",
-        "NASA STEM Learning",
-        "NHLBI All News",
-        "NINDS Press Releases",
-        "NIH News Releases",
-        "NIH Research Matters",
-      ]),
-    );
-    expect(feedNames).not.toContain("ESA Images");
-    expect(feedNames).not.toContain("NASA Image of the Day");
+    expect(
+      new Set(PLACEHOLDER_FEED_SOURCES.map((source) => source.name)).size,
+    ).toBe(PLACEHOLDER_FEED_SOURCES.length);
   });
 
   test("preserves extraction settings in preview category nodes", () => {

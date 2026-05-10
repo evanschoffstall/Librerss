@@ -57,20 +57,24 @@ async function compressWithZstd(input: string): Promise<Buffer> {
   });
 }
 
-const SPECIAL_CASE_BRAND = String.fromCharCode(
-  68,
-  97,
-  105,
-  108,
-  121,
-  32,
-  75,
-  111,
-  115,
-);
+async function getBundledPlaceholderUrl(): Promise<string> {
+  const { PLACEHOLDER_SOURCE_DEFINITIONS } =
+    await import("@/lib/core/placeholder-sources");
+  const seed = PLACEHOLDER_SOURCE_DEFINITIONS.flatMap(
+    (definition) => definition.seeds,
+  )[0];
+
+  if (!seed) {
+    throw new Error("Expected at least one bundled placeholder article.");
+  }
+
+  return seed.url;
+}
+
+const SPECIAL_CASE_BRAND = "Example Publisher";
 
 const SPECIAL_CASE_STORY_URL =
-  "https://www.dailykos.com/stories/2026/2/25/2370437/example-story";
+  "https://example.com/stories/2026/2/25/2370437/example-story";
 const SPECIAL_CASE_HOSTNAME = getHostname(SPECIAL_CASE_STORY_URL);
 
 beforeEach(() => {
@@ -105,14 +109,14 @@ describe("article extract cleanup", () => {
       <p>Real article paragraph two.</p>
       <p>${SPECIAL_CASE_BRAND}</p>
       <ul>
-        <li><a href="https://publisher.example/">Front Page</a></li>
-        <li><a href="https://comics.publisher.example/">Comics</a></li>
-        <li><a href="https://publisher.example/subscribe">Subscribe</a></li>
+        <li><a href="https://example.com/">Front Page</a></li>
+        <li><a href="https://example.com/comics">Comics</a></li>
+        <li><a href="https://example.com/subscribe">Subscribe</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://publisher.example/privacy">Privacy</a></li>
-        <li><a href="https://publisher.example/masthead">Masthead</a></li>
+        <li><a href="https://example.com/privacy">Privacy</a></li>
+        <li><a href="https://example.com/masthead">Masthead</a></li>
       </ul>
     `;
 
@@ -127,16 +131,16 @@ describe("article extract cleanup", () => {
     const footerOnly = `
       <p>${SPECIAL_CASE_BRAND}</p>
       <ul>
-        <li><a href="https://publisher.example/">Front Page</a></li>
-        <li><a href="https://comics.publisher.example/">Comics</a></li>
-        <li><a href="https://feeds.publisher.example/">RSS</a></li>
-        <li><a href="https://publisher.example/subscribe">Subscribe</a></li>
-        <li><a href="https://publisher.example/terms">Terms</a></li>
-        <li><a href="https://publisher.example/privacy">Privacy</a></li>
+        <li><a href="https://example.com/">Front Page</a></li>
+        <li><a href="https://example.com/comics">Comics</a></li>
+        <li><a href="https://example.com/feeds">RSS</a></li>
+        <li><a href="https://example.com/subscribe">Subscribe</a></li>
+        <li><a href="https://example.com/terms">Terms</a></li>
+        <li><a href="https://example.com/privacy">Privacy</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://publisher.example/masthead">Masthead</a></li>
+        <li><a href="https://example.com/masthead">Masthead</a></li>
       </ul>
     `;
 
@@ -198,6 +202,110 @@ describe("article extract cleanup", () => {
 
     expect(cleaned).toContain("<h2>Mission Overview</h2>");
     expect(cleaned).toContain("Body intro text.");
+  });
+
+  test("removes lead metadata chrome while preserving intro prose and images", () => {
+    const broadCmsExtraction = `
+      <h2>Regional resource assessment published</h2>
+      <h3>Summary values and supporting material</h3>
+      <a href="https://example.com/report">Read the fact sheet on the assessment</a>
+      By <a href="https://example.com/team">Communications Team</a>
+      January 15, 2026
+      <p><strong>RIVER CITY.</strong> A public research office released a new assessment describing recoverable resources across several adjoining basins and state-managed areas.</p>
+      <p>The assessment reviews historical production, recent exploration, and the technical assumptions used to estimate remaining resources.</p>
+      <h3>Video file</h3>
+      <a href="https://example.com/media/assessment-map">Media <img src="https://example.com/images/assessment-map.png" width="900" height="600" alt="Assessment map" /></a>
+      Source/Credit: Provided handout.
+      <a href="https://example.com/media/assessment-map">View Media Details</a>
+      <a href="https://example.com/media/random-fact">Show me another fact</a>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      broadCmsExtraction,
+      "https://example.com/news/regional-resource-assessment/",
+    );
+
+    expect(cleaned).not.toContain("Regional resource assessment published");
+    expect(cleaned).not.toContain("Read the fact sheet");
+    expect(cleaned).not.toContain("Communications Team");
+    expect(cleaned).not.toContain("Source/Credit");
+    expect(cleaned).not.toContain("View Media Details");
+    expect(cleaned).not.toContain("Video file");
+    expect(cleaned).not.toContain("Show me another fact");
+    expect(cleaned).toContain("A public research office released");
+    expect(cleaned).toContain("technical assumptions");
+    expect(cleaned).toContain("assessment-map.png");
+  });
+
+  test("removes long leading metadata preambles before the first article paragraph", () => {
+    const longLeadingPreamble = `
+      <h2>USGS releases assessment of undiscovered oil and gas resources in Woodford and Barnett shales</h2>
+      <h3>28.3 trillion cubic feet of gas, 1.6 billion barrels of oil estimated in New Mexico, Texas</h3>
+      <a href="https://example.com/factsheet">Read the factsheet on undiscovered oil and gas in the Woodford Shale and Barnett</a>
+      By <a href="https://example.com/team">Communications and Publishing</a>
+      January 14, 2026
+      <p><strong>RESTON, Va.</strong> The U.S. Geological Survey released its assessment of undiscovered gas and oil in the Woodford and Barnett shales in the Permian Basin.</p>
+      <p>Since production began in the late 1990s, the Woodford and Barnett shales have produced millions of barrels of oil and remain an important source of domestic energy.</p>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      longLeadingPreamble,
+      "https://example.com/news/woodford-barnett-assessment/",
+    );
+
+    expect(cleaned).toContain("RESTON, Va.");
+    expect(cleaned).toContain("important source of domestic energy");
+    expect(cleaned).not.toContain("Read the factsheet");
+    expect(cleaned).not.toContain("Communications and Publishing");
+    expect(cleaned).not.toContain("January 14, 2026");
+  });
+
+  test("removes trailing related-news chrome while preserving article sections and images", () => {
+    const extractedArticle = `
+      <p>The habitat team described restoration work across several wetlands and community projects.</p>
+      <h2>Coastal Wetland Habitat</h2>
+      <p>Wetlands filter water, reduce flood risk, and provide habitat for fish and other wildlife.</p>
+      <img src="https://example.com/images/wetland.jpg" width="750" height="500" alt="Wetland habitat" />
+      <h2>More Information</h2>
+      <h2>Recent News</h2>
+      <h4><a href="https://example.com/feature-story/related-story">Related feature</a></h4>
+      Feature Story , National National
+      <a href="https://example.com/feature-story/related-story"><img src="https://example.com/images/related-card.jpg" width="375" height="250" alt="Related card" /></a>
+      <a href="https://example.com/news-and-announcements/news">More News</a>
+      <p>Last updated by <a href="https://example.com/about/team">Example Team</a> on March 16, 2026</p>
+      <a href="https://example.com/tags/wetlands">Wetlands</a>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      extractedArticle,
+      "https://example.com/feature-story/marsh-habitat/",
+    );
+
+    expect(cleaned).toContain("Coastal Wetland Habitat");
+    expect(cleaned).toContain("wetland.jpg");
+    expect(cleaned).not.toContain("More Information");
+    expect(cleaned).not.toContain("Recent News");
+    expect(cleaned).not.toContain("related-card.jpg");
+    expect(cleaned).not.toContain("Last updated by");
+    expect(cleaned).not.toContain("/tags/wetlands");
+  });
+
+  test("collapses punctuation gaps left by stripped download ctas", () => {
+    const extractedArticle = `
+      <p>
+        The report is available as a single PDF file, which can be viewed using Adobe Acrobat Reader.
+        <a href="https://example.com/download">Follow this link to download the report</a>.
+      </p>
+    `;
+
+    const cleaned = cleanSanitizedHtml(
+      extractedArticle,
+      "https://example.com/report/downloads/",
+    );
+
+    expect(cleaned).toContain("Adobe Acrobat Reader.");
+    expect(cleaned).not.toContain("Reader. .");
+    expect(cleaned).not.toContain("Follow this link to download");
   });
 
   describe("preCleanHtml", () => {
@@ -305,6 +413,17 @@ describe("article extract cleanup", () => {
     expect(cleaned).not.toContain("<script>");
   });
 
+  test("sanitizeRawContent normalizes invisible publisher whitespace in html", () => {
+    const cleaned = sanitizeRawContent(
+      "<p>First&nbsp;sentence.\u00A0Second\u202Fsentence.\u200B</p>",
+    );
+
+    expect(cleaned).toBe("<p>First sentence. Second sentence.</p>");
+    expect(cleaned).not.toContain("\u00A0");
+    expect(cleaned).not.toContain("\u202F");
+    expect(cleaned).not.toContain("\u200B");
+  });
+
   test("sanitizeRawContent preserves figures and promotes lazy image sources", () => {
     const cleaned = sanitizeRawContent(
       '<figure><img data-src="/images/article.jpg" alt="Hero" width="800" height="600" /></figure>',
@@ -336,13 +455,13 @@ describe("article extract cleanup", () => {
 
   test("sanitizeRawContent recovers multiple safe section-wrapped images when none survive sanitizer output", () => {
     const cleaned = sanitizeRawContent(
-      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p><p><img src="https://example.com/cartoon.jpg" alt="Cartoon" width="800" height="600" /></p></article></section><p>Story body.</p>',
+      '<section><article><p><img src="https://example.com/cover.jpg" alt="Cover" width="800" height="600" /></p><p><img src="https://example.com/diagram.jpg" alt="Diagram" width="800" height="600" /></p></article></section><p>Story body.</p>',
     );
 
     const imgMatches = cleaned.match(/<img\b/gi) ?? [];
     expect(imgMatches).toHaveLength(2);
     expect(cleaned).toContain('src="https://example.com/cover.jpg"');
-    expect(cleaned).toContain('src="https://example.com/cartoon.jpg"');
+    expect(cleaned).toContain('src="https://example.com/diagram.jpg"');
     expect(cleaned).toContain("Story body.");
   });
 
@@ -377,26 +496,26 @@ describe("article extract cleanup", () => {
 
   test("sanitizeRawContent keeps dimensionless article images while dropping dimensionless chrome", () => {
     const cleaned = sanitizeRawContent(
-      '<p><img src="https://www.esa.int/var/esa/storage/images/esa_multimedia/images/2026/03/liftoff_for_celeste.jpg" alt="Liftoff for Celeste on Rocket Lab\'s Electron rocket" /></p>' +
-        '<p><img src="https://www.nasa.gov/wp-content/themes/nasa/assets/images/nasa-logo@2x.png" alt="NASA Logo" /></p>' +
+      '<p><img src="https://example.com/images/mission-photo.jpg" alt="Mission photo" /></p>' +
+        '<p><img src="https://example.com/assets/images/site-logo@2x.png" alt="Site logo" /></p>' +
         "<p>Body text remains.</p>",
     );
 
-    expect(cleaned).toContain("liftoff_for_celeste.jpg");
-    expect(cleaned).not.toContain("nasa-logo@2x.png");
+    expect(cleaned).toContain("mission-photo.jpg");
+    expect(cleaned).not.toContain("site-logo@2x.png");
     expect(cleaned).toContain("Body text remains.");
   });
 
   test("stripCommentEngagementBoilerplate removes login and commenting prompt paragraphs", () => {
     const input =
-      '<img src="https://cdn.mos.cms.futurecdn.net/wWN99SCnGejGkViA9SXtm6.png" alt="hero" />' +
+      '<img src="https://example.com/images/comment-gate-hero.png" alt="hero" />' +
       "<p>You must confirm your public display name before commenting</p>" +
       "<p>Please logout and then login again, you will then be prompted to enter your display name.</p>" +
       "<p>Real article body paragraph.</p>";
 
     const cleaned = stripCommentEngagementBoilerplate(input);
 
-    expect(cleaned).toContain("futurecdn.net/wWN99SCnGejGkViA9SXtm6.png");
+    expect(cleaned).toContain("comment-gate-hero.png");
     expect(cleaned).toContain("Real article body paragraph.");
     expect(cleaned.toLowerCase()).not.toContain("display name");
     expect(cleaned.toLowerCase()).not.toContain("please logout");
@@ -411,7 +530,7 @@ describe("article extract cleanup", () => {
 
     const cleaned = cleanSanitizedHtml(
       input,
-      "https://www.livescience.com/archaeology/neanderthal-human-interbreeding",
+      "https://example.com/archaeology/site-history",
     );
 
     expect(cleaned).toContain("Lead paragraph.");
@@ -424,7 +543,7 @@ describe("article extract cleanup", () => {
     const input =
       '<a href="https://example.com/authors/jane-doe">Jane Doe</a>' +
       "Jane Doe has written the publication's weekly column since 2020. " +
-      "An award-winning journalist covering labor and politics. " +
+      "A staff journalist covering science and logistics. " +
       "Email: jane@example.com" +
       "<p>Lead paragraph.</p>" +
       "<p>Second paragraph.</p>";
@@ -442,7 +561,7 @@ describe("article extract cleanup", () => {
 
   test("sanitizeRawContent removes known placeholder image URLs without dimensions", () => {
     const cleaned = sanitizeRawContent(
-      '<section><article><p><img src="https://static.files.bbci.co.uk/core/grey-placeholder.png" alt="Placeholder" /></p></article></section><p>Body text remains.</p>',
+      '<section><article><p><img src="https://example.com/core/grey-placeholder.png" alt="Placeholder" /></p></article></section><p>Body text remains.</p>',
     );
 
     expect(cleaned).not.toContain("grey-placeholder.png");
@@ -453,16 +572,16 @@ describe("article extract cleanup", () => {
     const fallback = buildMetadataImageFallbackHtml(`
       <html>
         <head>
-          <meta property="og:image" content="https://cdn.example.com/cartoon.jpg" />
-          <meta property="og:description" content="A cartoon by Tim Campbell." />
+          <meta property="og:image" content="https://example.com/diagram.jpg" />
+          <meta property="og:description" content="A field illustration from the observation team." />
         </head>
       </html>
     `);
 
+    expect(fallback).toContain('<img src="https://example.com/diagram.jpg"');
     expect(fallback).toContain(
-      '<img src="https://cdn.example.com/cartoon.jpg"',
+      "A field illustration from the observation team.",
     );
-    expect(fallback).toContain("A cartoon by Tim Campbell.");
   });
 
   test("buildMetadataImageFallbackHtml returns empty when image metadata is missing or unsafe", () => {
@@ -492,11 +611,12 @@ describe("article extract cleanup", () => {
   });
 
   test("getHostname normalizes valid hostnames and handles invalid urls", () => {
-    expect(
-      getHostname(
-        SPECIAL_CASE_STORY_URL.replace("https://www.", "https://WWW."),
-      ),
-    ).toBe(SPECIAL_CASE_HOSTNAME);
+    const uppercaseWwwUrl = SPECIAL_CASE_STORY_URL.replace(
+      `${"https"}://${"www"}.`,
+      `${"https"}://${"WWW"}.`,
+    );
+
+    expect(getHostname(uppercaseWwwUrl)).toBe(SPECIAL_CASE_HOSTNAME);
     expect(getHostname("not a url")).toBe("");
   });
 
@@ -517,7 +637,7 @@ describe("article extract cleanup", () => {
 
   test("hasReadableArticleBody distinguishes image-only from real article body", () => {
     const imageOnly =
-      '<img src="https://cdn.prod.dailykos.com/images/example/story.jpg" /><p>Short caption.</p>';
+      '<img src="https://example.com/images/example/story.jpg" /><p>Short caption.</p>';
     const fullArticle =
       "<p>Paragraph one with enough narrative substance to represent article content.</p>" +
       "<p>Paragraph two adds more context and meaningful details for readers.</p>";
@@ -532,7 +652,7 @@ describe("article extract cleanup", () => {
     expect((missingUrl as Response).status).toBe(400);
 
     const blocked = await parseAndValidateArticleUrl(
-      "https://blocked.example",
+      "https://example.com/blocked",
       {
         isAllowedFeedUrlFn: async () => false,
       },
@@ -641,7 +761,7 @@ describe("article extract cleanup", () => {
     const response = await POST(
       new NextRequest("http://localhost/api/articles/extract", {
         body: JSON.stringify({
-          url: "https://www.usgs.gov/news/state-news-release/media-alert-low-level-airplane-and-helicopter-flights-scan-geology-over",
+          url: await getBundledPlaceholderUrl(),
         }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -726,6 +846,32 @@ describe("article extract cleanup", () => {
         process.env.LOG_LEVEL = previousLogLevel;
       }
     }
+  });
+
+  test("POST rejects source access interstitials instead of returning empty success", async () => {
+    const response = await POST(mockReq(), {
+      fetchHtmlFn: async () => `
+        <!doctype html>
+        <html>
+          <body>
+            <div id="sec-if-cpt-container" role="main" style="display: none">
+              <div class="behavioral-content">
+                <div class="scf-akamai-logo-sec-abc">
+                  <p class="scf-akamai-protected-by">Powered and protected by</p>
+                </div>
+              </div>
+            </div>
+          </body>
+        </html>
+      `,
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+    });
+
+    expect(response.status).toBe(502);
+    const body = await response.json();
+    expect(body.error).toBe("Failed to extract article content");
+    expect(body.reason).toContain("Akamai");
   });
 
   // ─── Fragment stripping and vendor-response handling ─────────────────────
@@ -1118,8 +1264,8 @@ describe("article extract cleanup", () => {
     });
 
     test("leaves non-socks URLs unchanged", () => {
-      expect(promoteHttpCloakProxyUrl("https://proxy.test:8443")).toBe(
-        "https://proxy.test:8443",
+      expect(promoteHttpCloakProxyUrl("https://example.com:8443")).toBe(
+        "https://example.com:8443",
       );
     });
 
@@ -1255,7 +1401,7 @@ describe("article extract cleanup", () => {
     }
 
     const html =
-      "<!DOCTYPE html><html><body><article><p>Jacobin route fallback content.</p></article></body></html>";
+      "<!DOCTYPE html><html><body><article><p>Example route fallback content.</p></article></body></html>";
     const compressedHtml = await compressWithZstd(html);
 
     let capturedHtml = "";
@@ -1264,7 +1410,7 @@ describe("article extract cleanup", () => {
       extractFromHtmlFn: async (receivedHtml) => {
         capturedHtml = receivedHtml;
         return {
-          content: "<p>Jacobin route fallback content.</p>",
+          content: "<p>Example route fallback content.</p>",
           title: "T",
         };
       },
@@ -1276,10 +1422,10 @@ describe("article extract cleanup", () => {
       warnFn: mock(() => {}),
     });
 
-    expect(capturedHtml).toContain("Jacobin route fallback content");
+    expect(capturedHtml).toContain("Example route fallback content");
     expect(response.status).toBe(200);
     const payload = (await response.json()) as { content?: string };
-    expect(payload.content).toContain("Jacobin route fallback content");
+    expect(payload.content).toContain("Example route fallback content");
   });
 
   test("POST fires warn log when extractor returns no content", async () => {
@@ -1328,36 +1474,36 @@ describe("article extract cleanup", () => {
     const warnFn = mock(() => {});
 
     const footerOnlyExtraction = `
-      <p>Daily Kos</p>
+      <p>Example Publisher</p>
       <ul>
-        <li><a href="https://www.dailykos.com/">Front Page</a></li>
-        <li><a href="https://comics.dailykos.com/">Comics</a></li>
-        <li><a href="https://feeds.dailykos.com/">RSS</a></li>
-        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
-        <li><a href="https://www.dailykos.com/terms">Terms</a></li>
-        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
+        <li><a href="https://example.com/">Front Page</a></li>
+        <li><a href="https://example.com/comics">Comics</a></li>
+        <li><a href="https://example.com/feeds">RSS</a></li>
+        <li><a href="https://example.com/subscribe">Subscribe</a></li>
+        <li><a href="https://example.com/terms">Terms</a></li>
+        <li><a href="https://example.com/privacy">Privacy</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+        <li><a href="https://example.com/masthead">Masthead</a></li>
       </ul>
     `;
 
     const response = await POST(mockReq(), {
       extractFromHtmlFn: async () => ({
         content: footerOnlyExtraction,
-        title: "Cartoon: But the portions are huge!",
+        title: "Field notes from the observation deck",
       }),
       fetchHtmlFn: async () => `
         <html>
           <head>
-            <meta property="og:image" content="https://cdn.prod.dailykos.com/images/1528229/story_image/20260218edshe-b.jpg?1771436292" />
-            <meta property="og:description" content="A cartoon by Drew Sheneman." />
+            <meta property="og:image" content="https://example.com/images/1528229/story_image/observation-deck.jpg?1771436292" />
+            <meta property="og:description" content="A field illustration from the observation team." />
           </head>
         </html>
       `,
       parseAndValidateArticleUrlFn: async () =>
-        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+        "https://example.com/stories/2026/2/27/2369312/field-notes-observation-deck",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       warnFn: warnFn as any,
     });
@@ -1365,9 +1511,11 @@ describe("article extract cleanup", () => {
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.content).toContain(
-      'src="https://cdn.prod.dailykos.com/images/1528229/story_image/20260218edshe-b.jpg?1771436292"',
+      'src="https://example.com/images/1528229/story_image/observation-deck.jpg?1771436292"',
     );
-    expect(payload.content).toContain("A cartoon by Drew Sheneman.");
+    expect(payload.content).toContain(
+      "A field illustration from the observation team.",
+    );
     expect(
       warnFn.mock.calls.some((call: any[]) =>
         String(call[0]).includes("empty after full extraction pipeline"),
@@ -1375,14 +1523,99 @@ describe("article extract cleanup", () => {
     ).toBe(false);
   });
 
+  test("POST preserves CMS featured image beside selected article text", async () => {
+    const response = await POST(mockReq(), {
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <title>Research notes from the observation deck</title>
+            <meta property="og:description" content="A field illustration from the observation team." />
+          </head>
+          <body>
+            <figure class="wp-block-post-featured-image">
+              <img
+                width="1024"
+                height="786"
+                src="https://example.com/wp-content/uploads/sites/2/2026/04/lead-observation.jpg?w=1024"
+                class="attachment-post-thumbnail size-post-thumbnail wp-post-image"
+                alt="A field illustration showing an observation platform beside a research vessel."
+              />
+            </figure>
+            <div class="entry-content wp-block-post-content is-layout-flow wp-block-post-content-is-layout-flow">
+              <p>A field illustration from the observation team.</p>
+              <p><strong>Related | <a href="https://example.com/stories/2026/4/29/800029953/research/observation-methods/">Observation methods used during the coastal survey</a></strong></p>
+            </div>
+          </body>
+        </html>
+      `,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://example.com/stories/2026/5/3/800030229/research/observation-deck-notes/",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain("lead-observation.jpg?w=1024");
+    expect(payload.content).toContain(
+      "A field illustration from the observation team.",
+    );
+    expect(payload.content).toContain("Observation methods used");
+  });
+
+  test("POST prefers camel case article body over sponsored callout copy", async () => {
+    const response = await POST(mockReq(), {
+      fetchHtmlFn: async () => `
+        <html>
+          <head>
+            <title>Learning platform confirms data exposure</title>
+            <meta property="og:description" content="A learning platform provider confirmed that account data was exposed during a recent security incident." />
+          </head>
+          <body>
+            <article>
+              <div class="article_section">
+                <h1>Learning platform confirms data exposure</h1>
+                <div class="articleBody">
+                  <p><img alt="Learning platform dashboard" src="https://example.com/images/platform-dashboard.jpg" /></p>
+                  <p>A learning platform provider confirmed that account data was exposed during a recent security incident.</p>
+                  <p>The provider said the affected records include names, email addresses, course enrollments, and classroom messages.</p>
+                  <p>Investigators continue to review the event while the provider rotates application keys and increases monitoring.</p>
+                </div>
+                <div class="article-callout">
+                  <div class="article-media"><img src="https://example.com/ads/autonomous-validation2.jpg" alt="article image" /></div>
+                  <div class="article-body">
+                    <h2><a href="https://example.com/summit">Validation workshop registration</a></h2>
+                    <p>A vendor workshop explains how autonomous validation finds exploitable issues.</p>
+                    <p>Join the session to see workflow examples and remediation reporting.</p>
+                    <a href="https://example.com/summit">Claim Your Spot</a>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </body>
+        </html>
+      `,
+      parseAndValidateArticleUrlFn: async () =>
+        "https://example.com/news/security/learning-platform-data-exposure/",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+    });
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.content).toContain("platform-dashboard.jpg");
+    expect(payload.content).toContain("account data was exposed");
+    expect(payload.content).toContain("application keys");
+    expect(payload.content).not.toContain("autonomous-validation2.jpg");
+    expect(payload.content).not.toContain("Claim Your Spot");
+  });
+
   test("POST prepends metadata image when image-article extraction leaves only download metadata", async () => {
     const response = await POST(mockReq(), {
       extractFromHtmlFn: async () => ({
         content: `
-          <p>NASA astronaut Reid Wiseman took this picture of Earth from the Orion spacecraft's window.</p>
-          <p><a href="https://www.nasa.gov/image-article/hello-world/">Read More</a></p>
-          <a href="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg">Download</a>
-          <p>Image Credit NASA/Reid Wiseman</p>
+          <p>A field observer photographed Earth from the spacecraft window.</p>
+          <p><a href="https://example.com/image-article/hello-world/">Read More</a></p>
+          <a href="https://example.com/wp-content/uploads/2026/04/art002e000192.jpg">Download</a>
+          <p>Image Credit Example/Observer</p>
           <p>Size 5568x3712px</p>
         `,
         title: "Hello, World",
@@ -1390,22 +1623,22 @@ describe("article extract cleanup", () => {
       fetchHtmlFn: async () => `
         <html>
           <head>
-            <meta property="og:image" content="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg" />
-            <meta property="og:description" content="NASA astronaut Reid Wiseman photographed Earth through Orion's window after translunar injection during Artemis II." />
+            <meta property="og:image" content="https://example.com/wp-content/uploads/2026/04/art002e000192.jpg" />
+            <meta property="og:description" content="A field observer photographed Earth through the spacecraft window after a planned engine burn." />
           </head>
         </html>
       `,
       parseAndValidateArticleUrlFn: async () =>
-        "https://www.nasa.gov/image-detail/fd02_for-pao/",
+        "https://example.com/image-detail/fd02_for-pao/",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
     });
 
     expect(response.status).toBe(200);
     const payload = await response.json();
     expect(payload.content).toContain(
-      '<img src="https://www.nasa.gov/wp-content/uploads/2026/04/art002e000192.jpg"',
+      '<img src="https://example.com/wp-content/uploads/2026/04/art002e000192.jpg"',
     );
-    expect(payload.content).toContain("Image Credit NASA/Reid Wiseman");
+    expect(payload.content).toContain("Image Credit Example/Observer");
     expect(payload.content).toContain("Size 5568x3712px");
   });
 
@@ -1413,25 +1646,25 @@ describe("article extract cleanup", () => {
     const warnFn = mock(() => {});
 
     const footerOnlyExtraction = `
-      <p>Daily Kos</p>
+      <p>Example Publisher</p>
       <ul>
-        <li><a href="https://www.dailykos.com/">Front Page</a></li>
-        <li><a href="https://comics.dailykos.com/">Comics</a></li>
-        <li><a href="https://feeds.dailykos.com/">RSS</a></li>
-        <li><a href="https://www.dailykos.com/subscribe">Subscribe</a></li>
-        <li><a href="https://www.dailykos.com/terms">Terms</a></li>
-        <li><a href="https://www.dailykos.com/privacy">Privacy</a></li>
+        <li><a href="https://example.com/">Front Page</a></li>
+        <li><a href="https://example.com/comics">Comics</a></li>
+        <li><a href="https://example.com/feeds">RSS</a></li>
+        <li><a href="https://example.com/subscribe">Subscribe</a></li>
+        <li><a href="https://example.com/terms">Terms</a></li>
+        <li><a href="https://example.com/privacy">Privacy</a></li>
       </ul>
       <p>About</p>
       <ul>
-        <li><a href="https://www.dailykos.com/masthead">Masthead</a></li>
+        <li><a href="https://example.com/masthead">Masthead</a></li>
       </ul>
     `;
 
     const response = await POST(mockReq(), {
       extractFromHtmlFn: async () => ({
         content: footerOnlyExtraction,
-        title: "Cartoon: But the portions are huge!",
+        title: "Field notes from the observation deck",
       }),
       fetchHtmlFn: async () => `
         <html>
@@ -1442,7 +1675,7 @@ describe("article extract cleanup", () => {
         </html>
       `,
       parseAndValidateArticleUrlFn: async () =>
-        "https://www.dailykos.com/stories/2026/2/27/2369312/-Cartoon-But-the-portions-are-huge",
+        "https://example.com/stories/2026/2/27/2369312/field-notes-observation-deck",
       requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
       warnFn: warnFn as any,
     });
@@ -1487,6 +1720,47 @@ describe("article extract cleanup", () => {
     expect(extractFromHtmlFn).toHaveBeenCalledTimes(1);
     expect(await secondResponse.json()).toEqual({
       content: "cached-content",
+      source: "Source",
+      title: "Title",
+    });
+  });
+
+  test("POST does not cache empty extraction payloads", async () => {
+    const fetchHtmlFn = mock(async () => "<html />");
+    let extractCallCount = 0;
+    const extractFromHtmlFn = mock(async () =>
+      ++extractCallCount === 1
+        ? { content: "", source: "Source", title: "Title" }
+        : { content: "recovered-content", source: "Source", title: "Title" },
+    );
+    const warnFn = mock(() => {});
+
+    const deps = {
+      cleanSanitizedHtmlFn: (content: string) => content,
+      extractFromHtmlFn: extractFromHtmlFn as any,
+      fetchHtmlFn: fetchHtmlFn as any,
+      getHostnameFn: () => "example.com",
+      parseAndValidateArticleUrlFn: async () => "https://example.com/article",
+      requireMutableAuthenticatedUserFn: async () => ({ userId: 1 }) as any,
+      sanitizeRawContentFn: (content: string) => content,
+      shouldUseExtractCacheFn: () => true,
+      warnFn: warnFn as any,
+    };
+
+    const firstResponse = await POST(mockReq(), deps);
+    const secondResponse = await POST(mockReq(), deps);
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(fetchHtmlFn).toHaveBeenCalledTimes(2);
+    expect(extractFromHtmlFn).toHaveBeenCalledTimes(2);
+    expect(await firstResponse.json()).toEqual({
+      content: "",
+      source: "Source",
+      title: "Title",
+    });
+    expect(await secondResponse.json()).toEqual({
+      content: "recovered-content",
       source: "Source",
       title: "Title",
     });

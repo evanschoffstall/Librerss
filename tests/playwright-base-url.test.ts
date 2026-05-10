@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildPlaywrightBaseUrl,
   resolvePlaywrightBaseUrl,
+  resolvePlaywrightScriptEntrypoint,
 } from "../scripts/playwright";
 
 describe("playwright base URL resolution", () => {
@@ -39,5 +40,34 @@ describe("playwright base URL resolution", () => {
     expect(() => buildPlaywrightBaseUrl("   ", 3100)).toThrow(
       "PLAYWRIGHT_HOST must not be empty.",
     );
+  });
+});
+
+describe("playwright script entrypoint resolution", () => {
+  test("forwards focused Playwright file arguments after the explicit test entrypoint", () => {
+    expect(
+      resolvePlaywrightScriptEntrypoint([
+        "test",
+        "tests/e2e/article-extraction-distillation.e2e.test.ts",
+      ]),
+    ).toEqual({
+      entrypoint: "test",
+      forwardedArguments: [
+        "tests/e2e/article-extraction-distillation.e2e.test.ts",
+      ],
+    });
+  });
+
+  test("defaults bare Playwright file arguments to the test entrypoint", () => {
+    expect(
+      resolvePlaywrightScriptEntrypoint([
+        "tests/e2e/article-extraction-distillation.e2e.test.ts",
+      ]),
+    ).toEqual({
+      entrypoint: "test",
+      forwardedArguments: [
+        "tests/e2e/article-extraction-distillation.e2e.test.ts",
+      ],
+    });
   });
 });

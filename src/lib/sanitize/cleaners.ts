@@ -36,6 +36,7 @@ export function normalizeArticleHtmlSpacing(html: string): string {
     .replace(/\r\n?/g, "\n")
     .replace(/\n[ \t]*\n+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
+    .replace(/\.\s+\.(?=\s|<|$)/g, ".")
     .trim();
 }
 
@@ -207,16 +208,37 @@ const NON_CONTENT_ID_RE =
 
 /** Semantic purpose words in CSS classes indicating non-content containers. */
 const NON_CONTENT_CLASS_RE =
-  /sign[-_]?up|subscrib(?:e[-_]?(?:widget|form|bar|banner|button|cta|prompt|modal|popup|overlay)|tion[-_]?(?:widget|form|bar|banner))|newsletter[-_]?(?:sign|sub|widget|form|bar|banner|popup|modal|overlay|cta|promo|prompt|optin)|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)|promo(?:tion)?[-_]?(?:bar|banner|block|card)|cta[-_](?:bar|banner|block)|call[-_]?to[-_]?action|follow[-_]?(?:us|bar)|whatsapp[-_]?(?:bar|link|share)/i;
-
-/** Social platform share-intent URL patterns (cross-site generic). */
-export const SOCIAL_SHARE_LINK_RE =
-  /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
+  /article[-_]?callout|sign[-_]?up|subscrib(?:e[-_]?(?:widget|form|bar|banner|button|cta|prompt|modal|popup|overlay)|tion[-_]?(?:widget|form|bar|banner))|newsletter[-_]?(?:sign|sub|widget|form|bar|banner|popup|modal|overlay|cta|promo|prompt|optin)|social[-_]?share|share[-_]?(?:bar|tool|button|widget)|utility[-_]?bar|comments?[-_]?(?:container|widget|wrapper|area|form)|promo(?:tion)?[-_]?(?:bar|banner|block|card)|cta[-_](?:bar|banner|block)|call[-_]?to[-_]?action|follow[-_]?(?:us|bar)|whatsapp[-_]?(?:bar|link|share)/i;
 
 /**
- * Process the pre clean html.
- * @param rawHtml - The raw html.
- * @returns The pre clean html.
+ * CSS class tokens used across all major frameworks to visually hide content
+ * that is exclusively intended for screen readers. Elements whose class
+ * attribute contains one of these as a standalone space-delimited token must
+ * be stripped entirely, including their text, because their prose must never
+ * appear as visible article content.
+ *
+ * Anchored with `(?:^|\s)` and `(?=\s|$)` rather than `\b` so that compound
+ * Drupal BEM names such as `field--label-visually_hidden` are not matched —
+ * those elements carry real content (images) that must be preserved.
+ *
+ * Covers: Bootstrap / Tailwind `sr-only`, WCAG `visually-hidden`,
+ * WordPress `screen-reader-text`, Drupal `element-invisible`,
+ * Foundation `show-for-sr`, and common variant spellings.
+ */
+const SCREEN_READER_ONLY_CLASS_RE =
+  /(?:^|\s)(?:sr[-_]?only|visually[-_]?hidden|screen[-_]?reader[-_]?(?:text|only)?|element[-_]?(?:invisible|visually[-_]?hidden)|off[-_]?screen|show[-_]?for[-_]?sr)(?=\s|$)/i;
+
+/** Generic share-intent URL patterns used across many share widgets. */
+export const SOCIAL_SHARE_LINK_RE =
+  /mailto:\?|\/(?:share|sharer|sharing|intent|submit|compose)\b|[?&](?:share|text|title|subject|body|url)=/i;
+
+/**
+ * Strips script/style noise, removes non-content containers identified by
+ * semantic class or id patterns, and eliminates screen-reader-only elements
+ * whose text must never surface as visible article prose. DOMPurify runs first
+ * as the mandatory XSS boundary; all subsequent passes are structural.
+ * @param rawHtml - Raw HTML fetched from the upstream publisher.
+ * @returns Pre-cleaned HTML ready for distillation and article body selection.
  */
 export function preCleanHtml(rawHtml: string): string {
   // MANDATORY: DOMPurify as first line of defense against XSS
@@ -228,6 +250,14 @@ export function preCleanHtml(rawHtml: string): string {
 
   html = removeElementsByAttrPattern(html, "id", NON_CONTENT_ID_RE);
   html = removeElementsByAttrPattern(html, "class", NON_CONTENT_CLASS_RE);
+  // Strip screen-reader-only elements entirely so their hidden prose (labels
+  // such as "opens in a new window" or "Image") never bleeds into extracted
+  // article content after outer wrapper tags are stripped by sanitize-html.
+  html = removeElementsByAttrPattern(
+    html,
+    "class",
+    SCREEN_READER_ONLY_CLASS_RE,
+  );
   html = stripBareLinkLists(html);
 
   return html.replace(

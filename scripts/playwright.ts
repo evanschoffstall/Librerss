@@ -240,6 +240,30 @@ if (typeof globalThis.gc !== "function") {
 }
 
 /**
+ * Resolves the requested script entrypoint while preserving the historic default test mode.
+ * @param rawArguments - CLI arguments passed after the script path.
+ * @returns Entrypoint plus remaining arguments for that entrypoint.
+ */
+export function resolvePlaywrightScriptEntrypoint(rawArguments: string[]): {
+  entrypoint: PlaywrightScriptEntrypoint;
+  forwardedArguments: string[];
+} {
+  const [maybeEntrypoint, ...remainingArguments] = rawArguments;
+
+  if (maybeEntrypoint === "coverage" || maybeEntrypoint === "test") {
+    return {
+      entrypoint: maybeEntrypoint,
+      forwardedArguments: remainingArguments,
+    };
+  }
+
+  return {
+    entrypoint: "test",
+    forwardedArguments: rawArguments,
+  };
+}
+
+/**
  * Asserts that generated coverage maps back to project source files instead of bundles.
  * @param reportDirectoryPath - Directory containing generated Monocart artifacts.
  * @param projectSourceFilePathSet - Normalized source files that belong to this project.
@@ -722,30 +746,6 @@ async function removePlaywrightRuntimeDirectory(directoryName: string) {
     force: true,
     recursive: true,
   });
-}
-
-/**
- * Resolves the requested script entrypoint while preserving the historic default test mode.
- * @param rawArguments - CLI arguments passed after the script path.
- * @returns Entrypoint plus remaining arguments for that entrypoint.
- */
-function resolvePlaywrightScriptEntrypoint(rawArguments: string[]): {
-  entrypoint: PlaywrightScriptEntrypoint;
-  forwardedArguments: string[];
-} {
-  const [maybeEntrypoint, ...remainingArguments] = rawArguments;
-
-  if (maybeEntrypoint === "coverage" || maybeEntrypoint === "test") {
-    return {
-      entrypoint: maybeEntrypoint,
-      forwardedArguments: remainingArguments,
-    };
-  }
-
-  return {
-    entrypoint: "test",
-    forwardedArguments: rawArguments,
-  };
 }
 
 /**

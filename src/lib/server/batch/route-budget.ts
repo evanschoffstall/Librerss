@@ -88,7 +88,7 @@ function buildRouteBudgetExhaustedResult(
       errors: new Map(
         options.normalizedUrls.map((url) => [
           url,
-          BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE,
+          { message: BATCH_ROUTE_BUDGET_EXHAUSTED_MESSAGE },
         ]),
       ),
       lastFetchedByUrl: new Map(),
