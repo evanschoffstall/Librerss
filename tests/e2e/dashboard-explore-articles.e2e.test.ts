@@ -1,3 +1,5 @@
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+
 import {
   articleCard,
   articleCardByKey,
@@ -357,16 +359,15 @@ test.describe("dashboard explore article interactions", () => {
     ).toBeVisible();
   });
 
-  test("does not surface removed image placeholder feeds in explore mode", async ({
+  test("surfaces the configured placeholder feeds in explore mode", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
 
-    await expect(
-      page.locator("button").filter({ hasText: "ESA Images" }),
-    ).toHaveCount(0);
-    await expect(
-      page.locator("button").filter({ hasText: "NASA Image of the Day" }),
-    ).toHaveCount(0);
+    for (const definition of PLACEHOLDER_SOURCE_DEFINITIONS) {
+      await expect(
+        page.locator("button").filter({ hasText: definition.source.name }),
+      ).toBeVisible();
+    }
   });
 });

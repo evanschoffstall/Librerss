@@ -48,11 +48,11 @@ describe("dashboard broadcasts", () => {
       isSearchPending: true,
       isShellLoading: true,
       searchTerm: "weather-broadcast-test",
-      selectedFeed: "NOAA",
+      selectedFeed: "Example Feed",
     });
 
     expect(broadcasts.shellLoadingStates).toContain(true);
-    expect(broadcasts.titles).toContain("NOAA");
+    expect(broadcasts.titles).toContain("Example Feed");
     expect(broadcasts.terms).toContain("weather-broadcast-test");
     expect(broadcasts.pendingStates).toContain(true);
   });
@@ -70,11 +70,11 @@ describe("dashboard broadcasts", () => {
       isSearchPending: true,
       isShellLoading: true,
       searchTerm: "updated-broadcast-test",
-      selectedFeed: "USGS",
+      selectedFeed: "Example Updates",
     });
 
     expect(broadcasts.shellLoadingStates).toEqual([false, true]);
-    expect(broadcasts.titles).toEqual(["LibreRSS", "USGS"]);
+    expect(broadcasts.titles).toEqual(["LibreRSS", "Example Updates"]);
     expect(broadcasts.terms).toEqual([
       "initial-broadcast-test",
       "updated-broadcast-test",

@@ -3,6 +3,7 @@ import { describe, expect, mock, test } from "bun:test";
 import type { CategoryTreeNode } from "@/lib/core";
 
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
+import { DEFAULT_FEED_URL } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import {
   initializeDashboardSelection,
   refreshCurrentSelection,
@@ -207,15 +208,12 @@ describe("refreshCurrentSelection", () => {
       selectedCategory: "missing",
     });
 
-    expect(fetchFeed).toHaveBeenCalledWith(
-      "https://feeds.bbci.co.uk/news/world/rss.xml",
-      {
-        forceRefresh: false,
-        keepExistingFeed: undefined,
-        requestSource: undefined,
-        skipRefresh: undefined,
-      },
-    );
+    expect(fetchFeed).toHaveBeenCalledWith(DEFAULT_FEED_URL, {
+      forceRefresh: false,
+      keepExistingFeed: undefined,
+      requestSource: undefined,
+      skipRefresh: undefined,
+    });
   });
 });
 

@@ -11,30 +11,29 @@ import { articleCard } from "./helpers";
 import { expect, test } from "./test";
 
 const FIXED_REFRESH_NOW = "2026-05-03T17:10:00.000Z";
-const IFL_SCIENCE_FEED_URL =
-  "https://www.iflscience.com/rss/ifls-latest-rss.xml";
+const IFL_SCIENCE_FEED_URL = "https://example.com/rss/latest.xml";
 const IFL_SCIENCE_ATOM_UPDATED_ITEM_XML = `
 <rss version="2.0" xmlns:a10="http://www.w3.org/2005/Atom">
   <channel>
     <item>
       <guid isPermaLink="false">the-moon-illusion-still-hasnt-been-solved-after-thousands-of-years-83384</guid>
-      <link>https://www.iflscience.com/the-moon-illusion-still-hasnt-been-solved-after-thousands-of-years-83384</link>
+      <link>https://example.com/the-moon-illusion-study</link>
       <title>The Moon Illusion Still Hasn't Been Solved After Thousands Of Years</title>
-      <description>NASA takes a surprisingly chill approach to the dilemma.</description>
+      <description>Researchers describe calibration methods used for the observation.</description>
       <a10:updated>2026-05-01T15:28:44Z</a10:updated>
       <a10:content type="html"><![CDATA[ ]]></a10:content>
     </item>
   </channel>
 </rss>`;
-const JACOBIN_ATOM_ID_ONLY_ITEM_XML = `
+const EXAMPLE_ATOM_ID_ONLY_ITEM_XML = `
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title type="text">Jacobin</title>
+  <title type="text">Example Journal</title>
   <entry>
-    <id>https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha</id>
-    <title type="text">Tony Mazzocchi Embodied the Best of the Labor Movement</title>
+    <id>https://example.com/2026/05/workplace-safety-standards</id>
+    <title type="text">Workplace Safety Standards Updated for Field Teams</title>
     <updated>2026-05-03T15:56:47.507815Z</updated>
     <published>2026-05-03T15:56:47.507815Z</published>
-    <summary type="text">Labor history summary.</summary>
+    <summary type="text">Safety standards summary.</summary>
   </entry>
 </feed>`;
 
@@ -83,7 +82,7 @@ test.describe("feed Atom updated dates", () => {
     const parsedItem = parsedFeed.items[0];
 
     if (!parsedItem) {
-      throw new Error("Expected the IFLScience fixture to parse one item.");
+      throw new Error("Expected the example fixture to parse one item.");
     }
 
     const pendingArticle = toPendingArticle(
@@ -93,7 +92,7 @@ test.describe("feed Atom updated dates", () => {
     );
 
     if (!pendingArticle) {
-      throw new Error("Expected the IFLScience fixture to map to an article.");
+      throw new Error("Expected the example fixture to map to an article.");
     }
 
     await page.addInitScript(buildFrozenDateInitScript(FIXED_REFRESH_NOW));
@@ -117,7 +116,7 @@ test.describe("feed Atom updated dates", () => {
             enabled: true,
             extractionDisabled: true,
             id: 1,
-            name: "IFLScience",
+            name: "Example Science",
             proxyEnabled: false,
             url: IFL_SCIENCE_FEED_URL,
           },
@@ -183,11 +182,11 @@ test.describe("feed Atom updated dates", () => {
   }) => {
     const parsedFeed = await new Parser({
       customFields: FEED_PARSER_CUSTOM_FIELDS,
-    }).parseString(JACOBIN_ATOM_ID_ONLY_ITEM_XML);
+    }).parseString(EXAMPLE_ATOM_ID_ONLY_ITEM_XML);
     const parsedItem = parsedFeed.items[0];
 
     if (!parsedItem) {
-      throw new Error("Expected the Jacobin fixture to parse one Atom entry.");
+      throw new Error("Expected the example fixture to parse one Atom entry.");
     }
 
     const pendingArticle = toPendingArticle(
@@ -198,7 +197,7 @@ test.describe("feed Atom updated dates", () => {
 
     if (!pendingArticle) {
       throw new Error(
-        "Expected the Jacobin Atom id fixture to map to an article.",
+        "Expected the example Atom id fixture to map to an article.",
       );
     }
 
@@ -219,13 +218,13 @@ test.describe("feed Atom updated dates", () => {
       await route.fulfill({
         body: JSON.stringify([
           {
-            category: "Politics",
+            category: "Research",
             enabled: true,
             extractionDisabled: true,
             id: 1,
-            name: "Jacobin",
+            name: "Example Journal",
             proxyEnabled: false,
-            url: "https://jacobin.com/feed",
+            url: "https://example.com/feed",
           },
         ]),
         contentType: "application/json",
@@ -234,7 +233,7 @@ test.describe("feed Atom updated dates", () => {
     });
     await page.route("**/api/feeds/category-order", async (route) => {
       await route.fulfill({
-        body: JSON.stringify({ orderedLabels: ["Politics"] }),
+        body: JSON.stringify({ orderedLabels: ["Research"] }),
         contentType: "application/json",
         status: 200,
       });
@@ -278,11 +277,11 @@ test.describe("feed Atom updated dates", () => {
 
     const firstArticle = articleCard(page, 0);
     await expect(firstArticle.getByRole("heading")).toHaveText(
-      "Tony Mazzocchi Embodied the Best of the Labor Movement",
+      "Workplace Safety Standards Updated for Field Teams",
     );
     await expect(firstArticle).toHaveAttribute(
       "data-article-key",
-      "https://jacobin.com/2026/05/mazzocchi-labor-party-antiwar-osha",
+      "https://example.com/2026/05/workplace-safety-standards",
     );
   });
 });

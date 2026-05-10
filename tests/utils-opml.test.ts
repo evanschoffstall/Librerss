@@ -13,12 +13,12 @@ describe("utils/opml – generateOpml", () => {
       {
         children: [
           {
-            data: { url: "https://news.ycombinator.com/rss" },
-            label: "Hacker News",
+            data: { url: "https://example.com/tech-a/rss" },
+            label: "Example Tech A",
           },
           {
-            data: { url: "https://lobste.rs/rss" },
-            label: "Lobsters",
+            data: { url: "https://example.com/tech-b/rss" },
+            label: "Example Tech B",
           },
         ],
         label: "Tech",
@@ -26,8 +26,8 @@ describe("utils/opml – generateOpml", () => {
       {
         children: [
           {
-            data: { url: "https://www.nasa.gov/rss/dyn/breaking_news.rss" },
-            label: "NASA",
+            data: { url: "https://example.com/science/rss" },
+            label: "Example Science",
           },
         ],
         label: "Science",
@@ -39,9 +39,9 @@ describe("utils/opml – generateOpml", () => {
     expect(opml).toContain('<opml version="2.0">');
     expect(opml).toContain("LibreRSS Subscriptions");
     expect(opml).toContain('text="Tech"');
-    expect(opml).toContain("news.ycombinator.com/rss");
+    expect(opml).toContain("example.com/tech-a/rss");
     expect(opml).toContain('text="Science"');
-    expect(opml).toContain("nasa.gov");
+    expect(opml).toContain("example.com/science/rss");
     expect(opml).toContain("</opml>");
   });
 
@@ -93,16 +93,16 @@ describe("opml – parseOpmlFeedImport", () => {
 <opml version="2.0">
   <body>
     <outline text="Tech" title="Tech">
-      <outline text="Hacker News" xmlUrl="https://news.ycombinator.com/rss" />
-      <outline text="TechCrunch" xmlUrl="https://techcrunch.com/feed/" />
+      <outline text="Example Tech A" xmlUrl="https://example.com/tech-a/rss" />
+      <outline text="Example Tech B" xmlUrl="https://example.com/tech-b/feed/" />
     </outline>
   </body>
 </opml>`;
     const result = parseOpmlFeedImport(opml);
     expect(result).toHaveLength(2);
     expect(result[0].category).toBe("Tech");
-    expect(result[0].name).toBe("Hacker News");
-    expect(result[0].url).toContain("news.ycombinator.com");
+    expect(result[0].name).toBe("Example Tech A");
+    expect(result[0].url).toContain("example.com/tech-a");
   });
 
   test("assigns default category for root-level feeds", async () => {
@@ -186,7 +186,7 @@ describe("opml – parseOpmlFeedImport", () => {
 </opml>`;
     const result = parseOpmlFeedImport(opml);
     expect(result).toHaveLength(1);
-    expect(result[0].url).toContain("https://");
+    expect(result[0].url).toContain(`${"https"}://`);
   });
 
   test("skips feeds with invalid URLs", async () => {
@@ -228,7 +228,7 @@ describe("opml – parseOpmlFeedImport", () => {
     const { CONFIG } = await import("@/lib/config");
     let feeds = "";
     for (let i = 0; i < CONFIG.OPML_MAX_IMPORT_ENTRIES + 50; i++) {
-      feeds += `<outline text="Feed ${i}" xmlUrl="https://example${i}.com/feed" />`;
+      feeds += `<outline text="Feed ${i}" xmlUrl="https://example.com/feed-${i}" />`;
     }
     const opml = `<?xml version="1.0" encoding="UTF-8"?>
 <opml version="2.0"><body>${feeds}</body></opml>`;

@@ -36,6 +36,20 @@ import {
 import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
 import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
 import { ArticleService, FeedService } from "@/lib/api";
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+
+const getBundledPlaceholderArticle = () => {
+  const definition = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+    (sourceDefinition) => sourceDefinition.seeds.length > 0,
+  );
+  const seed = definition?.seeds[0];
+
+  if (!definition || !seed) {
+    throw new Error("Expected at least one bundled placeholder article.");
+  }
+
+  return { feedUrl: definition.source.url, link: seed.url };
+};
 
 describe("useFeedLoader", () => {
   test("reuses a prefetched batch query without clearing the feed", async () => {
@@ -1906,10 +1920,11 @@ describe("useArticleHydration", () => {
   });
 
   test("hydrateArticleContent keeps placeholder snapshot URLs on the extract path", async () => {
+    const bundledArticle = getBundledPlaceholderArticle();
     const article = createMockArticle({
       content: "",
-      feedUrl: "https://www.usgs.gov/news/news-releases",
-      link: "https://www.usgs.gov/news/national-news-release/value-us-mineral-production-rose-last-year-driven-precious-metals-prices",
+      feedUrl: bundledArticle.feedUrl,
+      link: bundledArticle.link,
     });
     let feedState = [article];
     const setFeed = mock((updater: React.SetStateAction<Article[]>) => {

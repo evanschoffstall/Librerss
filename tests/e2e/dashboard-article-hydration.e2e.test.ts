@@ -1,3 +1,5 @@
+import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
+
 import {
   articleCard,
   articleCardByKey,
@@ -61,6 +63,24 @@ test.describe("dashboard article hydration", () => {
   test("hydrates extraction-disabled explore feed excerpts from bundled snapshots", async ({
     page,
   }) => {
+    const sourceWithArticle = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+      (definition) => definition.seeds.length > 0,
+    );
+
+    if (!sourceWithArticle) {
+      throw new Error(
+        "Expected at least one placeholder source with articles.",
+      );
+    }
+
+    const selectedSeed = sourceWithArticle.seeds[0];
+
+    if (!selectedSeed) {
+      throw new Error(
+        "Expected selected placeholder source to include an article.",
+      );
+    }
+
     let extractRequests = 0;
     await page.route("**/api/articles/extract", async (route) => {
       extractRequests += 1;
@@ -74,13 +94,10 @@ test.describe("dashboard article hydration", () => {
     });
 
     await gotoPreviewDashboard(page);
-    await selectPreviewFeed(page, "ESA Top News");
+    await selectPreviewFeed(page, sourceWithArticle.source.name);
 
-    const article = articleCardByKey(
-      page,
-      "https://www.esa.int/Science_Exploration/Human_and_Robotic_Exploration/epsilon",
-    );
-    await expect(article).toContainText("ESA highlights epsilon", {
+    const article = articleCardByKey(page, selectedSeed.url);
+    await expect(article).toContainText(selectedSeed.title, {
       timeout: 15_000,
     });
     await article.evaluate((node) => {
