@@ -1,0 +1,221 @@
+<p>Wednesday, March 4, 2026</p>
+<p>
+  NIH-funded research suggests AI-powered tool could streamline diagnoses and
+  unveil early markers for chronic disease.
+</p>
+<p>
+  A research team funded by the National Institutes of Health (NIH) has
+  developed a versatile machine learning model that could one day greatly expand
+  what medical scans can tell us about disease. Scientists used their tool,
+  named Merlin, to assess 3D abdominal
+  <a
+    href="https://www.nibib.nih.gov/science-education/science-topics/computed-tomography-ct"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >computed tomography (CT)</a
+  >
+  scans, accomplishing tasks as simple as identifying anatomical features to as
+  complex as predicting disease onset years in advance. Despite being developed
+  as a general-purpose CT model, Merlin surpassed a gauntlet of similar
+  automated tools in tasks they were specifically built to handle.
+</p>
+<p>
+  The team trained their model on a unique set of patient CT scans linked to
+  radiology reports and medical diagnosis codes collected from the Stanford
+  University School of Medicine. The researchers note that it is the largest
+  collection of abdominal CT data to date.
+</p>
+<p>
+  “Rich datasets like this are necessary to push the limits of what artificial
+  intelligence models can accomplish in medicine,” said Bruce Tromberg, Ph.D.,
+  director of NIH’s National Institute of Biomedical Imaging and Bioengineering
+  (NIBIB). “This work exemplifies how meticulously crafted training data can
+  enable remarkable insights that significantly streamline workflows and assist
+  in clinical decision-making.”
+</p>
+<p>
+  CT is a common form of medical imaging, often performed in the early stage of
+  medical evaluations. To obtain a diagnosis, a radiologist must interpret the
+  results and, oftentimes, additional tests and clinical assessments are needed
+  too. At baseline, this process is lengthy and only becomes more cumbersome
+  when accounting for the
+  <a
+    href="https://pubmed.ncbi.nlm.nih.gov/32029001/"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >growing shortage</a
+  >
+  of physicians in the United States.
+</p>
+<p>
+  “With Merlin, you could potentially go beyond traditional radiology and jump
+  straight from imaging to a possible diagnosis. And that’s just one potential
+  use,” said co-first author Louis Blankemeier, Ph.D., who conducted this work
+  while a graduate student at Stanford University.
+</p>
+<p>
+  Merlin represents a new class of models, commonly referred to as foundation
+  models, that are trained using large-scale, unlabeled datasets, which span
+  many kinds of information.
+</p>
+<p>
+  In the new work, the researchers tested Merlin across six broad categories of
+  activities, spanning more than 750 individual tasks that entailed diagnostics,
+  prognostics, and quality assessment.
+</p>
+<p>
+  To prepare Merlin for the wide breadth of tasks, the researchers initially
+  trained it on their clinical data trove which connected more than 15,000 3D
+  abdominal CT scans paired with their radiology reports and nearly one million
+  diagnostic codes. Using this information as study material, Merlin learned
+  about relationships between visual and written data.
+</p>
+<p>
+  The researchers then quizzed Merlin on more than 50,000 previously unseen
+  abdominal CT scans — coming from one of four different hospitals — to learn
+  how closely their model could match the human-produced conclusions associated
+  with each scan.
+</p>
+<p>
+  “Merlin tackled some tasks, such as predicting diagnosis codes, head-on, while
+  other more complicated tasks, such as drafting radiology reports from scratch
+  or identifying and outlining organs in a 3D space, called for additional
+  training,” said co-first author Ashwin Kumar, a graduate student at Stanford
+  University.
+</p>
+<p>
+  The team also deployed state-of-the-art models, specializing in each task
+  type, to serve as points of comparison.
+</p>
+<p>
+  On average across 692 different diagnostic codes, Merlin successfully
+  predicted which of two scans was more likely to be associated with a
+  particular code over 81% of the time, outperforming several variants of two
+  other models. For a subset of 102 codes, Merlin’s performance rose to 90%.
+</p>
+<p>
+  In another category, the team pushed Merlin to predict the onset of chronic
+  diseases, such as diabetes, osteoporosis, and heart disease, in healthy
+  patients based solely on CT scans.
+</p>
+<p>
+  The study authors found that, when comparing scans from different subjects,
+  Merlin could identify patients who were at higher risk of developing a
+  particular disease in the next five years 75% of the time, versus 68% for the
+  other model. These findings hint that the model can detect key features in
+  scans that may be lost to human eyes, suggesting that the tool could help
+  identify new biomarkers for disease, Blankemeier explained.
+</p>
+<p>
+  The researchers ramped up the difficulty further by challenging Merlin to
+  interpret CT scans of the chest, a body part completely absent from its CT
+  study material. Merlin’s unique ability to identify generalizable features of
+  disease allowed it to perform as well as or better than models trained
+  exclusively on chest scans.
+</p>
+<p>
+  Despite being a jack-of-all-trades, Merlin exceeded or matched the specialist
+  models across all tasks. The authors attribute Merlin’s magic touch to its
+  architecture and training data, which allowed it to process complex 3D scans
+  and build associations between visual and written information.
+</p>
+<p>
+  The researchers have high hopes that their approach could soon leverage prior
+  precedent to obtain regulatory approval for simpler tasks but also plan to
+  refine Merlin to better handle more complicated challenges, such as report
+  writing.
+</p>
+<p>
+  While the tool is powerful out of the box, they encourage users to fine-tune
+  the model with their own data to address their specific needs.
+</p>
+<p>
+  “Our model and the data will provide the community a robust backbone to build
+  upon,” said senior author Akshay Chaudhari, Ph.D., a professor of radiology
+  and biomedical data science at Stanford University. “From here, the sky’s the
+  limit.”
+</p>
+<p>
+  This research was supported by NIBIB through grants R01EB002524 and
+  P41EB027060, by the Medical Imaging and Data Resource Center (MIDRC) under
+  contract 75N92020C00021, by the National Health, Lung, and Blood Institute
+  (NHLBI) through grants R01HL167974 and R01HL169345, and by the National
+  Institute of Arthritis and Musculoskeletal and Skin Diseases (NIAMS) through
+  grants R01AR077604 and R01AR079431.
+</p>
+<p>
+  About the National Institute of Biomedical Imaging and Bioengineering (NIBIB):
+  NIBIB’s mission is to improve health by leading the development and
+  accelerating the application of biomedical technologies. The Institute is
+  committed to integrating the physical and engineering sciences with the life
+  sciences to advance basic research and medical care. NIBIB supports emerging
+  technology research and development within its internal laboratories and
+  through grants, collaborations, and training. More information is available at
+  the NIBIB website:
+  <a
+    href="https://www.nibib.nih.gov/"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >https://www.nibib.nih.gov</a
+  >.
+</p>
+<p>
+  <strong>About the National Institutes of Health (NIH):</strong> NIH, the
+  nation's medical research agency, includes 27 Institutes and Centers and is a
+  component of the U.S. Department of Health and Human Services. NIH is the
+  primary federal agency conducting and supporting basic, clinical, and
+  translational medical research, and is investigating the causes, treatments,
+  and cures for both common and rare diseases. For more information about NIH
+  and its programs, visit
+  <a
+    href="https://www.nih.gov/"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >www.nih.gov</a
+  >.
+</p>
+<p>NIH…Turning Discovery Into Health®</p>
+<h3>Reference</h3>
+<p>
+  Reference: Louis Blankemeier, Ashwin Kumar, et al. Merlin: A Computed
+  Tomography Vision Language Foundation Model and Dataset. Nature. 2026 DOI:
+  <a
+    href="https://www.nature.com/articles/s41586-026-10181-8"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >10.1038/s41586-026-10181-8</a
+  >.
+</p>
+<h3>Institute/Center</h3>
+<p>
+  <a
+    href="https://www.nibib.nih.gov"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >National Institute of Biomedical Imaging and Bioengineering (NIBIB)</a
+  >
+</p>
+<h3>Contact</h3>
+<p>
+  <a
+    href="https://www.hhs.gov/request-for-comment-form/index.html?Agency=NIH"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >NIH Office of Communications</a
+  >
+</p>
+<h3>Connect with Us</h3>
+<p>
+  <a
+    href="https://list.nih.gov/cgi-bin/wa.exe?A0=nihpress"
+    target="_blank"
+    rel="noopener noreferrer nofollow"
+    >Subscribe to news releases</a
+  ><br />
+  <a
+    href="https://www.nih.gov/news-releases/feed.xml"
+    rel="noopener noreferrer nofollow"
+    target="_blank"
+    >RSS Feed</a
+  >
+</p>
