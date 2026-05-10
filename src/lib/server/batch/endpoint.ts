@@ -89,6 +89,7 @@ interface BatchIntentOptions {
   forceResolveUpstream: boolean;
   skipRefresh: boolean;
 }
+
 /**
  * Describes the batch request state parsers.
  */
@@ -205,6 +206,7 @@ interface ValidatedBatchRequestStateOptions {
   normalizeDistinctUrlList: (value: unknown) => string[];
   searchTerm: string | undefined;
 }
+
 /**
  * Build the batch intent.
  * @param options - The options used to build the batch intent.
@@ -358,7 +360,6 @@ export function logBatchRequestReceivedWhenEnabled(
     userId: options.userId,
   });
 }
-
 /**
  * Process the log batch status summary.
  * @param options - The options used to process the log batch status summary.
@@ -376,6 +377,7 @@ export function logBatchStatusSummary(options: LogBatchStatusSummaryOptions) {
     `Batch [${n} feed${plural}]: client=${options.intent} resolved=${options.resolution} | ${options.refreshedCount} refreshed, ${options.cachedCount} cached${cooldownNote} in ${durationMs}ms`,
   );
 }
+
 /**
  * Process the log batch warnings.
  * @param options - The options used to process the log batch warnings.
