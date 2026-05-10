@@ -31,7 +31,9 @@ import {
   executeBatchBeforeRouteDeadline,
   executeIsolatedFeedBatchFallback,
   logBatchRequestReceivedWhenEnabled,
+  parseArticleLimit,
   parseBatchSearchTerm,
+  parseForceResolveUpstream,
   resolveNormalizedBatchUrls,
   serverApi,
   validateBatchRequestState,
@@ -57,28 +59,6 @@ export interface BatchRouteDeps {
 }
 
 /**
- * Describes the resolved batch request state.
- */
-interface ResolvedBatchRequestState extends BatchRequestState {
-  user: Exclude<
-    Awaited<ReturnType<typeof serverApi.requireMutableAuthenticatedUser>>,
-    Response
-  >;
-}
-
-/**
- * Describes the resolved batch request URLs.
- */
-interface ResolvedBatchRequestUrls {
-  invalidUrlCount: number;
-  normalizedUrls: string[];
-  requestUrls: BatchUrlDescriptor[];
-}
-
-const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
-  serverApi;
-
-/**
  * Describes the options for batch execution preflight.
  */
 interface BatchExecutionPreflightOptions {
@@ -100,11 +80,31 @@ interface BatchIntentStateOptions {
  * Describes the options for batch proxy transport.
  */
 interface BatchProxyTransportOptions {
-  resolveUserProxyForRoute: NonNullable<
-    ReturnType<typeof resolveBatchRouteDependencies>["resolveUserProxyForRoute"]
-  >;
+  resolveUserProxyForRoute: typeof resolveUserProxy;
   userId: number;
 }
+
+/**
+ * Describes the resolved batch request state.
+ */
+interface ResolvedBatchRequestState extends BatchRequestState {
+  user: Exclude<
+    Awaited<ReturnType<typeof serverApi.requireMutableAuthenticatedUser>>,
+    Response
+  >;
+}
+
+/**
+ * Describes the resolved batch request URLs.
+ */
+interface ResolvedBatchRequestUrls {
+  invalidUrlCount: number;
+  normalizedUrls: string[];
+  requestUrls: BatchUrlDescriptor[];
+}
+
+const { resolveRouteHandlerDeps, ServerServiceError: ServerServiceErrorCtor } =
+  serverApi;
 
 /**
  * Describes the options for batch request state for post.
@@ -368,32 +368,6 @@ function parseArticleFilter(value: unknown): ArticleFilter | Response {
   }
 
   return value;
-} /**
- * Parse an explicit dashboard article-window limit.
- *
- * The infinite-scroll client owns the page size and advances this value one
- * page at a time. Large libraries can legitimately request windows above the
- * default no-limit fallback, so this parser validates shape and finiteness but
- * does not clamp explicit values to `MAX_ALL_ARTICLES_LIMIT`.
- * @param value - Raw request-body value supplied as `articleLimit`.
- * @returns The validated article-window limit, `undefined` when omitted, or a
- *   `400` response when the value cannot be used as a SQL `LIMIT`.
- */
-function parseArticleLimit(value: unknown): number | Response | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
-    return NextResponse.json(
-      {
-        error: "articleLimit must be a positive safe integer when provided",
-      },
-      { status: 400 },
-    );
-  }
-
-  return value;
 }
 
 /**
@@ -422,26 +396,6 @@ function parseArticleSortOrder(value: unknown): ArticleSortOrder | Response {
 }
 
 /**
- * Parse the force resolve upstream.
- * @param value - The value.
- * @returns The force resolve upstream.
- */
-function parseForceResolveUpstream(value: unknown): boolean | Response {
-  if (value === undefined) {
-    return false;
-  }
-
-  if (typeof value !== "boolean") {
-    return NextResponse.json(
-      {
-        error: "forceResolveUpstream must be a boolean",
-      },
-      { status: 400 },
-    );
-  }
-
-  return value;
-} /**
  * Parse the known last fetched at by url.
  * @param value - The value.
  * @returns The known last fetched at by url.

@@ -42,7 +42,9 @@ export {
   logBatchStatusSummary,
   logBatchWarnings,
   type NormalizedBatchUrls,
+  parseArticleLimit,
   parseBatchSearchTerm,
+  parseForceResolveUpstream,
   resolveNormalizedBatchUrls,
   validateBatchRequestState,
 } from "@/lib/server/batch";
