@@ -1,4 +1,10 @@
 import {
+  findTrailingChromeBoundary,
+  isLikelyLeadingChromeText,
+  isLikelyMediaWidgetHeadingText,
+  isLikelyPromoCtaText,
+} from "@/lib/sanitize/article-chrome";
+import {
   isMediaUtilityLinkText,
   stripStandaloneMediaAttributionText,
 } from "@/lib/sanitize/media-widget";
@@ -26,8 +32,17 @@ function isSocialShareListItem(li: string): boolean {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  return /^(copy\s*link|facebook|twitter|whatsapp|reddit|x|email|linkedin|flipboard|pinterest)$/i.test(
-    text,
+  const words = text.split(/\s+/).filter(Boolean);
+
+  return (
+    words.length > 0 &&
+    words.length <= 4 &&
+    (text === "copy link" ||
+      words.includes("share") ||
+      words.includes("save") ||
+      words.includes("email") ||
+      words.includes("listen") ||
+      words.includes("comment"))
   );
 }
 
@@ -104,79 +119,6 @@ const FILE_DOWNLOAD_EXTENSIONS = new Set([
 const FILE_SIZE_SUFFIX_RE = /^([a-z0-9]{2,5})\s*\(\d[\d.]*\s*[KMGT]?B\)$/i;
 
 /**
- * Return whether is file type size text.
- * @param text - The text.
- * @returns Whether is file type size text.
- */
-function isFileTypeSizeText(text: string): boolean {
-  const m = FILE_SIZE_SUFFIX_RE.exec(text);
-  return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1].toLowerCase());
-}
-
-/**
- * Return whether is short heading label.
- * @param text - The text.
- * @returns Whether is short heading label.
- */
-function isShortHeadingLabel(text: string): boolean {
-  const normalized = text.trim();
-  if (!normalized || normalized.length > 72) return false;
-  if (/[.!?;:]/.test(normalized)) return false;
-  return normalized.split(/\s+/).filter(Boolean).length <= 6;
-}
-
-/**
- * Normalize the heading text.
- * @param value - The value.
- * @returns The heading text.
- */
-function normalizeHeadingText(value: string): string {
-  return value
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * Process the strip file download boilerplate.
- * @param content - The content.
- * @returns The strip file download boilerplate.
- */
-function stripFileDownloadBoilerplate(content: string): string {
-  return content.replace(
-    /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
-    (match, inner: string) =>
-      isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
-  );
-}
-
-/** Promotional / call-to-action phrases (cross-site generic). */
-const PROMO_CTA_PHRASES = [
-  "add as preferred source",
-  "consider becoming a subscriber",
-  "essential reads",
-  "preferred source on google",
-  "read the fact sheet",
-  "reader supported publication",
-  "reader-supported publication",
-  "to receive new posts",
-  "you may like to watch",
-  "you need javascript enabled",
-] as const;
-
-/** Metadata and utility labels that identify non-body lead chrome. */
-const LEADING_ARTICLE_CHROME_PHRASES = [
-  "by",
-  "communications and publishing",
-  "communication and publishing",
-  "date",
-  "fact sheet",
-  "press release",
-  "read the",
-] as const;
-
-/**
  * Matches standalone media-control labels that serve as UI affordances rather
  * than article content. Anchors whose entire non-image text matches this pattern
  * are collapsed to their image tag alone; anchors that carry a real caption or
@@ -185,17 +127,6 @@ const LEADING_ARTICLE_CHROME_PHRASES = [
  * The pattern is intentionally broad so it generalises across publishers and
  * does not require an exhaustive enumeration of every possible label variant.
  */
-/** Standalone media labels that describe embedded widgets, not article prose. */
-const MEDIA_UTILITY_HEADING_TEXTS = new Set(["video file"]);
-
-/** Section headings that commonly introduce related-content and taxonomy chrome. */
-const TRAILING_ARTICLE_CHROME_HEADINGS = [
-  "<h2>more information</h2>",
-  "<h2>recent news</h2>",
-  "<h3>more information</h3>",
-  "<h3>recent news</h3>",
-] as const;
-
 /**
  * Applies final reader-content cleanup after the structural sanitizer has made
  * the HTML safe. This pass removes generic publisher chrome such as share
@@ -330,6 +261,16 @@ export function stripCommentEngagementBoilerplate(content: string): string {
 }
 
 /**
+ * Return whether is file type size text.
+ * @param text - The text.
+ * @returns Whether is file type size text.
+ */
+function isFileTypeSizeText(text: string): boolean {
+  const m = FILE_SIZE_SUFFIX_RE.exec(text);
+  return m !== null && FILE_DOWNLOAD_EXTENSIONS.has(m[1].toLowerCase());
+}
+
+/**
  * Return whether is promo cta.
  * @param inner - The inner.
  * @returns Whether is promo cta.
@@ -340,9 +281,44 @@ function isPromoCta(inner: string): boolean {
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
-  return (
-    PROMO_CTA_PHRASES.some((phrase) => text.includes(phrase)) ||
-    (text.startsWith("follow ") && text.includes(" on whatsapp"))
+  return isLikelyPromoCtaText(text);
+}
+
+/**
+ * Return whether is short heading label.
+ * @param text - The text.
+ * @returns Whether is short heading label.
+ */
+function isShortHeadingLabel(text: string): boolean {
+  const normalized = text.trim();
+  if (!normalized || normalized.length > 72) return false;
+  if (/[.!?;:]/.test(normalized)) return false;
+  return normalized.split(/\s+/).filter(Boolean).length <= 6;
+}
+
+/**
+ * Normalize the heading text.
+ * @param value - The value.
+ * @returns The heading text.
+ */
+function normalizeHeadingText(value: string): string {
+  return value
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Process the strip file download boilerplate.
+ * @param content - The content.
+ * @returns The strip file download boilerplate.
+ */
+function stripFileDownloadBoilerplate(content: string): string {
+  return content.replace(
+    /<p\b[^>]*>([\s\S]*?)<\/p>/gi,
+    (match, inner: string) =>
+      isFileTypeSizeText(inner.replace(/<[^>]*>/g, "").trim()) ? "" : match,
   );
 }
 
@@ -361,12 +337,7 @@ function stripLeadingArticleChrome(content: string): string {
   if (/<img\b/i.test(leadingChunk)) return content;
 
   const leadingText = toPlainText(leadingChunk).replace(/\s+/g, " ").trim();
-  const normalizedLeadingText = leadingText.toLowerCase();
-  if (
-    !LEADING_ARTICLE_CHROME_PHRASES.some((phrase) =>
-      normalizedLeadingText.includes(phrase),
-    )
-  ) {
+  if (!isLikelyLeadingChromeText(leadingText)) {
     return content;
   }
 
@@ -394,7 +365,7 @@ function stripMediaUtilityBoilerplate(content: string): string {
           .replace(/\s+/g, " ")
           .trim()
           .toLowerCase();
-        return MEDIA_UTILITY_HEADING_TEXTS.has(headingText) ? "" : match;
+        return isLikelyMediaWidgetHeadingText(headingText) ? "" : match;
       },
     )
     .replace(
@@ -453,24 +424,7 @@ function stripPromotionalCtaBlocks(content: string): string {
  * @returns HTML before the first confirmed trailing chrome heading.
  */
 function stripTrailingArticleChrome(content: string): string {
-  const lowerContent = content.toLowerCase();
-  const chromeStart = TRAILING_ARTICLE_CHROME_HEADINGS.reduce<null | number>(
-    (earliest, heading) => {
-      const index = lowerContent.indexOf(heading);
-      if (index < 0) return earliest;
-
-      const tail = lowerContent.slice(index);
-      const hasChromeTail =
-        tail.includes("feature story") ||
-        tail.includes("last updated by") ||
-        tail.includes("more news") ||
-        tail.includes("/tags/");
-      if (!hasChromeTail) return earliest;
-
-      return earliest === null ? index : Math.min(earliest, index);
-    },
-    null,
-  );
+  const chromeStart = findTrailingChromeBoundary(content);
 
   if (chromeStart === null) return content;
 

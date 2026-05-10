@@ -36,6 +36,7 @@ export function normalizeArticleHtmlSpacing(html: string): string {
     .replace(/\r\n?/g, "\n")
     .replace(/\n[ \t]*\n+/g, "\n")
     .replace(/>\s*\n\s*\n+\s*</g, ">\n<")
+    .replace(/\.\s+\.(?=\s|<|$)/g, ".")
     .trim();
 }
 
@@ -227,9 +228,9 @@ const NON_CONTENT_CLASS_RE =
 const SCREEN_READER_ONLY_CLASS_RE =
   /(?:^|\s)(?:sr[-_]?only|visually[-_]?hidden|screen[-_]?reader[-_]?(?:text|only)?|element[-_]?(?:invisible|visually[-_]?hidden)|off[-_]?screen|show[-_]?for[-_]?sr)(?=\s|$)/i;
 
-/** Social platform share-intent URL patterns (cross-site generic). */
+/** Generic share-intent URL patterns used across many share widgets. */
 export const SOCIAL_SHARE_LINK_RE =
-  /twitter\.com\/share|facebook\.com\/sharer|reddit\.com\/submit|linkedin\.com\/sharearticle|api\.whatsapp\.com\/send|intent\/tweet|x\.com\/intent\/tweet|mailto:\?/i;
+  /mailto:\?|\/(?:share|sharer|sharing|intent|submit|compose)\b|[?&](?:share|text|title|subject|body|url)=/i;
 
 /**
  * Strips script/style noise, removes non-content containers identified by
