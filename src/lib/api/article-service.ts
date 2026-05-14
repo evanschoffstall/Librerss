@@ -95,6 +95,13 @@ interface SaveProxyUrlOptions {
   proxyUsername?: null | string;
 }
 
+/**
+ * Describes optional request configuration for article-status mutations.
+ */
+interface UpdateArticleStatusOptions {
+  signal?: AbortSignal;
+}
+
 export const ArticleService = {
   /**
    * Process the extract article content.
@@ -221,15 +228,31 @@ export const ArticleService = {
   /**
    * Update the article status.
    * @param articleId - The article id.
-   * @param updates - The s.
+   * @param updates - The article status fields to persist.
+   * @param options - Optional request configuration for the mutation call.
    */
   async updateArticleStatus(
     articleId: number,
     updates: ArticleStatusUpdates,
+    options?: UpdateArticleStatusOptions,
   ): Promise<void> {
-    await getApiClient().post(`${articleServiceBaseUrl}/articles/status`, {
+    const requestBody = {
       articleId,
       ...updates,
-    });
+    };
+
+    if (options?.signal === undefined) {
+      await getApiClient().post(
+        `${articleServiceBaseUrl}/articles/status`,
+        requestBody,
+      );
+      return;
+    }
+
+    await getApiClient().post(
+      `${articleServiceBaseUrl}/articles/status`,
+      requestBody,
+      { signal: options.signal },
+    );
   },
 };

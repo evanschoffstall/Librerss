@@ -677,6 +677,26 @@ describe("ArticleService", () => {
     );
   });
 
+  test("updateArticleStatus forwards abort signals to the API client", async () => {
+    mockAxiosInstance.post = mock(async () => ({ data: {} }));
+    const controller = new AbortController();
+
+    await ArticleService.updateArticleStatus(
+      1,
+      { isRead: true },
+      { signal: controller.signal },
+    );
+
+    expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+      "/api/articles/status",
+      {
+        articleId: 1,
+        isRead: true,
+      },
+      { signal: controller.signal },
+    );
+  });
+
   test("extractArticleContent handles network errors", async () => {
     mockAxiosInstance.post = mock(async () => {
       throw new Error("Network error");
