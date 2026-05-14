@@ -529,7 +529,7 @@ describe("useDashboardHandlers", () => {
       skipRefresh: undefined,
     });
     expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
-      forceRefresh: false,
+      forceRefresh: true,
       keepExistingFeed: true,
       requestSource: "auto-refresh",
       searchTerm: "mars",

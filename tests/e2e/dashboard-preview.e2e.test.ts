@@ -81,6 +81,47 @@ async function selectPreviewSource(
 }
 
 test.describe("dashboard preview mode", () => {
+  test("keeps preview articles mounted during a scheduled auto refresh", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeSetInterval = window.setInterval.bind(window);
+      let dashboardAutoRefreshCallback: (() => void) | undefined;
+
+      window.setInterval = ((handler: TimerHandler, timeout?: number) => {
+        if (timeout === 1_800_000 && typeof handler === "function") {
+          dashboardAutoRefreshCallback = handler as () => void;
+        }
+
+        return nativeSetInterval(handler, timeout);
+      }) as typeof window.setInterval;
+
+      Object.defineProperty(window, "__runDashboardAutoRefreshInterval", {
+        configurable: true,
+        value: () => {
+          dashboardAutoRefreshCallback?.();
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const firstArticle = await locateViewportArticle(page, 0);
+    const firstArticleKey = await readArticleKey(firstArticle);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardAutoRefreshInterval?: () => void;
+      };
+
+      testWindow.__runDashboardAutoRefreshInterval?.();
+    });
+
+    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
+      0,
+    );
+    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+  });
+
   test("opens the mobile actions popup from the three-dots toolbar button", async ({
     page,
   }) => {
