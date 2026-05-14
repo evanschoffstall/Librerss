@@ -18,6 +18,11 @@ describe("StatusPage", () => {
     );
 
     expect(container.querySelector('[data-status-page="404"]')).toBeTruthy();
+    expect(
+      container
+        .querySelector('[data-status-page="404"]')
+        ?.getAttribute("class"),
+    ).toContain("dark");
     expect(getByText("Page not found")).toBeTruthy();
     expect(getByRole("heading", { name: "404" })).toBeTruthy();
     expect(
@@ -39,6 +44,11 @@ describe("StatusPage", () => {
     );
 
     expect(container.querySelector('[data-status-page="500"]')).toBeTruthy();
+    expect(
+      container
+        .querySelector('[data-status-page="500"]')
+        ?.getAttribute("class"),
+    ).toContain("dark");
     expect(getByText("Something went wrong")).toBeTruthy();
     expect(getByRole("heading", { name: "500" })).toBeTruthy();
     expect(getByRole("button", { name: "Try again" })).toBeTruthy();
