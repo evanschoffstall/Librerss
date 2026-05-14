@@ -122,6 +122,96 @@ test.describe("dashboard preview mode", () => {
     await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
   });
 
+  test("keeps preview articles mounted during a resume-triggered auto refresh", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeDateNow = Date.now.bind(Date);
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      let currentNow = nativeDateNow();
+      let dashboardResumeRefreshCallback: (() => void) | undefined;
+
+      Date.now = () => currentNow;
+      window.setTimeout = ((
+        handler: TimerHandler,
+        timeout?: number,
+        ...args: unknown[]
+      ) => {
+        const timerId = nativeSetTimeout(handler, timeout, ...args);
+
+        if (
+          (timeout === 1_500 || timeout === 4_000) &&
+          typeof handler === "function"
+        ) {
+          dashboardResumeRefreshCallback = () => {
+            handler(...args);
+          };
+        }
+
+        return timerId;
+      }) as typeof window.setTimeout;
+
+      Object.defineProperties(window, {
+        __advanceDashboardNow: {
+          configurable: true,
+          value: (durationMs: number) => {
+            currentNow += durationMs;
+          },
+        },
+        __hasDashboardResumeRefresh: {
+          configurable: true,
+          value: () => dashboardResumeRefreshCallback !== undefined,
+        },
+        __runDashboardResumeRefresh: {
+          configurable: true,
+          value: () => {
+            dashboardResumeRefreshCallback?.();
+          },
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const firstArticle = await locateViewportArticle(page, 0);
+    const firstArticleKey = await readArticleKey(firstArticle);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __advanceDashboardNow?: (durationMs: number) => void;
+      };
+
+      testWindow.__advanceDashboardNow?.(1_000);
+      document.dispatchEvent(new Event("freeze"));
+      testWindow.__advanceDashboardNow?.(1_800_000);
+      window.dispatchEvent(new Event("pageshow"));
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const testWindow = window as typeof window & {
+            __hasDashboardResumeRefresh?: () => boolean;
+          };
+
+          return testWindow.__hasDashboardResumeRefresh?.() ?? false;
+        }),
+      )
+      .toBe(true);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardResumeRefresh?: () => void;
+      };
+
+      testWindow.__runDashboardResumeRefresh?.();
+    });
+
+    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
+      0,
+    );
+    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+  });
+
   test("opens the mobile actions popup from the three-dots toolbar button", async ({
     page,
   }) => {

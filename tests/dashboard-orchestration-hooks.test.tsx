@@ -336,9 +336,10 @@ describe("dashboard orchestration hooks", () => {
     );
 
     act(() => {
-      intervalCallbacks.get(1)?.();
-      now = 400_000;
-      intervalCallbacks.get(2)?.();
+      now = 2_000_000;
+      for (const intervalCallback of intervalCallbacks.values()) {
+        intervalCallback();
+      }
     });
 
     expect(relativeRefreshTick).toBe(1);
@@ -346,16 +347,128 @@ describe("dashboard orchestration hooks", () => {
 
     act(() => {
       hidden = true;
-      now = 500_000;
+      now = 2_100_000;
       document.dispatchEvent(new Event("visibilitychange"));
       hidden = false;
-      now = 900_000 + STALE_TAB_THRESHOLD_MS;
+      now = 4_000_000;
       document.dispatchEvent(new Event("visibilitychange"));
       Array.from(timeoutCallbacks.values()).at(-1)?.();
     });
 
     expect(toast.dismiss).toHaveBeenCalledTimes(1);
     expect(onStaleTabResume).toHaveBeenCalledTimes(1);
+    expect(autoRefreshFeedList).toHaveBeenCalledTimes(2);
+    expect(relativeRefreshTick).toBe(2);
+
+    unmount();
+
+    expect(clearIntervalMock).toHaveBeenCalledTimes(2);
+    expect(clearTimeoutMock).toHaveBeenCalled();
+  });
+
+  test("useDashboardIntervals reassesses lifecycle resumes and ignores superseded delayed refreshes", async () => {
+    const modulePath = [
+      "..",
+      "src",
+      "app",
+      "dashboard",
+      "dashboard-hooks",
+      "useDashboardIntervals.ts",
+    ].join("/");
+    const { STALE_TAB_THRESHOLD_MS, useDashboardIntervals } = (await import(
+      `${modulePath}?dashboard-orchestration-lifecycle-resume-real`
+    )) as typeof import("@/app/dashboard/dashboard-hooks/useDashboardIntervals");
+    const intervalCallbacks = new Map<number, () => void>();
+    const timeoutCallbacks = new Map<number, () => void>();
+    const clearIntervalMock = mock((id: number) => {
+      intervalCallbacks.delete(id);
+    });
+    const clearTimeoutMock = mock((id: number) => {
+      timeoutCallbacks.delete(id);
+    });
+    let nextTimerId = 0;
+    let now = 0;
+    let hidden = false;
+    let relativeRefreshTick = 0;
+
+    originalDocumentHiddenDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "hidden",
+    );
+    Date.now = () => now;
+    window.setInterval = ((callback: TimerHandler) => {
+      nextTimerId += 1;
+      intervalCallbacks.set(nextTimerId, callback as () => void);
+      return nextTimerId;
+    }) as typeof window.setInterval;
+    window.clearInterval = clearIntervalMock as typeof window.clearInterval;
+    globalThis.setTimeout = ((callback: TimerHandler) => {
+      nextTimerId += 1;
+      timeoutCallbacks.set(nextTimerId, callback as () => void);
+      return nextTimerId as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = clearTimeoutMock as typeof clearTimeout;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => hidden,
+    });
+
+    const autoRefreshFeedList = mock(async () => {});
+    const onStaleTabResume = mock(() => {});
+    const setRelativeRefreshTick = mock(
+      (value: React.SetStateAction<number>) => {
+        relativeRefreshTick =
+          typeof value === "function" ? value(relativeRefreshTick) : value;
+      },
+    );
+
+    const { unmount } = renderHook(() =>
+      useDashboardIntervals({
+        autoRefreshFeedList,
+        autoRefreshIntervalMinutes: 5,
+        onStaleTabResume,
+        setRelativeRefreshTick,
+      }),
+    );
+
+    act(() => {
+      now = 1_000;
+      document.dispatchEvent(new Event("freeze"));
+      now = 1_900_000 + STALE_TAB_THRESHOLD_MS;
+      window.dispatchEvent(new Event("pageshow"));
+    });
+
+    const supersededRefresh = Array.from(timeoutCallbacks.values()).at(-1);
+
+    act(() => {
+      now = 2_000_000 + STALE_TAB_THRESHOLD_MS;
+      window.dispatchEvent(new Event("online"));
+      supersededRefresh?.();
+    });
+
+    expect(autoRefreshFeedList).not.toHaveBeenCalled();
+    expect(toast.dismiss).toHaveBeenCalledTimes(1);
+    expect(onStaleTabResume).toHaveBeenCalledTimes(1);
+    expect(relativeRefreshTick).toBe(2);
+
+    act(() => {
+      Array.from(timeoutCallbacks.values()).at(-1)?.();
+    });
+
+    expect(autoRefreshFeedList).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      hidden = true;
+      for (const intervalCallback of intervalCallbacks.values()) {
+        intervalCallback();
+      }
+      hidden = false;
+      now = 2_000_001 + STALE_TAB_THRESHOLD_MS;
+      for (const intervalCallback of intervalCallbacks.values()) {
+        intervalCallback();
+      }
+    });
+
     expect(autoRefreshFeedList).toHaveBeenCalledTimes(1);
 
     unmount();
