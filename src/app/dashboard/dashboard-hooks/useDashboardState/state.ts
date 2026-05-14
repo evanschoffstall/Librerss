@@ -4,6 +4,7 @@ import {
   type SetStateAction,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -122,12 +123,19 @@ function useDashboardPersistedPreferences() {
     DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
     12,
   );
+  const [hasHydratedPersistedPreferences, setHasHydratedPersistedPreferences] =
+    useState(false);
+
+  useLayoutEffect(() => {
+    setHasHydratedPersistedPreferences(true);
+  }, []);
 
   return {
     articleFilter,
     articleSortOrder,
     articlesPerPage,
     expandedArticleKey,
+    hasHydratedPersistedPreferences,
     isMobileSidebarOpen,
     searchTerm,
     selectedCategory,

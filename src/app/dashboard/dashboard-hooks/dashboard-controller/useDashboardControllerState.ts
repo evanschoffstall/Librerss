@@ -142,6 +142,8 @@ function buildDashboardRuntimeDataState(
       articleActions.cancelPendingArticleStatusMutations,
     feed: dashboardState.feed,
     handleMarkArticlesRead: articleActions.handleMarkArticlesRead,
+    hasHydratedPersistedPreferences:
+      dashboardState.hasHydratedPersistedPreferences,
     hasInitializedDashboardRef: dashboardState.hasInitializedDashboardRef,
     isSearchPending: loadingState.isSearchPending,
     isShellLoading: loadingState.isShellLoading,

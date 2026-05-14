@@ -232,6 +232,7 @@ function createDashboardControllerRuntimeStateOptions(
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,
     fetchFeed: options.fetchFeed,
+    hasHydratedPersistedPreferences: options.hasHydratedPersistedPreferences,
     hasInitializedDashboardRef: options.hasInitializedDashboardRef,
     initialArticleLimit: options.articleWindowLimit,
     isSearchPending: options.isSearchPending,

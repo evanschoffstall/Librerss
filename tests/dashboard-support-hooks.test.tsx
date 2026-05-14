@@ -125,6 +125,7 @@ describe("dashboard support hooks", () => {
           fetchAllFeeds,
           fetchCategoryFeeds,
           fetchFeed,
+          hasHydratedPersistedPreferences: true,
           hasInitializedDashboardRef,
           loadFeedSources,
           selectedCategory,
@@ -144,6 +145,41 @@ describe("dashboard support hooks", () => {
     expect(loadFeedSources).toHaveBeenCalledTimes(1);
   });
 
+  test("useDashboardInitialization waits for persisted preference hydration before booting", async () => {
+    const hasInitializedDashboardRef = { current: false };
+    const loadFeedSources = mock(async () => []);
+
+    const { rerender } = renderHook(
+      ({ hasHydratedPersistedPreferences }) =>
+        useDashboardInitialization({
+          fetchAllFeeds: mock(async () => {}),
+          fetchCategoryFeeds: mock(async () => {}),
+          fetchFeed: mock(async () => {}),
+          hasHydratedPersistedPreferences,
+          hasInitializedDashboardRef,
+          loadFeedSources,
+          selectedCategory: "feed-1",
+          setIsCategoriesLoading: mock(() => {}),
+          setSelectedCategory: mock(() => {}),
+        }),
+      {
+        initialProps: { hasHydratedPersistedPreferences: false },
+      },
+    );
+
+    await waitFor(() => {
+      expect(loadFeedSources).not.toHaveBeenCalled();
+    });
+    expect(hasInitializedDashboardRef.current).toBe(false);
+
+    rerender({ hasHydratedPersistedPreferences: true });
+
+    await waitFor(() => {
+      expect(loadFeedSources).toHaveBeenCalledTimes(1);
+    });
+    expect(hasInitializedDashboardRef.current).toBe(true);
+  });
+
   test("useDashboardInitialization does nothing when the dashboard was already initialized", async () => {
     const loadFeedSources = mock(async () => []);
 
@@ -152,6 +188,7 @@ describe("dashboard support hooks", () => {
         fetchAllFeeds: mock(async () => {}),
         fetchCategoryFeeds: mock(async () => {}),
         fetchFeed: mock(async () => {}),
+        hasHydratedPersistedPreferences: true,
         hasInitializedDashboardRef: { current: true },
         loadFeedSources,
         selectedCategory: "feed-1",
