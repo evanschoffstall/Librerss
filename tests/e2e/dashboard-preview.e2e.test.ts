@@ -266,13 +266,17 @@ test.describe("dashboard preview mode", () => {
     );
 
     if (!sourceWithArticle) {
-      throw new Error("Expected at least one placeholder source with articles.");
+      throw new Error(
+        "Expected at least one placeholder source with articles.",
+      );
     }
 
     const selectedSeed = sourceWithArticle.seeds[0];
 
     if (!selectedSeed) {
-      throw new Error("Expected selected placeholder source to include an article.");
+      throw new Error(
+        "Expected selected placeholder source to include an article.",
+      );
     }
 
     for (const definition of PLACEHOLDER_SOURCE_DEFINITIONS) {
@@ -293,6 +297,64 @@ test.describe("dashboard preview mode", () => {
 
       button.click();
     });
+    await expect(
+      page.getByRole("heading", {
+        name: selectedSeed.title,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("page reload keeps the selected preview source aligned with visible results", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await openPreviewFeeds(page);
+
+    const sourceWithArticle = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+      (definition) => definition.seeds.length > 0,
+    );
+
+    if (!sourceWithArticle) {
+      throw new Error(
+        "Expected at least one placeholder source with articles.",
+      );
+    }
+
+    const selectedSeed = sourceWithArticle.seeds[0];
+
+    if (!selectedSeed) {
+      throw new Error(
+        "Expected selected placeholder source to include an article.",
+      );
+    }
+
+    const selectedFeedButton = previewFeedButton(
+      page,
+      sourceWithArticle.source.name,
+    );
+    await expect(selectedFeedButton).toBeVisible();
+    await selectedFeedButton.evaluate((button) => {
+      if (!(button instanceof HTMLElement)) {
+        throw new Error("Expected a feed button element.");
+      }
+
+      button.click();
+    });
+
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      sourceWithArticle.source.name,
+    );
+    await expect(
+      page.getByRole("heading", {
+        name: selectedSeed.title,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      sourceWithArticle.source.name,
+    );
     await expect(
       page.getByRole("heading", {
         name: selectedSeed.title,

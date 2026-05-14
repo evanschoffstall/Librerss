@@ -57,6 +57,8 @@ test.describe("dashboard article sort order", () => {
       })
       .not.toBe(initialFirstKey);
 
+    const oldestFirstKey = await readArticleKey(articleCard(page, 0));
+
     const persistedOrder = await page.evaluate(() =>
       window.localStorage.getItem("librerss:articleSortOrder"),
     );
@@ -71,6 +73,11 @@ test.describe("dashboard article sort order", () => {
       "oldest",
     );
     await expect(reloadedToggle).toContainText("Oldest");
+    await expect
+      .poll(async () => readArticleKey(articleCard(page, 0)), {
+        timeout: 15_000,
+      })
+      .toBe(oldestFirstKey);
   });
 
   test("clicking the sort toggle a second time restores the newest-first order", async ({
