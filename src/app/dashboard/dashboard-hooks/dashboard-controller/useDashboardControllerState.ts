@@ -138,6 +138,8 @@ function buildDashboardRuntimeDataState(
     articleSortOrder: dashboardState.articleSortOrder,
     articleWindowLimit: articleWindowState.articleWindowLimit,
     autoRefreshIntervalMinutes: dashboardState.autoRefreshIntervalMinutes,
+    cancelPendingArticleStatusMutations:
+      articleActions.cancelPendingArticleStatusMutations,
     feed: dashboardState.feed,
     handleMarkArticlesRead: articleActions.handleMarkArticlesRead,
     hasInitializedDashboardRef: dashboardState.hasInitializedDashboardRef,

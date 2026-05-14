@@ -35,6 +35,7 @@ type DashboardArticleSortOrder = "newest" | "oldest";
 interface DashboardAutoRefreshOptions {
   autoRefreshFeedList: () => Promise<void>;
   autoRefreshIntervalMinutes: number;
+  cancelPendingArticleStatusMutations?: () => void;
   cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
   setRelativeRefreshTick: ReturnType<
     typeof useDashboardControllerRefreshState
@@ -106,6 +107,7 @@ type UseDashboardControllerRuntimeOptions = Omit<
   articleSortOrder: DashboardArticleSortOrder;
   articleWindowLimit: DashboardHandlersOptions["articleLimit"];
   autoRefreshIntervalMinutes: number;
+  cancelPendingArticleStatusMutations?: () => void;
   cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
   feed: Article[];
   handleMarkArticlesRead: (articles: Article[]) => Promise<void>;
@@ -159,6 +161,8 @@ export function useDashboardControllerRuntime(
   const isAutoRefreshing = useDashboardAutoRefresh({
     autoRefreshFeedList,
     autoRefreshIntervalMinutes: options.autoRefreshIntervalMinutes,
+    cancelPendingArticleStatusMutations:
+      options.cancelPendingArticleStatusMutations,
     cancelPendingRequest: options.cancelPendingRequest,
     setRelativeRefreshTick: options.setRelativeRefreshTick,
   });
@@ -358,6 +362,7 @@ function useDashboardAutoRefresh(options: DashboardAutoRefreshOptions) {
   }, [options]);
 
   const handleStaleTabResume = useCallback(() => {
+    options.cancelPendingArticleStatusMutations?.();
     options.cancelPendingRequest?.();
   }, [options]);
 

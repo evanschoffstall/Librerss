@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { Article } from "@/lib/core";
 
@@ -17,6 +17,23 @@ export interface ArticleMutationTracker {
   clearUpdatingArticleKeys: (articleKeys: Iterable<string>) => void;
   markUpdatingArticleKeys: (articleKeys: Iterable<string>) => void;
   updatingArticleState: Record<string, boolean>;
+}
+
+/**
+ * Owns the abort controllers for overlapping article-status mutations so the
+ * dashboard can cancel stale writes when a suspended tab resumes.
+ */
+export interface ArticleStatusMutationController {
+  cancelPendingMutations: () => void;
+  createMutationSignalHandle: () => ArticleStatusMutationSignalHandle;
+}
+
+/**
+ * Holds the signal and cleanup callback for one in-flight article mutation.
+ */
+export interface ArticleStatusMutationSignalHandle {
+  release: () => void;
+  signal: AbortSignal;
 }
 
 /**
@@ -44,6 +61,7 @@ interface OptimisticArticleStatusMutationOptions {
     articlesByKey: Map<string, Article>,
   ) => Article[];
   articles: Article[];
+  createMutationSignalHandle?: () => ArticleStatusMutationSignalHandle;
   errorLogLabel: string;
   mutationTracker: Pick<
     ArticleMutationTracker,
@@ -71,6 +89,7 @@ export async function runOptimisticArticleStatusMutation(
   const {
     applyOptimisticUpdate,
     articles,
+    createMutationSignalHandle,
     errorLogLabel,
     mutationTracker,
     onError,
@@ -86,6 +105,7 @@ export async function runOptimisticArticleStatusMutation(
 
   const articleEntries = Array.from(articlesByKey.entries());
   const articleKeys = articleEntries.map(([articleKey]) => articleKey);
+  const mutationSignalHandle = createMutationSignalHandle?.();
   mutationTracker.markUpdatingArticleKeys(articleKeys);
   setFeed((currentFeed) => applyOptimisticUpdate(currentFeed, articlesByKey));
 
@@ -93,6 +113,7 @@ export async function runOptimisticArticleStatusMutation(
     const failedArticleKeys = await persistArticleStatusMutations(
       articleEntries,
       statusPatchForArticle,
+      mutationSignalHandle?.signal,
       usePlaceholderData,
     );
 
@@ -116,6 +137,7 @@ export async function runOptimisticArticleStatusMutation(
       failedArticleKeys: new Set(articleKeys),
     };
   } finally {
+    mutationSignalHandle?.release();
     mutationTracker.clearUpdatingArticleKeys(articleKeys);
   }
 }
@@ -162,6 +184,42 @@ export function useArticleMutationTracker(): ArticleMutationTracker {
     clearUpdatingArticleKeys,
     markUpdatingArticleKeys,
     updatingArticleState,
+  };
+}
+
+/**
+ * Manage the shared abort ownership for all in-flight article-status writes.
+ * @returns The controller used to allocate and cancel mutation signals.
+ */
+export function useArticleStatusMutationController(): ArticleStatusMutationController {
+  const pendingControllersRef = useRef(new Set<AbortController>());
+
+  const createMutationSignalHandle = useCallback(() => {
+    const controller = new AbortController();
+    pendingControllersRef.current.add(controller);
+
+    return {
+      /**
+       * Remove this mutation controller from the active cancellation set once the write settles.
+       */
+      release: () => {
+        pendingControllersRef.current.delete(controller);
+      },
+      signal: controller.signal,
+    } satisfies ArticleStatusMutationSignalHandle;
+  }, []);
+
+  const cancelPendingMutations = useCallback(() => {
+    for (const controller of pendingControllersRef.current) {
+      controller.abort("dashboard-stale-tab-resume");
+    }
+
+    pendingControllersRef.current.clear();
+  }, []);
+
+  return {
+    cancelPendingMutations,
+    createMutationSignalHandle,
   };
 }
 
@@ -215,12 +273,14 @@ function createArticleMap(articles: Article[]): Map<string, Article> {
  * Process the persist article status mutations.
  * @param articleEntries - The article entries.
  * @param statusPatchForArticle - The callback that status patch for article.
+ * @param signal - The abort signal tied to the owning dashboard lifecycle.
  * @param usePlaceholderData - The placeholder data.
  * @returns The persist article status mutations.
  */
 async function persistArticleStatusMutations(
   articleEntries: [string, Article][],
   statusPatchForArticle: (article: Article) => ArticleStatusPatch,
+  signal: AbortSignal | undefined,
   usePlaceholderData: boolean,
 ): Promise<Set<string>> {
   if (usePlaceholderData) {
@@ -228,12 +288,17 @@ async function persistArticleStatusMutations(
   }
 
   const results = await Promise.allSettled(
-    articleEntries.map(([, article]) =>
-      ArticleService.updateArticleStatus(
-        article.id,
-        statusPatchForArticle(article),
-      ),
-    ),
+    articleEntries.map(([, article]) => {
+      const statusPatch = statusPatchForArticle(article);
+
+      if (signal === undefined) {
+        return ArticleService.updateArticleStatus(article.id, statusPatch);
+      }
+
+      return ArticleService.updateArticleStatus(article.id, statusPatch, {
+        signal,
+      });
+    }),
   );
 
   return new Set(

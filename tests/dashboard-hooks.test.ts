@@ -23,6 +23,7 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
+import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
 import {
   escapeArticleKey,
   useArticleHydration,
@@ -2213,6 +2214,70 @@ describe("useArticleReadState", () => {
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(true);
       expect(feedState[1].isRead).toBe(true);
+    });
+  });
+
+  test("cancels pending read-state mutations and restores optimistic state", async () => {
+    let capturedSignal: AbortSignal | undefined;
+
+    (ArticleService.updateArticleStatus as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(
+        async (
+          _articleId: number,
+          _updates: { isRead?: boolean; isStarred?: boolean },
+          options?: { signal?: AbortSignal },
+        ) => {
+          capturedSignal = options?.signal;
+
+          await new Promise<void>((resolve, reject) => {
+            options?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(new DOMException("aborted", "AbortError"));
+              },
+              { once: true },
+            );
+          });
+        },
+      );
+
+    const article = createMockArticle({ isRead: false });
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey: mock(() => {}),
+        setFeed,
+        usePlaceholderData: false,
+      }),
+    );
+
+    let mutationPromise: Promise<boolean> | undefined;
+    await act(async () => {
+      mutationPromise = result.current.setArticleReadState(article, true);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(feedState[0].isRead).toBe(true);
+    });
+
+    await act(async () => {
+      result.current.cancelPendingArticleStatusMutations();
+      await mutationPromise;
+    });
+
+    await waitFor(() => {
+      expect(capturedSignal?.aborted).toBe(true);
+      expect(feedState[0].isRead).toBe(false);
+      expect(result.current.updatingArticleState).toEqual({});
     });
   });
 });

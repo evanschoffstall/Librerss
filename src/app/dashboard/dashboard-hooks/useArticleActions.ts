@@ -8,6 +8,7 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import {
   useArticleStarredState,
+  useArticleStatusMutationController,
   useExpandedArticleCollapse,
   useExpandedArticleHydration,
 } from "@/app/dashboard/dashboard-hooks/article-actions";
@@ -26,6 +27,9 @@ interface ArticleActionDependenciesResultOptions {
     typeof useArticleStarredState
   >["handleToggleStarredState"];
   readState: ReturnType<typeof useArticleReadState>;
+  statusMutationController: ReturnType<
+    typeof useArticleStatusMutationController
+  >;
 }
 
 /**
@@ -112,6 +116,8 @@ function buildArticleActionDependenciesResult(
   options: ArticleActionDependenciesResultOptions,
 ) {
   return {
+    cancelPendingArticleStatusMutations:
+      options.statusMutationController.cancelPendingMutations,
     capturePreExpandSnapshot:
       options.expansion.collapseState.capturePreExpandSnapshot,
     collapsingArticles: options.expansion.collapseState.collapsingArticles,
@@ -149,7 +155,13 @@ function useArticleActionDependencies(options: UseArticleActionsOptions) {
     setFeed,
     usePlaceholderData = false,
   } = options;
-  const readState = useArticleReadState({ setFeed, usePlaceholderData });
+  const statusMutationController = useArticleStatusMutationController();
+  const readState = useArticleReadState({
+    createMutationSignalHandle:
+      statusMutationController.createMutationSignalHandle,
+    setFeed,
+    usePlaceholderData,
+  });
   const getFeedSettings = useFeedSettingsLookup(categories);
   const expansion = useArticleExpansionDependencies({
     articleFilter,
@@ -163,6 +175,8 @@ function useArticleActionDependencies(options: UseArticleActionsOptions) {
   });
   const handleToggleStarredState = useArticleStarredState({
     articleFilter,
+    createMutationSignalHandle:
+      statusMutationController.createMutationSignalHandle,
     mutationTracker: readState.mutationTracker,
     setFeed,
     usePlaceholderData,
@@ -182,6 +196,7 @@ function useArticleActionDependencies(options: UseArticleActionsOptions) {
     expansion,
     handleToggleStarredState,
     readState,
+    statusMutationController,
   });
 }
 /**
