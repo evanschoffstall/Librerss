@@ -69,11 +69,19 @@ type DashboardSearchRefreshOptions = Pick<
 >;
 
 /**
+ * Inputs used to choose the first server article-window size after a filter or
+ * sort selection changes.
+ */
+interface DashboardSelectionRefreshLimitOptions {
+  /** One-page article count owned by reader settings for reset selection reads. */
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
+}
+
+/**
  * Describes the options for dashboard selection refresh.
  */
 interface DashboardSelectionRefreshOptions<TValue> {
   appliedValueRef: React.RefObject<TValue>;
-  articleWindowLimit: DashboardHandlersOptions["articleLimit"];
   currentValue: TValue;
   fetchAllFeeds: UseDashboardControllerRuntimeOptions["fetchAllFeeds"];
   fetchCategoryFeeds: UseDashboardControllerRuntimeOptions["fetchCategoryFeeds"];
@@ -83,6 +91,7 @@ interface DashboardSelectionRefreshOptions<TValue> {
   selectedCategory: UseDashboardControllerRuntimeOptions["selectedCategory"];
   selectedCategoryNode: UseDashboardControllerRuntimeOptions["selectedCategoryNode"];
   selectedFeedUrl: UseDashboardControllerRuntimeOptions["selectedFeedUrl"];
+  selectionArticleLimit: DashboardHandlersOptions["selectionArticleLimit"];
   usePlaceholderData: boolean;
 }
 
@@ -120,6 +129,24 @@ type UseDashboardControllerRuntimeOptions = Omit<
   setShowSettingsModal: () => void;
   usePlaceholderData: boolean;
 };
+
+/**
+ * Resolve the article-window limit for server-backed article filter and sort
+ * changes.
+ *
+ * Filter and sort changes reset the article window in a sibling effect during
+ * the same React commit. Reading the expanded `articleWindowLimit` here would
+ * let a previously scrolled feed over-fetch the next DB query before the reset
+ * render lands. The selection limit is the canonical one-page value and matches
+ * category/feed selection changes.
+ * @param options - The reader selection settings for the reset request.
+ * @returns The one-page article limit to send with the selection refresh.
+ */
+export function resolveDashboardSelectionRefreshArticleLimit(
+  options: DashboardSelectionRefreshLimitOptions,
+) {
+  return options.selectionArticleLimit;
+}
 
 /**
  * Manage the dashboard controller refresh state.
@@ -246,7 +273,9 @@ async function runDashboardSelectionRefresh(
 
   try {
     await refreshCurrentSelection({
-      articleLimit: options.articleWindowLimit,
+      articleLimit: resolveDashboardSelectionRefreshArticleLimit({
+        selectionArticleLimit: options.selectionArticleLimit,
+      }),
       fetchAllFeeds: options.fetchAllFeeds,
       fetchCategoryFeeds: options.fetchCategoryFeeds,
       fetchFeed: options.fetchFeed,
@@ -271,7 +300,6 @@ function useDashboardArticleFilterRefresh(
     UseDashboardControllerRuntimeOptions,
     | "appliedBatchArticleFilterRef"
     | "articleFilter"
-    | "articleWindowLimit"
     | "fetchAllFeeds"
     | "fetchCategoryFeeds"
     | "fetchFeed"
@@ -279,12 +307,12 @@ function useDashboardArticleFilterRefresh(
     | "selectedCategory"
     | "selectedCategoryNode"
     | "selectedFeedUrl"
+    | "selectionArticleLimit"
     | "usePlaceholderData"
   >,
 ) {
   useDashboardSelectionRefreshOnChange({
     appliedValueRef: options.appliedBatchArticleFilterRef,
-    articleWindowLimit: options.articleWindowLimit,
     currentValue: options.articleFilter,
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,
@@ -294,6 +322,7 @@ function useDashboardArticleFilterRefresh(
     selectedCategory: options.selectedCategory,
     selectedCategoryNode: options.selectedCategoryNode,
     selectedFeedUrl: options.selectedFeedUrl,
+    selectionArticleLimit: options.selectionArticleLimit,
     usePlaceholderData: options.usePlaceholderData,
   });
 }
@@ -307,7 +336,6 @@ function useDashboardArticleSortOrderRefresh(
     UseDashboardControllerRuntimeOptions,
     | "appliedBatchArticleSortOrderRef"
     | "articleSortOrder"
-    | "articleWindowLimit"
     | "fetchAllFeeds"
     | "fetchCategoryFeeds"
     | "fetchFeed"
@@ -315,12 +343,12 @@ function useDashboardArticleSortOrderRefresh(
     | "selectedCategory"
     | "selectedCategoryNode"
     | "selectedFeedUrl"
+    | "selectionArticleLimit"
     | "usePlaceholderData"
   >,
 ) {
   useDashboardSelectionRefreshOnChange({
     appliedValueRef: options.appliedBatchArticleSortOrderRef,
-    articleWindowLimit: options.articleWindowLimit,
     currentValue: options.articleSortOrder,
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,
@@ -330,6 +358,7 @@ function useDashboardArticleSortOrderRefresh(
     selectedCategory: options.selectedCategory,
     selectedCategoryNode: options.selectedCategoryNode,
     selectedFeedUrl: options.selectedFeedUrl,
+    selectionArticleLimit: options.selectionArticleLimit,
     usePlaceholderData: options.usePlaceholderData,
   });
 }
@@ -400,7 +429,6 @@ function useDashboardSelectionRefreshOnChange<TValue>(
     }
 
     void runDashboardSelectionRefresh({
-      articleWindowLimit: options.articleWindowLimit,
       fetchAllFeeds: options.fetchAllFeeds,
       fetchCategoryFeeds: options.fetchCategoryFeeds,
       fetchFeed: options.fetchFeed,
@@ -409,6 +437,7 @@ function useDashboardSelectionRefreshOnChange<TValue>(
       selectedCategory: options.selectedCategory,
       selectedCategoryNode: options.selectedCategoryNode,
       selectedFeedUrl: options.selectedFeedUrl,
+      selectionArticleLimit: options.selectionArticleLimit,
       usePlaceholderData: options.usePlaceholderData,
     });
   }, [options]);
