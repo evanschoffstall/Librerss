@@ -27,6 +27,7 @@ import type { Article } from "@/lib/core";
 import {
   applyFeedSurfaceLayoutToHost,
   isInvertedFeedScrollMode,
+  observeFeedViewportHeightOwners,
   resolveFeedScrollMode,
   resolveFeedScrollModeArticles,
   syncViewportToBottomIfNeeded,
@@ -421,6 +422,62 @@ export const FeedList = memo(
     }, [
       feedData.length,
       isInvertedScroll,
+      scrollViewport,
+      shouldAutoAnchorInvertedScroll,
+    ]);
+
+    useLayoutEffect(() => {
+      if (
+        !isInvertedScroll ||
+        scrollViewport === null ||
+        !shouldAutoAnchorInvertedScroll()
+      ) {
+        return undefined;
+      }
+
+      let anchorFrameId: null | number = null;
+      /**
+       * Keep an auto-owned inverted viewport pinned to the current feed bottom.
+       */
+      const syncAutoAnchoredViewport = () => {
+        if (shouldAutoAnchorInvertedScroll()) {
+          syncViewportToBottomIfNeeded(scrollViewport);
+        }
+      };
+      /**
+       * Defer the bottom sync until after the latest virtualizer layout commit.
+       */
+      const scheduleAutoAnchorSync = () => {
+        if (anchorFrameId !== null) {
+          window.cancelAnimationFrame(anchorFrameId);
+        }
+
+        anchorFrameId = window.requestAnimationFrame(() => {
+          anchorFrameId = null;
+          syncAutoAnchoredViewport();
+        });
+      };
+
+      syncAutoAnchoredViewport();
+      scheduleAutoAnchorSync();
+
+      const disconnectHeightOwnerObserver = observeFeedViewportHeightOwners(
+        scrollViewport,
+        scheduleAutoAnchorSync,
+      );
+
+      return () => {
+        disconnectHeightOwnerObserver();
+
+        if (anchorFrameId !== null) {
+          window.cancelAnimationFrame(anchorFrameId);
+        }
+      };
+    }, [
+      contentKey,
+      feedData.length,
+      isInvertedScroll,
+      loadMoreSkeletonCount,
       scrollViewport,
       shouldAutoAnchorInvertedScroll,
     ]);

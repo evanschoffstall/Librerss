@@ -2,7 +2,6 @@
 
 import type { CategoryTreeNode } from "@/lib/core";
 
-import { resolveUnreadRefillThreshold } from "@/app/dashboard/dashboard-services/article";
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import {
   type FeedFetchOptions,
@@ -162,7 +161,7 @@ export async function prefetchNextPageForCurrentSelection(
 /**
  * Process the refill dashboard article window.
  *
- * Advances the article window by one page plus overflow beyond the current
+ * Advances the article window by exactly one configured page beyond the current
  * limit and re-fetches with `keepExistingFeed: true` so visible content is preserved
  * while the new unread articles arrive. Without `keepExistingFeed`, the cache
  * clears during the fetch, causing an empty-feed flash and triggering the
@@ -332,5 +331,5 @@ function resolveNextUnreadRefillArticleLimit(
   articleLimit: number,
   articlesPerPage: number,
 ) {
-  return articleLimit + resolveUnreadRefillThreshold(articlesPerPage);
+  return articleLimit + articlesPerPage;
 }

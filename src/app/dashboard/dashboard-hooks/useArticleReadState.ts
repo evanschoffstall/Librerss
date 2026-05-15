@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Article } from "@/lib/core";
 
 import {
+  type ArticleStatusMutationController,
   runOptimisticArticleStatusMutation,
   useArticleMutationTracker,
 } from "@/app/dashboard/dashboard-hooks/article-actions";
@@ -24,6 +25,7 @@ interface SetReadStateOptions {
  * Describes the options for use article read state.
  */
 interface UseArticleReadStateOptions {
+  createMutationSignalHandle?: ArticleStatusMutationController["createMutationSignalHandle"];
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData?: boolean;
 }
@@ -34,7 +36,11 @@ interface UseArticleReadStateOptions {
  * @returns The article read state state and callbacks.
  */
 export function useArticleReadState(options: UseArticleReadStateOptions) {
-  const { setFeed, usePlaceholderData = false } = options;
+  const {
+    createMutationSignalHandle,
+    setFeed,
+    usePlaceholderData = false,
+  } = options;
   const mutationTracker = useArticleMutationTracker();
 
   const setArticlesReadState = useCallback(
@@ -53,6 +59,7 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
         applyOptimisticUpdate: (currentFeed, articleMap) =>
           applyOptimisticReadState(currentFeed, articleMap, nextReadState),
         articles,
+        createMutationSignalHandle,
         errorLogLabel: "Set read state error",
         mutationTracker,
         /**
@@ -81,27 +88,10 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
 
       return result.attemptedCount - result.failedArticleKeys.size;
     },
-    [mutationTracker, setFeed, usePlaceholderData],
+    [createMutationSignalHandle, mutationTracker, setFeed, usePlaceholderData],
   );
-  const setArticleReadState = useCallback(
-    async (
-      article: Article,
-      nextReadState: boolean,
-      options?: SetReadStateOptions,
-    ) => {
-      return (
-        (await setArticlesReadState([article], nextReadState, options)) === 1
-      );
-    },
-    [setArticlesReadState],
-  );
-
-  const handleToggleReadState = useCallback(
-    async (article: Article) => {
-      await setArticleReadState(article, !article.isRead);
-    },
-    [setArticleReadState],
-  );
+  const { handleToggleReadState, setArticleReadState } =
+    useSingleArticleReadStateActions(setArticlesReadState);
 
   return {
     clearUpdatingArticleKeys: mutationTracker.clearUpdatingArticleKeys,
@@ -165,4 +155,38 @@ function showReadStateError(options?: SetReadStateOptions) {
   if (!options?.suppressErrorToast) {
     toast.error("Unable to update read state right now.");
   }
+}
+
+/**
+ * Manage the single-article read-state callbacks built on top of the batched mutation helper.
+ * @param setArticlesReadState - The batched read-state mutation callback.
+ * @returns The single-article read callbacks.
+ */
+function useSingleArticleReadStateActions(
+  setArticlesReadState: (
+    articles: Article[],
+    nextReadState: boolean,
+    options?: SetReadStateOptions,
+  ) => Promise<number>,
+) {
+  const setArticleReadState = useCallback(
+    async (
+      article: Article,
+      nextReadState: boolean,
+      options?: SetReadStateOptions,
+    ) => {
+      return (
+        (await setArticlesReadState([article], nextReadState, options)) === 1
+      );
+    },
+    [setArticlesReadState],
+  );
+  const handleToggleReadState = useCallback(
+    async (article: Article) => {
+      await setArticleReadState(article, !article.isRead);
+    },
+    [setArticleReadState],
+  );
+
+  return { handleToggleReadState, setArticleReadState };
 }

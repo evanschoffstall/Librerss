@@ -28,6 +28,7 @@ async function readDashboardPersistence(
 ) {
   return await page.evaluate(() => ({
     articleFilter: window.localStorage.getItem("librerss:articleFilter"),
+    articleSortOrder: window.localStorage.getItem("librerss:articleSortOrder"),
     articlesPerPage: window.localStorage.getItem("librerss:articlesPerPage"),
     selectedCategory: window.localStorage.getItem("librerss:selectedCategory"),
   }));
@@ -191,12 +192,13 @@ test.describe("dashboard preview safety", () => {
     await expect(page.getByText("Not available in demo mode")).toHaveCount(1);
   });
 
-  test("page reload preserves the selected feed, quick token filter, and page-size setting", async ({
+  test("page reload preserves the selected feed, quick token filter, sort order, and page-size setting", async ({
     page,
   }) => {
     await gotoPreviewDashboard(page);
     await previewSourceButton(page, "Placeholder Feeds").click();
     await page.getByRole("button", { exact: true, name: "all" }).click();
+    await page.getByRole("button", { name: /sort by date/i }).click();
     await page.getByPlaceholder("Search...").fill("mars");
     await openDashboardSettings(page);
     await page.getByRole("switch", { name: "Show favicons" }).click();
@@ -211,6 +213,9 @@ test.describe("dashboard preview safety", () => {
     await expect(
       page.getByRole("button", { exact: true, name: "all" }),
     ).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("button", { name: /sort by date/i }),
+    ).toHaveAttribute("data-dashboard-filter-bar-sort-order", "oldest");
     await expect(page.getByPlaceholder("Search...")).toHaveValue("");
     await openDashboardSettings(page);
     await expect(

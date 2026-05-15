@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 
 import {
@@ -18,6 +18,7 @@ interface BackfillDepletedRevealedPageEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
   canLoadMoreFromServer: boolean;
+  feedViewKey: string;
   filteredFeedLength: number;
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
@@ -106,6 +107,7 @@ export function useBackfillDepletedRevealedPageEffect(
     articleFilter,
     articlesPerPage,
     canLoadMoreFromServer,
+    feedViewKey,
     filteredFeedLength,
     hasPendingServerRevealRef,
     hasRequestedServerLoadRef,
@@ -114,7 +116,12 @@ export function useBackfillDepletedRevealedPageEffect(
     requestMoreFromServer,
     visibleArticleCountRef,
   } = options;
+  const previousBackfillScopeRef = useRef(feedViewKey);
+  const previousBackfillFilteredFeedLengthRef = useRef(filteredFeedLength);
   const maybeBackfillDepletedRevealedPage = useCallback(() => {
+    const previousFilteredFeedLength =
+      previousBackfillFilteredFeedLengthRef.current;
+
     if (
       !canLoadMoreFromServer ||
       hasPendingServerRevealRef.current ||
@@ -130,7 +137,10 @@ export function useBackfillDepletedRevealedPageEffect(
         ? filteredFeedLength < unreadRefillThreshold
         : filteredFeedLength < currentVisibleCount;
 
-    if (!hasDepletedRevealedWindow) {
+    if (
+      !hasDepletedRevealedWindow ||
+      filteredFeedLength >= previousFilteredFeedLength
+    ) {
       return;
     }
 
@@ -153,8 +163,15 @@ export function useBackfillDepletedRevealedPageEffect(
   ]);
 
   useLayoutEffect(() => {
+    if (previousBackfillScopeRef.current !== feedViewKey) {
+      previousBackfillScopeRef.current = feedViewKey;
+      previousBackfillFilteredFeedLengthRef.current = filteredFeedLength;
+      return;
+    }
+
     maybeBackfillDepletedRevealedPage();
-  }, [filteredFeedLength, maybeBackfillDepletedRevealedPage]);
+    previousBackfillFilteredFeedLengthRef.current = filteredFeedLength;
+  }, [feedViewKey, filteredFeedLength, maybeBackfillDepletedRevealedPage]);
 }
 /**
  * Manage the expand visible window.

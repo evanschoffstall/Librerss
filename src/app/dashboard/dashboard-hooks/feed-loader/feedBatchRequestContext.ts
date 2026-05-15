@@ -54,6 +54,19 @@ export interface FeedBatchRequestHelpers {
 }
 
 /**
+ * Request flags used to decide whether a feed-batch fetch is ambient work or a
+ * foreground refresh.
+ */
+interface BackgroundFeedBatchRequestOptions {
+  /** Whether the request asks the server to bypass cached batch payloads. */
+  forceRefresh: boolean;
+  /** Whether the visible article list should remain mounted during the fetch. */
+  keepExistingFeed: boolean;
+  /** User or system action that initiated the feed-batch request. */
+  requestSource: FeedFetchOptions["requestSource"] | undefined;
+}
+
+/**
  * Describes the options for feed batch request query state.
  */
 interface FeedBatchRequestQueryStateOptions {
@@ -261,7 +274,11 @@ export function prepareFeedBatchRequestContext(
   } = contextOptions;
   const keepExistingFeed = requestOptions?.keepExistingFeed === true;
   const forceRefresh = requestOptions?.forceRefresh === true;
-  const isBackground = keepExistingFeed && !forceRefresh;
+  const isBackground = isBackgroundFeedBatchRequest({
+    forceRefresh,
+    keepExistingFeed,
+    requestSource: requestOptions?.requestSource,
+  });
   if (isBackground && requestState.isLoadingRequest()) {
     return null;
   }
@@ -332,4 +349,26 @@ function buildFeedBatchRequestQueryState(
     }),
     requestSignature,
   };
+}
+
+/**
+ * Return whether a feed-batch request should preserve the visible feed while
+ * running silently in the background.
+ *
+ * Most forced requests are foreground work because users explicitly asked for a
+ * refresh and should see loading or error feedback. Automatic refresh is the
+ * exception: it must force the server past stale in-memory batch data, but it
+ * still runs as ambient maintenance and should not clear the current article
+ * list or show foreground failure toasts.
+ * @param options - Request ownership flags derived from the feed fetch options.
+ * @returns Whether the request should use the background loading channel.
+ */
+function isBackgroundFeedBatchRequest(
+  options: BackgroundFeedBatchRequestOptions,
+): boolean {
+  if (!options.keepExistingFeed) {
+    return false;
+  }
+
+  return options.requestSource === "auto-refresh" || !options.forceRefresh;
 }

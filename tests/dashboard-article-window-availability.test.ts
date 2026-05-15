@@ -124,7 +124,7 @@ describe("dashboard article window availability", () => {
         preservePartialFilteredWindowAvailability: true,
         previousFeedLength: 24,
         previousHasMoreServerArticles: true,
-        requestedArticleLimit: 29,
+        requestedArticleLimit: 28,
         shouldUseArticleWindow: true,
       }),
     ).toEqual({
@@ -147,7 +147,7 @@ describe("dashboard article window availability", () => {
         preservePartialFilteredWindowAvailability: true,
         previousFeedLength: 24,
         previousHasMoreServerArticles: true,
-        requestedArticleLimit: 29,
+        requestedArticleLimit: 28,
         shouldUseArticleWindow: true,
       }),
     ).toEqual({

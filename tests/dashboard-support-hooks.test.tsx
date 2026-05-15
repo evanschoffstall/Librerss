@@ -4,8 +4,10 @@ import { toast } from "sonner";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
+import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
 import { useDashboardInitialization } from "@/app/dashboard/dashboard-hooks/useDashboardInitialization";
 import {
+  autoRefreshDashboardSelection,
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
 } from "@/app/dashboard/dashboard-services/dashboard-state";
@@ -125,6 +127,7 @@ describe("dashboard support hooks", () => {
           fetchAllFeeds,
           fetchCategoryFeeds,
           fetchFeed,
+          hasHydratedPersistedPreferences: true,
           hasInitializedDashboardRef,
           loadFeedSources,
           selectedCategory,
@@ -144,6 +147,41 @@ describe("dashboard support hooks", () => {
     expect(loadFeedSources).toHaveBeenCalledTimes(1);
   });
 
+  test("useDashboardInitialization waits for persisted preference hydration before booting", async () => {
+    const hasInitializedDashboardRef = { current: false };
+    const loadFeedSources = mock(async () => []);
+
+    const { rerender } = renderHook(
+      ({ hasHydratedPersistedPreferences }) =>
+        useDashboardInitialization({
+          fetchAllFeeds: mock(async () => {}),
+          fetchCategoryFeeds: mock(async () => {}),
+          fetchFeed: mock(async () => {}),
+          hasHydratedPersistedPreferences,
+          hasInitializedDashboardRef,
+          loadFeedSources,
+          selectedCategory: "feed-1",
+          setIsCategoriesLoading: mock(() => {}),
+          setSelectedCategory: mock(() => {}),
+        }),
+      {
+        initialProps: { hasHydratedPersistedPreferences: false },
+      },
+    );
+
+    await waitFor(() => {
+      expect(loadFeedSources).not.toHaveBeenCalled();
+    });
+    expect(hasInitializedDashboardRef.current).toBe(false);
+
+    rerender({ hasHydratedPersistedPreferences: true });
+
+    await waitFor(() => {
+      expect(loadFeedSources).toHaveBeenCalledTimes(1);
+    });
+    expect(hasInitializedDashboardRef.current).toBe(true);
+  });
+
   test("useDashboardInitialization does nothing when the dashboard was already initialized", async () => {
     const loadFeedSources = mock(async () => []);
 
@@ -152,6 +190,7 @@ describe("dashboard support hooks", () => {
         fetchAllFeeds: mock(async () => {}),
         fetchCategoryFeeds: mock(async () => {}),
         fetchFeed: mock(async () => {}),
+        hasHydratedPersistedPreferences: true,
         hasInitializedDashboardRef: { current: true },
         loadFeedSources,
         selectedCategory: "feed-1",
@@ -162,6 +201,31 @@ describe("dashboard support hooks", () => {
 
     await waitFor(() => {
       expect(loadFeedSources).not.toHaveBeenCalled();
+    });
+  });
+
+  test("autoRefreshDashboardSelection forces the server past cached batch data while preserving the current feed", async () => {
+    const fetchAllFeeds = mock(async () => {});
+    const onBeforeRefresh = mock(() => {});
+
+    await autoRefreshDashboardSelection({
+      articleLimit: 12,
+      fetchAllFeeds,
+      fetchCategoryFeeds: mock(async () => {}),
+      fetchFeed: mock(async () => {}),
+      onBeforeRefresh,
+      searchTerm: "",
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+    });
+
+    expect(onBeforeRefresh).toHaveBeenCalledTimes(1);
+    expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
+      articleLimit: 12,
+      forceRefresh: true,
+      keepExistingFeed: true,
+      requestSource: "auto-refresh",
+      searchTerm: "",
+      skipRefresh: undefined,
     });
   });
 

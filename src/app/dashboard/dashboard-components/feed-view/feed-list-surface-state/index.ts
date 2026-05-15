@@ -29,6 +29,7 @@ export {
   getViewportOffsetTop,
   isInvertedExpansionLockViewport,
   isInvertedFeedScrollMode,
+  observeFeedViewportHeightOwners,
   observeInvertedExpansionScrollLockLayout,
   readPreparedArticleKey,
   readViewportMaxScrollTop,

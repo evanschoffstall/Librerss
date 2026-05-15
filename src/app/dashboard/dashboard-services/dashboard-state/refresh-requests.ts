@@ -71,8 +71,15 @@ interface SelectDashboardFeedOptions {
 }
 
 /**
- * Process the auto refresh dashboard selection.
- * @param options - The options used to process the auto refresh dashboard selection.
+ * Refresh the currently selected dashboard feed window from the automatic
+ * scheduler.
+ *
+ * Auto refresh intentionally sends a force-refresh request. Without that
+ * signal, the server batch endpoint may satisfy the request from its in-memory
+ * article cache and never evaluate feed staleness against upstream sources.
+ * The caller still sets `keepExistingFeed` so the feed loader treats the work
+ * as a non-destructive background refresh.
+ * @param options - Current dashboard selection, fetchers, and refresh hooks.
  */
 export async function autoRefreshDashboardSelection(
   options: DashboardRefreshContext,
@@ -94,7 +101,7 @@ export async function autoRefreshDashboardSelection(
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
-    forceRefresh: false,
+    forceRefresh: true,
     keepExistingFeed: true,
     requestSource: "auto-refresh",
     searchTerm,

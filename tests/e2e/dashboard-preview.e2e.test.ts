@@ -81,6 +81,222 @@ async function selectPreviewSource(
 }
 
 test.describe("dashboard preview mode", () => {
+  test("keeps preview articles mounted during a scheduled auto refresh", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeSetInterval = window.setInterval.bind(window);
+      let dashboardAutoRefreshCallback: (() => void) | undefined;
+
+      window.setInterval = ((handler: TimerHandler, timeout?: number) => {
+        if (timeout === 1_800_000 && typeof handler === "function") {
+          dashboardAutoRefreshCallback = handler as () => void;
+        }
+
+        return nativeSetInterval(handler, timeout);
+      }) as typeof window.setInterval;
+
+      Object.defineProperty(window, "__runDashboardAutoRefreshInterval", {
+        configurable: true,
+        value: () => {
+          dashboardAutoRefreshCallback?.();
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const firstArticle = await locateViewportArticle(page, 0);
+    const firstArticleKey = await readArticleKey(firstArticle);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardAutoRefreshInterval?: () => void;
+      };
+
+      testWindow.__runDashboardAutoRefreshInterval?.();
+    });
+
+    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
+      0,
+    );
+    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+  });
+
+  test("keeps preview articles mounted during a resume-triggered auto refresh", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeDateNow = Date.now.bind(Date);
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      let currentNow = nativeDateNow();
+      let dashboardResumeRefreshCallback: (() => void) | undefined;
+
+      Date.now = () => currentNow;
+      window.setTimeout = ((
+        handler: TimerHandler,
+        timeout?: number,
+        ...args: unknown[]
+      ) => {
+        const timerId = nativeSetTimeout(handler, timeout, ...args);
+
+        if (
+          (timeout === 1_500 || timeout === 4_000) &&
+          typeof handler === "function"
+        ) {
+          dashboardResumeRefreshCallback = () => {
+            handler(...args);
+          };
+        }
+
+        return timerId;
+      }) as typeof window.setTimeout;
+
+      Object.defineProperties(window, {
+        __advanceDashboardNow: {
+          configurable: true,
+          value: (durationMs: number) => {
+            currentNow += durationMs;
+          },
+        },
+        __hasDashboardResumeRefresh: {
+          configurable: true,
+          value: () => dashboardResumeRefreshCallback !== undefined,
+        },
+        __runDashboardResumeRefresh: {
+          configurable: true,
+          value: () => {
+            dashboardResumeRefreshCallback?.();
+          },
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const firstArticle = await locateViewportArticle(page, 0);
+    const firstArticleKey = await readArticleKey(firstArticle);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __advanceDashboardNow?: (durationMs: number) => void;
+      };
+
+      testWindow.__advanceDashboardNow?.(1_000);
+      document.dispatchEvent(new Event("freeze"));
+      testWindow.__advanceDashboardNow?.(1_800_000);
+      window.dispatchEvent(new Event("pageshow"));
+    });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const testWindow = window as typeof window & {
+            __hasDashboardResumeRefresh?: () => boolean;
+          };
+
+          return testWindow.__hasDashboardResumeRefresh?.() ?? false;
+        }),
+      )
+      .toBe(true);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardResumeRefresh?: () => void;
+      };
+
+      testWindow.__runDashboardResumeRefresh?.();
+    });
+
+    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
+      0,
+    );
+    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+  });
+
+  test("unlocks refresh controls when a suspended refresh never sends an end event", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      let shouldCaptureNextRefreshTimer = false;
+      let dashboardRefreshFailsafeCallback: (() => void) | undefined;
+
+      window.setTimeout = ((
+        handler: TimerHandler,
+        timeout?: number,
+        ...args: unknown[]
+      ) => {
+        const timerId = nativeSetTimeout(handler, timeout, ...args);
+
+        if (shouldCaptureNextRefreshTimer && typeof handler === "function") {
+          shouldCaptureNextRefreshTimer = false;
+          dashboardRefreshFailsafeCallback = () => {
+            handler(...args);
+          };
+        }
+
+        return timerId;
+      }) as typeof window.setTimeout;
+
+      Object.defineProperties(window, {
+        __captureNextDashboardRefreshTimer: {
+          configurable: true,
+          value: () => {
+            dashboardRefreshFailsafeCallback = undefined;
+            shouldCaptureNextRefreshTimer = true;
+          },
+        },
+        __hasDashboardRefreshFailsafe: {
+          configurable: true,
+          value: () => dashboardRefreshFailsafeCallback !== undefined,
+        },
+        __runDashboardRefreshFailsafe: {
+          configurable: true,
+          value: () => {
+            dashboardRefreshFailsafeCallback?.();
+          },
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const refreshButton = page
+      .locator('button[aria-label="Refresh selected feed"]:visible')
+      .first();
+    await expect(refreshButton).toBeVisible({ timeout: 15_000 });
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __captureNextDashboardRefreshTimer?: () => void;
+      };
+
+      testWindow.__captureNextDashboardRefreshTimer?.();
+      window.dispatchEvent(new CustomEvent("dashboard:refresh-start"));
+    });
+
+    await expect(refreshButton.locator(".animate-pulse")).toHaveCount(1);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const testWindow = window as typeof window & {
+            __hasDashboardRefreshFailsafe?: () => boolean;
+          };
+
+          return testWindow.__hasDashboardRefreshFailsafe?.() ?? false;
+        }),
+      )
+      .toBe(true);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardRefreshFailsafe?: () => void;
+      };
+
+      testWindow.__runDashboardRefreshFailsafe?.();
+    });
+
+    await expect(refreshButton.locator(".animate-pulse")).toHaveCount(0);
+  });
+
   test("opens the mobile actions popup from the three-dots toolbar button", async ({
     page,
   }) => {
@@ -266,13 +482,17 @@ test.describe("dashboard preview mode", () => {
     );
 
     if (!sourceWithArticle) {
-      throw new Error("Expected at least one placeholder source with articles.");
+      throw new Error(
+        "Expected at least one placeholder source with articles.",
+      );
     }
 
     const selectedSeed = sourceWithArticle.seeds[0];
 
     if (!selectedSeed) {
-      throw new Error("Expected selected placeholder source to include an article.");
+      throw new Error(
+        "Expected selected placeholder source to include an article.",
+      );
     }
 
     for (const definition of PLACEHOLDER_SOURCE_DEFINITIONS) {
@@ -293,6 +513,64 @@ test.describe("dashboard preview mode", () => {
 
       button.click();
     });
+    await expect(
+      page.getByRole("heading", {
+        name: selectedSeed.title,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("page reload keeps the selected preview source aligned with visible results", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await openPreviewFeeds(page);
+
+    const sourceWithArticle = PLACEHOLDER_SOURCE_DEFINITIONS.find(
+      (definition) => definition.seeds.length > 0,
+    );
+
+    if (!sourceWithArticle) {
+      throw new Error(
+        "Expected at least one placeholder source with articles.",
+      );
+    }
+
+    const selectedSeed = sourceWithArticle.seeds[0];
+
+    if (!selectedSeed) {
+      throw new Error(
+        "Expected selected placeholder source to include an article.",
+      );
+    }
+
+    const selectedFeedButton = previewFeedButton(
+      page,
+      sourceWithArticle.source.name,
+    );
+    await expect(selectedFeedButton).toBeVisible();
+    await selectedFeedButton.evaluate((button) => {
+      if (!(button instanceof HTMLElement)) {
+        throw new Error("Expected a feed button element.");
+      }
+
+      button.click();
+    });
+
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      sourceWithArticle.source.name,
+    );
+    await expect(
+      page.getByRole("heading", {
+        name: selectedSeed.title,
+      }),
+    ).toBeVisible({ timeout: 15_000 });
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      sourceWithArticle.source.name,
+    );
     await expect(
       page.getByRole("heading", {
         name: selectedSeed.title,

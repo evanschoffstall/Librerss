@@ -19,6 +19,7 @@ export interface DashboardControllerRuntimeStateOptions {
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
   fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
   fetchFeed: DashboardHandlersOptions["fetchFeed"];
+  hasHydratedPersistedPreferences: boolean;
   hasInitializedDashboardRef: DashboardEffectsOptions["hasInitializedDashboardRef"];
   initialArticleLimit: DashboardEffectsOptions["initialArticleLimit"];
   isSearchPending: DashboardEffectsOptions["isSearchPending"];
@@ -174,6 +175,7 @@ function createDashboardEffectOptions(
 ) {
   return {
     ...createDashboardSharedFetchOptions(options),
+    hasHydratedPersistedPreferences: options.hasHydratedPersistedPreferences,
     hasInitializedDashboardRef: options.hasInitializedDashboardRef,
     initialArticleLimit: options.initialArticleLimit,
     isSearchPending: options.isSearchPending,

@@ -1,4 +1,11 @@
-import { articleCard, gotoPreviewDashboard, readArticleKey } from "./helpers";
+import {
+  articleCard,
+  configureArticlesPerPage,
+  gotoPreviewDashboard,
+  readArticleKey,
+  scrollFeedViewportToBottom,
+  selectArticleFilter,
+} from "./helpers";
 import { expect, test } from "./test";
 
 const SORT_TOGGLE_NAME = /sort by date/i;
@@ -50,6 +57,8 @@ test.describe("dashboard article sort order", () => {
       })
       .not.toBe(initialFirstKey);
 
+    const oldestFirstKey = await readArticleKey(articleCard(page, 0));
+
     const persistedOrder = await page.evaluate(() =>
       window.localStorage.getItem("librerss:articleSortOrder"),
     );
@@ -64,6 +73,11 @@ test.describe("dashboard article sort order", () => {
       "oldest",
     );
     await expect(reloadedToggle).toContainText("Oldest");
+    await expect
+      .poll(async () => readArticleKey(articleCard(page, 0)), {
+        timeout: 15_000,
+      })
+      .toBe(oldestFirstKey);
   });
 
   test("clicking the sort toggle a second time restores the newest-first order", async ({
@@ -86,6 +100,39 @@ test.describe("dashboard article sort order", () => {
       "newest",
     );
     await expect(sortToggle).toContainText("Newest");
+  });
+
+  test("resolves sort order correctly after the article window has expanded", async ({
+    page,
+  }) => {
+    const configuredPageSize = 4;
+
+    await gotoPreviewDashboard(page);
+    await selectArticleFilter(page, "all");
+    await configureArticlesPerPage(page, configuredPageSize);
+
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    const newestFirstArticleKey = await readArticleKey(articleCard(page, 0));
+    await scrollFeedViewportToBottom(page);
+    await scrollFeedViewportToBottom(page);
+    await expect
+      .poll(async () => articleCard(page, configuredPageSize).isVisible(), {
+        timeout: 15_000,
+      })
+      .toBe(true);
+
+    const sortToggle = page.getByRole("button", { name: SORT_TOGGLE_NAME });
+    await sortToggle.click();
+    await expect(sortToggle).toHaveAttribute(
+      "data-dashboard-filter-bar-sort-order",
+      "oldest",
+    );
+
+    await expect
+      .poll(async () => readArticleKey(articleCard(page, 0)), {
+        timeout: 15_000,
+      })
+      .not.toBe(newestFirstArticleKey);
   });
 
   test("renders the mobile sort toggle as icon-only while keeping its accessible state", async ({

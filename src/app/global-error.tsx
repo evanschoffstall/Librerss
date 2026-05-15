@@ -33,10 +33,10 @@ interface GlobalErrorProps {
 export default function GlobalError(props: GlobalErrorProps) {
   const { reset } = props;
   return (
-    <html lang="en">
+    <html className="dark" lang="en" suppressHydrationWarning>
       <body
         className="
-          motion-profile-luxurious min-h-dvh bg-background font-sans
+          dark motion-profile-luxurious min-h-dvh bg-background font-sans
           text-foreground antialiased
         "
       >

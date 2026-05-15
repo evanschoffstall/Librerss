@@ -16,6 +16,7 @@ export function useDashboardInitialization(
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
+    hasHydratedPersistedPreferences,
     hasInitializedDashboardRef,
     initialArticleLimit,
     loadFeedSources,
@@ -24,6 +25,10 @@ export function useDashboardInitialization(
     setSelectedCategory,
   } = options;
   useEffect(() => {
+    if (!hasHydratedPersistedPreferences) {
+      return;
+    }
+
     if (hasInitializedDashboardRef.current) {
       return;
     }
@@ -41,6 +46,7 @@ export function useDashboardInitialization(
       setSelectedCategory,
     });
   }, [
+    hasHydratedPersistedPreferences,
     selectedCategory,
     loadFeedSources,
     fetchAllFeeds,

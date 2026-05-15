@@ -287,6 +287,51 @@ describe("DashboardToolbar", () => {
     expect(markAllReadButton.querySelector(".animate-pulse")).toBeTruthy();
   });
 
+  test("clears refresh skeletons when a refresh end event is lost after suspension", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const timeoutCallbacks = new Map<number, () => void>();
+    let nextTimerId = 0;
+
+    globalThis.setTimeout = ((callback: TimerHandler) => {
+      nextTimerId += 1;
+      timeoutCallbacks.set(nextTimerId, callback as () => void);
+      return nextTimerId as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = ((id: ReturnType<typeof setTimeout>) => {
+      timeoutCallbacks.delete(id as unknown as number);
+    }) as typeof clearTimeout;
+
+    try {
+      const { DashboardToolbar } = await loadDashboardToolbar();
+      const { getAllByLabelText } = render(<DashboardToolbar />);
+      const refreshButtons = getAllByLabelText("Refresh selected feed");
+      const refreshButton = refreshButtons[0];
+
+      await act(async () => {
+        window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
+        await Promise.resolve();
+      });
+
+      expect(refreshButton?.querySelector(".animate-pulse")).toBeTruthy();
+
+      await act(async () => {
+        Array.from(timeoutCallbacks.values()).at(-1)?.();
+        await Promise.resolve();
+      });
+
+      expect(refreshButton?.querySelector(".animate-pulse")).toBeNull();
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+      globalThis.clearTimeout = originalClearTimeout;
+    }
+  });
+
   test("shows skeletons in all toolbar actions while mark-all-read is processing", async () => {
     setNodeEnv("test");
 

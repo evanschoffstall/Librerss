@@ -23,6 +23,7 @@ import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
+import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
 import {
   escapeArticleKey,
   useArticleHydration,
@@ -875,6 +876,119 @@ describe("useFeedLoader", () => {
 
       // After completion both flags must be cleared.
       await waitFor(() => {
+        expect(result.current.isBackgroundLoading).toBe(false);
+        expect(result.current.loading).toBe(false);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
+  test("auto-refresh force requests stay on the background loading channel", async () => {
+    // Automatic refresh must force the batch endpoint past stale in-memory
+    // cache entries, but it is still ambient work: the visible feed remains in
+    // place, failures stay silent, and only isBackgroundLoading is raised.
+    const feedUrl = "https://example.com/forced-auto-background.xml";
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    let feedState: Article[] = [];
+    const feedRef = { current: feedState };
+    const autoRefreshArticle: Article = {
+      content: "Automatic refresh article body",
+      feedId: 56,
+      feedName: "Automatic Refresh Feed",
+      feedUrl,
+      id: 802,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-05-01T10:05:00.000Z"),
+      link: "https://example.com/articles/forced-auto-background",
+      publicationDate: new Date("2026-05-01T10:04:00.000Z"),
+      title: "Forced automatic background article",
+    };
+
+    let resolveAutoRefreshStarted!: () => void;
+    const autoRefreshStarted = new Promise<void>((resolve) => {
+      resolveAutoRefreshStarted = resolve;
+    });
+    let resolveAutoRefreshProceed!: () => void;
+    const autoRefreshProceed = new Promise<void>((resolve) => {
+      resolveAutoRefreshProceed = resolve;
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setFeed = mock((updater: React.SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+      feedRef.current = feedState;
+    });
+
+    FeedService.getFeedsBatch = mock(async (_urls, options) => {
+      resolveAutoRefreshStarted();
+      await autoRefreshProceed;
+      expect(options?.forceRefresh).toBe(true);
+      expect(options?.requestSource).toBe("auto-refresh");
+      return [
+        {
+          articles: [autoRefreshArticle],
+          lastFetchedAt: new Date("2026-05-01T10:06:00.000Z"),
+          ok: true,
+          url: feedUrl,
+        },
+      ];
+    }) as typeof FeedService.getFeedsBatch;
+
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef,
+            setCategories: mock(() => {}),
+            setExpandedArticleKey: mock(() => {}),
+            setFeed,
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      let fetchDone = false;
+      act(() => {
+        result.current
+          .fetchFeed(feedUrl, {
+            forceRefresh: true,
+            keepExistingFeed: true,
+            requestSource: "auto-refresh",
+          })
+          .then(() => {
+            fetchDone = true;
+          });
+      });
+
+      await autoRefreshStarted;
+
+      await waitFor(() => {
+        expect(result.current.isBackgroundLoading).toBe(true);
+        expect(result.current.loading).toBe(false);
+      });
+
+      resolveAutoRefreshProceed();
+
+      await waitFor(() => {
+        expect(fetchDone).toBe(true);
         expect(result.current.isBackgroundLoading).toBe(false);
         expect(result.current.loading).toBe(false);
       });
@@ -2213,6 +2327,70 @@ describe("useArticleReadState", () => {
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(true);
       expect(feedState[1].isRead).toBe(true);
+    });
+  });
+
+  test("cancels pending read-state mutations and restores optimistic state", async () => {
+    let capturedSignal: AbortSignal | undefined;
+
+    (ArticleService.updateArticleStatus as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(
+        async (
+          _articleId: number,
+          _updates: { isRead?: boolean; isStarred?: boolean },
+          options?: { signal?: AbortSignal },
+        ) => {
+          capturedSignal = options?.signal;
+
+          await new Promise<void>((resolve, reject) => {
+            options?.signal?.addEventListener(
+              "abort",
+              () => {
+                reject(new DOMException("aborted", "AbortError"));
+              },
+              { once: true },
+            );
+          });
+        },
+      );
+
+    const article = createMockArticle({ isRead: false });
+    let feedState = [article];
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey: mock(() => {}),
+        setFeed,
+        usePlaceholderData: false,
+      }),
+    );
+
+    let mutationPromise: Promise<boolean> | undefined;
+    await act(async () => {
+      mutationPromise = result.current.setArticleReadState(article, true);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(feedState[0].isRead).toBe(true);
+    });
+
+    await act(async () => {
+      result.current.cancelPendingArticleStatusMutations();
+      await mutationPromise;
+    });
+
+    await waitFor(() => {
+      expect(capturedSignal?.aborted).toBe(true);
+      expect(feedState[0].isRead).toBe(false);
+      expect(result.current.updatingArticleState).toEqual({});
     });
   });
 });

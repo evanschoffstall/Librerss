@@ -4,17 +4,17 @@
  *
  * ## Background
  *
- * On initial load with `articleFilter="unread"` and `articlesPerPage=12`, three
- * React `useEffect` hooks fire in the same React commit (render C):
+ * On an unread article-window pass with `articlesPerPage=12`, several React
+ * effects can fire in the same commit:
  *
- *  - #4 `useUnreadWindowRefill`: detects `currentFilteredFeedLength (12) <
- *    unreadRefillThreshold (13)` and calls `refillDashboardArticleWindow`,
- *    which sets `isLoadingMoreArticlesRef.current = true` **synchronously**
- *    before any async work starts.
- *  - #5 `useArticleWindowPrefetchEffect`: without the guard, it would see
+ *  - `useUnreadWindowRefill`: when a local read-state change depletes unread
+ *    rows below the overflow threshold, it calls `refillDashboardArticleWindow`,
+ *    which sets `isLoadingMoreArticlesRef.current = true` synchronously before
+ *    any async work starts.
+ *  - `useArticleWindowPrefetchEffect`: without the guard, it could see
  *    `isLoadingMoreArticlesRef.current = false` and fire a concurrent prefetch
- *    for a *different* article limit — producing two simultaneous batch
- *    requests within milliseconds of each other.
+ *    for a different article limit, producing overlapping batch requests within
+ *    milliseconds of each other.
  *
  * The fix adds a guard that reads `isLoadingMoreArticlesRef.current`
  * synchronously and returns early from effect #5 when it is true.  After the
@@ -29,7 +29,7 @@
  * in explore mode by a separate guard.  The tests below validate:
  *
  *  1. No more than the expected number of batch requests fire (initial + at
- *     most one unread refill).  If someone removes either guard, this count
+ *     most one warm-ahead read).  If someone removes either guard, this count
  *     could grow unexpectedly.
  *  2. No two requests with the **same** `articleLimit` fire — a duplicate
  *     limit would mean the same query key was fetched twice, which is the
@@ -142,8 +142,8 @@ test.describe("dashboard no spurious batch requests on initial load", () => {
 
       const aggregateReads = batchRequestLog.filter(isAggregateBatchRead);
 
-      // At most two aggregate article-window reads: the initial load and at
-      // most one unread refill. Per-feed refresh fan-out requests are expected
+      // At most two aggregate article-window reads: the initial load and the
+      // single warm-ahead window. Per-feed refresh fan-out requests are expected
       // and are not duplicate article-window reads.
       expect(
         aggregateReads.length,

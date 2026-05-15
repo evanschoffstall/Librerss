@@ -150,9 +150,13 @@ describe("useArticleActions - State Management", () => {
       await result.current.handleToggleStarredState(article);
     });
 
-    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(1, {
-      isStarred: true,
-    });
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(
+      1,
+      {
+        isStarred: true,
+      },
+      { signal: expect.any(AbortSignal) },
+    );
     expect(setFeed).toHaveBeenCalled();
   });
 
@@ -178,9 +182,13 @@ describe("useArticleActions - State Management", () => {
       await result.current.handleToggleStarredState(article);
     });
 
-    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(2, {
-      isStarred: false,
-    });
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(
+      2,
+      {
+        isStarred: false,
+      },
+      { signal: expect.any(AbortSignal) },
+    );
   });
 
   test("handleToggleStarredState removes from starred filter when unstarring", async () => {
@@ -420,9 +428,13 @@ describe("useArticleActions - State Management", () => {
       await result.current.handleArticleToggle(article);
     });
 
-    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(1, {
-      isRead: true,
-    });
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(
+      1,
+      {
+        isRead: true,
+      },
+      { signal: expect.any(AbortSignal) },
+    );
   });
 
   test("handleArticleToggle collapses read articles in unread filter without staging a non-swipe removal", async () => {
@@ -813,9 +825,13 @@ describe("useArticleActions - State Management", () => {
     });
 
     expect(feedState[0].isRead).toBe(true);
-    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(11, {
-      isRead: true,
-    });
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(
+      11,
+      {
+        isRead: true,
+      },
+      { signal: expect.any(AbortSignal) },
+    );
     expect(result.current.collapsingArticles).toEqual({
       [article.link]: {
         article,

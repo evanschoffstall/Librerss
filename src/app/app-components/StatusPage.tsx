@@ -8,7 +8,14 @@ const statusPageGridStyle = {
   backgroundSize: "64px 64px",
 } satisfies CSSProperties;
 
-/** Props for the shared status-page shell. */
+/**
+ * Describes the props accepted by the shared status-page shell.
+ *
+ * These status pages are intentionally rendered with a dedicated dark visual
+ * treatment so catastrophic routes such as `not-found`, navigable server
+ * errors, and root-document global errors all share one stable presentation
+ * regardless of the persisted user theme.
+ */
 interface StatusPageProps {
   action: ReactNode;
   code: string;
@@ -19,16 +26,22 @@ interface StatusPageProps {
 }
 
 /**
- * Render the status page component.
+ * Render the shared status page shell.
+ *
+ * The outer container applies a local `dark` class on purpose instead of
+ * inheriting the surrounding document theme. These routes must keep the same
+ * dark styling even when the user previously stored a light theme preference
+ * or when the page renders outside the normal theme-provider path.
+ *
  * @param props - The component props.
- * @returns The rendered status page component.
+ * @returns The rendered status page shell.
  */
 export function StatusPage(props: StatusPageProps) {
   const { action, code, eyebrow, icon: Icon, iconClassName, message } = props;
   return (
     <main
       className="
-        relative flex min-h-dvh flex-col items-center justify-center
+        dark relative flex min-h-dvh flex-col items-center justify-center
         overflow-hidden bg-background text-foreground
       "
       data-status-page={code}

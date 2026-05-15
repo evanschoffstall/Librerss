@@ -5,6 +5,7 @@ import type { Article } from "@/lib/core";
 
 import {
   type ArticleMutationTracker,
+  type ArticleStatusMutationController,
   runOptimisticArticleStatusMutation,
 } from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutation";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
@@ -14,6 +15,7 @@ import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collec
  */
 interface UseArticleStarredStateOptions {
   articleFilter: "all" | "read" | "starred" | "unread";
+  createMutationSignalHandle?: ArticleStatusMutationController["createMutationSignalHandle"];
   mutationTracker: Pick<
     ArticleMutationTracker,
     "clearUpdatingArticleKeys" | "markUpdatingArticleKeys"
@@ -28,8 +30,13 @@ interface UseArticleStarredStateOptions {
  * @returns The article starred state state and callbacks.
  */
 export function useArticleStarredState(options: UseArticleStarredStateOptions) {
-  const { articleFilter, mutationTracker, setFeed, usePlaceholderData } =
-    options;
+  const {
+    articleFilter,
+    createMutationSignalHandle,
+    mutationTracker,
+    setFeed,
+    usePlaceholderData,
+  } = options;
   /** Toggles the article's starred state with optimistic UI and rollback. */
   const handleToggleStarredState = useCallback(
     async (article: Article) => {
@@ -49,6 +56,7 @@ export function useArticleStarredState(options: UseArticleStarredStateOptions) {
             nextStarredState,
           ),
         articles: [article],
+        createMutationSignalHandle,
         errorLogLabel: "Toggle starred state error",
         mutationTracker,
         /**
@@ -81,7 +89,13 @@ export function useArticleStarredState(options: UseArticleStarredStateOptions) {
         usePlaceholderData,
       });
     },
-    [articleFilter, mutationTracker, setFeed, usePlaceholderData],
+    [
+      articleFilter,
+      createMutationSignalHandle,
+      mutationTracker,
+      setFeed,
+      usePlaceholderData,
+    ],
   );
 
   return { handleToggleStarredState };

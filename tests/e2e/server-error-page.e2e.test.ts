@@ -17,6 +17,30 @@ import { test } from "./test";
  * identical regardless of whether the `cid` parameter is present.
  */
 test.describe("/error server error page", () => {
+  test("forces the dedicated dark status-page styling even when the stored theme is light", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "light");
+    });
+
+    await page.goto("/error");
+
+    await expect(page.locator("[data-status-page='500']")).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await expect(page.locator("[data-status-page='500']")).toHaveClass(
+      /\bdark\b/u,
+    );
+
+    const backgroundColor = await page.locator("main").evaluate((element) => {
+      return window.getComputedStyle(element).backgroundColor;
+    });
+
+    expect(backgroundColor).toBe("rgb(10, 10, 10)");
+  });
+
   test("renders the 500 status page with eyebrow, message, and Try again link", async ({
     page,
   }) => {
