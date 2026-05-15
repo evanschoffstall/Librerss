@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/dashboard-services/feed-data";
 import { readDashboardPreviewModeFromLocation } from "@/app/dashboard/toolbar/dashboardWindowEvents";
+
+/** Refresh listener callbacks and teardown owned by the toolbar window state. */
+interface DashboardToolbarRefreshListeners {
+  refreshEnd: () => void;
+  refreshStart: () => void;
+  refreshTeardown: () => void;
+}
 
 /**
  * Describes the options for dashboard toolbar window listeners.
@@ -126,6 +134,51 @@ function addDashboardToolbarWindowListeners(
 }
 
 /**
+ * Create refresh listeners that mirror dashboard refresh events into toolbar
+ * state while protecting the UI from lost end events after browser suspension.
+ * @param setIsRefreshing - Updates whether toolbar actions render refresh skeletons.
+ * @returns Refresh event callbacks plus teardown for the armed failsafe timer.
+ */
+function createDashboardToolbarRefreshListeners(
+  setIsRefreshing: React.Dispatch<React.SetStateAction<boolean>>,
+): DashboardToolbarRefreshListeners {
+  let refreshTimeoutId: null | ReturnType<typeof setTimeout> = null;
+
+  /** Clears the refresh failsafe timer if one is currently armed. */
+  const clearRefreshFailsafe = () => {
+    if (refreshTimeoutId === null) {
+      return;
+    }
+
+    clearTimeout(refreshTimeoutId);
+    refreshTimeoutId = null;
+  };
+
+  /** Arms a failsafe that releases refresh skeletons if REFRESH_END is lost. */
+  const armRefreshFailsafe = () => {
+    clearRefreshFailsafe();
+    refreshTimeoutId = setTimeout(() => {
+      refreshTimeoutId = null;
+      setBooleanState(setIsRefreshing, false);
+    }, FEED_LOADING_FAILSAFE_MS);
+  };
+
+  return {
+    /** Clear refresh pending state and cancel the local failsafe. */
+    refreshEnd: () => {
+      clearRefreshFailsafe();
+      setBooleanState(setIsRefreshing, false);
+    },
+    /** Mark refresh pending and arm the lost-end-event failsafe. */
+    refreshStart: () => {
+      setBooleanState(setIsRefreshing, true);
+      armRefreshFailsafe();
+    },
+    refreshTeardown: clearRefreshFailsafe,
+  };
+}
+
+/**
  * Create the dashboard search listeners that synchronize toolbar search state.
  * @param setIsSearchPending - Updates the pending-search state.
  * @param setSearch - Updates the toolbar search term.
@@ -174,6 +227,9 @@ function createDashboardToolbarWindowListeners(
     setIsSearchPending,
     setSearch,
   );
+  const refreshListeners =
+    createDashboardToolbarRefreshListeners(setIsRefreshing);
+
   /**
    * Sync the dashboard title from window events.
    * @param event - The dashboard event carrying the current title.
@@ -219,18 +275,7 @@ function createDashboardToolbarWindowListeners(
     markViewportReadStart: () => {
       setBooleanState(setIsMarkingViewportRead, true);
     },
-    /**
-     * Process the refresh end.
-     */
-    refreshEnd: () => {
-      setBooleanState(setIsRefreshing, false);
-    },
-    /**
-     * Process the refresh start.
-     */
-    refreshStart: () => {
-      setBooleanState(setIsRefreshing, true);
-    },
+    ...refreshListeners,
     searchPending: searchListeners.searchPending,
     searchSync: searchListeners.searchSync,
     titleChange,
@@ -278,6 +323,7 @@ function readSearchSyncTerm(event: Event): string {
 function removeDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,
 ) {
+  listeners.refreshTeardown();
   window.removeEventListener(
     DASHBOARD_EVENTS.TITLE_CHANGE,
     listeners.titleChange as EventListener,

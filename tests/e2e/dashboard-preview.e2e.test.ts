@@ -212,6 +212,91 @@ test.describe("dashboard preview mode", () => {
     await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
   });
 
+  test("unlocks refresh controls when a suspended refresh never sends an end event", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const nativeSetTimeout = window.setTimeout.bind(window);
+      let shouldCaptureNextRefreshTimer = false;
+      let dashboardRefreshFailsafeCallback: (() => void) | undefined;
+
+      window.setTimeout = ((
+        handler: TimerHandler,
+        timeout?: number,
+        ...args: unknown[]
+      ) => {
+        const timerId = nativeSetTimeout(handler, timeout, ...args);
+
+        if (shouldCaptureNextRefreshTimer && typeof handler === "function") {
+          shouldCaptureNextRefreshTimer = false;
+          dashboardRefreshFailsafeCallback = () => {
+            handler(...args);
+          };
+        }
+
+        return timerId;
+      }) as typeof window.setTimeout;
+
+      Object.defineProperties(window, {
+        __captureNextDashboardRefreshTimer: {
+          configurable: true,
+          value: () => {
+            dashboardRefreshFailsafeCallback = undefined;
+            shouldCaptureNextRefreshTimer = true;
+          },
+        },
+        __hasDashboardRefreshFailsafe: {
+          configurable: true,
+          value: () => dashboardRefreshFailsafeCallback !== undefined,
+        },
+        __runDashboardRefreshFailsafe: {
+          configurable: true,
+          value: () => {
+            dashboardRefreshFailsafeCallback?.();
+          },
+        },
+      });
+    });
+
+    await gotoPreviewDashboard(page);
+    const refreshButton = page
+      .locator('button[aria-label="Refresh selected feed"]:visible')
+      .first();
+    await expect(refreshButton).toBeVisible({ timeout: 15_000 });
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __captureNextDashboardRefreshTimer?: () => void;
+      };
+
+      testWindow.__captureNextDashboardRefreshTimer?.();
+      window.dispatchEvent(new CustomEvent("dashboard:refresh-start"));
+    });
+
+    await expect(refreshButton.locator(".animate-pulse")).toHaveCount(1);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const testWindow = window as typeof window & {
+            __hasDashboardRefreshFailsafe?: () => boolean;
+          };
+
+          return testWindow.__hasDashboardRefreshFailsafe?.() ?? false;
+        }),
+      )
+      .toBe(true);
+
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __runDashboardRefreshFailsafe?: () => void;
+      };
+
+      testWindow.__runDashboardRefreshFailsafe?.();
+    });
+
+    await expect(refreshButton.locator(".animate-pulse")).toHaveCount(0);
+  });
+
   test("opens the mobile actions popup from the three-dots toolbar button", async ({
     page,
   }) => {
