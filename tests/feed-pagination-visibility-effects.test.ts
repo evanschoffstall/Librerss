@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, mock, test } from "bun:test";
 
+import { useBackfillDepletedRevealedPageEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationActions";
 import {
   useFeedPaginationLoadingMoreRevealEffect,
   useFeedPaginationQueryResetEffect,
@@ -11,8 +12,9 @@ import {
   useInitialFeedPaginationAutoFillEffect,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
 
-type LoadingMoreRevealEffectOptions =
-  Parameters<typeof useFeedPaginationLoadingMoreRevealEffect>[0];
+type LoadingMoreRevealEffectOptions = Parameters<
+  typeof useFeedPaginationLoadingMoreRevealEffect
+>[0];
 
 function createOptions(
   overrides: Partial<LoadingMoreRevealEffectOptions> = {},
@@ -59,7 +61,9 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     });
 
     expect(options.hasPendingServerRevealRef.current).toBe(true);
-    expect(options.lastInvertedAwayBoundarySnapshotRef.current).toBe("snapshot");
+    expect(options.lastInvertedAwayBoundarySnapshotRef.current).toBe(
+      "snapshot",
+    );
     expect(options.lastInvertedScrollTopRef.current).toBe(0);
     expect(options.startServerLoadRearmCooldown).not.toHaveBeenCalled();
   });
@@ -85,6 +89,100 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     expect(options.lastInvertedAwayBoundarySnapshotRef.current).toBeNull();
     expect(options.lastInvertedScrollTopRef.current).toBeNull();
     expect(options.startServerLoadRearmCooldown).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useBackfillDepletedRevealedPageEffect", () => {
+  test("does not request a server refill for an initially under-threshold unread page", () => {
+    const requestMoreFromServer = mock(() => true);
+
+    renderHook(() => {
+      useBackfillDepletedRevealedPageEffect({
+        articleFilter: "unread",
+        articlesPerPage: 4,
+        canLoadMoreFromServer: true,
+        feedViewKey: "all-feeds:unread",
+        filteredFeedLength: 4,
+        hasPendingServerRevealRef: { current: false },
+        hasRequestedServerLoadRef: { current: false },
+        isInvertedScroll: false,
+        primeInvertedPaginationAnchor: mock(() => {}),
+        requestMoreFromServer,
+        visibleArticleCountRef: { current: 4 },
+      });
+    });
+
+    expect(requestMoreFromServer).not.toHaveBeenCalled();
+  });
+
+  test("requests one viewport refill when unread rows drop below the overflow threshold", () => {
+    const requestMoreFromServer = mock(() => true);
+    const sharedRefs = {
+      hasPendingServerRevealRef: { current: false },
+      hasRequestedServerLoadRef: { current: false },
+      visibleArticleCountRef: { current: 7 },
+    };
+
+    const { rerender } = renderHook(
+      ({ filteredFeedLength }: { filteredFeedLength: number }) => {
+        useBackfillDepletedRevealedPageEffect({
+          articleFilter: "unread",
+          articlesPerPage: 4,
+          canLoadMoreFromServer: true,
+          feedViewKey: "all-feeds:unread",
+          filteredFeedLength,
+          hasPendingServerRevealRef: sharedRefs.hasPendingServerRevealRef,
+          hasRequestedServerLoadRef: sharedRefs.hasRequestedServerLoadRef,
+          isInvertedScroll: false,
+          primeInvertedPaginationAnchor: mock(() => {}),
+          requestMoreFromServer,
+          visibleArticleCountRef: sharedRefs.visibleArticleCountRef,
+        });
+      },
+      { initialProps: { filteredFeedLength: 7 } },
+    );
+
+    rerender({ filteredFeedLength: 4 });
+
+    expect(requestMoreFromServer).toHaveBeenCalledTimes(1);
+    expect(requestMoreFromServer).toHaveBeenCalledWith({
+      isViewportRefill: true,
+    });
+  });
+
+  test("resets depletion tracking when the feed view changes", () => {
+    const requestMoreFromServer = mock(() => true);
+
+    const { rerender } = renderHook(
+      ({ feedViewKey, filteredFeedLength }) => {
+        useBackfillDepletedRevealedPageEffect({
+          articleFilter: "unread",
+          articlesPerPage: 4,
+          canLoadMoreFromServer: true,
+          feedViewKey,
+          filteredFeedLength,
+          hasPendingServerRevealRef: { current: false },
+          hasRequestedServerLoadRef: { current: false },
+          isInvertedScroll: false,
+          primeInvertedPaginationAnchor: mock(() => {}),
+          requestMoreFromServer,
+          visibleArticleCountRef: { current: 4 },
+        });
+      },
+      {
+        initialProps: {
+          feedViewKey: "all-feeds:unread",
+          filteredFeedLength: 10,
+        },
+      },
+    );
+
+    rerender({
+      feedViewKey: "local:unread",
+      filteredFeedLength: 4,
+    });
+
+    expect(requestMoreFromServer).not.toHaveBeenCalled();
   });
 });
 
@@ -268,7 +366,8 @@ describe("useInitialFeedPaginationAutoFillEffect", () => {
     const maybeAutoFillViewport = mock(() => {});
     const suppressNextInitialViewportAutoFillRef = { current: true };
 
-    renderHook(({ visibleArticleCount }) => {
+    renderHook(
+      ({ visibleArticleCount }) => {
         useInitialFeedPaginationAutoFillEffect({
           filteredFeedLength: 12,
           isInitialLoading: false,
@@ -279,7 +378,8 @@ describe("useInitialFeedPaginationAutoFillEffect", () => {
           visibleArticleCount,
         });
       },
-      { initialProps: { visibleArticleCount: 4 } });
+      { initialProps: { visibleArticleCount: 4 } },
+    );
 
     expect(maybeAutoFillViewport).not.toHaveBeenCalled();
     expect(suppressNextInitialViewportAutoFillRef.current).toBe(false);

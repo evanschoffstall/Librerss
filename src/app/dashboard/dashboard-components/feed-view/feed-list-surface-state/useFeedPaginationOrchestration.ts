@@ -397,6 +397,7 @@ function useFeedPaginationServerRevealLifecycleEffects(
     articleFilter: options.articleFilter,
     articlesPerPage: options.articlesPerPage,
     canLoadMoreFromServer: options.canLoadMoreFromServer,
+    feedViewKey: options.feedViewKey,
     filteredFeedLength: options.filteredFeedLength,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
     hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
