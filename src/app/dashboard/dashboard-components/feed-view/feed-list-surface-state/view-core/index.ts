@@ -45,6 +45,7 @@ export {
   type UseFeedListSurfaceStateOptions,
 } from "./types";
 export {
+  observeFeedViewportHeightOwners,
   readViewportMaxScrollTop,
   syncViewportToBottomIfNeeded,
 } from "./viewport-scroll";
