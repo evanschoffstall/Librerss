@@ -158,4 +158,50 @@ describe("createViewportScrollHandler", () => {
     expect(rearmInvertedBoundaryFromScrollPosition).toHaveBeenCalledTimes(1);
     expect(maybeLoadNextPage).not.toHaveBeenCalled();
   });
+
+  test("ignores passive inverted scroll events before explicit user intent", () => {
+    const maybeLoadNextPage = mock((_trigger: "scroll" | "sentinel") => {});
+    const capturePendingInvertedPaginationAnchorSnapshot = mock(() => {});
+    const rearmInvertedBoundaryFromScrollPosition = mock(() => {});
+    const releaseInvertedPaginationAnchor = mock(() => {});
+    const onClaimInvertedScrollOwnership = mock(() => {});
+    const hasUserScrolledRef = { current: false };
+    const scrollViewport = {
+      clientHeight: 400,
+      scrollHeight: 1242,
+      scrollTop: 800,
+    } as HTMLElement;
+
+    const handleScroll = createViewportScrollHandler({
+      capturePendingInvertedPaginationAnchorSnapshot,
+      clearInitialNormalScrollLock: mock(() => {}),
+      hasActiveInvertedExpansionScrollLock: mock(() => false),
+      hasUserScrolledRef,
+      invertedPaginationAnchorRef: { current: null },
+      isInvertedScroll: true,
+      maybeLoadNextPage,
+      normalScrollIntentSuppressionFrameRef: { current: null },
+      onClaimInvertedScrollOwnership,
+      onSyncInvertedExpansionScrollLock: mock(() => {}),
+      pendingInvertedPaginationAnchorSnapshotRef: { current: null },
+      preservePendingInvertedPaginationAnchorSnapshotRef: { current: false },
+      rearmInvertedBoundaryFromScrollPosition,
+      rearmStandardBoundaryFromScrollPosition: mock(() => {}),
+      releaseInvertedPaginationAnchor,
+      scrollViewport,
+      shouldLockInitialNormalScroll: mock(() => false),
+      suppressImmediateNormalScrollIntent: mock(() => {}),
+    });
+
+    act(() => {
+      handleScroll();
+    });
+
+    expect(hasUserScrolledRef.current).toBe(false);
+    expect(onClaimInvertedScrollOwnership).not.toHaveBeenCalled();
+    expect(releaseInvertedPaginationAnchor).not.toHaveBeenCalled();
+    expect(capturePendingInvertedPaginationAnchorSnapshot).not.toHaveBeenCalled();
+    expect(rearmInvertedBoundaryFromScrollPosition).not.toHaveBeenCalled();
+    expect(maybeLoadNextPage).not.toHaveBeenCalled();
+  });
 });

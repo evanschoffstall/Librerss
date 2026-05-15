@@ -273,6 +273,10 @@ function handleInvertedViewportScroll(options: ViewportScrollHandlerOptions) {
     return true;
   }
 
+  if (!hasActivePaginationAnchor && !options.hasUserScrolledRef.current) {
+    return true;
+  }
+
   if (options.preservePendingInvertedPaginationAnchorSnapshotRef.current) {
     options.preservePendingInvertedPaginationAnchorSnapshotRef.current = false;
   } else if (!hasActivePaginationAnchor) {
