@@ -200,7 +200,9 @@ describe("createViewportScrollHandler", () => {
     expect(hasUserScrolledRef.current).toBe(false);
     expect(onClaimInvertedScrollOwnership).not.toHaveBeenCalled();
     expect(releaseInvertedPaginationAnchor).not.toHaveBeenCalled();
-    expect(capturePendingInvertedPaginationAnchorSnapshot).not.toHaveBeenCalled();
+    expect(
+      capturePendingInvertedPaginationAnchorSnapshot,
+    ).not.toHaveBeenCalled();
     expect(rearmInvertedBoundaryFromScrollPosition).not.toHaveBeenCalled();
     expect(maybeLoadNextPage).not.toHaveBeenCalled();
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import type {
   DashboardControllerRuntimeStateOptions,
@@ -10,14 +10,12 @@ import type {
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardControllerComposition";
 import type { Article } from "@/lib/core";
 
-import {
-  useDashboardIntervals,
-  useRefreshStatus,
-} from "@/app/dashboard/dashboard-hooks";
+import { useRefreshStatus } from "@/app/dashboard/dashboard-hooks";
 import {
   useDashboardControllerEventBindings,
   useDashboardControllerRuntimeState,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardControllerComposition";
+import { useDashboardAutoRefresh } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardAutoRefresh";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { refreshCurrentSelection } from "@/app/dashboard/dashboard-services/selection";
 
@@ -29,19 +27,6 @@ type DashboardArticleFilter = "all" | "read" | "starred" | "unread";
  * Defines the dashboard article sort order type.
  */
 type DashboardArticleSortOrder = "newest" | "oldest";
-/**
- * Describes the options for dashboard auto refresh.
- */
-interface DashboardAutoRefreshOptions {
-  autoRefreshFeedList: () => Promise<void>;
-  autoRefreshIntervalMinutes: number;
-  cancelPendingArticleStatusMutations?: () => void;
-  cancelPendingRequest: DashboardEffectsOptions["onTimeout"];
-  setRelativeRefreshTick: ReturnType<
-    typeof useDashboardControllerRefreshState
-  >["setRelativeRefreshTick"];
-}
-
 /**
  * Dashboard search refresh inputs plus mutable refs owned by the debounce hook.
  */
@@ -188,6 +173,7 @@ export function useDashboardControllerRuntime(
   const isAutoRefreshing = useDashboardAutoRefresh({
     autoRefreshFeedList,
     autoRefreshIntervalMinutes: options.autoRefreshIntervalMinutes,
+    autoRefreshTimeoutMs: options.timeoutMs,
     cancelPendingArticleStatusMutations:
       options.cancelPendingArticleStatusMutations,
     cancelPendingRequest: options.cancelPendingRequest,
@@ -291,7 +277,6 @@ async function runDashboardSelectionRefresh(
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
   }
 }
-
 /**
  * Manage the dashboard article filter refresh.
  * @param options - The options used to manage the dashboard article filter refresh.
@@ -327,6 +312,7 @@ function useDashboardArticleFilterRefresh(
     usePlaceholderData: options.usePlaceholderData,
   });
 }
+
 /**
  * Trigger a server-side refetch when the article sort order changes so the
  * database query order mirrors the user's preference.
@@ -362,48 +348,6 @@ function useDashboardArticleSortOrderRefresh(
     selectionArticleLimit: options.selectionArticleLimit,
     usePlaceholderData: options.usePlaceholderData,
   });
-}
-
-/**
- * Manage the dashboard auto refresh.
- * @param options - The options used to manage the dashboard auto refresh.
- * @returns Whether dashboard auto refresh.
- */
-function useDashboardAutoRefresh(options: DashboardAutoRefreshOptions) {
-  const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
-  const isAutoRefreshingRef = useRef(false);
-
-  const wrappedAutoRefreshFeedList = useCallback(async () => {
-    if (isAutoRefreshingRef.current) {
-      return;
-    }
-
-    isAutoRefreshingRef.current = true;
-    setIsAutoRefreshing(true);
-    window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
-
-    try {
-      await options.autoRefreshFeedList();
-    } finally {
-      isAutoRefreshingRef.current = false;
-      setIsAutoRefreshing(false);
-      window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_END));
-    }
-  }, [options]);
-
-  const handleStaleTabResume = useCallback(() => {
-    options.cancelPendingArticleStatusMutations?.();
-    options.cancelPendingRequest?.();
-  }, [options]);
-
-  useDashboardIntervals({
-    autoRefreshFeedList: wrappedAutoRefreshFeedList,
-    autoRefreshIntervalMinutes: options.autoRefreshIntervalMinutes,
-    onStaleTabResume: handleStaleTabResume,
-    setRelativeRefreshTick: options.setRelativeRefreshTick,
-  });
-
-  return isAutoRefreshing;
 }
 
 /**

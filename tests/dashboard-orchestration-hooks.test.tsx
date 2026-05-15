@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
-import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
+import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import { FeedService } from "@/lib/api";
 
 const originalDateNow = Date.now;
@@ -472,6 +472,130 @@ describe("dashboard orchestration hooks", () => {
     expect(autoRefreshFeedList).toHaveBeenCalledTimes(1);
 
     unmount();
+
+    expect(clearIntervalMock).toHaveBeenCalledTimes(2);
+    expect(clearTimeoutMock).toHaveBeenCalled();
+  });
+
+  test("useDashboardAutoRefresh releases the UI latch when a suspended refresh never settles", async () => {
+    const modulePath = [
+      "..",
+      "src",
+      "app",
+      "dashboard",
+      "dashboard-hooks",
+      "dashboard-controller",
+      "useDashboardAutoRefresh.ts",
+    ].join("/");
+    const { useDashboardAutoRefresh } = (await import(
+      `${modulePath}?dashboard-auto-refresh-timeout-real`
+    )) as typeof import("@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardAutoRefresh");
+    const intervalCallbacks = new Map<number, () => void>();
+    const timeoutCallbacks = new Map<number, () => void>();
+    const clearIntervalMock = mock((id: number) => {
+      intervalCallbacks.delete(id);
+    });
+    const clearTimeoutMock = mock((id: number) => {
+      timeoutCallbacks.delete(id);
+    });
+    const refreshEvents: string[] = [];
+    const refreshResolvers: (() => void)[] = [];
+    let nextTimerId = 0;
+    let now = 0;
+
+    Date.now = () => now;
+    window.setInterval = ((callback: TimerHandler) => {
+      nextTimerId += 1;
+      intervalCallbacks.set(nextTimerId, callback as () => void);
+      return nextTimerId;
+    }) as typeof window.setInterval;
+    window.clearInterval = clearIntervalMock as typeof window.clearInterval;
+    globalThis.setTimeout = ((callback: TimerHandler) => {
+      nextTimerId += 1;
+      timeoutCallbacks.set(nextTimerId, callback as () => void);
+      return nextTimerId as unknown as ReturnType<typeof setTimeout>;
+    }) as unknown as typeof setTimeout;
+    globalThis.clearTimeout = clearTimeoutMock as typeof clearTimeout;
+
+    const recordRefreshStart = () => refreshEvents.push("start");
+    const recordRefreshEnd = () => refreshEvents.push("end");
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH_START, recordRefreshStart);
+    window.addEventListener(DASHBOARD_EVENTS.REFRESH_END, recordRefreshEnd);
+
+    const autoRefreshFeedList = mock(
+      () =>
+        new Promise<void>((resolve) => {
+          refreshResolvers.push(resolve);
+        }),
+    );
+    const cancelPendingRequest = mock(() => {});
+    const setRelativeRefreshTick = mock(() => {});
+
+    const { result, unmount } = renderHook(() =>
+      useDashboardAutoRefresh({
+        autoRefreshFeedList,
+        autoRefreshIntervalMinutes: 30,
+        autoRefreshTimeoutMs: 5_000,
+        cancelPendingRequest,
+        setRelativeRefreshTick,
+      }),
+    );
+
+    await act(async () => {
+      now = 1_800_000;
+      for (const intervalCallback of intervalCallbacks.values()) {
+        intervalCallback();
+      }
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(true);
+    expect(autoRefreshFeedList).toHaveBeenCalledTimes(1);
+    expect(refreshEvents).toEqual(["start"]);
+
+    await act(async () => {
+      Array.from(timeoutCallbacks.values()).at(-1)?.();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(false);
+    expect(cancelPendingRequest).toHaveBeenCalledTimes(1);
+    expect(refreshEvents).toEqual(["start", "end"]);
+
+    await act(async () => {
+      now = 3_600_000;
+      for (const intervalCallback of intervalCallbacks.values()) {
+        intervalCallback();
+      }
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(true);
+    expect(autoRefreshFeedList).toHaveBeenCalledTimes(2);
+    expect(refreshEvents).toEqual(["start", "end", "start"]);
+
+    await act(async () => {
+      refreshResolvers[0]?.();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(true);
+    expect(refreshEvents).toEqual(["start", "end", "start"]);
+
+    await act(async () => {
+      refreshResolvers[1]?.();
+      await Promise.resolve();
+    });
+
+    expect(result.current).toBe(false);
+    expect(refreshEvents).toEqual(["start", "end", "start", "end"]);
+
+    unmount();
+    window.removeEventListener(
+      DASHBOARD_EVENTS.REFRESH_START,
+      recordRefreshStart,
+    );
+    window.removeEventListener(DASHBOARD_EVENTS.REFRESH_END, recordRefreshEnd);
 
     expect(clearIntervalMock).toHaveBeenCalledTimes(2);
     expect(clearTimeoutMock).toHaveBeenCalled();
