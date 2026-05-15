@@ -280,6 +280,7 @@ test.describe("dashboard feed pagination", () => {
     test.slow();
 
     const readArticleIds = new Set<number>();
+    const requestedArticleLimits: number[] = [];
     const totalArticlesPerFeed = 10;
     const totalReadableArticles = totalArticlesPerFeed * 2;
 
@@ -290,6 +291,17 @@ test.describe("dashboard feed pagination", () => {
       readArticleIdsRef: readArticleIds,
       respectArticleLimit: true,
       totalArticlesPerFeed,
+    });
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        articleLimit?: unknown;
+      };
+
+      if (typeof requestBody.articleLimit === "number") {
+        requestedArticleLimits.push(requestBody.articleLimit);
+      }
+
+      await route.fallback();
     });
     await page.setViewportSize({ height: 840, width: 1280 });
 
@@ -317,6 +329,12 @@ test.describe("dashboard feed pagination", () => {
     await expect
       .poll(() => readArticleIds.size, { timeout: 20_000 })
       .toBe(totalReadableArticles);
+    expect(
+      requestedArticleLimits.filter((articleLimit) => articleLimit % 4 !== 0),
+      `Visible-read pagination must request exact page-size increments. Captured limits: ${JSON.stringify(
+        requestedArticleLimits,
+      )}`,
+    ).toEqual([]);
     await expect(page.locator("article[data-article-key]")).toHaveCount(0, {
       timeout: 20_000,
     });

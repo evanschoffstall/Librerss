@@ -1,11 +1,15 @@
+import type { SetStateAction } from "react";
+
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import { refillDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPaging";
 import {
   prefetchArticleWindowLimitIfNeeded,
   resetArticleWindowPrefetchState,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
 import { useDashboardArticleWindowPrefetch } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
+import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
 interface DeferredPromise {
   promise: Promise<void>;
@@ -108,6 +112,55 @@ describe("article-window prefetch tracking", () => {
     resetArticleWindowPrefetchState(refs);
     expect(refs.inFlightPrefetchedLimitRef.current).toBe(0);
     expect(refs.lastPrefetchedLimitRef.current).toBe(0);
+  });
+});
+
+describe("refillDashboardArticleWindow", () => {
+  test("advances a depleted unread refill by exactly one configured page", async () => {
+    const fetchAllFeeds = mock(async () => {});
+    const setIsLoadingMoreArticles = mock(
+      (_value: SetStateAction<boolean>) => {},
+    );
+    const setRequestedArticleLimit = mock(
+      (_value: SetStateAction<number>) => {},
+    );
+    const isLoadingMoreArticlesRef = { current: false };
+    const isRefillingDepletedUnreadWindowRef = { current: false };
+
+    refillDashboardArticleWindow({
+      allowPartialArticleWindowGrowthRef: { current: false },
+      articleLimit: 24,
+      articlesPerPage: 4,
+      currentFeedLength: 24,
+      fetchAllFeeds,
+      fetchCategoryFeeds: mock(async () => {}),
+      fetchFeed: mock(async () => {}),
+      hasStartedArticleWindowSettlementRef: { current: false },
+      isAwaitingArticleWindowSettlementRef: { current: false },
+      isLoadingMoreArticlesRef,
+      isRefillingDepletedUnreadWindowRef,
+      previousAwaitedFeedLengthRef: { current: 0 },
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+      setIsLoadingMoreArticles,
+      setRequestedArticleLimit,
+    });
+
+    expect(setRequestedArticleLimit).toHaveBeenCalledWith(28);
+    expect(fetchAllFeeds).toHaveBeenCalledWith(undefined, {
+      articleLimit: 28,
+      forceRefresh: false,
+      keepExistingFeed: true,
+      requestSource: "feed-scroll-load-more",
+      searchTerm: undefined,
+      skipRefresh: true,
+    });
+    expect(isLoadingMoreArticlesRef.current).toBe(true);
+    expect(isRefillingDepletedUnreadWindowRef.current).toBe(true);
+
+    await waitFor(() => {
+      expect(isLoadingMoreArticlesRef.current).toBe(false);
+      expect(isRefillingDepletedUnreadWindowRef.current).toBe(false);
+    });
   });
 });
 
@@ -219,9 +272,9 @@ describe("isLoadingMoreArticlesRef guard in useArticleWindowPrefetchEffect", () 
     //  1. Render A: isLoadingMoreArticlesRef.current = true (refill in-flight),
     //               requestedArticleLimit = 12 → prefetch BLOCKED.
     //  2. Refill completes: isLoadingMoreArticlesRef.current = false,
-    //     React state updates → requestedArticleLimit advances to 25.
+    //     React state updates → requestedArticleLimit advances to 24.
     //  3. Render B: effect re-runs with the new requestedArticleLimit and the
-    //               cleared ref → prefetch fires for 25 + 12 = 37.
+    //               cleared ref → prefetch fires for 24 + 12 = 36.
     const isLoadingMoreArticlesRef = { current: true };
     const options = createPrefetchHookOptions({
       isLoadingMoreArticlesRef,
@@ -244,9 +297,9 @@ describe("isLoadingMoreArticlesRef guard in useArticleWindowPrefetchEffect", () 
 
     // Simulate the refill completing: clear the flag then trigger a rerender
     // by advancing requestedArticleLimit (as refillDashboardArticleWindow does
-    // via setRequestedArticleLimit(25)).
+    // via setRequestedArticleLimit(24)).
     isLoadingMoreArticlesRef.current = false;
-    rerender({ requestedArticleLimit: 25 });
+    rerender({ requestedArticleLimit: 24 });
 
     // Effect re-runs with the updated requestedArticleLimit and the cleared ref.
     await waitFor(() => {
@@ -258,7 +311,7 @@ describe("isLoadingMoreArticlesRef guard in useArticleWindowPrefetchEffect", () 
       options.prefetchAllFeeds.mock.calls as unknown as PrefetchCall[]
     )[0];
 
-    expect(prefetchOptions.articleLimit).toBe(37); // 25 + 12
+    expect(prefetchOptions.articleLimit).toBe(36); // 24 + 12
   });
 
   test("does not fire a second prefetch when the refill guard clears but the limit was already prefetched", async () => {
