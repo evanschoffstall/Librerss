@@ -186,22 +186,22 @@ export async function runDashboardRefreshCommand(
  * @param target - The target.
  * @param onMarkViewportRead - The callback that on mark viewport read.
  */
-export function runDashboardViewportReadCommand(
+export async function runDashboardViewportReadCommand(
   target: Pick<Window, "dispatchEvent">,
   onMarkViewportRead: () => Promise<void>,
 ) {
   target.dispatchEvent(
     new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START),
   );
-  // Fire the mutation without awaiting. The optimistic setFeed update inside
-  // runOptimisticArticleStatusMutation is enqueued synchronously before the
-  // server request, so the UI is already correct when END fires.
-  onMarkViewportRead().catch((error: unknown) => {
+  try {
+    await onMarkViewportRead();
+  } catch (error: unknown) {
     console.error("Mark viewport read error:", error);
-  });
-  target.dispatchEvent(
-    new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
-  );
+  } finally {
+    target.dispatchEvent(
+      new CustomEvent(DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END),
+    );
+  }
 }
 /**
  * Manage the dashboard events.
@@ -424,7 +424,10 @@ function useDashboardRefreshEvents(options: DashboardRefreshEventsOptions) {
      * Process the handle mark viewport read.
      */
     const handleMarkViewportRead = () => {
-      runDashboardViewportReadCommand(window, onMarkViewportReadRef.current);
+      void runDashboardViewportReadCommand(
+        window,
+        onMarkViewportReadRef.current,
+      );
     };
 
     window.addEventListener(DASHBOARD_EVENTS.REFRESH, handleRefresh);

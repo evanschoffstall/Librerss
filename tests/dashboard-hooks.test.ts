@@ -22,6 +22,10 @@ import { toast } from "sonner";
 import type { Article, CategoryTreeNode } from "@/lib/core";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import {
+  filterArticleKeysBySettledState,
+  filterArticleMapBySettledState,
+} from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutationSettledState";
 import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
 import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
 import {
@@ -1296,9 +1300,6 @@ describe("useDashboardEvents", () => {
 
   test("marks fully visible unread articles through the viewport command", async () => {
     const dispatchedEvents: string[] = [];
-    // Capture when the handler is called relative to the lifecycle events. The
-    // handler is intentionally async to verify that END fires before the server
-    // round-trip completes (i.e. the toolbar does not block on persistence).
     let resolveHandler!: () => void;
     const handlerSettled = new Promise<void>((resolve) => {
       resolveHandler = resolve;
@@ -1315,20 +1316,21 @@ describe("useDashboardEvents", () => {
       },
     } satisfies Pick<Window, "dispatchEvent">;
 
-    runDashboardViewportReadCommand(eventTarget, onMarkViewportRead);
+    const commandPromise = runDashboardViewportReadCommand(
+      eventTarget,
+      onMarkViewportRead,
+    );
 
-    // START and END must fire synchronously before the async handler resolves.
     expect(dispatchedEvents).toEqual([
       DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
-      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
     ]);
 
-    // Handler still completes in the background (server persistence).
     await handlerSettled;
+    await commandPromise;
     expect(dispatchedEvents).toEqual([
       DASHBOARD_EVENTS.MARK_VIEWPORT_READ_START,
-      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
       "handler",
+      DASHBOARD_EVENTS.MARK_VIEWPORT_READ_END,
     ]);
   });
 });
@@ -1474,6 +1476,51 @@ describe("useArticleActions", () => {
   test("toggleStarred switches starred status", () => {
     expect(!true).toBe(false);
     expect(!false).toBe(true);
+  });
+});
+
+describe("article status mutation settled-state helpers", () => {
+  test("keeps only settled article keys still owned by the active mutation", () => {
+    const settledKeys = new Set(["current-article", "stale-article"]);
+
+    expect(
+      filterArticleKeysBySettledState(
+        settledKeys,
+        (articleKey) => articleKey === "current-article",
+      ),
+    ).toEqual(new Set(["current-article"]));
+  });
+
+  test("keeps only settled article entries accepted by the ownership guard", () => {
+    const currentArticle = {
+      content: "Current body",
+      feedId: 1,
+      feedName: "Example Feed",
+      feedUrl: "https://example.com/feed.xml",
+      id: 1,
+      isRead: false,
+      isStarred: false,
+      lastChecked: new Date("2026-03-14T12:00:00.000Z"),
+      link: "https://example.com/current",
+      publicationDate: new Date("2026-03-14T11:59:00.000Z"),
+      title: "Current Article",
+    } satisfies Article;
+    const staleArticle = {
+      ...currentArticle,
+      id: 2,
+      link: "https://example.com/stale",
+      title: "Stale Article",
+    } satisfies Article;
+
+    expect(
+      filterArticleMapBySettledState(
+        new Map([
+          ["current-article", currentArticle],
+          ["stale-article", staleArticle],
+        ]),
+        (articleKey) => articleKey === "current-article",
+      ),
+    ).toEqual(new Map([["current-article", currentArticle]]));
   });
 });
 
