@@ -50,6 +50,7 @@
     "jscpd",
     "postcss-load-config",
     "secretlint",
+    "ts-morph",
     "ts-prune",
     "tsd",
     "type-coverage"
