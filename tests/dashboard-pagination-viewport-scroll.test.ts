@@ -1,7 +1,10 @@
 import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { createViewportScrollHandler } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportScroll";
+import {
+  createViewportBoundaryHandlers,
+  createViewportScrollHandler,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportScroll";
 
 describe("createViewportScrollHandler", () => {
   let originalRequestAnimationFrame: typeof global.requestAnimationFrame;
@@ -159,7 +162,7 @@ describe("createViewportScrollHandler", () => {
     expect(maybeLoadNextPage).not.toHaveBeenCalled();
   });
 
-  test("ignores passive inverted scroll events before explicit user intent", () => {
+  test("records passive inverted away history without claiming user ownership", () => {
     const maybeLoadNextPage = mock((_trigger: "scroll" | "sentinel") => {});
     const capturePendingInvertedPaginationAnchorSnapshot = mock(() => {});
     const rearmInvertedBoundaryFromScrollPosition = mock(() => {});
@@ -203,7 +206,35 @@ describe("createViewportScrollHandler", () => {
     expect(
       capturePendingInvertedPaginationAnchorSnapshot,
     ).not.toHaveBeenCalled();
-    expect(rearmInvertedBoundaryFromScrollPosition).not.toHaveBeenCalled();
+    expect(rearmInvertedBoundaryFromScrollPosition).toHaveBeenCalledTimes(1);
     expect(maybeLoadNextPage).not.toHaveBeenCalled();
+  });
+
+  test("rearms inverted cached pagination when anchor stabilization records away movement", () => {
+    const isInvertedLoadBoundaryArmedRef = { current: false };
+    const lastInvertedScrollTopRef = { current: 0 };
+    const scrollViewport = {
+      clientHeight: 400,
+      scrollHeight: 1242,
+      scrollTop: 528,
+    } as HTMLElement;
+    const { rearmInvertedBoundaryFromScrollPosition } =
+      createViewportBoundaryHandlers({
+        hasPendingBoundaryRearmAfterCooldownRef: { current: false },
+        hasPendingServerRevealRef: { current: false },
+        hasRequestedServerLoadRef: { current: false },
+        invertedPaginationAnchorRef: { current: {} },
+        isInvertedLoadBoundaryArmedRef,
+        isInvertedScroll: true,
+        isStandardLoadBoundaryArmedRef: { current: false },
+        lastInvertedScrollTopRef,
+        lastStandardScrollTopRef: { current: null },
+        scrollViewport,
+      });
+
+    rearmInvertedBoundaryFromScrollPosition();
+
+    expect(isInvertedLoadBoundaryArmedRef.current).toBe(true);
+    expect(lastInvertedScrollTopRef.current).toBe(528);
   });
 });
