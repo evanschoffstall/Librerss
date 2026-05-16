@@ -13,7 +13,7 @@ export {
 } from "./metadata-extraction";
 export { readAttrValue } from "./patterns";
 export { purifyRawHtml } from "./purify";
-export { sanitizeRawContent } from "./sanitization";
+export { sanitizeRawContent } from "./raw-content";
 export {
   sanitizeAndTruncateArticleContent,
   sanitizeArticleHtml,
