@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-import * as feedsRoute from "@/app/api/feeds";
+import { DELETE as handleDelete, PATCH as handlePatch } from "@/app/api/feeds";
 
 /**
  * Describes the route context.

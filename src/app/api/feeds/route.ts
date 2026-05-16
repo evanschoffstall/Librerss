@@ -499,18 +499,12 @@ function resolveFeedRouteDeps(
 }
 
 /**
- * Resolve the feed route warn.
- * @param warnFn - The callback that warn fn.
- * @returns The feed route warn.
+ * Resolve the warn function to use for feed route logging.
+ * @param warnFn - Optional override for the logger warn function (used in tests).
+ * @returns The resolved warn function bound to the application logger.
  */
 function resolveFeedRouteWarn(warnFn?: typeof logger.warn): FeedRouteWarn {
-  if (warnFn) {
-    return warnFn as FeedRouteWarn;
-  }
-
-  return typeof logger.warn === "function"
-    ? (logger.warn.bind(logger) as FeedRouteWarn)
-    : () => undefined;
+  return (warnFn ?? logger.warn.bind(logger)) as FeedRouteWarn;
 }
 
 /**
