@@ -1,9 +1,8 @@
 import {
   createPlaceholderSeeds,
   type PlaceholderSourceDefinition,
-} from "@/lib/core/placeholder-sources/types";
-
-import { PLACEHOLDER_CATEGORY } from "./constants";
+} from "@/lib/core/placeholder-shared";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-shared";
 
 /** NIST placeholder feed used in database-free preview mode. */
 export const NIST_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition = {

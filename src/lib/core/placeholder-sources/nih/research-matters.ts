@@ -1,9 +1,8 @@
 import {
   createPlaceholderSeeds,
   type PlaceholderSourceDefinition,
-} from "@/lib/core/placeholder-sources/types";
-
-import { PLACEHOLDER_CATEGORY } from "./constants";
+} from "@/lib/core/placeholder-shared";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-shared";
 
 /** NIH Research Matters placeholders collected from direct research highlight pages. */
 export const NIH_RESEARCH_MATTERS_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition =

@@ -1,9 +1,8 @@
 import {
   createPlaceholderSeeds,
   type PlaceholderSourceDefinition,
-} from "@/lib/core/placeholder-sources/types";
-
-import { PLACEHOLDER_CATEGORY } from "./constants";
+} from "@/lib/core/placeholder-shared";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-shared";
 
 /** NIH news release placeholders collected from direct public RSS items. */
 export const NIH_NEWS_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition = {

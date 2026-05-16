@@ -1,9 +1,8 @@
 import {
   createPlaceholderSeeds,
   type PlaceholderSourceDefinition,
-} from "@/lib/core/placeholder-sources/types";
-
-import { PLACEHOLDER_CATEGORY } from "./constants";
+} from "@/lib/core/placeholder-shared";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-shared";
 
 /** NINDS press release placeholders collected from direct institute press pages. */
 export const NINDS_PRESS_RELEASES_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition =

@@ -1,9 +1,8 @@
 import {
   createPlaceholderSeeds,
   type PlaceholderSourceDefinition,
-} from "@/lib/core/placeholder-sources/types";
-
-import { PLACEHOLDER_CATEGORY } from "./constants";
+} from "@/lib/core/placeholder-shared";
+import { PLACEHOLDER_CATEGORY } from "@/lib/core/placeholder-shared";
 
 /** ESA top-news placeholders used to round out the broader preview catalog. */
 export const ESA_TOP_PLACEHOLDER_SOURCE: PlaceholderSourceDefinition = {

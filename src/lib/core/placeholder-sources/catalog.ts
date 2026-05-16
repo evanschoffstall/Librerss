@@ -1,4 +1,4 @@
-import type { PlaceholderSourceDefinition } from "@/lib/core/placeholder-sources/types";
+import type { PlaceholderSourceDefinition } from "@/lib/core/placeholder-shared";
 
 import { ESA_PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources/esa";
 import { FEDERAL_PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources/federal-sources";

@@ -1,4 +1,4 @@
-import type { PlaceholderSourceDefinition } from "@/lib/core/placeholder-sources/types";
+import type { PlaceholderSourceDefinition } from "@/lib/core/placeholder-shared";
 
 import { FDA_PLACEHOLDER_SOURCE } from "@/lib/core/placeholder-sources/fda";
 import { NIST_PLACEHOLDER_SOURCE } from "@/lib/core/placeholder-sources/nist";
