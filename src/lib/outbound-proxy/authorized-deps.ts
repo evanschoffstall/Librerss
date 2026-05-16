@@ -69,16 +69,20 @@ export function resolveEffectiveProxyCredentials(
 }
 
 /**
- * Resolve the proxy routing check dependency.
- * @param deps - The deps.
- * @returns The proxy routing check dependency.
+ * Resolves the proxy routing check dependency, falling back to the module's
+ * own {@link getProxyRoutingCheck} implementation when no override is provided.
+ *
+ * The inline wrapper exists so the optional `deps` parameter of
+ * `getProxyRoutingCheck` is not exposed through `ProxyRoutingCheckFn` — callers
+ * only supply the options they are aware of.
+ *
+ * @param deps - Route-level dependency overrides.
+ * @returns A `ProxyRoutingCheckFn` bound to the resolved implementation.
  */
 function resolveProxyRoutingCheckDependency(
   deps: ProxyRouteDeps,
 ): ProxyRoutingCheckFn {
   return (
-    deps.getProxyRoutingCheckFn ??
-    ((options) =>
-      (getProxyRoutingCheck as unknown as ProxyRoutingCheckFn)(options))
+    deps.getProxyRoutingCheckFn ?? ((options) => getProxyRoutingCheck(options))
   );
 }

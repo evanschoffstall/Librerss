@@ -27,6 +27,8 @@ export function distillWithDefuddle(
   const threshold = options?.contentLengthThreshold ?? DEFAULT_MIN_BODY_LENGTH;
   const { document } = parseHTML(html);
   patchLinkedomWindow(document);
+  // Linkedom's Document is structurally compatible with the Web API Document at
+  // runtime but TypeScript tracks them as distinct types; the cast is unavoidable.
   const defuddleParser = new Defuddle(document as unknown as Document, { url });
   const distilledArticle = defuddleParser.parse();
 

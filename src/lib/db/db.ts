@@ -13,15 +13,26 @@ import {
 import { createNeonDatabase } from "./neon-provider";
 import { createNodePostgresDatabase } from "./node-postgres-provider";
 
-const globalForDb = globalThis as unknown as {
-  db?: Database;
-  hasLoggedInitialDbConnectionWarning?: boolean;
-  hasRunInitialDbConnectivityCheck?: boolean;
-  pool?: DatabasePool;
-};
+// Extend globalThis so the DB singleton survives hot-module reloads in dev
+// without accumulating duplicate pool instances across re-evaluations of this
+// module. `var` is required because TypeScript's `declare global` only
+// recognises ambient `var` declarations — not `let` or `const`.
+declare global {
+  var __db: Database | undefined;
+
+  var __dbPool: DatabasePool | undefined;
+
+  var __dbConnectionWarningLogged: boolean | undefined;
+
+  var __dbConnectivityCheckRan: boolean | undefined;
+}
 
 /**
- * Describes the connectivity check pool.
+ * Minimal pool interface used only for the startup connectivity probe.
+ *
+ * Both `pg.Pool` and `@neondatabase/serverless Pool` satisfy this contract at
+ * runtime; the adapter in {@link toConnectivityCheckPool} narrows to it safely
+ * without needing a cast.
  */
 interface ConnectivityCheckPool {
   query(queryText: string): Promise<unknown>;
@@ -43,9 +54,9 @@ type DbWarnFn = (message: string, context?: Record<string, unknown>) => void;
 const defaultDbDependencies: DbDependencies = {
   createDatabaseProvider: createRuntimeDatabaseProvider,
   /**
-   * Process the warn.
-   * @param message - The message.
-   * @param context - The context used to process the warn.
+   * Emits a warning through the application logger.
+   * @param message - Human-readable warning message.
+   * @param context - Optional structured context attached to the log entry.
    */
   warn: (message, context) => {
     logger.warn(message, context);
@@ -55,12 +66,16 @@ const defaultDbDependencies: DbDependencies = {
 let dbDependencies: DbDependencies = defaultDbDependencies;
 
 /**
- * Return the db.
- * @returns The db.
+ * Returns the singleton database instance, initialising it on first call.
+ *
+ * The instance is stored on `globalThis` so it survives Next.js hot-module
+ * reloads in development without leaking connection pools.
+ *
+ * @returns The application-wide Drizzle database instance.
  */
 export function getDb() {
-  if (globalForDb.db) {
-    return globalForDb.db;
+  if (globalThis.__db) {
+    return globalThis.__db;
   }
 
   const { db, pool } = dbDependencies.createDatabaseProvider();
@@ -69,32 +84,35 @@ export function getDb() {
     runInitialDbConnectivityCheck(toConnectivityCheckPool(pool));
   }
 
-  globalForDb.pool = pool;
-  globalForDb.db = db;
+  globalThis.__dbPool = pool;
+  globalThis.__db = db;
 
   return db;
 }
 
 /**
- * Return whether is foreign key error.
- * @param error - The error.
- * @returns Whether is foreign key error.
+ * Returns whether the error is a foreign-key constraint violation.
+ * @param error - The caught error to inspect.
+ * @returns `true` when the underlying Postgres error code is `23503`.
  */
 export function isForeignKeyError(error: unknown): boolean {
   return hasDbErrorCode(error, "23503");
 }
 
 /**
- * Return whether is unique constraint error.
- * @param error - The error.
- * @returns Whether is unique constraint error.
+ * Returns whether the error is a unique-constraint violation.
+ * @param error - The caught error to inspect.
+ * @returns `true` when the underlying Postgres error code is `23505`.
  */
 export function isUniqueConstraintError(error: unknown): boolean {
   return hasDbErrorCode(error, "23505");
 }
 
 /**
- * Process the reset db dependencies for testing.
+ * Restores the default DB dependency injection bindings.
+ *
+ * Must be called in both `beforeEach` and `afterEach` in tests that override
+ * {@link setDbDependenciesForTesting} to prevent state leaking between suites.
  */
 export function resetDbDependenciesForTesting(): void {
   dbDependencies = defaultDbDependencies;
@@ -102,8 +120,12 @@ export function resetDbDependenciesForTesting(): void {
 }
 
 /**
- * Process the set db dependencies for testing.
- * @param dependencies - The dependencies.
+ * Overrides one or more DB dependency injection bindings for testing.
+ *
+ * Unspecified bindings fall through to the current defaults, so callers only
+ * need to supply the dependencies they actually want to stub.
+ *
+ * @param dependencies - Partial set of dependency overrides to apply.
  */
 export function setDbDependenciesForTesting(
   dependencies: Partial<DbDependencies>,
@@ -114,21 +136,22 @@ export function setDbDependenciesForTesting(
   };
 }
 
-// ─── DB error utilities ─────────────────────────────────────────────────────
+// ─── Internal helpers ────────────────────────────────────────────────────────
 
 /**
- * Process the clear db singleton state.
+ * Removes the cached DB and pool handles from `globalThis` so the next
+ * {@link getDb} call re-initialises from scratch.
  */
 function clearDbSingletonState(): void {
-  delete globalForDb.pool;
-  delete globalForDb.db;
-  delete globalForDb.hasLoggedInitialDbConnectionWarning;
-  delete globalForDb.hasRunInitialDbConnectivityCheck;
+  delete globalThis.__dbPool;
+  delete globalThis.__db;
+  delete globalThis.__dbConnectionWarningLogged;
+  delete globalThis.__dbConnectivityCheckRan;
 }
 
 /**
- * Create the runtime database provider.
- * @returns The runtime database provider.
+ * Initialises the correct database provider based on the `DB_DRIVER` env var.
+ * @returns A `{ db, pool }` provider result ready for use.
  */
 function createRuntimeDatabaseProvider(): DatabaseProviderResult {
   assertDatabaseConfigured();
@@ -147,19 +170,19 @@ function createRuntimeDatabaseProvider(): DatabaseProviderResult {
 }
 
 /**
- * Return the error message.
- * @param error - The error.
- * @returns The error message.
+ * Extracts a human-readable message from an unknown thrown value.
+ * @param error - The caught value to inspect.
+ * @returns The `.message` property for `Error` instances, or `String(error)` otherwise.
  */
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
 /**
- * Return whether has db error code.
- * @param error - The error.
- * @param code - The code.
- * @returns Whether has db error code.
+ * Returns whether an unknown error carries the given Postgres error code.
+ * @param error - The caught value to inspect.
+ * @param code - The Postgres error code string (e.g. `"23505"`).
+ * @returns `true` when the error object has a matching `code` property.
  */
 function hasDbErrorCode(error: unknown, code: string): boolean {
   if (!error || typeof error !== "object") {
@@ -170,22 +193,27 @@ function hasDbErrorCode(error: unknown, code: string): boolean {
 }
 
 /**
- * Process the run initial db connectivity check.
- * @param pool - The pool.
+ * Fires the startup connectivity probe and logs a warning on failure.
+ *
+ * The check runs at most once per process lifetime; subsequent calls are
+ * no-ops. Errors are swallowed so a flaky DB connection does not prevent
+ * the app from starting.
+ *
+ * @param pool - Narrowed pool reference used to issue the probe query.
  */
 function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
-  if (globalForDb.hasRunInitialDbConnectivityCheck) {
+  if (globalThis.__dbConnectivityCheckRan) {
     return;
   }
 
-  globalForDb.hasRunInitialDbConnectivityCheck = true;
+  globalThis.__dbConnectivityCheckRan = true;
 
   void pool.query("select 1").catch((error: unknown) => {
-    if (globalForDb.hasLoggedInitialDbConnectionWarning) {
+    if (globalThis.__dbConnectionWarningLogged) {
       return;
     }
 
-    globalForDb.hasLoggedInitialDbConnectionWarning = true;
+    globalThis.__dbConnectionWarningLogged = true;
 
     const message = getErrorMessage(error);
     dbDependencies.warn("[db] Initial database connectivity check failed", {
@@ -196,10 +224,23 @@ function runInitialDbConnectivityCheck(pool: ConnectivityCheckPool) {
 }
 
 /**
- * Process the to connectivity check pool.
- * @param pool - The pool.
- * @returns The to connectivity check pool.
+ * Adapts a `DatabasePool` to the minimal {@link ConnectivityCheckPool} interface.
+ *
+ * Both `pg.Pool` and `@neondatabase/serverless Pool` expose a compatible `query`
+ * method at runtime, but TypeScript cannot unify their overloaded call signatures
+ * across the union type, so a targeted `as unknown as` cast is required here.
+ *
+ * @param pool - The live database pool to adapt.
+ * @returns A `ConnectivityCheckPool` backed by the provided pool.
  */
 function toConnectivityCheckPool(pool: DatabasePool): ConnectivityCheckPool {
-  return pool as unknown as ConnectivityCheckPool;
+  const probePool = pool as unknown as ConnectivityCheckPool;
+  return {
+    /**
+     * Issues a raw SQL query through the underlying pool.
+     * @param queryText - The SQL statement to execute.
+     * @returns A promise that resolves to the raw driver query result.
+     */
+    query: (queryText) => probePool.query(queryText),
+  };
 }

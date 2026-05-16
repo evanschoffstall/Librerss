@@ -43,7 +43,12 @@ export function createNeonDatabase(
   });
 
   return {
-    db: drizzle(pool, { schema }) as unknown as Database,
+    // The neon-serverless drizzle instance is runtime-compatible with the
+    // node-postgres Database type but TypeScript tracks them as structurally
+    // distinct due to adapter-specific internal symbols. The node-postgres
+    // type is the app's canonical Database interface (see types.ts).
+    // @ts-expect-error -- neon-serverless and node-postgres Drizzle instances share an identical query API at runtime but diverge in TypeScript's structural type graph
+    db: drizzle(pool, { schema }) as Database,
     pool,
   };
 }
