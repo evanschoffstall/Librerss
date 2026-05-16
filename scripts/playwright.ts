@@ -2,7 +2,6 @@ import { type ChildProcess, spawn } from "node:child_process";
 import { type Dirent, rmSync } from "node:fs";
 import {
   access,
-  copyFile,
   mkdir,
   readdir,
   readFile,
@@ -11,7 +10,7 @@ import {
 } from "node:fs/promises";
 import { createServer } from "node:net";
 import { availableParallelism } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 
 const PLAYWRIGHT_COVERAGE_ENABLED =
   process.env.PLAYWRIGHT_COVERAGE_ENABLED === "1";
@@ -23,6 +22,8 @@ const PLAYWRIGHT_COVERAGE_REPORT_DIR =
   process.env.PLAYWRIGHT_COVERAGE_REPORT_DIR ?? "coverage/playwright";
 const PLAYWRIGHT_COVERAGE_HTML_REPORT_ENABLED =
   process.env.PLAYWRIGHT_COVERAGE_HTML_REPORT_ENABLED === "1";
+const PLAYWRIGHT_JUNIT_REPORT_PATH =
+  process.env.PLAYWRIGHT_JUNIT_REPORT_PATH?.trim();
 export const DEFAULT_PLAYWRIGHT_HOST = "127.0.0.1";
 export const DEFAULT_PLAYWRIGHT_PORT = 3100;
 const PLAYWRIGHT_HOST = DEFAULT_PLAYWRIGHT_HOST;
@@ -127,6 +128,17 @@ interface DevServerHandle {
 }
 
 /**
+ * Describes aggregate counts read from one JUnit XML report.
+ */
+interface JunitReportTotals {
+  errors: number;
+  failures: number;
+  skipped: number;
+  tests: number;
+  time: number;
+}
+
+/**
  * Describes the Monocart report facade used by the Playwright coverage entrypoint.
  */
 interface MonocartCoverageReport {
@@ -165,6 +177,8 @@ type RawCoverageData = Record<string, unknown> | V8CoverageEntry[];
  * Describes the sharded child execution settings.
  */
 interface ShardRunSettings {
+  coverageReportDir?: string;
+  junitReportPath?: string;
   runId: string;
   shard: string;
 }
@@ -261,6 +275,48 @@ export function resolvePlaywrightScriptEntrypoint(rawArguments: string[]): {
     entrypoint: "test",
     forwardedArguments: rawArguments,
   };
+}
+
+/**
+ * Creates a per-shard coverage report directory so each child can generate
+ * source-mapped LCOV while its own dedicated dev server is still running.
+ * @param reportDirectoryPath - Final report directory requested by the caller.
+ * @param runId - Unique shard run id to append to the directory name.
+ * @returns Per-shard coverage report directory path.
+ */
+export function resolveShardCoverageReportDirectory(
+  reportDirectoryPath: string,
+  runId: string,
+) {
+  return `${reportDirectoryPath}.${runId}`;
+}
+
+/**
+ * Creates a per-shard JUnit path so concurrent children never overwrite the
+ * aggregate report consumed by check-suite after the parent process exits.
+ * @param reportPath - Final JUnit report path requested by the caller.
+ * @param runId - Unique shard run id to insert into the file name.
+ * @returns Per-shard JUnit path, or undefined when no JUnit report is enabled.
+ */
+export function resolveShardJunitReportPath(
+  reportPath: string | undefined,
+  runId: string,
+) {
+  if (!reportPath) {
+    return undefined;
+  }
+
+  const lastSlashIndex = Math.max(
+    reportPath.lastIndexOf("/"),
+    reportPath.lastIndexOf("\\"),
+  );
+  const extensionIndex = reportPath.lastIndexOf(".");
+
+  if (extensionIndex > lastSlashIndex) {
+    return `${reportPath.slice(0, extensionIndex)}.${runId}${reportPath.slice(extensionIndex)}`;
+  }
+
+  return `${reportPath}.${runId}`;
 }
 
 /**
@@ -398,9 +454,20 @@ async function createPlaywrightTsconfig(runId: string) {
 function createShardRunSettings(parentRunId: string): ShardRunSettings[] {
   return Array.from({ length: PLAYWRIGHT_SHARD_COUNT }, (_, index) => {
     const shardNumber = index + 1;
+    const runId = `${parentRunId}-shard-${shardNumber}`;
 
     return {
-      runId: `${parentRunId}-shard-${shardNumber}`,
+      coverageReportDir: PLAYWRIGHT_COVERAGE_ENABLED
+        ? resolveShardCoverageReportDirectory(
+            PLAYWRIGHT_COVERAGE_REPORT_DIR,
+            runId,
+          )
+        : undefined,
+      junitReportPath: resolveShardJunitReportPath(
+        PLAYWRIGHT_JUNIT_REPORT_PATH,
+        runId,
+      ),
+      runId,
       shard: `${shardNumber}/${PLAYWRIGHT_SHARD_COUNT}`,
     };
   });
@@ -528,28 +595,6 @@ function isV8CoverageEntry(value: unknown): value is V8CoverageEntry {
 }
 
 /**
- * Recursively lists every file inside the requested directory.
- * @param directoryPath - Directory to scan.
- * @returns Absolute file paths for every nested file.
- */
-async function listDirectoryFiles(directoryPath: string): Promise<string[]> {
-  const entries = await readdir(directoryPath, { withFileTypes: true });
-  const nestedFileSets = await Promise.all(
-    entries.map(async (entry) => {
-      const entryPath = join(directoryPath, entry.name);
-
-      if (entry.isDirectory()) {
-        return await listDirectoryFiles(entryPath);
-      }
-
-      return [entryPath];
-    }),
-  );
-
-  return nestedFileSets.flat();
-}
-
-/**
  * Recursively lists every file within a directory tree.
  * @param directoryPath - Root directory to scan.
  * @returns Absolute file paths for every nested file.
@@ -570,6 +615,21 @@ async function listFilesRecursively(directoryPath: string): Promise<string[]> {
   );
 
   return nestedFiles.flat();
+}
+
+/**
+ * Returns temporary paths that a parent shard coordinator must clean after it
+ * has merged coverage and JUnit artifacts from all successful children.
+ * @param shardRunSettings - Child shard settings used during execution.
+ * @returns Runtime directories and tsconfig files preserved by shard children.
+ */
+function listPreservedShardRuntimePaths(shardRunSettings: ShardRunSettings[]) {
+  return shardRunSettings.flatMap((shardSetting) => [
+    `${PLAYWRIGHT_DIST_DIR_PREFIX}.${shardSetting.runId}`,
+    `${PLAYWRIGHT_TSCONFIG_PREFIX}.${shardSetting.runId}.json`,
+    ...(shardSetting.coverageReportDir ? [shardSetting.coverageReportDir] : []),
+    ...(shardSetting.junitReportPath ? [shardSetting.junitReportPath] : []),
+  ]);
 }
 
 /**
@@ -604,42 +664,94 @@ function mergeCoverageMetric(
 }
 
 /**
- * Copies per-shard raw coverage files into one merged directory for the final
- * coverage report generation pass.
- * @param shardRunSettings - Child shard settings used during execution.
- * @param mergedRawCoverageDir - Destination merged raw coverage directory.
+ * Merges already source-mapped per-shard LCOV reports into the final Playwright
+ * coverage location. Each child generates coverage while its dev server is
+ * still alive, then the parent concatenates those mapped records for check-suite
+ * to total with its existing LCOV reader.
+ * @param shardRunSettings - Child shard settings that include coverage dirs.
+ * @param reportDirectoryPath - Final Playwright coverage report directory.
  */
-async function mergeShardRawCoverage(
+async function mergeShardCoverageReports(
   shardRunSettings: ShardRunSettings[],
-  mergedRawCoverageDir: string,
+  reportDirectoryPath: string,
 ) {
-  await removePlaywrightRuntimeDirectory(mergedRawCoverageDir);
-  await mkdir(join(process.cwd(), mergedRawCoverageDir), { recursive: true });
+  await removePlaywrightRuntimeDirectory(reportDirectoryPath);
+  await mkdir(join(process.cwd(), reportDirectoryPath), { recursive: true });
 
-  for (const shardSetting of shardRunSettings) {
-    const shardRawCoverageDir = `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${shardSetting.runId}`;
-    const shardRawCoveragePath = join(process.cwd(), shardRawCoverageDir);
+  const lcovParts = await Promise.all(
+    shardRunSettings.map(async (shardSetting) => {
+      if (!shardSetting.coverageReportDir) {
+        return "";
+      }
 
-    try {
-      await access(shardRawCoveragePath);
-    } catch {
-      continue;
-    }
-
-    const shardFiles = (await listDirectoryFiles(shardRawCoveragePath)).filter(
-      (filePath) => filePath.endsWith(".json"),
-    );
-
-    for (const shardFile of shardFiles) {
-      const targetFileName = `${shardSetting.runId}-${shardFile
-        .split("/")
-        .at(-1)}`;
-      await copyFile(
-        shardFile,
-        join(process.cwd(), mergedRawCoverageDir, targetFileName),
+      return await readFile(
+        join(process.cwd(), shardSetting.coverageReportDir, "lcov.info"),
+        "utf8",
       );
-    }
+    }),
+  );
+
+  await writeFile(
+    join(process.cwd(), reportDirectoryPath, "lcov.info"),
+    lcovParts.filter(Boolean).join("\n"),
+    "utf8",
+  );
+}
+
+/**
+ * Merges per-shard JUnit XML reports into the final report path expected by
+ * check-suite. Playwright shards run as independent child processes, so each
+ * child writes its own `<testsuites>` document and the parent combines the suite
+ * bodies and aggregate counts after every child succeeds.
+ * @param shardRunSettings - Child shard settings that include per-shard reports.
+ * @param reportPath - Final JUnit report path requested by the parent command.
+ */
+async function mergeShardJunitReports(
+  shardRunSettings: ShardRunSettings[],
+  reportPath: string | undefined,
+) {
+  if (!reportPath) {
+    return;
   }
+
+  const reportParts = await Promise.all(
+    shardRunSettings.map(async (shardSetting) => {
+      if (!shardSetting.junitReportPath) {
+        return null;
+      }
+
+      const reportXml = await readFile(
+        join(process.cwd(), shardSetting.junitReportPath),
+        "utf8",
+      );
+
+      return parseShardJunitReport(reportXml);
+    }),
+  );
+  const reports = reportParts.filter(
+    (report): report is { body: string; totals: JunitReportTotals } =>
+      report !== null,
+  );
+  const totals = reports.reduce<JunitReportTotals>(
+    (currentTotals, report) => ({
+      errors: currentTotals.errors + report.totals.errors,
+      failures: currentTotals.failures + report.totals.failures,
+      skipped: currentTotals.skipped + report.totals.skipped,
+      tests: currentTotals.tests + report.totals.tests,
+      time: currentTotals.time + report.totals.time,
+    }),
+    { errors: 0, failures: 0, skipped: 0, tests: 0, time: 0 },
+  );
+  const mergedReport = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    `<testsuites errors="${totals.errors}" failures="${totals.failures}" skipped="${totals.skipped}" tests="${totals.tests}" time="${totals.time.toFixed(3)}">`,
+    ...reports.map((report) => report.body),
+    "</testsuites>",
+    "",
+  ].join("\n");
+
+  await mkdir(dirname(join(process.cwd(), reportPath)), { recursive: true });
+  await writeFile(join(process.cwd(), reportPath), mergedReport, "utf8");
 }
 
 /**
@@ -718,6 +830,26 @@ function parseRawCoverageData(
 }
 
 /**
+ * Reads aggregate counts and child suite XML from one shard JUnit report.
+ * @param reportXml - Raw JUnit XML written by a Playwright child process.
+ * @returns Parsed totals and suite body for the parent aggregate report.
+ */
+function parseShardJunitReport(reportXml: string): {
+  body: string;
+  totals: JunitReportTotals;
+} {
+  const testsuitesMatch = /<testsuites\b([^>]*)>([\s\S]*?)<\/testsuites>/u.exec(
+    reportXml,
+  );
+  const totals = readJunitReportTotals(testsuitesMatch?.[1] ?? "");
+
+  return {
+    body: testsuitesMatch?.[2]?.trim() ?? reportXml.trim(),
+    totals,
+  };
+}
+
+/**
  * Prewarms the routes and endpoints that the Playwright suite commonly hits
  * first so the run does not pay cold-compilation costs mid-test.
  * @param server - The started Playwright dev server.
@@ -735,6 +867,29 @@ async function prewarmServerRoutes(server: DevServerHandle) {
       );
     }
   }
+}
+
+/**
+ * Reads numeric aggregate attributes from a `<testsuites>` opening tag.
+ * @param rawAttributes - Raw XML attributes from the testsuites element.
+ * @returns JUnit aggregate totals with missing values treated as zero.
+ */
+function readJunitReportTotals(rawAttributes: string): JunitReportTotals {
+  const attributes = Object.fromEntries(
+    [
+      ...rawAttributes.matchAll(
+        /(errors|failures|skipped|tests|time)="([^"]*)"/gu,
+      ),
+    ].map((match) => [match[1], match[2]]),
+  );
+
+  return {
+    errors: Number.parseInt(attributes.errors ?? "0", 10) || 0,
+    failures: Number.parseInt(attributes.failures ?? "0", 10) || 0,
+    skipped: Number.parseInt(attributes.skipped ?? "0", 10) || 0,
+    tests: Number.parseInt(attributes.tests ?? "0", 10) || 0,
+    time: Number.parseFloat(attributes.time ?? "0") || 0,
+  };
 }
 
 /**
@@ -988,6 +1143,8 @@ async function runPlaywrightShards(
   const shardWorkerBudget = resolveShardWorkerBudget();
   const bunExecutablePath = Bun.which("bun") ?? "bun";
   const childProcesses: ChildProcess[] = [];
+  const preservedShardRuntimePaths =
+    listPreservedShardRuntimePaths(shardRunSettings);
 
   for (const [index, shardSetting] of shardRunSettings.entries()) {
     const shardPortStart =
@@ -1004,15 +1161,18 @@ async function runPlaywrightShards(
         ...process.env,
         PLAYWRIGHT_COVERAGE_FILE_PREFIX: `${PLAYWRIGHT_COVERAGE_FILE_PREFIX}${PLAYWRIGHT_COVERAGE_FILE_PREFIX ? "-" : ""}${shardSetting.runId}`,
         PLAYWRIGHT_INTERNAL_SHARD: shardSetting.shard,
+        ...(shardSetting.junitReportPath
+          ? { PLAYWRIGHT_JUNIT_REPORT_PATH: shardSetting.junitReportPath }
+          : {}),
+        ...(shardSetting.coverageReportDir
+          ? { PLAYWRIGHT_COVERAGE_REPORT_DIR: shardSetting.coverageReportDir }
+          : {}),
         PLAYWRIGHT_PORT_START: String(shardPortStart),
-        PLAYWRIGHT_PRESERVE_RAW_COVERAGE: PLAYWRIGHT_COVERAGE_ENABLED
-          ? "1"
-          : "0",
+        PLAYWRIGHT_PRESERVE_RAW_COVERAGE:
+          process.env.PLAYWRIGHT_PRESERVE_RAW_COVERAGE ?? "0",
         PLAYWRIGHT_RUN_ID: shardSetting.runId,
         PLAYWRIGHT_SHARD_COUNT: "1",
-        PLAYWRIGHT_SKIP_COVERAGE_GENERATION: PLAYWRIGHT_COVERAGE_ENABLED
-          ? "1"
-          : "0",
+        PLAYWRIGHT_SKIP_COVERAGE_GENERATION: "0",
         PLAYWRIGHT_WORKERS: String(shardWorkerBudget),
       },
       stdio: "inherit",
@@ -1027,28 +1187,44 @@ async function runPlaywrightShards(
   );
 
   if (failedShard) {
+    if (!PLAYWRIGHT_PRESERVE_RAW_COVERAGE) {
+      await Promise.allSettled(
+        preservedShardRuntimePaths.map((targetPath) =>
+          removePlaywrightRuntimeDirectory(targetPath),
+        ),
+      );
+    }
     return 1;
   }
 
+  await mergeShardJunitReports(shardRunSettings, PLAYWRIGHT_JUNIT_REPORT_PATH);
+
   if (PLAYWRIGHT_COVERAGE_ENABLED) {
-    const mergedRawCoverageDir = `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${parentRunId}`;
-
-    await mergeShardRawCoverage(shardRunSettings, mergedRawCoverageDir);
-
-    const coverageExitCode =
-      await generatePlaywrightCoverageReport(mergedRawCoverageDir);
-
-    await Promise.allSettled(
-      shardRunSettings.map((shardSetting) =>
-        removePlaywrightRuntimeDirectory(
-          `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${shardSetting.runId}`,
-        ),
-      ),
+    await mergeShardCoverageReports(
+      shardRunSettings,
+      PLAYWRIGHT_COVERAGE_REPORT_DIR,
     );
-    await removePlaywrightRuntimeDirectory(mergedRawCoverageDir);
 
-    return coverageExitCode;
+    if (!PLAYWRIGHT_PRESERVE_RAW_COVERAGE) {
+      await Promise.allSettled(
+        [
+          ...shardRunSettings.map(
+            (shardSetting) =>
+              `${PLAYWRIGHT_COVERAGE_OUTPUT_DIR}.${shardSetting.runId}`,
+          ),
+          ...preservedShardRuntimePaths,
+        ].map((targetPath) => removePlaywrightRuntimeDirectory(targetPath)),
+      );
+    }
+
+    return 0;
   }
+
+  await Promise.allSettled(
+    preservedShardRuntimePaths.map((targetPath) =>
+      removePlaywrightRuntimeDirectory(targetPath),
+    ),
+  );
 
   return 0;
 }
@@ -1078,10 +1254,15 @@ async function runPlaywrightTests(forwardedArguments: string[]) {
 
   let cleaningUp = false;
 
+  const shouldPreserveRuntimeForParentCoverage =
+    PLAYWRIGHT_COVERAGE_ENABLED &&
+    PLAYWRIGHT_PRESERVE_RAW_COVERAGE &&
+    PLAYWRIGHT_SKIP_COVERAGE_GENERATION &&
+    Boolean(PLAYWRIGHT_INTERNAL_SHARD);
+
   /** Collects all temporary paths that must be removed on exit. */
   const temporaryPaths = [
-    distDir,
-    tsconfigPath,
+    ...(shouldPreserveRuntimeForParentCoverage ? [] : [distDir, tsconfigPath]),
     ...(PLAYWRIGHT_COVERAGE_ENABLED && !PLAYWRIGHT_PRESERVE_RAW_COVERAGE
       ? [rawCoverageOutputDir]
       : []),
