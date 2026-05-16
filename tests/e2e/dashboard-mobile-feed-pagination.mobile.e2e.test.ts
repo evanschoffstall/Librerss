@@ -184,12 +184,15 @@ test.describe("dashboard mobile feed pagination", () => {
 
         try {
           await expect
-            .poll(async () => {
-              return await readVisibleFeedArticleCount(page);
-            }, {
-              intervals: [80, 120, 160],
-              timeout: 700,
-            })
+            .poll(
+              async () => {
+                return await readVisibleFeedArticleCount(page);
+              },
+              {
+                intervals: [80, 120, 160],
+                timeout: 700,
+              },
+            )
             .toBeGreaterThan(secondVisibleCount);
           thirdVisibleCount = await readVisibleFeedArticleCount(page);
           break;
