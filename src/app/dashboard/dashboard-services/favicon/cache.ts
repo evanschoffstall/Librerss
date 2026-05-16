@@ -153,8 +153,8 @@ const hydrateFaviconIndexCache = () => {
 };
 
 /**
- * Process the hydrate parsed favicon entries.
- * @param parsed - The d.
+ * Populate the in-memory favicon cache from a parsed localStorage object.
+ * @param parsed - The parsed cache object from localStorage.
  */
 const hydrateParsedFaviconEntries = (parsed: object) => {
   for (const [key, value] of Object.entries(parsed)) {

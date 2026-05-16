@@ -82,10 +82,10 @@ export function parsePageTitle(html: string): null | string {
 }
 
 /**
- * Process the read meta tag content.
+ * Search the HTML for a meta tag matching any of the given property/name keys and return its content value.
  * @param rawHtml - The raw html.
  * @param keys - The keys.
- * @returns The read meta tag content.
+ * @returns The decoded content attribute value of the first matching meta tag, or an empty string.
  */
 export function readMetaTagContent(rawHtml: string, keys: string[]): string {
   const keySet = new Set(keys.map((key) => key.toLowerCase()));
@@ -123,20 +123,20 @@ function parseMetaTagAttributes(tag: string): Record<string, string> {
 }
 
 /**
- * Process the read meta tag attribute.
+ * Extract the value of a named attribute from a single meta tag string.
  * @param tag - The tag.
  * @param attribute - The attribute.
- * @returns The read meta tag attribute.
+ * @returns The attribute value, or an empty string if not found.
  */
 function readMetaTagAttribute(tag: string, attribute: string): string {
   return parseMetaTagAttributes(tag)[attribute.toLowerCase()] ?? "";
 }
 
 /**
- * Process the read tag text.
+ * Extract and return the inner text of the first matching tag, stripping any nested markup.
  * @param html - The html.
  * @param tagName - The tag name.
- * @returns The read tag text.
+ * @returns The trimmed plain-text content of the tag, or an empty string if the tag is absent.
  */
 function readTagText(html: string, tagName: "h1" | "title"): string {
   const tagMatch = (

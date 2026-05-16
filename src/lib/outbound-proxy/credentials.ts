@@ -70,7 +70,7 @@ export function encryptStoredProxyPassword(password: string): string {
 /**
  * Process the materialize stored proxy password.
  * @param storedPassword - The stored password.
- * @param persistNormalizedPassword - The callback that persist normalized password.
+ * @param persistNormalizedPassword - Optional callback to persist the normalized password back to storage.
  * @returns The materialize stored proxy password.
  */
 export async function materializeStoredProxyPassword(

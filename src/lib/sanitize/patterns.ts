@@ -70,10 +70,10 @@ export function isRelatedHeading(headingText: string): boolean {
 }
 
 /**
- * Process the read attr value.
- * @param attrsStr - The attrs str.
- * @param attrName - The attr name.
- * @returns The read attr value.
+ * Read the value of a named attribute from a raw HTML attribute string.
+ * @param attrsStr - The raw attribute string extracted from an HTML tag.
+ * @param attrName - The lowercase attribute name to look up.
+ * @returns The attribute value, or null if the attribute is not present.
  */
 export function readAttrValue(
   attrsStr: string,
@@ -88,9 +88,9 @@ export function readAttrValue(
 }
 
 /**
- * Normalize the phrase.
- * @param value - The value.
- * @returns The phrase.
+ * Normalize a phrase to lowercase with whitespace-collapsed single spaces.
+ * @param value - The raw phrase string to normalize.
+ * @returns The normalized lowercase phrase with collapsed whitespace.
  */
 function normalizePhrase(value: string): string {
   return value

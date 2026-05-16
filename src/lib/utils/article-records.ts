@@ -92,10 +92,10 @@ export function preferRicherArticleRecord<T extends ArticleRecordLike>(
 }
 
 /**
- * Process the sort article records by publication date desc.
- * @param a - The a.
- * @param b - The b.
- * @returns The sort article records by publication date desc.
+ * Comparator that sorts article records by publication date, newest first.
+ * @param a - First article record.
+ * @param b - Second article record.
+ * @returns Negative, zero, or positive number for use with Array.sort.
  */
 export function sortArticleRecordsByPublicationDateDesc<
   T extends Pick<ArticleRecordLike, "publicationDate">,

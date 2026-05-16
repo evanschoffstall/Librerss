@@ -69,8 +69,8 @@ export function assertExtractableArticleHtml(html: string): void {
 }
 
 /**
- * Create the extract payload.
- * @param content - The content.
+ * Build an extract response payload from sanitized content and optional distillation output.
+ * @param content - The sanitized article content string.
  * @param extracted - The extracted.
  * @returns The extract payload.
  */
@@ -86,7 +86,7 @@ export function createExtractPayload(
 }
 
 /**
- * Create the extract request context.
+ * Build a tracing context for an article extraction request, including a unique attempt ID and optional correlation ID.
  * @param request - The request.
  * @returns The extract request context.
  */
@@ -108,11 +108,11 @@ export function createExtractRequestContext(
 }
 
 /**
- * Return the cached extract response.
+ * Return a cached extraction payload when caching is enabled and a non-empty entry exists.
  * @param articleUrl - The article url.
  * @param shouldUseCache - Whether should use cache.
- * @param getCachedExtractPayload - The callback that cached extract payload.
- * @returns The cached extract response.
+ * @param getCachedExtractPayload - Optional override for the extract payload cache lookup.
+ * @returns The cached payload, or null when caching is disabled or no valid entry exists.
  */
 export function getCachedExtractResponse(
   articleUrl: string,
@@ -130,9 +130,9 @@ export function getCachedExtractResponse(
 }
 
 /**
- * Return the request url.
+ * Extract the URL string from an unknown request-like value.
  * @param value - The value.
- * @returns The request url.
+ * @returns The trimmed URL string, or an empty string when the value lacks one.
  */
 export function getRequestUrl(value: unknown): string {
   if (typeof value !== "object" || value === null) {
@@ -144,12 +144,12 @@ export function getRequestUrl(value: unknown): string {
 }
 
 /**
- * Process the prepend metadata lead image when missing.
+ * Prepend a metadata lead image to article content when no inline image is present.
  * @param content - The content.
  * @param originalHtml - The original html.
  * @param articleUrl - The article url.
- * @param cleanContent - The callback that clean content.
- * @returns The prepend metadata lead image when missing.
+ * @param cleanContent - Callback that strips non-essential markup from sanitized HTML.
+ * @returns Content augmented with a metadata-sourced lead image, or the original content unchanged.
  */
 export function prependMetadataLeadImageWhenMissing(
   content: string,
@@ -189,8 +189,8 @@ export function prependMetadataLeadImageWhenMissing(
  * Resolve the direct sanitized content.
  * @param extractableHtml - The extractable html.
  * @param articleUrl - The article url.
- * @param sanitizeContent - The callback that sanitize content.
- * @param cleanContent - The callback that clean content.
+ * @param sanitizeContent - Callback that sanitizes raw HTML into safe content.
+ * @param cleanContent - Callback that strips non-essential markup from sanitized HTML.
  * @returns The direct sanitized content.
  */
 export function resolveDirectSanitizedContent(
@@ -231,8 +231,8 @@ export function resolveDistillStrategy(
  * @param originalHtml - The original html.
  * @param articleUrl - The article url.
  * @param extracted - The extracted.
- * @param sanitizeContent - The callback that sanitize content.
- * @param cleanContent - The callback that clean content.
+ * @param sanitizeContent - Callback that sanitizes raw HTML into safe content.
+ * @param cleanContent - Callback that strips non-essential markup from sanitized HTML.
  * @returns The extracted content.
  */
 export function resolveExtractedContent(
@@ -274,11 +274,11 @@ export function resolveExtractedContent(
 }
 
 /**
- * Process the respond to upstream extract error.
+ * Build and log an error response for a failed upstream article extraction request.
  * @param error - The error.
  * @param context - The context used to process the respond to upstream extract error.
  * @param options - The options used to process the respond to upstream extract error.
- * @returns The respond to upstream extract error.
+ * @returns A 502 or 422 JSON response with upstream failure details.
  */
 export function respondToUpstreamExtractError(
   error: HttpCloakUpstreamError,
@@ -327,9 +327,9 @@ export function respondToUpstreamExtractError(
 }
 
 /**
- * Process the warn on empty extraction.
+ * Emit a warning when the article extractor returned no usable content.
  * @param extracted - The extracted.
- * @param warn - The callback that warn.
+ * @param warn - Callback for emitting warning log entries.
  * @param safeUrl - The safe url.
  */
 export function warnOnEmptyExtraction(
@@ -346,9 +346,9 @@ export function warnOnEmptyExtraction(
 }
 
 /**
- * Process the extract lead image block.
+ * Extract the first lead image block (a `<p><img …></p>` or bare `<img>`) from sanitized content.
  * @param content - The content.
- * @returns The extract lead image block.
+ * @returns The matched HTML block string, or an empty string if none is found.
  */
 function extractLeadImageBlock(content: string): string {
   const leadImageBlock = LEAD_IMAGE_BLOCK_RE.exec(content)?.[0];
@@ -363,7 +363,7 @@ function extractLeadImageBlock(content: string): string {
  * Resolve the metadata fallback content.
  * @param originalHtml - The original html.
  * @param articleUrl - The article url.
- * @param cleanContent - The callback that clean content.
+ * @param cleanContent - Callback that strips non-essential markup from sanitized HTML.
  * @returns The metadata fallback content.
  */
 function resolveMetadataFallbackContent(
@@ -381,10 +381,10 @@ function resolveMetadataFallbackContent(
 }
 
 /**
- * Process the sanitize header value.
+ * Strip non-printable ASCII characters from a header value and clamp it to a maximum length.
  * @param value - The value.
  * @param maxLen - The max len.
- * @returns The sanitize header value.
+ * @returns The sanitized string, or null if the result is empty.
  */
 function sanitizeHeaderValue(value: null | string, maxLen = 64): null | string {
   if (!value) {

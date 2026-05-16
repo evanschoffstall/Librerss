@@ -14,7 +14,7 @@ export function useIsMobile() {
   useEffect(() => {
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
     /**
-     * Process the on change.
+     * Update isMobile state when the breakpoint media query changes.
      */
     const onChange = () => {
       setIsMobile(mql.matches);

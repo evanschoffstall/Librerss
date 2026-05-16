@@ -79,7 +79,7 @@ export function resetArticleStatusTableStateForTests(): void {
 
 /**
  * Process the upsert article statuses.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param articleIds - The article ids.
  * @param changes - The changes.
  * @param deps - The deps.

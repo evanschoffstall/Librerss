@@ -180,7 +180,7 @@ function getArticleTitleSearchText(article: Article) {
 /**
  * Return whether is article search match.
  * @param article - The article.
- * @param normalizedSearchTerm - The d search term.
+ * @param normalizedSearchTerm - The normalized search term.
  * @returns Whether is article search match.
  */
 function isArticleSearchMatch(article: Article, normalizedSearchTerm: string) {

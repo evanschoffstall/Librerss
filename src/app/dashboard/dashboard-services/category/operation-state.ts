@@ -140,7 +140,7 @@ export function restoreSelectedCategoryFromSourceUrl(
  * Update the category label collections.
  * @param setCustomCategoryLabels - The set custom category labels.
  * @param setOrderedCategoryLabels - The set ordered category labels.
- * @param update - The callback that .
+ * @param update - Callback invoked with the updated operation state.
  */
 export function updateCategoryLabelCollections(
   setCustomCategoryLabels: Dispatch<SetStateAction<string[]>>,

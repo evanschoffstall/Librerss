@@ -50,7 +50,7 @@ interface FeedSettingsSettings {
 
 /**
  * Create the feed.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param payload - The payload.
  * @param deps - The deps.
  * @returns The feed.
@@ -77,7 +77,7 @@ export async function createFeed(
 
 /**
  * Process the delete feed.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param deps - The deps.
  * @returns The delete feed.
@@ -100,7 +100,7 @@ export async function deleteFeed(
 
 /**
  * Return the category order.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param deps - The deps.
  * @returns The category order.
  */
@@ -120,7 +120,7 @@ export async function getCategoryOrder(
 
 /**
  * Process the rename feed.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param name - The name.
  * @param url - The url.
@@ -145,7 +145,7 @@ export async function renameFeed(
 
 /**
  * Process the save category order.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param labels - The labels.
  * @param deps - The deps.
  * @returns The save category order.
@@ -172,7 +172,7 @@ export async function saveCategoryOrder(
 }
 /**
  * Process the set feed enabled.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param enabled - The enabled.
  * @param deps - The deps.
@@ -196,7 +196,7 @@ export async function setFeedEnabled(
 
 /**
  * Update the feed settings.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param settings - The settings.
  * @param deps - The deps.

@@ -108,10 +108,10 @@ interface StoredUserProxyRow {
 }
 
 /**
- * Return the proxy routing check.
- * @param options - The options used to return the proxy routing check.
+ * Run a connectivity check against the configured proxy URL.
+ * @param options - The options used to the routing check result including reachability and IP information.
  * @param deps - The deps.
- * @returns The proxy routing check.
+ * @returns The routing check result with direct and proxied exit IPs and a status classification.
  */
 export async function getProxyRoutingCheck(
   options: ProxyRoutingCheckOptions,
@@ -157,9 +157,9 @@ export async function getProxyRoutingCheck(
 }
 
 /**
- * Return the proxy status.
- * @param userId - The r id.
- * @returns The proxy status.
+ * Retrieve the current proxy status and public IP for a user.
+ * @param userId - The user ID.
+ * @returns The proxy status record including IP and configuration details.
  */
 export async function getProxyStatus(
   userId: number,
@@ -194,8 +194,8 @@ export async function getProxyStatus(
 }
 /**
  * Resolve the user proxy.
- * @param userId - The r id.
- * @returns The user proxy.
+ * @param userId - The user ID.
+ * @returns The resolved user proxy including a credential-injected proxy URL and TLS setting, or a bare proxy when no credentials are stored.
  */
 export async function resolveUserProxy(
   userId: number,
@@ -223,7 +223,7 @@ export async function resolveUserProxy(
 /**
  * Build the resolved proxy url.
  * @param options - The options used to build the resolved proxy url.
- * @returns The resolved proxy url.
+ * @returns The fully-qualified proxy URL with credentials injected, or undefined when no base URL is set.
  */
 function buildResolvedProxyUrl(
   options: ResolvedProxyUrlOptions,
@@ -260,9 +260,9 @@ function buildResolvedProxyUrl(
 }
 
 /**
- * Process the load stored user proxy row.
- * @param userId - The r id.
- * @returns The load stored user proxy row.
+ * Load the stored proxy configuration row for a user from the database.
+ * @param userId - The user ID.
+ * @returns The stored proxy row, or null if no proxy is configured.
  */
 async function loadStoredUserProxyRow(
   userId: number,
@@ -284,10 +284,10 @@ async function loadStoredUserProxyRow(
 }
 
 /**
- * Process the materialize proxy password.
+ * Materialize the proxy password by normalizing and optionally persisting it.
  * @param row - The row.
- * @param userId - The r id.
- * @returns The materialize proxy password.
+ * @param userId - The user ID.
+ * @returns The materialized proxy password string, or null if none is set.
  */
 async function materializeProxyPassword(
   row: StoredUserProxyRow,
@@ -321,7 +321,7 @@ async function materializeProxyPassword(
 /**
  * Normalize the stored proxy url.
  * @param proxyUrl - The proxy url.
- * @returns The stored proxy url.
+ * @returns The canonical proxy URL with an explicit port, or undefined when no usable URL is stored.
  */
 function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
   const trimmedProxyUrl = proxyUrl?.trim();
@@ -344,7 +344,7 @@ function normalizeStoredProxyUrl(proxyUrl: null | string): string | undefined {
 /**
  * Parse the plain text public ip payload.
  * @param body - The body.
- * @returns The plain text public ip payload.
+ * @returns An object with the trimmed IP string extracted from a plain-text response body.
  */
 function parsePlainTextPublicIpPayload(body: string): { ip: string } {
   const trimmedBody = body.trim();
@@ -360,7 +360,7 @@ function parsePlainTextPublicIpPayload(body: string): { ip: string } {
  * Parse the provider public ip payload.
  * @param provider - The provider.
  * @param body - The body.
- * @returns The provider public ip payload.
+ * @returns An object with the IP string parsed from the provider response body.
  */
 function parseProviderPublicIpPayload(
   provider: PublicIpProvider,
@@ -374,7 +374,7 @@ function parseProviderPublicIpPayload(
 /**
  * Parse the public ip payload.
  * @param body - The body.
- * @returns The public ip payload.
+ * @returns An object with the IP string parsed from the JSON response body.
  */
 function parsePublicIpPayload(body: string): { ip: string } {
   let parsedBody: unknown;
@@ -399,11 +399,11 @@ function parsePublicIpPayload(body: string): { ip: string } {
 }
 
 /**
- * Process the read public ip.
+ * Read the current public IP address by querying configured provider endpoints.
  * @param proxyUrl - The proxy url.
  * @param allowInsecureTls - The allow insecure tls.
  * @param fetchPublicIp - The fetch public ip.
- * @returns The read public ip.
+ * @returns The detected public IP address string from the first successful provider.
  */
 async function readPublicIp(
   proxyUrl: string | undefined,
@@ -442,16 +442,16 @@ async function readPublicIp(
 /**
  * Resolve the embedded credentials.
  * @param proxyUrl - The proxy url.
- * @returns The embedded credentials.
+ * @returns The username, password, and sanitized URL parsed from the proxy URL, or null when absent.
  */
 function resolveEmbeddedCredentials(proxyUrl: string | undefined) {
   return proxyUrl ? getUrlCredentials(proxyUrl) : null;
 }
 
 /**
- * Process the to settled reason.
+ * Extract a human-readable reason string from a settled promise result.
  * @param result - The result.
- * @returns The to settled reason.
+ * @returns A reason string from the settled promise, or null if unavailable.
  */
 function toSettledReason(result: PromiseSettledResult<string>): string {
   if (result.status === "fulfilled") {
@@ -464,7 +464,7 @@ function toSettledReason(result: PromiseSettledResult<string>): string {
 }
 
 /**
- * Process the validate public ip endpoint.
+ * Validate that a public IP endpoint URL is safe to contact.
  * @param candidateUrl - The candidate url.
  * @returns Whether validate public ip endpoint.
  */

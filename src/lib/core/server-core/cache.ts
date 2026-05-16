@@ -68,7 +68,7 @@ const MAX_ENTRIES_PER_USER = 8;
 
 /**
  * Return the cached batch.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param urls - The urls.
  * @param options - Cache-key options including the article filter, limit,
  *   search term, and display sort order.
@@ -105,7 +105,7 @@ export function getCachedBatch(
 
 /**
  * Return the cached feed source list.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The cached feed source list.
  */
 export function getCachedFeedSourceList(
@@ -126,7 +126,7 @@ export function getCachedFeedSourceList(
 
 /**
  * Process the invalidate user cache.
- * @param userId - The r id.
+ * @param userId - The user ID.
  */
 export function invalidateUserCache(userId: number): void {
   userCaches.delete(userId);
@@ -134,7 +134,7 @@ export function invalidateUserCache(userId: number): void {
 
 /**
  * Process the invalidate user feed source list cache.
- * @param userId - The r id.
+ * @param userId - The user ID.
  */
 export function invalidateUserFeedSourceListCache(userId: number): void {
   userFeedSourceListCaches.delete(userId);
@@ -142,7 +142,7 @@ export function invalidateUserFeedSourceListCache(userId: number): void {
 
 /**
  * Process the set cached batch.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param urls - The urls.
  * @param result - The result.
  * @param options - Cache-key options including the article filter, limit,
@@ -188,7 +188,7 @@ export function setCachedBatch(
 
 /**
  * Process the set cached feed source list.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param sources - The sources.
  */
 export function setCachedFeedSourceList(

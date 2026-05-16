@@ -143,9 +143,9 @@ function isTooSmallImage(
 }
 
 /**
- * Process the max srcset width.
- * @param srcset - The srcset.
- * @returns The max srcset width.
+ * Return the largest width descriptor found in a srcset string, or Infinity when none are present.
+ * @param srcset - The srcset attribute value to scan.
+ * @returns The maximum pixel width declared in the srcset, or Infinity if no width descriptors exist.
  */
 function maxSrcsetWidth(srcset: string): number {
   const widths = [...srcset.matchAll(/\b(\d+)w\b/gi)].map((m) =>
@@ -169,9 +169,9 @@ function parseDimension(value: string | undefined): null | number {
 }
 
 /**
- * Process the read image descriptor.
- * @param attribs - The attribs.
- * @returns The read image descriptor.
+ * Combine the alt and title attributes into a single image descriptor string.
+ * @param attribs - The img element attributes.
+ * @returns A trimmed string joining alt and title, used to assess whether the image has content signal.
  */
 function readImageDescriptor(
   attribs: Record<string, string | undefined>,
@@ -227,9 +227,9 @@ const ARTICLE_SANITIZE_OPTIONS = {
     "hr",
   ],
   /**
-   * Process the exclusive filter.
-   * @param frame - The frame.
-   * @returns Whether exclusive filter.
+   * Exclude img elements that are too small or are known placeholder images.
+   * @param frame - The current element frame being evaluated by the sanitizer.
+   * @returns True if the element should be removed from the output.
    */
   exclusiveFilter: (frame: ExclusiveFilterFrame) =>
     frame.tag === "img" &&
@@ -264,10 +264,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
   ],
   transformTags: {
     /**
-     * Process the a.
-     * @param tagName - The tag name.
-     * @param attribs - The attribs.
-     * @returns The a.
+     * Enforce safe external-link attributes on every anchor tag.
+     * @param tagName - The tag name passed through from the sanitizer.
+     * @param attribs - The attribs passed through from the sanitizer.
+     * @returns The transformed tag with rel and target enforced.
      */
     a: (tagName: string, attribs: Record<string, string>) => ({
       attribs: {
@@ -278,10 +278,10 @@ const ARTICLE_SANITIZE_OPTIONS = {
       tagName,
     }),
     /**
-     * Process the img.
-     * @param tagName - The tag name.
-     * @param attribs - The attribs.
-     * @returns The img.
+     * Normalize lazy-load source attributes and set safe loading/decoding defaults on every img tag.
+     * @param tagName - The tag name passed through from the sanitizer.
+     * @param attribs - The attribs passed through from the sanitizer.
+     * @returns The transformed tag with src resolved and safe rendering attributes applied.
      */
     img: (tagName: string, attribs: Record<string, string>) => {
       const trimmedSource = (
@@ -307,9 +307,9 @@ const ARTICLE_SANITIZE_OPTIONS = {
 };
 
 /**
- * Process the sanitize and truncate article content.
- * @param raw - The raw.
- * @returns The sanitize and truncate article content.
+ * Sanitize raw article HTML and truncate it to the configured content length limit.
+ * @param raw - The raw HTML string from the feed or extraction pipeline.
+ * @returns Safe, truncated HTML ready for storage and display.
  */
 export function sanitizeAndTruncateArticleContent(raw: string): string {
   const sanitized = sanitizeArticleHtml(raw);
@@ -328,9 +328,9 @@ export function sanitizeAndTruncateArticleContent(raw: string): string {
 }
 
 /**
- * Process the sanitize article html.
- * @param raw - The raw.
- * @returns The sanitize article html.
+ * Sanitize raw article HTML, stripping dangerous elements and normalizing whitespace.
+ * @param raw - The raw HTML string to sanitize.
+ * @returns Safe article HTML with scripts, events, junk blocks, and invisible whitespace removed.
  */
 export function sanitizeArticleHtml(raw: string): string {
   if (!raw.trim()) return "";
@@ -353,9 +353,9 @@ export function sanitizeArticleHtml(raw: string): string {
 }
 
 /**
- * Process the sanitize article title.
- * @param title - The title.
- * @returns The sanitize article title.
+ * Strip HTML from an article title, decode entities, and truncate to the configured limit.
+ * @param title - The raw title string, which may contain HTML markup.
+ * @returns A plain-text title within the configured maximum length, defaulting to "Untitled".
  */
 export function sanitizeArticleTitle(title: null | string | undefined): string {
   const stripped = sanitizeHtml(title ?? "", {

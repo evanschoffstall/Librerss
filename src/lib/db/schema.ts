@@ -45,7 +45,7 @@ const defineUniqueIndex = (name: string, ...columns: CompositeIndexColumns) =>
 
 /**
  * Process the define user scoped indexes.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param indexes - The indexes.
  * @returns The define user scoped indexes.
  */

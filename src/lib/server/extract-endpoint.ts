@@ -359,7 +359,7 @@ async function resolveExtractRequest(
 /**
  * Resolve the proxy request.
  * @param authUserId - The auth user id.
- * @param resolveUserProxy - The callback that user proxy.
+ * @param resolveUserProxy - Callback that resolves the proxy configuration for a user.
  * @param useProxy - The proxy.
  * @returns The proxy request.
  */

@@ -57,9 +57,9 @@ export class Logger {
   ]);
 
   /**
-   * Process the debug.
-   * @param message - The message.
-   * @param context - The context used to process the debug.
+   * Emit a debug-level log entry, only when running in development with verbose logging enabled.
+   * @param message - The log message.
+   * @param context - Optional structured context attached to the log entry.
    */
   debug(message: string, context?: LogContext): void {
     if (!isDevelopment() || this.getCurrentLogLevel() !== "verbose") return;
@@ -68,9 +68,9 @@ export class Logger {
   }
 
   /**
-   * Process the error.
-   * @param message - The message.
-   * @param context - The context used to process the error.
+   * Emit an error-level log entry unless the log level is set to "none".
+   * @param message - The log message.
+   * @param context - Optional structured context attached to the log entry.
    */
   error(message: string, context?: LogContext): void {
     if (this.getCurrentLogLevel() === "none") return;
@@ -80,9 +80,9 @@ export class Logger {
   }
 
   /**
-   * Process the info.
-   * @param message - The message.
-   * @param context - The context used to process the info.
+   * Emit an info-level log entry when the configured log level is "info" or "verbose".
+   * @param message - The log message.
+   * @param context - Optional structured context attached to the log entry.
    */
   info(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
@@ -96,9 +96,9 @@ export class Logger {
   }
 
   /**
-   * Process the warn.
-   * @param message - The message.
-   * @param context - The context used to process the warn.
+   * Emit a warning-level log entry when the configured log level is "warn", "info", or "verbose".
+   * @param message - The log message.
+   * @param context - Optional structured context attached to the log entry.
    */
   warn(message: string, context?: LogContext): void {
     const logLevel = this.getCurrentLogLevel();
@@ -109,9 +109,9 @@ export class Logger {
   }
 
   /**
-   * Process the format context block.
-   * @param contextJson - The context json.
-   * @returns The format context block.
+   * Render a JSON context string as an indented block with a "└─ context" heading.
+   * @param contextJson - The serialized JSON context string to format.
+   * @returns A multi-line string with a heading and indented body, optionally ANSI-colored.
    */
   private formatContextBlock(contextJson: string): string {
     const lines = contextJson.split("\n");
@@ -130,11 +130,11 @@ export class Logger {
   }
 
   /**
-   * Process the format message.
-   * @param level - The level.
-   * @param message - The message.
-   * @param context - The context used to process the format message.
-   * @returns The format message.
+   * Assemble a complete log line with timestamp, level label, message, and optional context block.
+   * @param level - The log level label.
+   * @param message - The log message.
+   * @param context - Optional structured context to append as a formatted block.
+   * @returns The fully formatted log string, with ANSI color when the terminal supports it.
    */
   private formatMessage(
     level: LogLevel,
@@ -159,8 +159,8 @@ export class Logger {
   }
 
   /**
-   * Return the current log level.
-   * @returns The current log level.
+   * Return the active log level from configuration.
+   * @returns The configured log level string.
    */
   private getCurrentLogLevel(): "error" | "info" | "none" | "verbose" | "warn" {
     return CONFIG.LOG_LEVEL;

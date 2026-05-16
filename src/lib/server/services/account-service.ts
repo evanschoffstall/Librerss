@@ -98,7 +98,7 @@ interface ExportedUser {
 
 /**
  * Process the delete account.
- * @param userId - The r id.
+ * @param userId - The user ID.
  */
 export async function deleteAccount(userId: number) {
   if (RUNTIME_FLAGS.usePlaceholderData) {
@@ -123,7 +123,7 @@ export async function deleteAccount(userId: number) {
 
 /**
  * Process the export account data.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param deps - The deps.
  * @returns The export account data.
  */
@@ -165,8 +165,8 @@ export async function exportAccountData(
 
 /**
  * Build the exported user.
- * @param userId - The r id.
- * @param user - The r.
+ * @param userId - The user ID.
+ * @param user - The user row from the database export query.
  * @returns The exported user.
  */
 function buildExportedUser(
@@ -202,7 +202,7 @@ function getEmbeddedProxyCredentials(proxyUrl: null | string) {
 /**
  * Process the load export account base records.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The load export account base records.
  */
 async function loadExportAccountBaseRecords(
@@ -230,7 +230,7 @@ async function loadExportAccountBaseRecords(
 /**
  * Process the load export account relations.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param hasFeedSources - Whether has feed sources.
  * @returns The load export account relations.
  */
@@ -276,7 +276,7 @@ async function loadExportAccountRelations(
 /**
  * Process the select category order rows.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The select category order rows.
  */
 function selectCategoryOrderRows(
@@ -296,7 +296,7 @@ function selectCategoryOrderRows(
 /**
  * Process the select export session rows.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The select export session rows.
  */
 function selectExportSessionRows(
@@ -316,7 +316,7 @@ function selectExportSessionRows(
 /**
  * Process the select export source rows.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The select export source rows.
  */
 function selectExportSourceRows(
@@ -339,7 +339,7 @@ function selectExportSourceRows(
 /**
  * Process the select status rows.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The select status rows.
  */
 function selectStatusRows(
@@ -360,7 +360,7 @@ function selectStatusRows(
 /**
  * Process the select user export row.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The select user export row.
  */
 function selectUserExportRow(

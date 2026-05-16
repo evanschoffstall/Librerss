@@ -41,7 +41,7 @@ export function removeLeadingDuplicateImage(content: string): string {
  * Process the strip lead media boilerplate headings.
  * @param content - The content.
  * @param isShortHeadingLabel - Whether is short heading label.
- * @param normalizeHeadingText - The callback that heading text.
+ * @param normalizeHeadingText - Callback that normalizes a raw heading string into plain text.
  * @returns The strip lead media boilerplate headings.
  */
 export function stripLeadMediaBoilerplateHeadings(

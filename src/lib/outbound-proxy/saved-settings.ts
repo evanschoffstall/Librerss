@@ -23,13 +23,13 @@ import {
 } from "./transport";
 
 /**
- * Process the configured response with error.
+ * Build a JSON response for a configured but unreachable proxy, including the error message.
  * @param proxyUrl - The proxy url.
- * @param allowInsecureTls - The allow insecure tls.
+ * @param allowInsecureTls - Whether insecure TLS verification is disabled for the proxy connection.
  * @param proxyUsername - The proxy username.
- * @param hasProxyPassword - Whether has proxy password.
+ * @param hasProxyPassword - Whether a proxy password is currently stored.
  * @param error - The error.
- * @returns The configured response with error.
+ * @returns A 200 JSON response indicating the proxy is configured but currently unreachable.
  */
 export function configuredResponseWithError(
   proxyUrl: string,
@@ -51,9 +51,9 @@ export function configuredResponseWithError(
 }
 
 /**
- * Create the stored password updater.
- * @param userId - The r id.
- * @returns The stored password updater.
+ * Create a function that persists a new normalized proxy password for the given user.
+ * @param userId - The user ID.
+ * @returns An async function that writes the normalized password to the database.
  */
 export function createStoredPasswordUpdater(userId: number) {
   return async (normalizedStoredPassword: null | string) => {
@@ -65,9 +65,9 @@ export function createStoredPasswordUpdater(userId: number) {
 }
 
 /**
- * Normalize the proxy submission.
+ * Normalize and extract fields from the raw proxy settings request body.
  * @param body - The body.
- * @returns The proxy submission.
+ * @returns The normalized proxy submission with extracted and validated credential fields.
  */
 export function normalizeProxySubmission(
   body: ProxySettingsRequestBody,
@@ -88,10 +88,10 @@ export function normalizeProxySubmission(
 }
 
 /**
- * Resolve the materialized proxy password.
- * @param userId - The r id.
+ * Decrypt and return the stored proxy password, refreshing it if needed.
+ * @param userId - The user ID.
  * @param storedProxyPassword - The stored proxy password.
- * @returns The materialized proxy password.
+ * @returns The plaintext password string, a 500 error response on decryption failure, or null if no password is stored.
  */
 export async function resolveMaterializedProxyPassword(
   userId: number,
@@ -112,9 +112,9 @@ export async function resolveMaterializedProxyPassword(
 }
 
 /**
- * Resolve the saved proxy view.
+ * Build the view-layer representation of the saved proxy settings.
  * @param savedProxy - The saved proxy.
- * @returns The saved proxy view.
+ * @returns The view object for the UI, or null if no proxy URL is configured.
  */
 export function resolveSavedProxyView(
   savedProxy: null | SavedProxyRecord,
@@ -142,10 +142,10 @@ export function resolveSavedProxyView(
 }
 
 /**
- * Resolve the stored proxy password value.
+ * Encrypt the given proxy password for storage, or validate a clear/remove intent.
  * @param proxyPassword - The proxy password.
- * @param userId - The r id.
- * @returns The stored proxy password value.
+ * @param userId - The user ID.
+ * @returns The encrypted password string, null to clear it, undefined to leave it unchanged, or a 500 error response on failure.
  */
 export function resolveStoredProxyPasswordValue(
   proxyPassword: null | string | undefined,
@@ -169,9 +169,9 @@ export function resolveStoredProxyPasswordValue(
 }
 
 /**
- * Process the unconfigured response.
+ * Build a JSON response for a proxy that has not yet been configured.
  * @param error - The error.
- * @returns The unconfigured response.
+ * @returns A 200 JSON response with all proxy fields absent and configured: false.
  */
 export function unconfiguredResponse(error?: string): Response {
   return NextResponse.json({
@@ -187,10 +187,10 @@ export function unconfiguredResponse(error?: string): Response {
 }
 
 /**
- * Process the validate proxy submission.
+ * Validate the normalized proxy submission for credential conflicts and field-length constraints.
  * @param body - The body.
  * @param submission - The submission.
- * @returns The validate proxy submission.
+ * @returns A validation error message, or null if the submission passes all checks.
  */
 export function validateProxySubmission(
   body: ProxySettingsRequestBody,
@@ -208,9 +208,9 @@ export function validateProxySubmission(
 }
 
 /**
- * Return whether has conflicting proxy credentials.
+ * Return whether the submission mixes URL-embedded credentials with explicit field credentials.
  * @param submission - The submission.
- * @returns Whether has conflicting proxy credentials.
+ * @returns True if both embedded and explicit credentials are present.
  */
 function hasConflictingProxyCredentials(submission: NormalizedProxySubmission) {
   const hasEmbeddedProxyCredentials =
@@ -226,10 +226,10 @@ function hasConflictingProxyCredentials(submission: NormalizedProxySubmission) {
 }
 
 /**
- * Return whether has saved proxy password.
+ * Return whether a proxy password exists in the record or embedded in the URL.
  * @param savedProxy - The saved proxy.
  * @param embeddedPassword - The embedded password.
- * @returns Whether has saved proxy password.
+ * @returns True if a stored or embedded proxy password is present.
  */
 function hasSavedProxyPassword(
   savedProxy: null | SavedProxyRecord,
@@ -239,9 +239,9 @@ function hasSavedProxyPassword(
 }
 
 /**
- * Normalize the optional proxy credential.
+ * Trim the credential value, coercing blank strings and explicit nulls to null.
  * @param value - The value.
- * @returns The optional proxy credential.
+ * @returns The trimmed credential, null to clear it, or undefined to leave it unchanged.
  */
 function normalizeOptionalProxyCredential(
   value: null | string | undefined,
@@ -254,9 +254,9 @@ function normalizeOptionalProxyCredential(
 }
 
 /**
- * Normalize the optional proxy password.
+ * Normalize the password value, coercing blank strings and explicit nulls to null.
  * @param value - The value.
- * @returns The optional proxy password.
+ * @returns The password string, null to clear it, or undefined to leave it unchanged.
  */
 function normalizeOptionalProxyPassword(
   value: null | string | undefined,
@@ -269,9 +269,9 @@ function normalizeOptionalProxyPassword(
 }
 
 /**
- * Normalize the proxy url value.
+ * Trim and sanitize the raw proxy URL, treating blank/sentinel strings as absent.
  * @param proxyUrl - The proxy url.
- * @returns The proxy url value.
+ * @returns The trimmed URL string, or null if it was blank, "null", or "undefined".
  */
 function normalizeProxyUrlValue(proxyUrl: null | string | undefined) {
   const trimmedProxyUrl = typeof proxyUrl === "string" ? proxyUrl.trim() : null;
@@ -283,10 +283,10 @@ function normalizeProxyUrlValue(proxyUrl: null | string | undefined) {
 }
 
 /**
- * Process the validate proxy credential length.
+ * Return an error string if the credential value exceeds the maximum allowed length.
  * @param value - The value.
  * @param fieldName - The field name.
- * @returns The validate proxy credential length.
+ * @returns A human-readable error string if the credential is too long, or null if it is within limits.
  */
 function validateProxyCredentialLength(
   value: null | string | undefined,
@@ -303,9 +303,9 @@ function validateProxyCredentialLength(
 }
 
 /**
- * Process the validate proxy url length.
+ * Return an error string if the proxy URL exceeds the maximum allowed length.
  * @param rawProxyUrl - The raw proxy url.
- * @returns The validate proxy url length.
+ * @returns A human-readable error string if the URL is too long, or null if it is within limits.
  */
 function validateProxyUrlLength(rawProxyUrl: null | string) {
   if (!rawProxyUrl || rawProxyUrl.length <= MAX_PROXY_URL_LENGTH) {

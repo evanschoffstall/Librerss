@@ -64,9 +64,9 @@ export function getSingleHeaderValue(
 }
 
 /**
- * Normalize the header value.
- * @param value - The value.
- * @returns The header value.
+ * Normalize a raw header value to a single string.
+ * @param value - The raw header value, which may be a string, array, or absent.
+ * @returns The first string value, or undefined if the header is absent.
  */
 function normalizeHeaderValue(
   value: string | string[] | undefined,

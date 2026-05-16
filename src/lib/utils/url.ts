@@ -102,7 +102,7 @@ export function getUrlHostnameLabel(
 /**
  * Process the inject proxy credentials.
  * @param proxyUrl - The proxy url.
- * @param username - The rname.
+ * @param username - The proxy authentication username.
  * @param password - The password.
  * @returns The inject proxy credentials.
  */
@@ -261,9 +261,9 @@ export function tryNormalizeFeedUrl(raw: string): string {
 }
 
 /**
- * Process the format url without credentials.
- * @param parsed - The d.
- * @returns The format url without credentials.
+ * Format a parsed URL as a string with credentials stripped.
+ * @param parsed - The parsed URL object to format.
+ * @returns The URL string without username or password.
  */
 function formatUrlWithoutCredentials(parsed: URL): string {
   const base = `${parsed.protocol}//${parsed.host}`;

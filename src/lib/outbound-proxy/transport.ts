@@ -132,8 +132,8 @@ export async function detectProxyProtocol(
 /**
  * Normalize the proxy url.
  * @param raw - The raw.
- * @param probeFn - The callback that probe fn.
- * @param dnsCheckFn - The callback that dns check fn.
+ * @param probeFn - Optional override for the proxy protocol probe function.
+ * @param dnsCheckFn - Optional override for the DNS-based blocked-address check.
  * @returns The proxy url.
  */
 export async function normalizeProxyUrl(
@@ -165,7 +165,7 @@ export async function normalizeProxyUrl(
 /**
  * Process the probe proxy.
  * @param proxyUrl - The proxy url.
- * @param dnsCheckFn - The callback that dns check fn.
+ * @param dnsCheckFn - Optional override for the DNS-based blocked-address check.
  * @returns The probe proxy.
  */
 export async function probeProxy(
@@ -223,8 +223,8 @@ async function ensureProxyHostAllowed(options: EnsureProxyHostAllowedOptions) {
  * Normalize the detected proxy url.
  * @param raw - The raw.
  * @param inputValue - The input value.
- * @param probeFn - The callback that probe fn.
- * @param dnsCheckFn - The callback that dns check fn.
+ * @param probeFn - Optional override for the proxy protocol probe function.
+ * @param dnsCheckFn - Optional override for the DNS-based blocked-address check.
  * @returns The detected proxy url.
  */
 async function normalizeDetectedProxyUrl(
@@ -266,8 +266,8 @@ async function normalizeDetectedProxyUrl(
  * Normalize the explicit socks proxy url.
  * @param inputValue - The input value.
  * @param raw - The raw.
- * @param parsed - The d.
- * @param dnsCheckFn - The callback that dns check fn.
+ * @param parsed - The parsed URL object derived from the input string.
+ * @param dnsCheckFn - Optional override for the DNS-based blocked-address check.
  * @returns The explicit socks proxy url.
  */
 async function normalizeExplicitSocksProxyUrl(
@@ -482,7 +482,7 @@ function probeTcpProxy(probeTarget: ProxyProbeTarget): Promise<boolean> {
 /**
  * Resolve the proxy probe target.
  * @param proxyUrl - The proxy url.
- * @param dnsCheckFn - The callback that dns check fn.
+ * @param dnsCheckFn - Optional override for the DNS-based blocked-address check.
  * @returns The proxy probe target.
  */
 async function resolveProxyProbeTarget(
@@ -524,7 +524,7 @@ async function resolveProxyProbeTarget(
  * Process the socks5 auth probe.
  * @param host - The host.
  * @param port - The port.
- * @param username - The rname.
+ * @param username - The SOCKS5 authentication username.
  * @param password - The password.
  * @returns The socks5 auth probe.
  */

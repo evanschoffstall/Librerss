@@ -32,7 +32,7 @@ interface UserOwnedArticle {
 /**
  * Return the user owned article by id.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param articleId - The article id.
  * @returns The user owned article by id.
  */
@@ -61,7 +61,7 @@ export async function getUserOwnedArticleById(
 /**
  * Process the list user owned articles.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param limit - The limit.
  * @returns The list user owned articles.
  */
@@ -87,7 +87,7 @@ export async function listUserOwnedArticles(
 
 /**
  * Process the enabled feed source join.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedSources - The feed sources.
  * @param feeds - The feeds.
  * @returns The enabled feed source join.

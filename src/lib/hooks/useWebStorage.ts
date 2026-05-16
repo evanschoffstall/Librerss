@@ -37,10 +37,10 @@ interface StorageSyncDetail {
 
 /**
  * Manage the web storage.
- * @param getStorage - The callback that storage.
+ * @param getStorage - Callback that returns the Web Storage object to use (localStorage or sessionStorage).
  * @param key - The key.
  * @param defaultValue - The default value.
- * @returns The web storage state and callbacks.
+ * @returns A stateful value, setter, and synchronization callbacks backed by the given Web Storage object.
  */
 export function useWebStorage<T>(
   getStorage: () => Storage,
@@ -168,7 +168,7 @@ function emitStorageSync(key: string, value: string): void {
 
 /**
  * Process the persist storage value.
- * @param getStorage - The callback that storage.
+ * @param getStorage - Callback that returns the Web Storage object to use (localStorage or sessionStorage).
  * @param isEmittingRef - The ref that stores the is emitting ref.
  * @param key - The key.
  * @param value - The value.
@@ -192,7 +192,7 @@ function persistStorageValue(
 
 /**
  * Process the read stored value.
- * @param getStorage - The callback that storage.
+ * @param getStorage - Callback that returns the Web Storage object to use (localStorage or sessionStorage).
  * @param key - The key.
  * @param defaultValue - The default value.
  * @returns The read stored value.
@@ -213,7 +213,7 @@ function readStoredValue<T>(
 /**
  * Process the restore stored snapshot.
  * @param defaultValue - The default value.
- * @param getStorage - The callback that storage.
+ * @param getStorage - Callback that returns the Web Storage object to use (localStorage or sessionStorage).
  * @param key - The key.
  * @param setValue - The set value.
  * @param shouldSkipNextWriteRef - The ref that stores the should skip next write ref.

@@ -105,7 +105,7 @@ let feedFetcherDependencies = defaultFeedFetcherDependencies;
 /**
  * Process the fetch and cache feed articles.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrl - The feed url.
  * @param options - The options used to process the fetch and cache feed articles.
  * @returns The fetch and cache feed articles.
@@ -140,7 +140,7 @@ export async function fetchAndCacheFeedArticles(
 /**
  * Process the fetch and cache feed articles batch.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrls - The feed urls.
  * @param options - The options used to process the fetch and cache feed articles batch.
  * @returns The fetch and cache feed articles batch.
@@ -222,7 +222,7 @@ export function setFeedFetcherDependenciesForTesting(
  * Process the query feed articles.
  * @param db - The db.
  * @param feedId - The feed id.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The query feed articles.
  */
 async function queryFeedArticles(
@@ -259,7 +259,7 @@ async function queryFeedArticles(
 /**
  * Process the read authorized feed source.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrl - The feed url.
  * @returns The read authorized feed source.
  */

@@ -30,17 +30,17 @@ type DbMod = typeof import("@/lib/db");
 
 // ─── Diagnostic logging helpers ───────────────────────────────────────────────
 /**
- * Process the diag info.
- * @param msg - The msg.
- * @param ctx - The ctx.
+ * Emit a diagnostic info log when feed refresh diagnostics are enabled.
+ * @param msg - The log message.
+ * @param ctx - Optional structured context attached to the log entry.
  */
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.info(msg, ctx);
 };
 /**
- * Process the diag warn.
- * @param msg - The msg.
- * @param ctx - The ctx.
+ * Emit a diagnostic warning log when feed refresh diagnostics are enabled.
+ * @param msg - The log message.
+ * @param ctx - Optional structured context attached to the log entry.
  */
 export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.warn(msg, ctx);
@@ -227,7 +227,7 @@ function getAgeInMinutes(date: Date): number {
 /**
  * Process the log parsed refresh result.
  * @param feed - The feed.
- * @param parsedItems - The d items.
+ * @param parsedItems - The parsed items.
  * @param publicationDateRange - The publication date range.
  * @param validItems - The valid items.
  */

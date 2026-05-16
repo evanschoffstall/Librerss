@@ -55,7 +55,7 @@ interface ArticleServiceDeps {
 
 /**
  * Create the article.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param params - The params.
  * @param deps - The deps.
  * @returns The article.
@@ -86,7 +86,7 @@ export async function createArticle(
 
 /**
  * Return the article by id.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param articleId - The article id.
  * @param deps - The deps.
  * @returns The article by id.
@@ -108,7 +108,7 @@ export async function getArticleById(
 
 /**
  * Process the list user articles.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param deps - The deps.
  * @returns The list user articles.
  */
@@ -129,7 +129,7 @@ export async function listUserArticles(
 
 /**
  * Process the mark stream read.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param streamId - The stream id.
  */
 export async function markStreamRead(userId: number, streamId: string) {
@@ -139,9 +139,9 @@ export async function markStreamRead(userId: number, streamId: string) {
 
 /**
  * Update the article status.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param articleId - The article id.
- * @param updates - The s.
+ * @param updates - The read/starred status fields to update.
  * @param deps - The deps.
  */
 export async function updateArticleStatus(
@@ -167,7 +167,7 @@ export async function updateArticleStatus(
 /**
  * Process the assert user owns feed.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedId - The feed id.
  */
 async function assertUserOwnsFeed(

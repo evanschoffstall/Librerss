@@ -191,7 +191,7 @@ async function decompressBodyToBuffer(
 
 /**
  * Process the decompress with node limit.
- * @param decompress - The callback that decompress.
+ * @param decompress - Callback that performs the actual decompression on a raw buffer.
  * @returns The decompress with node limit.
  */
 function decompressWithNodeLimit(

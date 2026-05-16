@@ -25,7 +25,7 @@ export function useIsBelowDesktop() {
       return;
     }
     /**
-     * Process the handle change.
+     * Update isBelowDesktop state when the breakpoint media query changes.
      */
     const handleChange = () => {
       setIsBelowDesktop(mediaQueryList.matches);

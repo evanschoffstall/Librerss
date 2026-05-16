@@ -162,7 +162,7 @@ export async function runDashboardMarkAllReadCommand(
 /**
  * Process the run dashboard refresh command.
  * @param target - The target.
- * @param onRefresh - The callback that on refresh.
+ * @param onRefresh - Callback invoked when the user triggers a feed refresh.
  * @param detail - The detail.
  */
 export async function runDashboardRefreshCommand(
@@ -184,7 +184,7 @@ export async function runDashboardRefreshCommand(
 /**
  * Process the run dashboard viewport read command.
  * @param target - The target.
- * @param onMarkViewportRead - The callback that on mark viewport read.
+ * @param onMarkViewportRead - Callback invoked when the user marks all visible articles as read.
  */
 export async function runDashboardViewportReadCommand(
   target: Pick<Window, "dispatchEvent">,
@@ -499,7 +499,7 @@ function useDashboardSearchEvent(options: DashboardSearchEventOptions) {
 }
 /**
  * Manage the dashboard search refs.
- * @param onSearchChange - The callback that on search change.
+ * @param onSearchChange - Callback invoked when the search query changes.
  * @returns The dashboard search refs state and callbacks.
  */
 function useDashboardSearchRefs(onSearchChange: (term: string) => void) {

@@ -23,13 +23,13 @@ export interface WritableRef<T> {
 }
 
 /**
- * Process the bind viewport restore listeners.
- * @param viewport - The viewport.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param stopRestore - The callback that stop restore.
- * @param buildSavedScroll - The callback that saved scroll.
- * @returns The bind viewport restore listeners.
+ * Bind scroll and DOM-mutation event listeners that drive viewport restore lifecycle.
+ * @param viewport - The scrollable viewport element to observe.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param stopRestore - Callback invoked to cancel any pending scroll restoration.
+ * @param buildSavedScroll - Callback that builds the saved scroll record for a given scroll offset.
+ * @returns A cleanup function that removes all registered event listeners.
  */
 export function bindViewportRestoreListeners(
   viewport: HTMLElement,
@@ -128,7 +128,7 @@ export function isSavedScroll(value: unknown): value is SavedScroll {
 /**
  * Process the observe viewport restore targets.
  * @param viewport - The viewport.
- * @param restore - The callback that restore.
+ * @param restore - Callback invoked to restore the saved scroll position.
  * @returns The observe viewport restore targets.
  */
 export function observeViewportRestoreTargets(

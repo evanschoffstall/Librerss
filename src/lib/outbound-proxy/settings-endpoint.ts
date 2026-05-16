@@ -257,7 +257,7 @@ async function persistAuthorizedProxySubmission(
 
 /**
  * Process the persist proxy settings.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param values - The values.
  * @returns The persist proxy settings.
  */
@@ -336,7 +336,7 @@ async function probeAndRespond(
 
 /**
  * Process the read saved proxy record.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The read saved proxy record.
  */
 async function readSavedProxyRecord(

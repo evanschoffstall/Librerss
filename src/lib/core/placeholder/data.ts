@@ -35,7 +35,7 @@ export { PLACEHOLDER_CATEGORY };
 /**
  * Create the placeholder articles.
  * @param feedId - The feed id.
- * @param seeds - The s.
+ * @param seeds - Article seed objects providing content, title, and URL for each article.
  * @returns The placeholder articles.
  */
 const createPlaceholderArticles = (
@@ -70,7 +70,7 @@ const toLocalPlaceholderPath = (basePath: string, slug: string) =>
 /**
  * Build the placeholder snapshot path by url.
  * @param basePath - The base path.
- * @param seeds - The s.
+ * @param seeds - Article seed objects providing URL-to-slug mappings for path construction.
  * @returns The placeholder snapshot path by url.
  */
 const buildPlaceholderSnapshotPathByUrl = (

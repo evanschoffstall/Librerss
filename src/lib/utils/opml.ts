@@ -137,9 +137,9 @@ export const parseOpmlFeedImport = (opmlXml: string): OpmlFeedImportEntry[] => {
 };
 
 /**
- * Process the escape xml.
- * @param s - The s.
- * @returns The escape xml.
+ * Escape special characters in a string for safe inclusion in XML output.
+ * @param s - The raw string to escape.
+ * @returns The string with `&`, `<`, `>`, and `"` replaced by their XML entities.
  */
 const escapeXml = (s: string): string =>
   s

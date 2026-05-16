@@ -35,11 +35,11 @@ interface ObserveViewportRestoreOptions {
 }
 
 /**
- * Process the apply viewport ref.
- * @param rootNode - The root node.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param restore - The callback that restore.
+ * Apply the viewport DOM ref and trigger scroll restoration when a saved position exists.
+ * @param rootNode - The root element whose scroll-area viewport is extracted.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param restore - Callback invoked to restore the saved scroll position.
  */
 export function applyViewportRef(
   rootNode: HTMLElement | null,
@@ -67,10 +67,10 @@ export function applyViewportRef(
 }
 
 /**
- * Build the saved scroll.
- * @param viewport - The viewport.
- * @param scrollOffset - The scroll offset value.
- * @returns The saved scroll.
+ * Build a saved scroll record capturing the current anchor element and scroll position.
+ * @param viewport - The scrollable viewport element.
+ * @param scrollOffset - The minimum scroll offset below which no save is recorded.
+ * @returns A saved scroll record, or null if the position does not meet the threshold.
  */
 export function buildSavedScroll(
   viewport: HTMLElement,
@@ -111,10 +111,10 @@ export function buildSavedScroll(
 }
 
 /**
- * Process the capture viewport state.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param restore - The callback that restore.
+ * Capture the current viewport scroll state and persist it to session storage.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param restore - Callback invoked to restore the saved scroll position.
  */
 export function captureViewportState(
   sessionKey: string,
@@ -139,11 +139,11 @@ export function captureViewportState(
 }
 
 /**
- * Process the clamp scroll top.
- * @param viewport - The viewport.
- * @param target - The target.
- * @param scrollOffset - The scroll offset value.
- * @returns The clamp scroll top.
+ * Clamp a target scroll position within valid bounds for the viewport.
+ * @param viewport - The scrollable viewport element.
+ * @param target - The desired scroll position.
+ * @param scrollOffset - The minimum allowed scroll offset.
+ * @returns The clamped scroll position, or null if the position is below the threshold.
  */
 export function clampScrollTop(
   viewport: HTMLElement,
@@ -156,10 +156,10 @@ export function clampScrollTop(
 }
 
 /**
- * Process the find saved anchor.
- * @param viewport - The viewport.
- * @param saved - The saved.
- * @returns The find saved anchor.
+ * Find the saved scroll anchor element within the viewport.
+ * @param viewport - The scrollable viewport element.
+ * @param saved - The saved scroll record containing the anchor key and index.
+ * @returns The matching child element, or null if no anchor is found.
  */
 export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
   const children = Array.from(viewport.firstElementChild?.children ?? []);
@@ -174,10 +174,10 @@ export function findSavedAnchor(viewport: HTMLElement, saved: SavedScroll) {
 }
 
 /**
- * Process the flush viewport state.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param restore - The callback that restore.
+ * Flush pending viewport scroll state and re-trigger restoration.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param restore - Callback invoked to restore the saved scroll position.
  */
 export function flushViewportState(
   sessionKey: string,
@@ -196,10 +196,10 @@ export function flushViewportState(
 }
 
 /**
- * Return the element offset.
- * @param element - The element.
- * @param viewport - The viewport.
- * @returns The element offset.
+ * Compute the absolute scroll offset of an element relative to its viewport.
+ * @param element - The target element to measure.
+ * @param viewport - The scrollable container element.
+ * @returns The element's offset in pixels from the top of the scroll container.
  */
 export function getElementOffset(element: Element, viewport: HTMLElement) {
   return (
@@ -210,9 +210,9 @@ export function getElementOffset(element: Element, viewport: HTMLElement) {
 }
 
 /**
- * Return the scroll anchor key.
- * @param element - The element.
- * @returns The scroll anchor key.
+ * Extract the scroll anchor key from an element's data attributes.
+ * @param element - The element to read the anchor key from.
+ * @returns The scroll restore key string, or undefined if no key is present.
  */
 export function getScrollAnchorKey(element: Element) {
   const ownKey = element.getAttribute("data-scroll-restore-key");
@@ -230,10 +230,10 @@ export function getScrollAnchorKey(element: Element) {
 }
 
 /**
- * Process the invalidate viewport state.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param stopRestore - The callback that stop restore.
+ * Invalidate all pending scroll restoration and reset the viewport to the base offset.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param stopRestore - Callback invoked to cancel any pending scroll restoration.
  */
 export function invalidateViewportState(
   sessionKey: string,
@@ -250,10 +250,10 @@ export function invalidateViewportState(
 }
 
 /**
- * Process the restore viewport state.
- * @param sessionKey - The session key.
- * @param refs - The refs.
- * @param applyScrollTop - The callback that apply scroll top.
+ * Restore the saved viewport scroll position using the stored anchor and offset.
+ * @param sessionKey - The session storage key for the saved scroll position.
+ * @param refs - Mutable refs tracking viewport and restore state.
+ * @param applyScrollTop - Callback that applies a scroll offset to the viewport element.
  */
 export function restoreViewportState(
   sessionKey: string,
