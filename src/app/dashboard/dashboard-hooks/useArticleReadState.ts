@@ -9,10 +9,27 @@ import type { Article } from "@/lib/core";
 
 import {
   type ArticleStatusMutationController,
+  type ArticleStatusMutationVersionTracker,
+  createSettledArticleStatusMutationGuard,
   runOptimisticArticleStatusMutation,
   useArticleMutationTracker,
+  useArticleStatusMutationVersions,
 } from "@/app/dashboard/dashboard-hooks/article-actions";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
+
+/**
+ * Inputs needed to run a guarded batch read-state mutation.
+ */
+interface ReadStateMutationOptions {
+  articles: Article[];
+  createMutationSignalHandle?: ArticleStatusMutationController["createMutationSignalHandle"];
+  mutationTracker: ReturnType<typeof useArticleMutationTracker>;
+  mutationVersions: ArticleStatusMutationVersionTracker;
+  nextReadState: boolean;
+  options?: SetReadStateOptions;
+  setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  usePlaceholderData: boolean;
+}
 
 /**
  * Describes the options for set read state.
@@ -42,6 +59,7 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
     usePlaceholderData = false,
   } = options;
   const mutationTracker = useArticleMutationTracker();
+  const mutationVersions = useArticleStatusMutationVersions();
 
   const setArticlesReadState = useCallback(
     async (
@@ -49,46 +67,24 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
       nextReadState: boolean,
       options?: SetReadStateOptions,
     ) => {
-      const result = await runOptimisticArticleStatusMutation({
-        /**
-         * Process the apply optimistic update.
-         * @param currentFeed - The current feed.
-         * @param articleMap - The article map.
-         * @returns The apply optimistic update.
-         */
-        applyOptimisticUpdate: (currentFeed, articleMap) =>
-          applyOptimisticReadState(currentFeed, articleMap, nextReadState),
+      return await runReadStateMutation({
         articles,
         createMutationSignalHandle,
-        errorLogLabel: "Set read state error",
         mutationTracker,
-        /**
-         * Process the on error.
-         */
-        onError: () => {
-          showReadStateError(options);
-        },
-        /**
-         * Process the restore update.
-         * @param currentFeed - The current feed.
-         * @param articleMap - The article map.
-         * @param failedArticleKeys - The failed article keys.
-         * @returns The restore update.
-         */
-        restoreUpdate: (currentFeed, articleMap, failedArticleKeys) =>
-          restoreArticleReadState(currentFeed, articleMap, failedArticleKeys),
+        mutationVersions,
+        nextReadState,
+        options,
         setFeed,
-        /**
-         * Process the status patch for article.
-         * @returns The status patch for article.
-         */
-        statusPatchForArticle: () => ({ isRead: nextReadState }),
         usePlaceholderData,
       });
-
-      return result.attemptedCount - result.failedArticleKeys.size;
     },
-    [createMutationSignalHandle, mutationTracker, setFeed, usePlaceholderData],
+    [
+      createMutationSignalHandle,
+      mutationTracker,
+      mutationVersions,
+      setFeed,
+      usePlaceholderData,
+    ],
   );
   const { handleToggleReadState, setArticleReadState } =
     useSingleArticleReadStateActions(setArticlesReadState);
@@ -105,11 +101,11 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
 }
 
 /**
- * Process the apply optimistic read state.
- * @param currentFeed - The current feed.
- * @param articleMap - The article map.
- * @param nextReadState - The next read state.
- * @returns The apply optimistic read state.
+ * Apply a requested read state to every matching article in the current feed.
+ * @param currentFeed - Feed snapshot currently mounted in state.
+ * @param articleMap - Articles whose read state should change.
+ * @param nextReadState - Read-state value to apply.
+ * @returns Feed snapshot with matching articles updated.
  */
 function applyOptimisticReadState(
   currentFeed: Article[],
@@ -125,11 +121,73 @@ function applyOptimisticReadState(
 }
 
 /**
- * Process the restore article read state.
- * @param currentFeed - The current feed.
- * @param articleMap - The article map.
- * @param failedArticleKeys - The failed article keys.
- * @returns The restore article read state.
+ * Create the shared optimistic mutation options for a read-state batch.
+ * @param mutationOptions - Read-state mutation inputs and ownership helpers.
+ * @param articleVersions - Local mutation versions captured for this batch.
+ * @returns Options consumed by the shared optimistic status mutation runner.
+ */
+function createReadStateMutationOptions(
+  mutationOptions: ReadStateMutationOptions,
+  articleVersions: ReadonlyMap<string, number>,
+) {
+  return {
+    /**
+     * Apply the requested read state to matching rows in the current feed window.
+     * @param currentFeed - Feed snapshot currently mounted in state.
+     * @param articleMap - Articles captured when the mutation started.
+     * @returns Feed snapshot with matching rows set to the requested read state.
+     */
+    applyOptimisticUpdate: (
+      currentFeed: Article[],
+      articleMap: Map<string, Article>,
+    ) =>
+      applyOptimisticReadState(
+        currentFeed,
+        articleMap,
+        mutationOptions.nextReadState,
+      ),
+    articles: mutationOptions.articles,
+    createMutationSignalHandle: mutationOptions.createMutationSignalHandle,
+    errorLogLabel: "Set read state error",
+    mutationTracker: mutationOptions.mutationTracker,
+    /**
+     * Show the read-state failure toast unless this batch caller suppresses it.
+     */
+    onError: () => {
+      showReadStateError(mutationOptions.options);
+    },
+    /**
+     * Restore original read state only for failed articles still owned by this mutation.
+     * @param currentFeed - Feed snapshot currently mounted in state.
+     * @param articleMap - Original article state captured before the optimistic update.
+     * @param failedArticleKeys - Failed article keys that may be restored.
+     * @returns Feed snapshot with failed article rows restored.
+     */
+    restoreUpdate: (
+      currentFeed: Article[],
+      articleMap: Map<string, Article>,
+      failedArticleKeys?: Set<string>,
+    ) => restoreArticleReadState(currentFeed, articleMap, failedArticleKeys),
+    setFeed: mutationOptions.setFeed,
+    shouldApplySettledUpdate: createSettledArticleStatusMutationGuard(
+      mutationOptions.mutationVersions,
+      articleVersions,
+    ),
+    /**
+     * Create the persisted read-state patch for each article in the batch.
+     * @returns Article status patch sent to the API.
+     */
+    statusPatchForArticle: () => ({ isRead: mutationOptions.nextReadState }),
+    usePlaceholderData: mutationOptions.usePlaceholderData,
+  };
+}
+
+/**
+ * Restore original read state for failed article-status writes.
+ * @param currentFeed - Feed snapshot currently mounted in state.
+ * @param articleMap - Original articles captured before the optimistic update.
+ * @param failedArticleKeys - Failed article keys to restore; restores all captured articles when omitted.
+ * @returns Feed snapshot with failed articles restored.
  */
 function restoreArticleReadState(
   currentFeed: Article[],
@@ -148,8 +206,32 @@ function restoreArticleReadState(
 }
 
 /**
- * Process the show read state error.
- * @param options - The options used to process the show read state error.
+ * Run a read-state mutation and release its local mutation versions when done.
+ * @param mutationOptions - Read-state mutation inputs and ownership helpers.
+ * @returns Number of articles successfully persisted.
+ */
+async function runReadStateMutation(mutationOptions: ReadStateMutationOptions) {
+  const articleVersions =
+    mutationOptions.mutationVersions.trackArticleMutationVersions(
+      mutationOptions.articles,
+    );
+
+  try {
+    const result = await runOptimisticArticleStatusMutation(
+      createReadStateMutationOptions(mutationOptions, articleVersions),
+    );
+
+    return result.attemptedCount - result.failedArticleKeys.size;
+  } finally {
+    mutationOptions.mutationVersions.releaseArticleMutationVersions(
+      articleVersions,
+    );
+  }
+}
+
+/**
+ * Show read-state mutation feedback when the caller has not suppressed toasts.
+ * @param options - Batch options controlling user-facing error feedback.
  */
 function showReadStateError(options?: SetReadStateOptions) {
   if (!options?.suppressErrorToast) {
