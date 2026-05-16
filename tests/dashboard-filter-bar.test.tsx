@@ -5,6 +5,7 @@ import {
   DASHBOARD_FEED_SURFACE_CLASS_NAME,
   DashboardFeedViewport,
   DashboardFilterBar,
+  resolveFeedScrollbarMetrics,
 } from "@/app/dashboard/dashboard-components/layout";
 import {
   ARTICLE_FILTER_OPTIONS,
@@ -235,6 +236,102 @@ describe("DashboardFilterBar", () => {
 
       expect(thumb).toBeTruthy();
       expect(thumb?.getAttribute("style") ?? "").toContain("height: 53px");
+    });
+  });
+
+  test("keeps pagination skeleton height from pulling the feed scrollbar thumb away from the committed bottom", () => {
+    // Regression guard: load-more skeletons are intentionally rendered outside
+    // the virtualizer. Their temporary DOM height must not make the custom
+    // shadcn-style thumb jump upward before the virtualizer commits the next
+    // article page and reconciles the real list height.
+    const metrics = resolveFeedScrollbarMetrics({
+      clientHeight: 500,
+      hasTransientPaginationSkeletons: true,
+      scrollHeight: 2400,
+      scrollTop: 1500,
+      virtualizedListHeight: 2000,
+    });
+
+    expect(metrics).toEqual({
+      isVisible: true,
+      thumbHeight: 125,
+      thumbOffsetTop: 375,
+    });
+  });
+
+  test("still follows live article expansion height when no pagination skeletons are active", () => {
+    // Expanded article bodies are real committed content, unlike the transient
+    // pagination scaffold, so the scrollbar must continue to shrink and move
+    // against the larger live scroll range when an article opens.
+    const metrics = resolveFeedScrollbarMetrics({
+      clientHeight: 500,
+      hasTransientPaginationSkeletons: false,
+      scrollHeight: 2400,
+      scrollTop: 1500,
+      virtualizedListHeight: 2000,
+    });
+
+    expect(metrics).toEqual({
+      isVisible: true,
+      thumbHeight: 104,
+      thumbOffsetTop: 313,
+    });
+  });
+
+  test("uses the virtualized range while rendered load-more skeletons temporarily inflate the viewport", async () => {
+    const { container } = render(
+      <div className="h-48">
+        <DashboardFeedViewport>
+          <div
+            data-feed-load-more-skeletons-visible="true"
+            data-feed-surface-mode="virtualized"
+            data-feed-total-list-height="2000"
+          >
+            <div style={{ height: 2000 }}>Committed feed rows</div>
+            <div data-feed-load-more-skeletons="true" style={{ height: 800 }}>
+              Pending page skeleton rows
+            </div>
+          </div>
+        </DashboardFeedViewport>
+      </div>,
+    );
+
+    const viewport = container.querySelector<HTMLElement>(
+      '[data-radix-scroll-area-viewport=""]',
+    );
+
+    expect(viewport).toBeTruthy();
+
+    Object.defineProperty(viewport, "clientHeight", {
+      configurable: true,
+      get() {
+        return 500;
+      },
+    });
+    Object.defineProperty(viewport, "scrollHeight", {
+      configurable: true,
+      get() {
+        return 2800;
+      },
+    });
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      get() {
+        return 1500;
+      },
+    });
+
+    fireEvent.scroll(viewport!);
+
+    await waitFor(() => {
+      const thumb = container.querySelector<HTMLElement>(
+        '[data-dashboard-feed-scrollbar-thumb="true"]',
+      );
+
+      expect(thumb?.getAttribute("style") ?? "").toContain("height: 125px");
+      expect(thumb?.getAttribute("style") ?? "").toContain(
+        "translateY(375px)",
+      );
     });
   });
 
