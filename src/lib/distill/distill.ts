@@ -5,7 +5,7 @@ import type {
 } from "./types";
 
 import { distillWithDefuddle } from "./defuddle";
-import { librerssDistill } from "./librerss";
+import { heuristicDistill } from "./heuristic";
 import { readabilityDistill } from "./readability";
 
 /**
@@ -26,7 +26,7 @@ export async function distillArticle(
     case "defuddle":
       return Promise.resolve(distillWithDefuddle(html, url, options));
     case "librerss":
-      return Promise.resolve(librerssDistill(html, url, options));
+      return Promise.resolve(heuristicDistill(html, url, options));
     case "readability":
       return Promise.resolve(readabilityDistill(html, url, options));
   }

@@ -1,4 +1,4 @@
-import { librerssDistill } from "@/lib/distill/librerss";
+import { heuristicDistill } from "@/lib/distill/heuristic";
 import {
   cleanSanitizedHtml,
   preCleanHtml,
@@ -451,7 +451,7 @@ function createTrailingRelatedChromeFixture(): string {
 
 test.describe("article extraction distillation", () => {
   test("keeps a CMS featured image next to selected entry content", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       createCmsFeaturedImageFixture(),
       "https://example.com/stories/2026/5/3/800030229/research/observation-deck-notes/",
       { contentLengthThreshold: 120 },
@@ -465,7 +465,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps close-up lead images", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createCloseUpLeadImageFixture()),
       "https://example.com/news/field-exam/",
       { contentLengthThreshold: 120 },
@@ -476,7 +476,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("prefers camel case article body over sponsored callout copy", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createCamelCaseArticleBodyFixture()),
       "https://example.com/news/security/learning-platform-data-exposure/",
     );
@@ -489,7 +489,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("prefers the page-owning body when data-headline contains apostrophes", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createMultiArticleOwnershipFixture()),
       MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
       { contentLengthThreshold: 120 },
@@ -502,7 +502,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps release content separate from contact and related-case modules", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createNoisyPressReleaseFixture()),
       "https://example.com/press-releases/regional-board-updates-guidance/",
     );
@@ -518,7 +518,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps split lead prose and image while removing utility chrome", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createSplitLeadArticleFixture()),
       "https://example.com/news/regional-resource-assessment/",
       { contentLengthThreshold: 120 },
@@ -538,7 +538,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("does not widen to sidebar metadata rails before the true entry content", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createSidebarMetadataRailFixture()),
       "https://example.com/earth-observatory/reunion-island-lava-reaches-the-sea/",
       { contentLengthThreshold: 120 },
@@ -554,7 +554,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("removes long leading metadata preambles before release body prose", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createLongLeadingPreambleFixture()),
       "https://example.com/news/woodford-barnett-assessment/",
       { contentLengthThreshold: 120 },
@@ -572,7 +572,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("collapses punctuation gaps after download cta removal", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createDownloadCtaPunctuationFixture()),
       "https://example.com/report/downloads/",
       { contentLengthThreshold: 120 },
@@ -588,7 +588,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps repeated explainer sections together", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createRepeatedExplainerFixture()),
       "https://example.com/explainers/seasonal-hazards/",
       { contentLengthThreshold: 120 },
@@ -601,7 +601,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("removes trailing related-news chrome", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createTrailingRelatedChromeFixture()),
       "https://example.com/feature-story/marsh-habitat/",
       { contentLengthThreshold: 120 },
@@ -621,7 +621,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("does not treat generic service banners as article leads", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createServiceBannerArticleFixture()),
       "https://example.com/news/automated-scan-analysis/",
       { contentLengthThreshold: 120 },
@@ -633,7 +633,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps repeated accordion release panels together", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createRepeatedAccordionFixture()),
       "https://example.com/releases/",
       { contentLengthThreshold: 120 },
@@ -646,7 +646,7 @@ test.describe("article extraction distillation", () => {
   });
 
   test("keeps media-rich exact article content", async () => {
-    const result = librerssDistill(
+    const result = heuristicDistill(
       preCleanHtml(createMediaRichArticleContentFixture()),
       "https://example.com/features/marine-wildlife-week/",
       { contentLengthThreshold: 120 },

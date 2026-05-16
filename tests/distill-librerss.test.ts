@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { distillArticle } from "@/lib/distill";
 import { distillWithDefuddle } from "@/lib/distill/defuddle";
-import { librerssDistill } from "@/lib/distill/librerss";
+import { heuristicDistill } from "@/lib/distill/heuristic";
 import { readabilityDistill } from "@/lib/distill/readability";
 import { preCleanHtml } from "@/lib/sanitize";
 
@@ -25,7 +25,7 @@ describe("lib/distill/librerss", () => {
   describe("librerssDistill", () => {
     test("returns null when no article body is found", async () => {
       const html = "<html><body><p>Too short.</p></body></html>";
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).toBeNull();
     });
@@ -46,7 +46,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("main article content");
@@ -67,7 +67,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/post");
+      const result = await heuristicDistill(html, "https://example.com/post");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Article body content");
@@ -95,7 +95,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/stories/2026/5/3/800030229/research/observation-deck-notes/",
         { contentLengthThreshold: 120 },
@@ -125,7 +125,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/news/field-exam/",
         { contentLengthThreshold: 120 },
@@ -156,7 +156,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/news/automated-scan-analysis/",
         { contentLengthThreshold: 120 },
@@ -194,7 +194,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/earth-observatory/reunion-island-lava-reaches-the-sea/",
         { contentLengthThreshold: 120 },
@@ -238,7 +238,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/news/security/learning-platform-data-exposure/",
       );
@@ -252,7 +252,7 @@ describe("lib/distill/librerss", () => {
     });
 
     test("prefers the page-owning body when data-headline contains apostrophes", async () => {
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(createMultiArticleOwnershipFixture()),
         MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
         { contentLengthThreshold: 120 },
@@ -304,7 +304,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/moon");
+      const result = await heuristicDistill(html, "https://example.com/moon");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("cdn.example.com/instrument.jpg");
@@ -356,7 +356,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/press-releases/regional-board-updates-guidance/",
       );
@@ -393,7 +393,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/news/regional-resource-assessment/",
         { contentLengthThreshold: 120 },
@@ -426,7 +426,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/news/automated-scan-analysis/",
         { contentLengthThreshold: 120 },
@@ -476,7 +476,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/explainers/seasonal-hazards/",
         { contentLengthThreshold: 120 },
@@ -535,7 +535,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/releases/",
         { contentLengthThreshold: 120 },
@@ -572,7 +572,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         preCleanHtml(html),
         "https://example.com/features/marine-wildlife-week/",
         { contentLengthThreshold: 120 },
@@ -597,7 +597,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/story");
+      const result = await heuristicDistill(html, "https://example.com/story");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Main article content");
@@ -620,7 +620,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/news");
+      const result = await heuristicDistill(html, "https://example.com/news");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("longer article content");
@@ -639,7 +639,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/page");
+      const result = await heuristicDistill(html, "https://example.com/page");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("role main element");
@@ -657,7 +657,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("semantic main tag");
@@ -675,7 +675,7 @@ describe("lib/distill/librerss", () => {
       `;
 
       // With high threshold, should return null
-      const resultHigh = await librerssDistill(
+      const resultHigh = await heuristicDistill(
         html,
         "https://example.com/article",
         { contentLengthThreshold: 500 },
@@ -683,7 +683,7 @@ describe("lib/distill/librerss", () => {
       expect(resultHigh).toBeNull();
 
       // With low threshold, should extract
-      const resultLow = await librerssDistill(
+      const resultLow = await heuristicDistill(
         html,
         "https://example.com/article",
         { contentLengthThreshold: 10 },
@@ -703,7 +703,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       // This should succeed with default threshold
       expect(result).not.toBeNull();
@@ -724,7 +724,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.title).toBe("Open Graph Title");
@@ -743,7 +743,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.title).toBe("Headline from H1 Tag");
@@ -764,7 +764,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.title).toBe("Page Title from Title Tag");
@@ -782,7 +782,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.title).toBeUndefined();
@@ -803,7 +803,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.description).toBe("Open Graph description text");
@@ -824,7 +824,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.description).toBe("Twitter description text");
@@ -845,7 +845,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.description).toBe("Standard meta description");
@@ -863,20 +863,20 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       expect(result).not.toBeNull();
       expect(result?.description).toBeUndefined();
     });
 
     test("handles empty HTML gracefully", async () => {
-      const result = await librerssDistill("", "https://example.com");
+      const result = await heuristicDistill("", "https://example.com");
 
       expect(result).toBeNull();
     });
 
     test("handles HTML with only whitespace", async () => {
-      const result = await librerssDistill("   \n\n   ", "https://example.com");
+      const result = await heuristicDistill("   \n\n   ", "https://example.com");
 
       expect(result).toBeNull();
     });
@@ -889,7 +889,7 @@ describe("lib/distill/librerss", () => {
         </article>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
 
       // Should still work if the article tag is present
       expect(result).not.toBeNull();
@@ -912,7 +912,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/complete",
       );
@@ -941,7 +941,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/priority",
       );
@@ -966,7 +966,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/cms");
+      const result = await heuristicDistill(html, "https://example.com/cms");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("CMS pattern class");
@@ -984,7 +984,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/wordpress",
       );
@@ -1005,7 +1005,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/drupal");
+      const result = await heuristicDistill(html, "https://example.com/drupal");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Drupal CMS content");
@@ -1027,7 +1027,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/multiple-main",
       );
@@ -1052,7 +1052,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/short", {
+      const result = await heuristicDistill(html, "https://example.com/short", {
         contentLengthThreshold: 200,
       });
 
@@ -1070,7 +1070,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/article",
         {
@@ -1094,7 +1094,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/article",
         {
@@ -1118,7 +1118,7 @@ describe("lib/distill/librerss", () => {
       `;
 
       const testUrl = "https://example.com/article?param=value#fragment";
-      const result = await librerssDistill(html, testUrl);
+      const result = await heuristicDistill(html, testUrl);
 
       expect(result).not.toBeNull();
       expect(result?.source).toBe(testUrl);
@@ -1144,7 +1144,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/nested");
+      const result = await heuristicDistill(html, "https://example.com/nested");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Deeply nested article content");
@@ -1168,7 +1168,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/mixed");
+      const result = await heuristicDistill(html, "https://example.com/mixed");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("Section Header");
@@ -1188,7 +1188,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(html, "https://example.com/role");
+      const result = await heuristicDistill(html, "https://example.com/role");
 
       expect(result).not.toBeNull();
       expect(result?.content).toContain("role article attribute");
@@ -1210,7 +1210,7 @@ describe("lib/distill/librerss", () => {
         </html>
       `;
 
-      const result = await librerssDistill(
+      const result = await heuristicDistill(
         html,
         "https://example.com/validate",
       );
@@ -1229,7 +1229,7 @@ describe("lib/distill/librerss", () => {
     test("returns null for minimal HTML with insufficient content", async () => {
       const html =
         "<html><head><title>T</title></head><body><p>Short</p></body></html>";
-      const result = await librerssDistill(html, "https://example.com/");
+      const result = await heuristicDistill(html, "https://example.com/");
       expect(result === null || typeof result === "object").toBe(true);
     });
 
@@ -1239,7 +1239,7 @@ describe("lib/distill/librerss", () => {
           3,
         );
       const html = `<html><head><title>My Article</title></head><body><article><p>${longText}</p></article></body></html>`;
-      const result = await librerssDistill(html, "https://example.com/article");
+      const result = await heuristicDistill(html, "https://example.com/article");
       if (result) {
         expect(typeof result.content).toBe("string");
         expect(result.source).toBe("https://example.com/article");

@@ -1,5 +1,5 @@
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
-import { librerssDistill } from "@/lib/distill/librerss";
+import { heuristicDistill } from "@/lib/distill/heuristic";
 import { preCleanHtml } from "@/lib/sanitize";
 
 import {
@@ -132,7 +132,7 @@ test.describe("dashboard explore article interactions", () => {
   }) => {
     await page.unroute("**/api/articles/extract");
     await page.route("**/api/articles/extract", async (route) => {
-      const extracted = librerssDistill(
+      const extracted = heuristicDistill(
         preCleanHtml(createMultiArticleOwnershipFixture()),
         MULTI_ARTICLE_OWNERSHIP_FIXTURE_URL,
         { contentLengthThreshold: 120 },
