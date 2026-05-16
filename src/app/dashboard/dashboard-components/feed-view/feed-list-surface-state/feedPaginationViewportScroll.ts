@@ -146,26 +146,7 @@ function createRearmInvertedBoundaryHandler(
         options.invertedPaginationAnchorRef,
       )
     ) {
-      // For non-inverted scroll the ref is always advanced to keep the field
-      // consistent.  For inverted scroll during an abort (e.g. a pending
-      // server reveal), only advance when the user has already left the boundary
-      // at some point (previousScrollTop !== null) or is currently away — this
-      // preserves null while the user is pinned at the boundary right after a
-      // reveal so maybeLoadInvertedNextPage can gate the next server load.
-      if (options.isInvertedScroll) {
-        const hasMovedAway = hasMovedAwayFromBoundarySincePreviousScroll({
-          isInvertedScroll: true,
-          previousScrollTop,
-          scrollViewport: options.scrollViewport,
-        });
-
-        if (hasMovedAway || previousScrollTop !== null) {
-          options.lastInvertedScrollTopRef.current = currentScrollTop;
-        }
-      } else {
-        options.lastInvertedScrollTopRef.current = currentScrollTop;
-      }
-
+      handleAbortedInvertedBoundaryRearm(options, previousScrollTop);
       return;
     }
 
@@ -247,6 +228,41 @@ function createRearmStandardBoundaryHandler(
 }
 
 /**
+ * Preserve inverted away history and rearm cached pagination during anchor stabilization.
+ * @param options - Inverted boundary refs and viewport state.
+ * @param previousScrollTop - The last recorded inverted scroll position before this event.
+ */
+function handleAbortedInvertedBoundaryRearm(
+  options: PaginationBoundaryRearmRefs & {
+    isInvertedLoadBoundaryArmedRef: { current: boolean };
+    isInvertedScroll: boolean;
+    lastInvertedScrollTopRef: { current: null | number };
+    scrollViewport: HTMLElement;
+  },
+  previousScrollTop: null | number,
+) {
+  const currentScrollTop = options.scrollViewport.scrollTop;
+  const hasMovedAway = hasMovedAwayFromBoundarySincePreviousScroll({
+    isInvertedScroll: true,
+    previousScrollTop,
+    scrollViewport: options.scrollViewport,
+  });
+
+  if (hasMovedAway || previousScrollTop !== null) {
+    options.lastInvertedScrollTopRef.current = currentScrollTop;
+  }
+
+  if (hasMovedAway && !options.hasPendingServerRevealRef.current) {
+    finalizePaginationBoundaryRearm({
+      armedBoundaryRef: options.isInvertedLoadBoundaryArmedRef,
+      hasPendingBoundaryRearmAfterCooldownRef:
+        options.hasPendingBoundaryRearmAfterCooldownRef,
+      hasRequestedServerLoadRef: options.hasRequestedServerLoadRef,
+    });
+  }
+}
+
+/**
  * Handle inverted scroll updates and report whether the caller should stop processing.
  * @param options - The active viewport scroll handler options.
  * @returns Whether inverted scroll processing fully handled the event.
@@ -274,6 +290,7 @@ function handleInvertedViewportScroll(options: ViewportScrollHandlerOptions) {
   }
 
   if (!hasActivePaginationAnchor && !options.hasUserScrolledRef.current) {
+    options.rearmInvertedBoundaryFromScrollPosition();
     return true;
   }
 

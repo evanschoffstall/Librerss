@@ -17,6 +17,7 @@ export interface HandleFeedPaginationRevealCountTransitionOptions extends Schedu
  * Describes the options for pending server reveal lifecycle.
  */
 export interface PendingServerRevealLifecycleOptions {
+  hasCompletedInvertedServerRevealRef: { current: boolean };
   hasPendingServerRevealRef: { current: boolean };
   hasResolvedStandardViewportRevealRef: { current: boolean };
   isInvertedScroll: boolean;
@@ -96,6 +97,7 @@ export function completePendingServerReveal(
   options.setIsPendingServerRevealVisible(false);
 
   if (options.isInvertedScroll) {
+    options.hasCompletedInvertedServerRevealRef.current = true;
     options.lastInvertedAwayBoundarySnapshotRef.current = null;
     // Preserve the recorded scroll position when the user was genuinely away from
     // the boundary during the pending reveal.  Clearing it unconditionally would

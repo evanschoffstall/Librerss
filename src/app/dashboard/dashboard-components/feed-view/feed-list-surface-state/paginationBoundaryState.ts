@@ -60,6 +60,7 @@ interface NullableNumberRef {
 interface ResetPaginationRuntimeStateOptions {
   clearServerLoadCooldown: () => void;
   filteredFeedLength: number;
+  hasCompletedInvertedServerRevealRef: BooleanRef;
   hasPendingBoundaryRearmAfterCooldownRef: BooleanRef;
   hasPendingServerRevealRef: BooleanRef;
   hasRequestedServerLoadRef: BooleanRef;
@@ -126,6 +127,7 @@ export function resetPaginationRuntimeState(
   options.hasUserScrolledRef.current = false;
   options.clearServerLoadCooldown();
   options.hasRequestedServerLoadRef.current = false;
+  options.hasCompletedInvertedServerRevealRef.current = false;
   options.hasPendingServerRevealRef.current = false;
   options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
   options.isInvertedLoadBoundaryArmedRef.current = true;
