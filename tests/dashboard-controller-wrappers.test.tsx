@@ -160,6 +160,7 @@ describe("dashboard controller wrapper hooks", () => {
     const { useDashboardArticleWindow } = await setupArticleWindowModule();
     const options = {
       articleFilter: "unread",
+      articleSortOrder: "newest" as const,
       articlesPerPage: 10,
       currentFeedLength: 8,
       currentFilteredFeedLength: 5,
@@ -190,6 +191,7 @@ describe("dashboard controller wrapper hooks", () => {
     expect(useResetArticleWindowOnSelectionChangeMock).toHaveBeenCalledWith(
       expect.objectContaining({
         articleFilter: "unread",
+        articleSortOrder: "newest",
         articlesPerPage: 10,
         selectedCategory: "All",
         shouldUseArticleWindow: true,
@@ -227,6 +229,7 @@ describe("dashboard controller wrapper hooks", () => {
     const { result } = renderHook(() =>
       useDashboardArticleWindow({
         articleFilter: "all",
+        articleSortOrder: "newest",
         articlesPerPage: 25,
         currentFeedLength: 25,
         currentFilteredFeedLength: 25,

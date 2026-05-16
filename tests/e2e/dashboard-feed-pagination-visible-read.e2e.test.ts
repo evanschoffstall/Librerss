@@ -141,6 +141,31 @@ async function selectLocalCategory(page: Page) {
   await localCategoryButton.click();
 }
 
+async function selectSortOrder(page: Page, sortOrder: "newest" | "oldest") {
+  const sortOrderButton = page.locator(
+    "[data-dashboard-filter-bar-sort-order]",
+  );
+
+  await expect(sortOrderButton).toBeVisible({ timeout: 15_000 });
+
+  for (const _attempt of Array.from({ length: 2 })) {
+    if (
+      (await sortOrderButton.getAttribute(
+        "data-dashboard-filter-bar-sort-order",
+      )) === sortOrder
+    ) {
+      return;
+    }
+
+    await sortOrderButton.click();
+  }
+
+  await expect(sortOrderButton).toHaveAttribute(
+    "data-dashboard-filter-bar-sort-order",
+    sortOrder,
+  );
+}
+
 async function waitForInitialClippedWindow(page: Page, pageSize: number) {
   await expect
     .poll(async () => {
@@ -343,6 +368,81 @@ test.describe("dashboard feed pagination", () => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await selectArticleFilter(page, "unread");
 
+    await expect(page.locator("article[data-article-key]")).toHaveCount(0, {
+      timeout: 20_000,
+    });
+    await expect(page.getByText("You're up to date")).toBeVisible();
+  });
+
+  test("continues visible-read unread refill after switching sort order", async ({
+    page,
+  }) => {
+    test.slow();
+
+    const readArticleIds = new Set<number>();
+    const requestedArticleLimits: number[] = [];
+    const requestedSortOrders: string[] = [];
+    const totalArticlesPerFeed = 6;
+    const totalReadableArticles = totalArticlesPerFeed * 2;
+
+    await installReadStatusRoute(page, readArticleIds);
+    await page.unroute("**/api/feeds/batch");
+    await installDeterministicFeedBatchRoute(page, {
+      articleFeedCount: 2,
+      readArticleIdsRef: readArticleIds,
+      respectArticleLimit: true,
+      totalArticlesPerFeed,
+    });
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        articleLimit?: unknown;
+        articleSortOrder?: unknown;
+      };
+
+      if (typeof requestBody.articleLimit === "number") {
+        requestedArticleLimits.push(requestBody.articleLimit);
+      }
+
+      if (typeof requestBody.articleSortOrder === "string") {
+        requestedSortOrders.push(requestBody.articleSortOrder);
+      }
+
+      await route.fallback();
+    });
+    await page.setViewportSize({ height: 840, width: 1280 });
+
+    await gotoAuthenticatedDashboard(page);
+    await selectLocalCategory(page);
+    await selectArticleFilter(page, "unread");
+    await configureArticlesPerPage(page, 4);
+    await selectSortOrder(page, "oldest");
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    for (const _cycleIndex of Array.from({ length: 60 })) {
+      if (
+        readArticleIds.size >= totalReadableArticles ||
+        (await page.locator("article[data-article-key]").count()) === 0
+      ) {
+        break;
+      }
+
+      const previousReadCount = readArticleIds.size;
+      await clickMarkFullyVisibleArticlesAsRead(page);
+      await expect
+        .poll(() => readArticleIds.size, { timeout: 15_000 })
+        .toBeGreaterThan(previousReadCount);
+    }
+
+    await expect
+      .poll(() => readArticleIds.size, { timeout: 20_000 })
+      .toBe(totalReadableArticles);
+    expect(requestedSortOrders).toContain("oldest");
+    expect(
+      requestedArticleLimits.filter((articleLimit) => articleLimit % 4 !== 0),
+      `Sorted visible-read pagination must request exact page-size increments. Captured limits: ${JSON.stringify(
+        requestedArticleLimits,
+      )}`,
+    ).toEqual([]);
     await expect(page.locator("article[data-article-key]")).toHaveCount(0, {
       timeout: 20_000,
     });

@@ -8,7 +8,7 @@ import {
   useRef,
 } from "react";
 
-import type { CategoryTreeNode } from "@/lib/core";
+import type { ArticleSortOrder, CategoryTreeNode } from "@/lib/core";
 
 import {
   refillDashboardArticleWindow,
@@ -40,6 +40,16 @@ interface UnreadWindowRefillEffectOptions extends UseUnreadWindowRefillOptions {
   previousFilteredFeedLength: number;
 }
 
+/** Options used to build a stable unread-window refill scope key. */
+interface UnreadWindowRefillScopeOptions {
+  /** The active article state filter. */
+  articleFilter: string;
+  /** The chronological ordering applied to the feed window. */
+  articleSortOrder: ArticleSortOrder;
+  /** The active category or feed key. */
+  selectedCategory: string;
+}
+
 /**
  * Describes the options for use article window availability.
  */
@@ -67,6 +77,7 @@ interface UseArticleWindowAvailabilityOptions {
  */
 interface UseResetArticleWindowOptions extends ArticleWindowRefCollection {
   articleFilter: string;
+  articleSortOrder: ArticleSortOrder;
   articlesPerPage: number;
   selectedCategory: string;
   setHasMoreServerArticles: Dispatch<SetStateAction<boolean>>;
@@ -81,6 +92,7 @@ interface UseResetArticleWindowOptions extends ArticleWindowRefCollection {
 interface UseUnreadWindowRefillOptions extends FeedSelectionFetchers {
   allowPartialArticleWindowGrowthRef: RefObject<boolean>;
   articleFilter: string;
+  articleSortOrder: ArticleSortOrder;
   articlesPerPage: number;
   currentFeedLength: number;
   currentFilteredFeedLength: number;
@@ -156,6 +168,7 @@ export function useResetArticleWindowOnSelectionChange(
   const {
     allowPartialArticleWindowGrowthRef,
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     hasStartedArticleWindowSettlementRef,
     inFlightPrefetchedLimitRef,
@@ -195,6 +208,7 @@ export function useResetArticleWindowOnSelectionChange(
   }, [
     allowPartialArticleWindowGrowthRef,
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     hasStartedArticleWindowSettlementRef,
     inFlightPrefetchedLimitRef,
@@ -229,15 +243,20 @@ export function useUnreadWindowRefill(
     options.currentFilteredFeedLength,
   );
   const refillScopeRef = useRef(
-    getUnreadWindowRefillScope(options.articleFilter, options.selectedCategory),
+    getUnreadWindowRefillScope({
+      articleFilter: options.articleFilter,
+      articleSortOrder: options.articleSortOrder,
+      selectedCategory: options.selectedCategory,
+    }),
   );
 
   useEffect(
     () => {
-      const refillScope = getUnreadWindowRefillScope(
-        options.articleFilter,
-        options.selectedCategory,
-      );
+      const refillScope = getUnreadWindowRefillScope({
+        articleFilter: options.articleFilter,
+        articleSortOrder: options.articleSortOrder,
+        selectedCategory: options.selectedCategory,
+      });
 
       if (refillScopeRef.current !== refillScope) {
         refillScopeRef.current = refillScope;
@@ -256,6 +275,7 @@ export function useUnreadWindowRefill(
     [
       options.allowPartialArticleWindowGrowthRef,
       options.articleFilter,
+      options.articleSortOrder,
       options.articlesPerPage,
       options.currentFeedLength,
       options.currentFilteredFeedLength,
@@ -312,15 +332,11 @@ function clearLoadingMoreArticles(
 
 /**
  * Return the state boundary where unread-refill comparisons remain meaningful.
- * @param articleFilter - The active article filter.
- * @param selectedCategory - The active category or feed key.
+ * @param options - The filter, sort order, and category that define one unread window.
  * @returns A stable key for resetting previous unread-count tracking.
  */
-function getUnreadWindowRefillScope(
-  articleFilter: string,
-  selectedCategory: string,
-) {
-  return `${articleFilter}:${selectedCategory}`;
+function getUnreadWindowRefillScope(options: UnreadWindowRefillScopeOptions) {
+  return `${options.articleFilter}:${options.articleSortOrder}:${options.selectedCategory}`;
 }
 
 /**

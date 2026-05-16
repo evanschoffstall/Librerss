@@ -47,7 +47,7 @@ describe("dashboard support hooks", () => {
         canLoadMoreFromServer: true,
         collapsingArticles: {},
         expandedArticleKey: null,
-        feedViewKey: "feed-1:all",
+        feedViewKey: "feed-1:all:newest",
         filteredFeed: [],
         hasConfiguredFeeds: true,
         hydratedArticleLinks: {},
@@ -110,7 +110,7 @@ describe("dashboard support hooks", () => {
     expect(controllerState.sidebar.sidebarContentProps).toBe(
       sidebarContentProps,
     );
-    expect(controllerState.feedList.feedViewKey).toBe("feed-1:all");
+    expect(controllerState.feedList.feedViewKey).toBe("feed-1:all:newest");
     expect(controllerState.settings.backgroundMode).toBe("none");
   });
 

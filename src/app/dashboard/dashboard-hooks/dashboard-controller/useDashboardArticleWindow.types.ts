@@ -1,5 +1,5 @@
 import type { FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
-import type { CategoryTreeNode } from "@/lib/core";
+import type { ArticleSortOrder, CategoryTreeNode } from "@/lib/core";
 
 /**
  * Describes the dashboard article window state.
@@ -18,6 +18,7 @@ export interface DashboardArticleWindowState {
  */
 export interface UseDashboardArticleWindowOptions extends FeedSelectionFetchers {
   articleFilter: string;
+  articleSortOrder: ArticleSortOrder;
   articlesPerPage: number;
   currentFeedLength: number;
   currentFilteredFeedLength: number;

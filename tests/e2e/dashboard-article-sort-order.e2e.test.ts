@@ -2,6 +2,7 @@ import {
   articleCard,
   configureArticlesPerPage,
   gotoPreviewDashboard,
+  installDeterministicFeedBatchRoute,
   readArticleKey,
   scrollFeedViewportToBottom,
   selectArticleFilter,
@@ -11,6 +12,10 @@ import { expect, test } from "./test";
 const SORT_TOGGLE_NAME = /sort by date/i;
 
 test.describe("dashboard article sort order", () => {
+  test.beforeEach(async ({ page }) => {
+    await installDeterministicFeedBatchRoute(page);
+  });
+
   test("defaults to newest-first and renders the sort toggle in the filter bar", async ({
     page,
   }) => {
