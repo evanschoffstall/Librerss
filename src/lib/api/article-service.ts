@@ -99,6 +99,7 @@ interface SaveProxyUrlOptions {
  * Describes optional request configuration for article-status mutations.
  */
 interface UpdateArticleStatusOptions {
+  keepalive?: boolean;
   signal?: AbortSignal;
 }
 
@@ -245,6 +246,7 @@ export const ArticleService = {
       await getApiClient().post(
         `${articleServiceBaseUrl}/articles/status`,
         requestBody,
+        { keepalive: options?.keepalive },
       );
       return;
     }
@@ -252,7 +254,7 @@ export const ArticleService = {
     await getApiClient().post(
       `${articleServiceBaseUrl}/articles/status`,
       requestBody,
-      { signal: options.signal },
+      { keepalive: options.keepalive, signal: options.signal },
     );
   },
 };

@@ -41,6 +41,7 @@ export interface ApiClient {
  */
 export interface ApiClientConfig {
   headers?: HeadersInit;
+  keepalive?: boolean;
   responseType?: "blob" | "json" | "text";
   signal?: AbortSignal;
 }
@@ -356,6 +357,7 @@ async function request<T>(
       body: hasBody ? JSON.stringify(data) : undefined,
       credentials: "same-origin",
       headers,
+      keepalive: config?.keepalive,
       method,
       signal: config?.signal,
     });
