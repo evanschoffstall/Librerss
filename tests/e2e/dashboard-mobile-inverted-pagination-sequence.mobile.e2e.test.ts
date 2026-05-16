@@ -61,14 +61,17 @@ async function expandInvertedWindowByOnePage(
     }
 
     await expect
-      .poll(async () => {
-        const metrics = await readFeedViewportMetrics(page);
+      .poll(
+        async () => {
+          const metrics = await readFeedViewportMetrics(page);
 
-        return metrics.scrollTop;
-      }, {
-        intervals: [120, 160, 200],
-        timeout: 1_100,
-      })
+          return metrics.scrollTop;
+        },
+        {
+          intervals: [120, 160, 200],
+          timeout: 1_100,
+        },
+      )
       .toBeGreaterThanOrEqual(0);
     await scrollFeedViewportToTop(page);
   }
@@ -88,12 +91,15 @@ async function readStableRenderedCount(page: Page) {
 
     previousCount = currentCount;
     await expect
-      .poll(async () => {
-        return await readVisibleFeedArticleCount(page);
-      }, {
-        intervals: [50, 80, 100],
-        timeout: 400,
-      })
+      .poll(
+        async () => {
+          return await readVisibleFeedArticleCount(page);
+        },
+        {
+          intervals: [50, 80, 100],
+          timeout: 400,
+        },
+      )
       .toBeGreaterThanOrEqual(currentCount);
   }
 
@@ -101,9 +107,9 @@ async function readStableRenderedCount(page: Page) {
 }
 
 async function readStableTopVisibleArticle(page: Page) {
-  let previousArticle:
-    | Awaited<ReturnType<typeof readTopVisibleFeedArticle>>
-    | null = null;
+  let previousArticle: Awaited<
+    ReturnType<typeof readTopVisibleFeedArticle>
+  > | null = null;
 
   for (let attempt = 0; attempt < RENDERED_COUNT_SETTLE_LIMIT; attempt += 1) {
     const currentArticle = await readTopVisibleFeedArticle(
@@ -123,17 +129,20 @@ async function readStableTopVisibleArticle(page: Page) {
 
     previousArticle = currentArticle;
     await expect
-      .poll(async () => {
-        const maybeTopVisibleArticle = await readTopVisibleFeedArticle(
-          page,
-          STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
-        );
+      .poll(
+        async () => {
+          const maybeTopVisibleArticle = await readTopVisibleFeedArticle(
+            page,
+            STABLE_TOP_VISIBLE_ARTICLE_OFFSET_PX,
+          );
 
-        return maybeTopVisibleArticle?.offsetTop ?? null;
-      }, {
-        intervals: [50, 80, 100],
-        timeout: 400,
-      })
+          return maybeTopVisibleArticle?.offsetTop ?? null;
+        },
+        {
+          intervals: [50, 80, 100],
+          timeout: 400,
+        },
+      )
       .not.toBeNull();
   }
 
@@ -153,7 +162,6 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { exact: true, name: "all" }).click();
-
     await configureArticlesPerPage(page, 4);
 
     let initialCount = 0;
@@ -193,14 +201,17 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
       if (stepIndex < expectedGrowthByStep.length - 1) {
         await setFeedViewportScrollTop(page, 800);
         await expect
-          .poll(async () => {
-            const metrics = await readFeedViewportMetrics(page);
+          .poll(
+            async () => {
+              const metrics = await readFeedViewportMetrics(page);
 
-            return metrics.scrollTop;
-          }, {
-            intervals: [120, 160, 220],
-            timeout: 1_100,
-          })
+              return metrics.scrollTop;
+            },
+            {
+              intervals: [120, 160, 220],
+              timeout: 1_100,
+            },
+          )
           .toBeGreaterThan(0);
       }
     }

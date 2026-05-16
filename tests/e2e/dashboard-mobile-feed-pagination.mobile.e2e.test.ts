@@ -118,7 +118,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
@@ -160,7 +159,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
@@ -220,7 +218,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
@@ -272,7 +269,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
@@ -320,7 +316,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
@@ -357,7 +352,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
@@ -391,7 +385,6 @@ test.describe("dashboard mobile feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await page.getByRole("button", { exact: true, name: "all" }).click();
-
       await configureArticlesPerPage(page, 4);
       await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
 
