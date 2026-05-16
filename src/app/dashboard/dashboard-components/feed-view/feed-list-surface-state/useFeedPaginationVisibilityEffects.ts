@@ -50,6 +50,7 @@ export function useFeedPaginationLoadingMoreRevealEffect(
   const {
     canLoadMoreFromServer,
     filteredFeedLength,
+    hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
@@ -83,6 +84,7 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     }
 
     completePendingServerReveal({
+      hasCompletedInvertedServerRevealRef,
       hasPendingServerRevealRef,
       hasResolvedStandardViewportRevealRef,
       isInvertedScroll,
@@ -95,6 +97,7 @@ export function useFeedPaginationLoadingMoreRevealEffect(
   }, [
     canLoadMoreFromServer,
     filteredFeedLength,
+    hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef,
     isInvertedScroll,
@@ -217,6 +220,7 @@ export function useFeedPaginationRevealCountEffect(
   const {
     commitVisibleArticleCount,
     filteredFeedLength,
+    hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef,
     hasRequestedServerLoadRef,
     hasResolvedStandardViewportRevealRef,
@@ -245,6 +249,7 @@ export function useFeedPaginationRevealCountEffect(
     handleFeedPaginationRevealCountTransition({
       commitVisibleArticleCount,
       filteredFeedLength,
+      hasCompletedInvertedServerRevealRef,
       hasPendingServerRevealRef,
       hasRequestedServerLoadRef,
       hasResolvedStandardViewportRevealRef,
@@ -264,6 +269,7 @@ export function useFeedPaginationRevealCountEffect(
   }, [
     commitVisibleArticleCount,
     filteredFeedLength,
+    hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef,
     hasRequestedServerLoadRef,
     hasResolvedStandardViewportRevealRef,

@@ -68,6 +68,10 @@ interface UseFeedPaginationServerLoadOptions {
 export function completeFeedServerLoadCooldown(
   options: FeedPaginationServerLoadCooldownStateOptions,
 ) {
+  const shouldRunPostCooldownPaginationCheck =
+    !options.isInvertedScroll ||
+    options.hasPendingBoundaryRearmAfterCooldownRef.current;
+
   options.hasRequestedServerLoadRef.current = false;
   rearmFeedLoadBoundary(
     options.isInvertedScroll,
@@ -77,7 +81,7 @@ export function completeFeedServerLoadCooldown(
   options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
 
   if (
-    !options.isInvertedScroll &&
+    shouldRunPostCooldownPaginationCheck &&
     options.paginationFrameRef.current === null &&
     options.maybeLoadNextPageRef.current
   ) {
@@ -130,6 +134,8 @@ export function useFeedPaginationServerLoad(
   });
   return {
     clearServerLoadCooldown: cooldownState.clearServerLoadCooldown,
+    hasCompletedInvertedServerRevealRef:
+      refs.hasCompletedInvertedServerRevealRef,
     hasPendingBoundaryRearmAfterCooldownRef:
       refs.hasPendingBoundaryRearmAfterCooldownRef,
     hasPendingServerRevealRef: refs.hasPendingServerRevealRef,
@@ -258,6 +264,7 @@ function useFeedPaginationServerLoadCooldown(
  */
 function useFeedPaginationServerLoadRefs() {
   return {
+    hasCompletedInvertedServerRevealRef: useRef(false),
     hasPendingBoundaryRearmAfterCooldownRef: useRef(false),
     hasPendingServerRevealRef: useRef(false),
     hasRequestedServerLoadRef: useRef(false),

@@ -116,4 +116,27 @@ describe("completeFeedServerLoadCooldown", () => {
     expect(options.paginationFrameRef.current).toBeNull();
     expect(options.maybeLoadNextPageRef.current).not.toHaveBeenCalled();
   });
+
+  test("runs an inverted pagination check after cooldown when user intent was queued", () => {
+    const options = buildCooldownOptions({
+      hasPendingBoundaryRearmAfterCooldownRef: { current: true },
+      isInvertedScroll: true,
+    });
+
+    completeFeedServerLoadCooldown(options);
+
+    expect(options.hasPendingBoundaryRearmAfterCooldownRef.current).toBe(false);
+    expect(options.isInvertedLoadBoundaryArmedRef.current).toBe(true);
+    expect(options.paginationFrameRef.current).not.toBeNull();
+    expect(options.maybeLoadNextPageRef.current).not.toHaveBeenCalled();
+
+    act(() => {
+      raf.flush();
+    });
+
+    expect(options.paginationFrameRef.current).toBeNull();
+    expect(options.maybeLoadNextPageRef.current).toHaveBeenCalledWith(
+      "sentinel",
+    );
+  });
 });
