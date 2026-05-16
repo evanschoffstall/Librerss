@@ -425,7 +425,11 @@ export default [
     },
   },
   {
-    files: ["src/lib/logger.ts"],
+    // The logger implementation intentionally writes to console.* directly.
+    // The broader sourceFiles rule already allows console.info/warn/error;
+    // this block extends the exemption to cover console.log and console.debug
+    // inside the logger module itself.
+    files: ["src/lib/logger/**"],
     rules: {
       "no-console": "off",
     },
