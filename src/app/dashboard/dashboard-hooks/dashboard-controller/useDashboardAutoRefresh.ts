@@ -15,7 +15,6 @@ interface AutoRefreshRunControls {
 
 /** Mutable ownership inputs for one auto-refresh run controller. */
 interface AutoRefreshRunControlsOptions {
-  cancelPendingRequest: DashboardAutoRefreshOptions["cancelPendingRequest"];
   setIsAutoRefreshing: React.Dispatch<React.SetStateAction<boolean>>;
   timeoutMs: number;
 }
@@ -41,7 +40,6 @@ interface DashboardAutoRefreshOptions {
 export function useDashboardAutoRefresh(options: DashboardAutoRefreshOptions) {
   const [isAutoRefreshing, setIsAutoRefreshing] = useState(false);
   const runControls = useAutoRefreshRunControls({
-    cancelPendingRequest: options.cancelPendingRequest,
     setIsAutoRefreshing,
     timeoutMs: options.autoRefreshTimeoutMs,
   });
@@ -130,20 +128,21 @@ function useAutoRefreshRunControls(
   );
 
   /**
-   * Cancels the active request after the timeout and releases pending UI state.
+   * Releases pending UI state after the timeout without cancelling the refresh.
+   * The network request may have reached the server before the browser paused;
+   * leaving it alive lets a late response still hydrate newly fetched articles.
    *
    * @param runId - Monotonic identifier assigned when the run started.
    */
-  const cancelTimedOutRun = useCallback(
+  const releaseTimedOutRun = useCallback(
     (runId: number) => {
       if (activeRunIdRef.current !== runId) {
         return;
       }
 
-      options.cancelPendingRequest?.();
       finishRun(runId);
     },
-    [finishRun, options],
+    [finishRun],
   );
 
   /**
@@ -162,11 +161,11 @@ function useAutoRefreshRunControls(
     options.setIsAutoRefreshing(true);
     window.dispatchEvent(new CustomEvent(DASHBOARD_EVENTS.REFRESH_START));
     timeoutRef.current = setTimeout(() => {
-      cancelTimedOutRun(runId);
+      releaseTimedOutRun(runId);
     }, options.timeoutMs);
 
     return runId;
-  }, [cancelTimedOutRun, options]);
+  }, [options, releaseTimedOutRun]);
 
   useEffect(
     () => () => {

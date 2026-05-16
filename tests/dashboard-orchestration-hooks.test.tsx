@@ -4,7 +4,10 @@ import { toast } from "sonner";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
-import { ALL_FEEDS_NODE_KEY, DASHBOARD_EVENTS } from "@/app/dashboard/constants";
+import {
+  ALL_FEEDS_NODE_KEY,
+  DASHBOARD_EVENTS,
+} from "@/app/dashboard/constants";
 import { FeedService } from "@/lib/api";
 
 const originalDateNow = Date.now;
@@ -477,7 +480,7 @@ describe("dashboard orchestration hooks", () => {
     expect(clearTimeoutMock).toHaveBeenCalled();
   });
 
-  test("useDashboardAutoRefresh releases the UI latch when a suspended refresh never settles", async () => {
+  test("useDashboardAutoRefresh releases the UI latch without cancelling a late hydrating refresh", async () => {
     const modulePath = [
       "..",
       "src",
@@ -559,7 +562,7 @@ describe("dashboard orchestration hooks", () => {
     });
 
     expect(result.current).toBe(false);
-    expect(cancelPendingRequest).toHaveBeenCalledTimes(1);
+    expect(cancelPendingRequest).not.toHaveBeenCalled();
     expect(refreshEvents).toEqual(["start", "end"]);
 
     await act(async () => {
@@ -581,6 +584,7 @@ describe("dashboard orchestration hooks", () => {
 
     expect(result.current).toBe(true);
     expect(refreshEvents).toEqual(["start", "end", "start"]);
+    expect(cancelPendingRequest).not.toHaveBeenCalled();
 
     await act(async () => {
       refreshResolvers[1]?.();
