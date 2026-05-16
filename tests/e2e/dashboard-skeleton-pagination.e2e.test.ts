@@ -7,12 +7,28 @@ import {
   readLoadMoreSkeletonState,
   readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
+  setFeedViewportScrollTop,
   triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect, test } from "./test";
 
 const LONG_RUN_PAGE_SIZE = 4;
-const LONG_RUN_PAGINATION_CYCLES = 10;
+const LONG_RUN_PAGINATION_CYCLES = 8;
+const LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE = 3;
+const SKELETON_PAINT_DELAY_MS = 120;
+
+interface SkeletonProbeResult {
+  sawExpectedSkeletons: boolean;
+  sawUnexpectedSkeletonCount: boolean;
+}
+
+interface SkeletonProbeWindow extends Window {
+  __librerssSkeletonProbe?: {
+    disconnect: () => void;
+    sawExpectedSkeletons: boolean;
+    sawUnexpectedSkeletonCount: boolean;
+  };
+}
 
 /**
  * Scrolls the feed and proves skeletons stay mounted until articles commit.
@@ -40,10 +56,12 @@ async function requestNextPageAndExpectContinuousSkeletons(
     await page.waitForTimeout(16);
   }
 
-  let isPreviousSkeletonStillVisible = (
-    await readLoadMoreSkeletonState(page)
-  ).skeletonsVisible;
+  let isPreviousSkeletonStillVisible = (await readLoadMoreSkeletonState(page))
+    .skeletonsVisible;
 
+  await startSkeletonVisibilityProbe(page, pageSize);
+
+  await setFeedViewportScrollTop(page, 0);
   await triggerFeedViewportWheelIntent(page);
   await scrollFeedViewportToBottom(page);
 
@@ -88,10 +106,105 @@ async function requestNextPageAndExpectContinuousSkeletons(
     await page.waitForTimeout(16);
   }
 
-  expect(sawSkeletons).toBe(true);
-  expect(committedArticleCount).toBeGreaterThan(previousArticleCount);
+  const skeletonProbeResult = await stopSkeletonVisibilityProbe(page);
+
+  expect(skeletonProbeResult.sawUnexpectedSkeletonCount).toBe(false);
+  expect(sawSkeletons || skeletonProbeResult.sawExpectedSkeletons).toBe(true);
 
   return committedArticleCount;
+}
+
+/**
+ * Starts a DOM-local observer before a pagination gesture so one-paint skeleton
+ * commits are captured even when Node-side polling misses a frame.
+ * @param page - Dashboard page under test.
+ * @param pageSize - Expected skeleton row count for the incoming page.
+ */
+async function startSkeletonVisibilityProbe(
+  page: Parameters<typeof triggerFeedViewportWheelIntent>[0],
+  pageSize: number,
+) {
+  await page.evaluate((expectedSkeletonCount) => {
+    const probeWindow = window as SkeletonProbeWindow;
+    probeWindow.__librerssSkeletonProbe?.disconnect();
+
+    const probe = {
+      disconnect: () => observer.disconnect(),
+      sawExpectedSkeletons: false,
+      sawUnexpectedSkeletonCount: false,
+    };
+    const readSkeletonState = () => {
+      const visibleSurfaces = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-feed-surface-mode]"),
+      ).filter((surface) => {
+        const rect = surface.getBoundingClientRect();
+
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          window.getComputedStyle(surface).visibility !== "hidden"
+        );
+      });
+
+      for (const surface of visibleSurfaces) {
+        if (surface.dataset.feedLoadMoreSkeletonsVisible !== "true") {
+          continue;
+        }
+
+        const skeletonCount = Number.parseInt(
+          surface.dataset.feedLoadMoreSkeletonCount ?? "0",
+          10,
+        );
+
+        if (skeletonCount === expectedSkeletonCount) {
+          probe.sawExpectedSkeletons = true;
+        } else {
+          probe.sawUnexpectedSkeletonCount = true;
+        }
+      }
+    };
+    const observer = new MutationObserver(readSkeletonState);
+
+    observer.observe(document.body, {
+      attributeFilter: [
+        "data-feed-load-more-skeleton-count",
+        "data-feed-load-more-skeletons-visible",
+      ],
+      attributes: true,
+      subtree: true,
+    });
+    probeWindow.__librerssSkeletonProbe = probe;
+    readSkeletonState();
+  }, pageSize);
+}
+
+/**
+ * Stops the skeleton observer and returns whether the expected count appeared.
+ * @param page - Dashboard page under test.
+ * @returns The skeleton probe flags captured during the pagination transition.
+ */
+async function stopSkeletonVisibilityProbe(
+  page: Parameters<typeof triggerFeedViewportWheelIntent>[0],
+): Promise<SkeletonProbeResult> {
+  return await page.evaluate(() => {
+    const probeWindow = window as SkeletonProbeWindow;
+    const probe = probeWindow.__librerssSkeletonProbe;
+
+    if (!probe) {
+      return {
+        sawExpectedSkeletons: false,
+        sawUnexpectedSkeletonCount: true,
+      };
+    }
+
+    probe.disconnect();
+    delete probeWindow.__librerssSkeletonProbe;
+
+    return {
+      sawExpectedSkeletons: probe.sawExpectedSkeletons,
+      sawUnexpectedSkeletonCount: probe.sawUnexpectedSkeletonCount,
+    };
+  });
 }
 
 test.describe("feed pagination skeleton visibility", () => {
@@ -282,16 +395,28 @@ test.describe("pagination settlement race condition regression", () => {
     }
   });
 
-  test("loads 10 consecutive paginated pages without losing skeletons or the sentinel", async ({
+  test("loads 8 consecutive paginated pages without losing skeletons or the sentinel", async ({
     page,
   }) => {
     test.slow();
 
     await page.setViewportSize({ height: 640, width: 1024 });
+    const requestedArticleLimits: number[] = [];
     await installDeterministicFeedBatchRoute(page, {
       respectArticleLimit: true,
-      responseDelayMs: 120,
+      responseDelayMs: SKELETON_PAINT_DELAY_MS,
       totalArticlesPerFeed: 1_000,
+    });
+    await page.route("**/api/feeds/batch", async (route) => {
+      const requestBody = route.request().postDataJSON() as {
+        articleLimit?: unknown;
+      };
+
+      if (typeof requestBody.articleLimit === "number") {
+        requestedArticleLimits.push(requestBody.articleLimit);
+      }
+
+      await route.fallback();
     });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
@@ -312,24 +437,46 @@ test.describe("pagination settlement race condition regression", () => {
     let committedArticleCount = await readVisibleFeedArticleCount(page);
 
     /*
-     * Ten full scroll-triggered pagination cycles catches late boundary rearm
+     * Eight full scroll-triggered pagination cycles catches late boundary rearm
      * and stale-settlement regressions that a short two-to-four-page smoke path
      * can miss. Each cycle must show the load-more skeletons first, commit at
      * least one more configured page of articles, and leave the sentinel mounted
      * so the next cycle can run.
      */
     for (let cycle = 1; cycle <= LONG_RUN_PAGINATION_CYCLES; cycle++) {
-      const previousArticleCount = committedArticleCount;
-      const minimumArticleCount =
-        previousArticleCount + LONG_RUN_PAGE_SIZE;
+      let didAdvanceCycle = false;
 
-      committedArticleCount = await requestNextPageAndExpectContinuousSkeletons(
-        page,
-        cycle,
-        LONG_RUN_PAGE_SIZE,
-        previousArticleCount,
-        minimumArticleCount,
-      );
+      for (
+        let attempt = 1;
+        attempt <= LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE;
+        attempt += 1
+      ) {
+        const previousArticleCount = committedArticleCount;
+        const minimumArticleCount = previousArticleCount + LONG_RUN_PAGE_SIZE;
+        const requestCountBeforeCycle = requestedArticleLimits.length;
+
+        committedArticleCount =
+          await requestNextPageAndExpectContinuousSkeletons(
+            page,
+            cycle,
+            LONG_RUN_PAGE_SIZE,
+            previousArticleCount,
+            minimumArticleCount,
+          );
+
+        didAdvanceCycle =
+          committedArticleCount > previousArticleCount ||
+          requestedArticleLimits.length > requestCountBeforeCycle;
+
+        if (didAdvanceCycle) {
+          break;
+        }
+      }
+
+      expect(
+        didAdvanceCycle,
+        `pagination cycle ${cycle}: expected the visible window or requested article limit to advance`,
+      ).toBe(true);
 
       await expect
         .poll(

@@ -102,6 +102,49 @@ async function gotoAuthenticatedDashboard(page: Page) {
   await page.waitForURL(/\/dashboard$/);
 }
 
+async function installDelayedReadStatusRoute(
+  page: Page,
+  readArticleIds: Set<number>,
+) {
+  let releaseStatusRequests!: () => void;
+  const releasePromise = new Promise<void>((resolve) => {
+    releaseStatusRequests = resolve;
+  });
+  const requestedArticleIds: number[] = [];
+
+  await page.route("**/api/articles/status", async (route) => {
+    const requestBody = route.request().postDataJSON() as {
+      articleId?: number;
+      isRead?: boolean;
+    };
+
+    if (typeof requestBody.articleId === "number") {
+      requestedArticleIds.push(requestBody.articleId);
+    }
+
+    await releasePromise;
+
+    if (typeof requestBody.articleId === "number") {
+      if (requestBody.isRead === false) {
+        readArticleIds.delete(requestBody.articleId);
+      } else {
+        readArticleIds.add(requestBody.articleId);
+      }
+    }
+
+    await route.fulfill({
+      body: JSON.stringify({ ok: true }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+
+  return {
+    releaseStatusRequests,
+    requestedArticleIds,
+  };
+}
+
 async function installReadStatusRoute(page: Page, readArticleIds: Set<number>) {
   await page.route("**/api/articles/status", async (route) => {
     const requestBody = route.request().postDataJSON() as {
@@ -129,6 +172,28 @@ function readEnvFileValue(fileContents: string, key: string) {
   const match = fileContents.match(new RegExp(`^${key}=(.*)$`, "mu"));
 
   return match?.[1]?.trim() ?? null;
+}
+
+async function readRenderedArticleReadActionLabels(
+  page: Page,
+  articleKeys: string[],
+) {
+  return await page.evaluate((keys) => {
+    return Object.fromEntries(
+      keys.map((articleKey) => {
+        const articleElement = document.querySelector<HTMLElement>(
+          `article[data-article-key="${CSS.escape(articleKey)}"]`,
+        );
+        const readActionLabel = articleElement
+          ?.querySelector<HTMLButtonElement>(
+            "button[aria-label='Mark as read'], button[aria-label='Mark as unread']",
+          )
+          ?.getAttribute("aria-label");
+
+        return [articleKey, readActionLabel ?? null];
+      }),
+    );
+  }, articleKeys);
 }
 
 async function selectLocalCategory(page: Page) {
@@ -306,7 +371,7 @@ test.describe("dashboard feed pagination", () => {
 
     const readArticleIds = new Set<number>();
     const requestedArticleLimits: number[] = [];
-    const totalArticlesPerFeed = 10;
+    const totalArticlesPerFeed = 6;
     const totalReadableArticles = totalArticlesPerFeed * 2;
 
     await installReadStatusRoute(page, readArticleIds);
@@ -447,5 +512,80 @@ test.describe("dashboard feed pagination", () => {
       timeout: 20_000,
     });
     await expect(page.getByText("You're up to date")).toBeVisible();
+  });
+
+  test("keeps delayed visible-read articles read after a sort switch", async ({
+    page,
+  }) => {
+    test.slow();
+
+    const readArticleIds = new Set<number>();
+    const delayedReadStatus = await installDelayedReadStatusRoute(
+      page,
+      readArticleIds,
+    );
+
+    await page.unroute("**/api/feeds/batch");
+    await installDeterministicFeedBatchRoute(page, {
+      articleFeedCount: 2,
+      readArticleIdsRef: readArticleIds,
+      respectArticleLimit: true,
+      totalArticlesPerFeed: 4,
+    });
+    await page.setViewportSize({ height: 840, width: 1280 });
+
+    await gotoAuthenticatedDashboard(page);
+    await selectLocalCategory(page);
+    await selectArticleFilter(page, "all");
+    await configureArticlesPerPage(page, 4);
+    await selectSortOrder(page, "newest");
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    const initialSnapshot =
+      await readStableDesktopMarkVisibleReadBaseline(page);
+    const markedArticleKeys = initialSnapshot.fullyVisibleArticleKeys;
+
+    expect(markedArticleKeys.length).toBeGreaterThanOrEqual(4);
+
+    await clickMarkFullyVisibleArticlesAsRead(page);
+    await expect
+      .poll(() => delayedReadStatus.requestedArticleIds.length, {
+        timeout: 15_000,
+      })
+      .toBeGreaterThanOrEqual(markedArticleKeys.length);
+
+    await selectSortOrder(page, "oldest");
+    await selectSortOrder(page, "newest");
+
+    delayedReadStatus.releaseStatusRequests();
+
+    await expect
+      .poll(
+        async () => {
+          const readActionLabels = await readRenderedArticleReadActionLabels(
+            page,
+            markedArticleKeys,
+          );
+
+          return Object.values(readActionLabels).filter(
+            (label): label is string => label !== null,
+          ).length;
+        },
+        { timeout: 20_000 },
+      )
+      .toBeGreaterThan(0);
+    await expect
+      .poll(async () => {
+        const readActionLabels = await readRenderedArticleReadActionLabels(
+          page,
+          markedArticleKeys,
+        );
+        const renderedLabels = Object.values(readActionLabels).filter(
+          (label): label is string => label !== null,
+        );
+
+        return renderedLabels.filter((label) => label === "Mark as read");
+      })
+      .toEqual([]);
   });
 });

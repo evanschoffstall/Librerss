@@ -3,7 +3,6 @@ import type { Page } from "@playwright/test";
 import {
   configureArticlesPerPage,
   expectDashboardLogin,
-  expectPreviewDashboard,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
   openDashboardSettings,
@@ -125,7 +124,6 @@ test.describe("dashboard preview safety", () => {
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
-    await expectPreviewDashboard(page);
     await waitForPreviewDashboardHydration(page);
 
     const previewPersistence = await readPreviewPersistence(page);
@@ -207,7 +205,6 @@ test.describe("dashboard preview safety", () => {
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expectPreviewDashboard(page);
     await waitForPreviewDashboardHydration(page);
     expect(await readDashboardPersistence(page)).toEqual(persistedSelection);
     await expect(

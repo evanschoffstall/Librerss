@@ -131,7 +131,7 @@ test.describe("dashboard feed pagination", () => {
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expandDesktopFeedWindow(page);
 
-      await page.reload({ waitUntil: "networkidle" });
+      await page.reload({ waitUntil: "domcontentloaded" });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await waitForDesktopClippedWindow(page, 4);

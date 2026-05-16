@@ -36,6 +36,7 @@ test.describe("dashboard article sort order", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
+    await selectArticleFilter(page, "all");
 
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await expect(articleCard(page, 1)).toBeVisible({ timeout: 15_000 });
