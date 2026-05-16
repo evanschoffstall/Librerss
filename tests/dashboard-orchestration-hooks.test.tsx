@@ -39,7 +39,7 @@ function makeFeedSourceResponse() {
 beforeEach(() => {
   mock.restore();
   console.error = (() => {}) as typeof console.error;
-  toast.dismiss = mock(() => undefined) as typeof toast.dismiss;
+  toast.dismiss = mock(() => "") as unknown as typeof toast.dismiss;
   toast.error = mock(() => "") as typeof toast.error;
   toast.success = mock(() => "") as typeof toast.success;
   FeedService.createFeedSource = mock(async () =>
