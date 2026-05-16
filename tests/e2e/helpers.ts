@@ -836,6 +836,10 @@ export async function scrollFeedViewportToTop(page: Page) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node) => {
+    if (Math.abs(node.scrollTop) > 1) {
+      node.dispatchEvent(new Event("scroll"));
+    }
+
     if (typeof node.scrollTo === "function") {
       node.scrollTo({ behavior: "auto", top: 0 });
     }
