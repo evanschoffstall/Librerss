@@ -6,9 +6,21 @@ import type { Article } from "@/lib/core";
 import {
   type ArticleMutationTracker,
   type ArticleStatusMutationController,
+  type ArticleStatusMutationVersionTracker,
+  createSettledArticleStatusMutationGuard,
   runOptimisticArticleStatusMutation,
+  useArticleStatusMutationVersions,
 } from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutation";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
+
+/**
+ * Inputs needed to run a guarded starred-state mutation.
+ */
+interface StarredStateMutationOptions extends UseArticleStarredStateOptions {
+  article: Article;
+  mutationVersions: ArticleStatusMutationVersionTracker;
+  nextStarredState: boolean;
+}
 
 /**
  * Describes the options for use article starred state.
@@ -37,61 +49,26 @@ export function useArticleStarredState(options: UseArticleStarredStateOptions) {
     setFeed,
     usePlaceholderData,
   } = options;
+  const mutationVersions = useArticleStatusMutationVersions();
   /** Toggles the article's starred state with optimistic UI and rollback. */
   const handleToggleStarredState = useCallback(
     async (article: Article) => {
       const nextStarredState = !article.isStarred;
-
-      await runOptimisticArticleStatusMutation({
-        /**
-         * Apply the optimistic starred-state update to the current feed window.
-         * @param currentFeed - The current feed snapshot.
-         * @returns The optimistic feed snapshot with the new starred state applied.
-         */
-        applyOptimisticUpdate: (currentFeed) =>
-          applyStarredStateOptimisticUpdate(
-            currentFeed,
-            article,
-            articleFilter,
-            nextStarredState,
-          ),
-        articles: [article],
+      await runStarredStateMutation({
+        article,
+        articleFilter,
         createMutationSignalHandle,
-        errorLogLabel: "Toggle starred state error",
         mutationTracker,
-        /**
-         * Show the fallback error toast when the mutation fails.
-         */
-        onError: () => {
-          toast.error("Unable to update starred state right now.");
-        },
-        /**
-         * Restore the starred-state change for any articles whose update failed.
-         * @param currentFeed - The current feed snapshot.
-         * @param articleMap - The original article map captured by the mutation helper.
-         * @param failedArticleKeys - The article keys that failed to update.
-         * @returns The restored feed snapshot.
-         */
-        restoreUpdate: (currentFeed, articleMap, failedArticleKeys) =>
-          restoreStarredStateUpdate(
-            currentFeed,
-            article,
-            articleFilter,
-            articleMap,
-            failedArticleKeys,
-          ),
+        mutationVersions,
+        nextStarredState,
         setFeed,
-        /**
-         * Process the status patch for article.
-         * @returns The status patch for article.
-         */
-        statusPatchForArticle: () => ({ isStarred: nextStarredState }),
         usePlaceholderData,
       });
     },
     [
       articleFilter,
       createMutationSignalHandle,
+      mutationVersions,
       mutationTracker,
       setFeed,
       usePlaceholderData,
@@ -129,6 +106,74 @@ function applyStarredStateOptimisticUpdate(
   }
 
   return updated;
+}
+
+/**
+ * Create the shared optimistic mutation options for one starred-state update.
+ * @param mutationOptions - Starred-state mutation inputs and ownership helpers.
+ * @param articleVersions - Local mutation versions captured for this update.
+ * @returns Options consumed by the shared optimistic status mutation runner.
+ */
+function createStarredStateMutationOptions(
+  mutationOptions: StarredStateMutationOptions,
+  articleVersions: ReadonlyMap<string, number>,
+) {
+  return {
+    /**
+     * Apply the optimistic starred-state update to the current feed window.
+     * @param currentFeed - The current feed snapshot.
+     * @returns The optimistic feed snapshot with the new starred state applied.
+     */
+    applyOptimisticUpdate: (currentFeed: Article[]) =>
+      applyStarredStateOptimisticUpdate(
+        currentFeed,
+        mutationOptions.article,
+        mutationOptions.articleFilter,
+        mutationOptions.nextStarredState,
+      ),
+    articles: [mutationOptions.article],
+    createMutationSignalHandle: mutationOptions.createMutationSignalHandle,
+    errorLogLabel: "Toggle starred state error",
+    mutationTracker: mutationOptions.mutationTracker,
+    /**
+     * Show the fallback error toast when the mutation fails.
+     */
+    onError: () => {
+      toast.error("Unable to update starred state right now.");
+    },
+    /**
+     * Restore the starred-state change for any articles whose update failed.
+     * @param currentFeed - The current feed snapshot.
+     * @param articleMap - The original article map captured by the mutation helper.
+     * @param failedArticleKeys - The article keys that failed to update.
+     * @returns The restored feed snapshot.
+     */
+    restoreUpdate: (
+      currentFeed: Article[],
+      articleMap: Map<string, Article>,
+      failedArticleKeys?: Set<string>,
+    ) =>
+      restoreStarredStateUpdate(
+        currentFeed,
+        mutationOptions.article,
+        mutationOptions.articleFilter,
+        articleMap,
+        failedArticleKeys,
+      ),
+    setFeed: mutationOptions.setFeed,
+    shouldApplySettledUpdate: createSettledArticleStatusMutationGuard(
+      mutationOptions.mutationVersions,
+      articleVersions,
+    ),
+    /**
+     * Create the persisted starred-state patch for the article.
+     * @returns Article status patch sent to the API.
+     */
+    statusPatchForArticle: () => ({
+      isStarred: mutationOptions.nextStarredState,
+    }),
+    usePlaceholderData: mutationOptions.usePlaceholderData,
+  };
 }
 
 /**
@@ -181,6 +226,29 @@ function restoreStarredStateUpdate(
 
   const originalArticle = articleMap.get(articleKey) ?? article;
   return [originalArticle, ...reverted];
+}
+
+/**
+ * Run a starred-state mutation and release its local mutation versions when done.
+ * @param mutationOptions - Starred-state mutation inputs and ownership helpers.
+ */
+async function runStarredStateMutation(
+  mutationOptions: StarredStateMutationOptions,
+) {
+  const articleVersions =
+    mutationOptions.mutationVersions.trackArticleMutationVersions([
+      mutationOptions.article,
+    ]);
+
+  try {
+    await runOptimisticArticleStatusMutation(
+      createStarredStateMutationOptions(mutationOptions, articleVersions),
+    );
+  } finally {
+    mutationOptions.mutationVersions.releaseArticleMutationVersions(
+      articleVersions,
+    );
+  }
 }
 
 /**

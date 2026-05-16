@@ -53,6 +53,7 @@ interface MaybeLoadInvertedNextPageOptions {
   currentFilteredFeedLength: number;
   currentVisibleCount: number;
   expandVisibleWindow: () => boolean;
+  hasCompletedInvertedServerRevealRef: { current: boolean };
   isInvertedLoadBoundaryArmedRef: { current: boolean };
   /** The last recorded inverted-scroll position, reset to `null` after each
    * server reveal.  Used to gate consecutive server loads: if still `null` the
@@ -72,6 +73,7 @@ interface MaybeLoadNextPageOptions {
   filteredFeedLengthRef: { current: number };
   hasActiveInvertedExpansionScrollLock: () => boolean;
   hasCollapsingArticlesRef: { current: boolean };
+  hasCompletedInvertedServerRevealRef: { current: boolean };
   hasReachedStandardLoadBoundary: () => boolean;
   hasUserScrolledRef: { current: boolean };
   isInvertedLoadBoundaryArmedRef: { current: boolean };
@@ -337,6 +339,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
     filteredFeedLengthRef,
     hasActiveInvertedExpansionScrollLock,
     hasCollapsingArticlesRef,
+    hasCompletedInvertedServerRevealRef,
     hasReachedStandardLoadBoundary,
     hasUserScrolledRef,
     isInvertedLoadBoundaryArmedRef,
@@ -368,6 +371,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
           currentFilteredFeedLength,
           currentVisibleCount,
           expandVisibleWindow,
+          hasCompletedInvertedServerRevealRef,
           isInvertedLoadBoundaryArmedRef,
           lastInvertedScrollTopRef,
           primeInvertedPaginationAnchor,
@@ -392,6 +396,7 @@ export function useMaybeLoadNextPage(options: MaybeLoadNextPageOptions) {
       filteredFeedLengthRef,
       hasActiveInvertedExpansionScrollLock,
       hasCollapsingArticlesRef,
+      hasCompletedInvertedServerRevealRef,
       hasReachedStandardLoadBoundary,
       hasUserScrolledRef,
       isInvertedLoadBoundaryArmedRef,
@@ -434,7 +439,10 @@ function maybeLoadInvertedNextPage(options: MaybeLoadInvertedNextPageOptions) {
     // write a new non-null value into lastInvertedScrollTopRef.current — this
     // would silently bypass the null guard and trigger a spurious server request
     // for a user who has never left the boundary.
-    if (options.lastInvertedScrollTopRef.current === null) {
+    if (
+      options.hasCompletedInvertedServerRevealRef.current &&
+      options.lastInvertedScrollTopRef.current === null
+    ) {
       return;
     }
 

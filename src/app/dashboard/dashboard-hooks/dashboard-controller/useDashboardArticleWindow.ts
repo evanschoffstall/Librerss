@@ -24,6 +24,7 @@ import {
 type DashboardArticleWindowAvailabilityOptions = Pick<
   DashboardArticleWindowLifecycleOptions,
   | "articleFilter"
+  | "articleSortOrder"
   | "articlesPerPage"
   | "articleWindowState"
   | "currentFeedLength"
@@ -59,6 +60,7 @@ interface DashboardArticleWindowControlsOptions {
  */
 interface DashboardArticleWindowLifecycleOptions {
   articleFilter: UseDashboardArticleWindowOptions["articleFilter"];
+  articleSortOrder: UseDashboardArticleWindowOptions["articleSortOrder"];
   articlesPerPage: UseDashboardArticleWindowOptions["articlesPerPage"];
   articleWindowState: ReturnType<typeof useDashboardArticleWindowState>;
   currentFeedLength: UseDashboardArticleWindowOptions["currentFeedLength"];
@@ -68,8 +70,8 @@ interface DashboardArticleWindowLifecycleOptions {
   fetchFeed: UseDashboardArticleWindowOptions["fetchFeed"];
   isLoading: UseDashboardArticleWindowOptions["isLoading"];
   selectedCategory: UseDashboardArticleWindowOptions["selectedCategory"];
-  selectedCategoryNode: UseDashboardArticleWindowOptions["selectedCategoryNode"];
-  selectedFeedUrl: UseDashboardArticleWindowOptions["selectedFeedUrl"];
+  selectedCategoryNode?: UseDashboardArticleWindowOptions["selectedCategoryNode"];
+  selectedFeedUrl?: UseDashboardArticleWindowOptions["selectedFeedUrl"];
   shouldUseArticleWindow: UseDashboardArticleWindowOptions["shouldUseArticleWindow"];
   usePlaceholderData: UseDashboardArticleWindowOptions["usePlaceholderData"];
 }
@@ -79,6 +81,7 @@ interface DashboardArticleWindowLifecycleOptions {
  */
 interface DashboardArticleWindowSelectionResetLifecycleOptions {
   articleFilter: string;
+  articleSortOrder: UseDashboardArticleWindowOptions["articleSortOrder"];
   articlesPerPage: number;
   isLoading: boolean;
   lifecycleState: ReturnType<typeof getDashboardArticleWindowAvailabilityState>;
@@ -98,22 +101,7 @@ export function useDashboardArticleWindow(
     articlesPerPage: options.articlesPerPage,
     shouldUseArticleWindow: options.shouldUseArticleWindow,
   });
-  useDashboardArticleWindowLifecycle({
-    articleFilter: options.articleFilter,
-    articlesPerPage: options.articlesPerPage,
-    articleWindowState,
-    currentFeedLength: options.currentFeedLength,
-    currentFilteredFeedLength: options.currentFilteredFeedLength,
-    fetchAllFeeds: options.fetchAllFeeds,
-    fetchCategoryFeeds: options.fetchCategoryFeeds,
-    fetchFeed: options.fetchFeed,
-    isLoading: options.isLoading,
-    selectedCategory: options.selectedCategory,
-    selectedCategoryNode: options.selectedCategoryNode,
-    selectedFeedUrl: options.selectedFeedUrl,
-    shouldUseArticleWindow: options.shouldUseArticleWindow,
-    usePlaceholderData: options.usePlaceholderData,
-  });
+  useDashboardArticleWindowLifecycle({ ...options, articleWindowState });
   const controls = useDashboardArticleWindowControls({
     articleWindowState,
     options,
@@ -186,6 +174,7 @@ function useDashboardArticleWindowAvailabilityLifecycle(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
@@ -199,6 +188,7 @@ function useDashboardArticleWindowAvailabilityLifecycle(
 
   useDashboardArticleWindowSelectionResetLifecycle({
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     isLoading,
     lifecycleState,
@@ -288,6 +278,7 @@ function useDashboardArticleWindowLifecycle(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
@@ -304,6 +295,7 @@ function useDashboardArticleWindowLifecycle(
   } = options;
   useDashboardArticleWindowAvailabilityLifecycle({
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
@@ -314,6 +306,7 @@ function useDashboardArticleWindowLifecycle(
   });
   useDashboardArticleWindowUnreadRefillLifecycle({
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
@@ -412,6 +405,7 @@ function useDashboardArticleWindowSelectionResetLifecycle(
     allowPartialArticleWindowGrowthRef:
       options.lifecycleState.allowPartialGrowthRef,
     articleFilter: options.articleFilter,
+    articleSortOrder: options.articleSortOrder,
     articlesPerPage: options.articlesPerPage,
     hasStartedArticleWindowSettlementRef:
       options.lifecycleState.hasStartedSettlementRef,
@@ -495,6 +489,7 @@ function useDashboardArticleWindowUnreadRefillLifecycle(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     articleWindowState,
     currentFeedLength,
@@ -512,6 +507,7 @@ function useDashboardArticleWindowUnreadRefillLifecycle(
     allowPartialArticleWindowGrowthRef:
       articleWindowState.allowPartialArticleWindowGrowthRef,
     articleFilter,
+    articleSortOrder,
     articlesPerPage,
     currentFeedLength,
     currentFilteredFeedLength,

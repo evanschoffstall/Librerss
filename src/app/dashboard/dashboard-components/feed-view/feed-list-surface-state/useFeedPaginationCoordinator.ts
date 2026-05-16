@@ -306,6 +306,8 @@ function useFeedPaginationResetControllers(
     clearServerLoadCooldown: serverLoadState.clearServerLoadCooldown,
     commitVisibleArticleCount: localState.commitVisibleArticleCount,
     filteredFeedLengthRef: localState.filteredFeedLengthRef,
+    hasCompletedInvertedServerRevealRef:
+      serverLoadState.hasCompletedInvertedServerRevealRef,
     hasPendingBoundaryRearmAfterCooldownRef:
       serverLoadState.hasPendingBoundaryRearmAfterCooldownRef,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
@@ -350,6 +352,8 @@ function useFeedPaginationRevealEffects(
   useFeedPaginationRevealCountEffect({
     commitVisibleArticleCount: localState.commitVisibleArticleCount,
     filteredFeedLength: options.filteredFeedLength,
+    hasCompletedInvertedServerRevealRef:
+      serverLoadState.hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
     hasRequestedServerLoadRef: serverLoadState.hasRequestedServerLoadRef,
     hasResolvedStandardViewportRevealRef:
@@ -370,6 +374,8 @@ function useFeedPaginationRevealEffects(
   useFeedPaginationLoadingMoreRevealEffect({
     canLoadMoreFromServer: options.canLoadMoreFromServer,
     filteredFeedLength: options.filteredFeedLength,
+    hasCompletedInvertedServerRevealRef:
+      serverLoadState.hasCompletedInvertedServerRevealRef,
     hasPendingServerRevealRef: serverLoadState.hasPendingServerRevealRef,
     hasResolvedStandardViewportRevealRef:
       serverLoadState.hasResolvedStandardViewportRevealRef,

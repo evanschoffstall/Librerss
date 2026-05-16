@@ -6,6 +6,11 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { Article } from "@/lib/core";
 
+import {
+  filterArticleKeysBySettledState,
+  filterArticleMapBySettledState,
+  shouldApplySettledArticleUpdate,
+} from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutationSettledState";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { ArticleService } from "@/lib/api";
 
@@ -34,6 +39,20 @@ export interface ArticleStatusMutationController {
 export interface ArticleStatusMutationSignalHandle {
   release: () => void;
   signal: AbortSignal;
+}
+
+/**
+ * Records the newest local status mutation version for each article key.
+ */
+export interface ArticleStatusMutationVersionTracker {
+  isLatestArticleMutationVersion: (
+    articleKey: string,
+    version: number,
+  ) => boolean;
+  releaseArticleMutationVersions: (
+    articleVersions: ReadonlyMap<string, number>,
+  ) => void;
+  trackArticleMutationVersions: (articles: Article[]) => Map<string, number>;
 }
 
 /**
@@ -74,8 +93,64 @@ interface OptimisticArticleStatusMutationOptions {
     failedArticleKeys?: Set<string>,
   ) => Article[];
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
+  shouldApplySettledUpdate?: (articleKey: string) => boolean;
   statusPatchForArticle: (article: Article) => ArticleStatusPatch;
   usePlaceholderData: boolean;
+}
+
+/**
+ * Inputs needed to persist and settle one optimistic status mutation.
+ */
+interface PersistAndSettleArticleStatusMutationOptions {
+  articleEntries: [string, Article][];
+  articlesByKey: Map<string, Article>;
+  mutationSignalHandle?: ArticleStatusMutationSignalHandle;
+  options: OptimisticArticleStatusMutationOptions;
+}
+
+/**
+ * Context required to restore state after a thrown persistence error.
+ */
+interface RejectedArticleStatusMutationOptions {
+  articleKeys: string[];
+  articlesByKey: Map<string, Article>;
+  onError: OptimisticArticleStatusMutationOptions["onError"];
+  restoreUpdate: OptimisticArticleStatusMutationOptions["restoreUpdate"];
+  setFeed: OptimisticArticleStatusMutationOptions["setFeed"];
+  shouldApplySettledUpdate: OptimisticArticleStatusMutationOptions["shouldApplySettledUpdate"];
+}
+
+/**
+ * Context required to settle a successful persistence round.
+ */
+interface SettledArticleStatusMutationOptions {
+  applyOptimisticUpdate: OptimisticArticleStatusMutationOptions["applyOptimisticUpdate"];
+  articlesByKey: Map<string, Article>;
+  failedArticleKeys: Set<string>;
+  onError: OptimisticArticleStatusMutationOptions["onError"];
+  restoreUpdate: OptimisticArticleStatusMutationOptions["restoreUpdate"];
+  setFeed: OptimisticArticleStatusMutationOptions["setFeed"];
+  shouldApplySettledUpdate: OptimisticArticleStatusMutationOptions["shouldApplySettledUpdate"];
+}
+
+/**
+ * Create a guard that accepts only settled mutations still owning their article key.
+ * @param mutationVersions - Shared mutation version tracker.
+ * @param articleVersions - Versions captured when this mutation started.
+ * @returns Guard used by the shared optimistic mutation runner.
+ */
+export function createSettledArticleStatusMutationGuard(
+  mutationVersions: ArticleStatusMutationVersionTracker,
+  articleVersions: ReadonlyMap<string, number>,
+) {
+  return (articleKey: string) => {
+    const version = articleVersions.get(articleKey);
+
+    return (
+      version !== undefined &&
+      mutationVersions.isLatestArticleMutationVersion(articleKey, version)
+    );
+  };
 }
 
 /**
@@ -86,59 +161,43 @@ interface OptimisticArticleStatusMutationOptions {
 export async function runOptimisticArticleStatusMutation(
   options: OptimisticArticleStatusMutationOptions,
 ): Promise<OptimisticArticleStatusMutationResult> {
-  const {
-    applyOptimisticUpdate,
-    articles,
-    createMutationSignalHandle,
-    errorLogLabel,
-    mutationTracker,
-    onError,
-    restoreUpdate,
-    setFeed,
-    statusPatchForArticle,
-    usePlaceholderData,
-  } = options;
-  const articlesByKey = createArticleMap(articles);
+  const articlesByKey = createArticleMap(options.articles);
   if (articlesByKey.size === 0) {
     return { attemptedCount: 0, failedArticleKeys: new Set<string>() };
   }
 
   const articleEntries = Array.from(articlesByKey.entries());
   const articleKeys = articleEntries.map(([articleKey]) => articleKey);
-  const mutationSignalHandle = createMutationSignalHandle?.();
-  mutationTracker.markUpdatingArticleKeys(articleKeys);
-  setFeed((currentFeed) => applyOptimisticUpdate(currentFeed, articlesByKey));
+  const mutationSignalHandle = options.createMutationSignalHandle?.();
+  options.mutationTracker.markUpdatingArticleKeys(articleKeys);
+  options.setFeed((currentFeed) =>
+    options.applyOptimisticUpdate(currentFeed, articlesByKey),
+  );
 
   try {
-    const failedArticleKeys = await persistArticleStatusMutations(
+    return await persistAndSettleArticleStatusMutation({
       articleEntries,
-      statusPatchForArticle,
-      mutationSignalHandle?.signal,
-      usePlaceholderData,
-    );
-
-    if (failedArticleKeys.size > 0) {
-      setFeed((currentFeed) =>
-        restoreUpdate(currentFeed, articlesByKey, failedArticleKeys),
-      );
-      onError?.();
-    }
-
-    return {
-      attemptedCount: articlesByKey.size,
-      failedArticleKeys,
-    };
+      articlesByKey,
+      mutationSignalHandle,
+      options,
+    });
   } catch (error) {
-    console.error(errorLogLabel, error);
-    setFeed((currentFeed) => restoreUpdate(currentFeed, articlesByKey));
-    onError?.();
+    console.error(options.errorLogLabel, error);
+    restoreRejectedArticleStatusMutation({
+      articleKeys,
+      articlesByKey,
+      onError: options.onError,
+      restoreUpdate: options.restoreUpdate,
+      setFeed: options.setFeed,
+      shouldApplySettledUpdate: options.shouldApplySettledUpdate,
+    });
     return {
       attemptedCount: articlesByKey.size,
       failedArticleKeys: new Set(articleKeys),
     };
   } finally {
     mutationSignalHandle?.release();
-    mutationTracker.clearUpdatingArticleKeys(articleKeys);
+    options.mutationTracker.clearUpdatingArticleKeys(articleKeys);
   }
 }
 
@@ -224,11 +283,102 @@ export function useArticleStatusMutationController(): ArticleStatusMutationContr
 }
 
 /**
- * Process the apply updating article delta.
- * @param current - The current.
- * @param articleKeys - The article keys.
- * @param delta - The delta.
- * @returns The apply updating article delta.
+ * Track the most recent local status mutation for each article key so stale
+ * mutation settlements cannot overwrite a newer user action.
+ * @returns Version ownership helpers for optimistic article-status mutations.
+ */
+export function useArticleStatusMutationVersions(): ArticleStatusMutationVersionTracker {
+  const latestMutationVersionByArticleKeyRef = useRef(
+    new Map<string, number>(),
+  );
+  const nextMutationVersionRef = useRef(0);
+
+  const trackArticleMutationVersions = useCallback((articles: Article[]) => {
+    const articleVersions = new Map<string, number>();
+
+    for (const article of articles) {
+      const articleKey = getArticleKey(article);
+      if (!articleKey) {
+        continue;
+      }
+
+      const nextVersion = nextMutationVersionRef.current + 1;
+      nextMutationVersionRef.current = nextVersion;
+      latestMutationVersionByArticleKeyRef.current.set(articleKey, nextVersion);
+      articleVersions.set(articleKey, nextVersion);
+    }
+
+    return articleVersions;
+  }, []);
+
+  const isLatestArticleMutationVersion = useCallback(
+    (articleKey: string, version: number) =>
+      latestMutationVersionByArticleKeyRef.current.get(articleKey) === version,
+    [],
+  );
+
+  const releaseArticleMutationVersions = useCallback(
+    (articleVersions: ReadonlyMap<string, number>) => {
+      for (const [articleKey, version] of articleVersions) {
+        if (
+          latestMutationVersionByArticleKeyRef.current.get(articleKey) ===
+          version
+        ) {
+          latestMutationVersionByArticleKeyRef.current.delete(articleKey);
+        }
+      }
+    },
+    [],
+  );
+
+  return useMemo(
+    () => ({
+      isLatestArticleMutationVersion,
+      releaseArticleMutationVersions,
+      trackArticleMutationVersions,
+    }),
+    [
+      isLatestArticleMutationVersion,
+      releaseArticleMutationVersions,
+      trackArticleMutationVersions,
+    ],
+  );
+}
+
+/**
+ * Reapply successful article status after any stale refresh has overwritten local state.
+ * @param options - Settled mutation inputs and callbacks.
+ */
+function applySucceededArticleStatusUpdates(
+  options: SettledArticleStatusMutationOptions,
+) {
+  const succeededArticlesByKey = filterArticleMapBySettledState(
+    options.articlesByKey,
+    (articleKey) =>
+      !options.failedArticleKeys.has(articleKey) &&
+      shouldApplySettledArticleUpdate(
+        articleKey,
+        options.shouldApplySettledUpdate,
+      ),
+  );
+
+  if (succeededArticlesByKey.size === 0) {
+    return;
+  }
+
+  options.setFeed((currentFeed) =>
+    options.applyOptimisticUpdate(currentFeed, succeededArticlesByKey),
+  );
+}
+
+/**
+ * Apply a reference-count delta to every article key currently owned by an
+ * optimistic mutation. Keys are removed once their count reaches zero so the
+ * exposed updating state stays compact and truthy-only.
+ * @param current - Existing per-article mutation counts.
+ * @param articleKeys - Article keys whose in-flight count should change.
+ * @param delta - Increment for mutation start or decrement for mutation settle.
+ * @returns Updated per-article mutation counts.
  */
 function applyUpdatingArticleDelta(
   current: Record<string, number>,
@@ -255,9 +405,11 @@ function applyUpdatingArticleDelta(
 }
 
 /**
- * Create the article map.
- * @param articles - The articles.
- * @returns The article map.
+ * Build the mutation snapshot keyed by the same stable article key used by the
+ * rendered feed. Later optimistic and restore passes use this map to preserve
+ * each article's original status values across async API settlement.
+ * @param articles - Articles included in the current status mutation.
+ * @returns Stable article-key to article snapshot map.
  */
 function createArticleMap(articles: Article[]): Map<string, Article> {
   const articleMap = new Map<string, Article>();
@@ -270,12 +422,45 @@ function createArticleMap(articles: Article[]): Map<string, Article> {
 }
 
 /**
- * Process the persist article status mutations.
- * @param articleEntries - The article entries.
- * @param statusPatchForArticle - The callback that status patch for article.
+ * Persist article status changes and apply success or failure state to the feed.
+ * @param mutationOptions - Runtime mutation inputs and settled-state callbacks.
+ * @returns Attempt and failure counts for the completed mutation.
+ */
+async function persistAndSettleArticleStatusMutation(
+  mutationOptions: PersistAndSettleArticleStatusMutationOptions,
+): Promise<OptimisticArticleStatusMutationResult> {
+  const { articleEntries, articlesByKey, mutationSignalHandle, options } =
+    mutationOptions;
+  const failedArticleKeys = await persistArticleStatusMutations(
+    articleEntries,
+    options.statusPatchForArticle,
+    mutationSignalHandle?.signal,
+    options.usePlaceholderData,
+  );
+
+  settlePersistedArticleStatusMutation({
+    applyOptimisticUpdate: options.applyOptimisticUpdate,
+    articlesByKey,
+    failedArticleKeys,
+    onError: options.onError,
+    restoreUpdate: options.restoreUpdate,
+    setFeed: options.setFeed,
+    shouldApplySettledUpdate: options.shouldApplySettledUpdate,
+  });
+
+  return {
+    attemptedCount: articlesByKey.size,
+    failedArticleKeys,
+  };
+}
+
+/**
+ * Persist each article-status patch and report the article keys that failed.
+ * @param articleEntries - Article-key and article pairs to persist.
+ * @param statusPatchForArticle - Creates the API status patch for an article.
  * @param signal - The abort signal tied to the owning dashboard lifecycle.
- * @param usePlaceholderData - The placeholder data.
- * @returns The persist article status mutations.
+ * @param usePlaceholderData - Whether placeholder mode should skip real API writes.
+ * @returns Article keys whose persistence requests were rejected.
  */
 async function persistArticleStatusMutations(
   articleEntries: [string, Article][],
@@ -306,4 +491,67 @@ async function persistArticleStatusMutations(
       .filter((_entry, index) => results[index]?.status === "rejected")
       .map(([articleKey]) => articleKey),
   );
+}
+
+/**
+ * Restore failed article status updates that were not superseded by newer local actions.
+ * @param options - Settled mutation inputs and callbacks.
+ */
+function restoreFailedArticleStatusUpdates(
+  options: SettledArticleStatusMutationOptions,
+) {
+  const restorableFailedArticleKeys = filterArticleKeysBySettledState(
+    options.failedArticleKeys,
+    options.shouldApplySettledUpdate,
+  );
+
+  if (restorableFailedArticleKeys.size === 0) {
+    return;
+  }
+
+  options.setFeed((currentFeed) =>
+    options.restoreUpdate(
+      currentFeed,
+      options.articlesByKey,
+      restorableFailedArticleKeys,
+    ),
+  );
+  options.onError?.();
+}
+
+/**
+ * Restore all still-current article status updates after the persistence batch rejects.
+ * @param options - Rejected mutation inputs and callbacks.
+ */
+function restoreRejectedArticleStatusMutation(
+  options: RejectedArticleStatusMutationOptions,
+) {
+  const restorableArticleKeys = filterArticleKeysBySettledState(
+    new Set(options.articleKeys),
+    options.shouldApplySettledUpdate,
+  );
+
+  if (restorableArticleKeys.size === 0) {
+    return;
+  }
+
+  options.setFeed((currentFeed) =>
+    options.restoreUpdate(
+      currentFeed,
+      options.articlesByKey,
+      restorableArticleKeys,
+    ),
+  );
+  options.onError?.();
+}
+
+/**
+ * Apply successful status results and restore failed rows that this mutation still owns.
+ * @param options - Settled mutation inputs and callbacks.
+ */
+function settlePersistedArticleStatusMutation(
+  options: SettledArticleStatusMutationOptions,
+) {
+  applySucceededArticleStatusUpdates(options);
+  restoreFailedArticleStatusUpdates(options);
 }

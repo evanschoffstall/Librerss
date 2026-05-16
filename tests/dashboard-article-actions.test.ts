@@ -611,7 +611,118 @@ describe("useArticleActions - State Management", () => {
         mode: "collapse",
       },
     });
-    expect(setFeed).toHaveBeenCalledTimes(1);
+    expect(setFeed).toHaveBeenCalledTimes(2);
+  });
+
+  test("handleMarkArticlesRead reapplies successful read state after a stale refresh overwrites the feed", async () => {
+    let resolveStatusUpdate!: () => void;
+    ArticleService.updateArticleStatus = mock(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStatusUpdate = resolve;
+        }),
+    ) as unknown as typeof ArticleService.updateArticleStatus;
+
+    const article = createMockArticle({
+      id: 122,
+      isRead: false,
+      link: "https://example.com/stale-sort-refresh",
+    });
+    let feedState = [article];
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    let mutationPromise!: Promise<void>;
+    await act(async () => {
+      mutationPromise = result.current.handleMarkArticlesRead([article]);
+      await Promise.resolve();
+    });
+
+    expect(feedState[0]?.isRead).toBe(true);
+
+    feedState = [{ ...article, isRead: false }];
+
+    await act(async () => {
+      resolveStatusUpdate();
+      await mutationPromise;
+    });
+
+    expect(feedState[0]?.isRead).toBe(true);
+  });
+
+  test("handleToggleReadState ignores stale success after a newer read mutation supersedes it", async () => {
+    const resolveStatusUpdates: (() => void)[] = [];
+    ArticleService.updateArticleStatus = mock(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveStatusUpdates.push(resolve);
+        }),
+    ) as unknown as typeof ArticleService.updateArticleStatus;
+
+    const article = createMockArticle({
+      id: 123,
+      isRead: false,
+      link: "https://example.com/newer-read-mutation",
+    });
+    let feedState = [article];
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "all",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    let firstMutationPromise!: Promise<void>;
+    await act(async () => {
+      firstMutationPromise = result.current.handleToggleReadState(article);
+      await Promise.resolve();
+    });
+
+    expect(feedState[0]?.isRead).toBe(true);
+
+    let secondMutationPromise!: Promise<void>;
+    await act(async () => {
+      secondMutationPromise = result.current.handleToggleReadState(
+        feedState[0]!,
+      );
+      await Promise.resolve();
+    });
+
+    expect(feedState[0]?.isRead).toBe(false);
+
+    await act(async () => {
+      resolveStatusUpdates[0]?.();
+      await firstMutationPromise;
+    });
+
+    expect(feedState[0]?.isRead).toBe(false);
+
+    await act(async () => {
+      resolveStatusUpdates[1]?.();
+      await secondMutationPromise;
+    });
+
+    expect(feedState[0]?.isRead).toBe(false);
   });
 
   test("handleSwipeRead updates unread-filter articles without staging a swipe-removal row", async () => {

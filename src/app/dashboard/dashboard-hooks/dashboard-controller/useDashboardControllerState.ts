@@ -69,6 +69,7 @@ export function useDashboardRuntimeState(
   const appliedBatchSearchTermRef = useRef("");
   const articleCallbacks = useDashboardArticleCallbacks({
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     capturePreExpandSnapshot: articleActions.capturePreExpandSnapshot,
     /**
      * Process the handle article toggle.

@@ -36,6 +36,7 @@ describe("dashboard light hooks", () => {
     const { result } = renderHook(() =>
       useDashboardArticleCallbacks({
         articleFilter: "starred",
+        articleSortOrder: "oldest",
         capturePreExpandSnapshot,
         handleArticleToggle,
         handleExpandedSwipeRead,
@@ -46,7 +47,7 @@ describe("dashboard light hooks", () => {
       }),
     );
 
-    expect(result.current.feedViewKey).toBe("feed-1:starred");
+    expect(result.current.feedViewKey).toBe("feed-1:starred:oldest");
 
     act(() => {
       result.current.onArticlePrepareExpand(article);

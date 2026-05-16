@@ -4,13 +4,17 @@ import { useCallback } from "react";
 
 import type { Article } from "@/lib/core";
 
-import { type ArticleFilter } from "@/app/dashboard/dashboard-services/article";
+import {
+  type ArticleFilter,
+  type ArticleSortOrder,
+} from "@/app/dashboard/dashboard-services/article";
 
 /**
  * Describes the options for use dashboard article callbacks.
  */
 interface UseDashboardArticleCallbacksOptions {
   articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   capturePreExpandSnapshot: (article: Article) => void;
   handleArticleToggle: (article: Article) => void;
   handleExpandedSwipeRead: (article: Article) => void;
@@ -30,6 +34,7 @@ export function useDashboardArticleCallbacks(
 ) {
   const {
     articleFilter,
+    articleSortOrder,
     capturePreExpandSnapshot,
     handleArticleToggle,
     handleExpandedSwipeRead,
@@ -72,7 +77,7 @@ export function useDashboardArticleCallbacks(
   );
 
   return {
-    feedViewKey: `${selectedCategory}:${articleFilter}`,
+    feedViewKey: `${selectedCategory}:${articleFilter}:${articleSortOrder}`,
     onArticleExpandedSwipeRead,
     onArticlePrepareExpand,
     onArticleSwipeRead,

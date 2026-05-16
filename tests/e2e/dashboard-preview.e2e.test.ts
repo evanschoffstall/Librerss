@@ -116,10 +116,12 @@ test.describe("dashboard preview mode", () => {
       testWindow.__runDashboardAutoRefreshInterval?.();
     });
 
-    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
-      0,
-    );
-    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+    await expect(
+      page.locator("article[data-article-key]:visible"),
+    ).not.toHaveCount(0);
+    await expect(
+      page.locator(`article[data-article-key="${firstArticleKey}"]`),
+    ).toBeVisible();
   });
 
   test("keeps preview articles mounted during a resume-triggered auto refresh", async ({
@@ -206,10 +208,12 @@ test.describe("dashboard preview mode", () => {
       testWindow.__runDashboardResumeRefresh?.();
     });
 
-    await expect(page.locator("article[data-article-key]:visible")).not.toHaveCount(
-      0,
-    );
-    await expect(page.locator(`article[data-article-key="${firstArticleKey}"]`)).toBeVisible();
+    await expect(
+      page.locator("article[data-article-key]:visible"),
+    ).not.toHaveCount(0);
+    await expect(
+      page.locator(`article[data-article-key="${firstArticleKey}"]`),
+    ).toBeVisible();
   });
 
   test("unlocks refresh controls when a suspended refresh never sends an end event", async ({

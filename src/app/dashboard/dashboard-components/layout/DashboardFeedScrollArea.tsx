@@ -5,22 +5,95 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
+ * Describes the measured layout inputs used to position the feed scrollbar.
+ */
+export interface FeedScrollbarMeasurement {
+  clientHeight: number;
+  hasTransientPaginationSkeletons: boolean;
+  scrollHeight: number;
+  scrollTop: number;
+  virtualizedListHeight: null | number;
+}
+
+/**
+ * Describes the resolved overlay scrollbar geometry for the dashboard feed.
+ */
+export interface FeedScrollbarMetrics {
+  isVisible: boolean;
+  thumbHeight: number;
+  thumbOffsetTop: number;
+}
+
+/**
  * Describes the props for the dashboard feed scroll area component.
  */
 interface DashboardFeedScrollAreaProps extends React.HTMLAttributes<HTMLDivElement> {
   viewportClassName?: string;
 }
 
-/**
- * Describes the feed scrollbar metrics.
- */
-interface FeedScrollbarMetrics {
-  isVisible: boolean;
-  thumbHeight: number;
-  thumbOffsetTop: number;
-}
-
 const MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX = 32;
+const HIDDEN_FEED_SCROLLBAR_METRICS: FeedScrollbarMetrics = {
+  isVisible: false,
+  thumbHeight: 0,
+  thumbOffsetTop: 0,
+};
+
+/**
+ * Resolve custom scrollbar geometry from committed feed layout measurements.
+ *
+ * Load-more skeleton rows deliberately live outside the virtualized tree so the
+ * user sees them immediately during pagination. While those temporary rows are
+ * visible, the browser's live scrollHeight includes placeholder height that the
+ * committed virtualized total has not adopted yet. The overlay thumb therefore
+ * follows the virtualized total during that transient state, which keeps the
+ * handle pinned to the user's actual position instead of jumping between the
+ * placeholder range and the eventual article range.
+ * @param measurement - The current viewport and virtualized-list measurements.
+ * @returns The stable overlay scrollbar metrics for the feed viewport.
+ */
+export function resolveFeedScrollbarMetrics(
+  measurement: FeedScrollbarMeasurement,
+): FeedScrollbarMetrics {
+  const effectiveScrollHeight = Math.max(
+    measurement.clientHeight,
+    measurement.hasTransientPaginationSkeletons &&
+      measurement.virtualizedListHeight !== null
+      ? measurement.virtualizedListHeight
+      : measurement.scrollHeight,
+    measurement.virtualizedListHeight ?? 0,
+  );
+  const maxScrollTop = effectiveScrollHeight - measurement.clientHeight;
+
+  if (!Number.isFinite(maxScrollTop) || maxScrollTop <= 0) {
+    return HIDDEN_FEED_SCROLLBAR_METRICS;
+  }
+
+  const rawThumbHeight =
+    (measurement.clientHeight / effectiveScrollHeight) *
+    measurement.clientHeight;
+  const thumbHeight = Math.round(
+    Math.min(
+      measurement.clientHeight,
+      Math.max(MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX, rawThumbHeight),
+    ),
+  );
+  const availableTrackHeight = measurement.clientHeight - thumbHeight;
+  const boundedScrollTop = Math.max(
+    0,
+    Math.min(measurement.scrollTop, maxScrollTop),
+  );
+  const thumbOffsetTop = Math.round(
+    maxScrollTop <= 0
+      ? 0
+      : (boundedScrollTop / maxScrollTop) * availableTrackHeight,
+  );
+
+  return {
+    isVisible: true,
+    thumbHeight,
+    thumbOffsetTop,
+  };
+}
 
 /**
  * Return whether has initial feed skeleton.
@@ -33,6 +106,19 @@ function hasInitialFeedSkeleton(viewportElement: HTMLElement) {
       '[data-dashboard-feed-list-skeleton="true"]',
     ) !== null
   );
+}
+
+/**
+ * Return whether load-more skeletons are temporarily inflating the feed surface.
+ * @param viewportElement - The viewport whose feed surface owns pagination state.
+ * @returns Whether pagination skeletons are currently visible outside the virtualized list.
+ */
+function hasTransientPaginationSkeletons(viewportElement: HTMLElement) {
+  const feedSurface = viewportElement.querySelector<HTMLElement>(
+    "[data-feed-surface-mode]",
+  );
+
+  return feedSurface?.dataset.feedLoadMoreSkeletonsVisible === "true";
 }
 
 /**
@@ -96,71 +182,36 @@ export const DashboardFeedScrollArea = React.forwardRef<
 
     const updateScrollbarMetrics = React.useCallback(() => {
       if (!viewportElement) {
-        setScrollbarMetrics({
-          isVisible: false,
-          thumbHeight: 0,
-          thumbOffsetTop: 0,
-        });
+        setScrollbarMetrics(HIDDEN_FEED_SCROLLBAR_METRICS);
         return;
       }
 
       if (hasInitialFeedSkeleton(viewportElement)) {
-        setScrollbarMetrics({
-          isVisible: false,
-          thumbHeight: 0,
-          thumbOffsetTop: 0,
-        });
+        setScrollbarMetrics(HIDDEN_FEED_SCROLLBAR_METRICS);
         return;
       }
 
       const { clientHeight, scrollHeight, scrollTop } = viewportElement;
       const virtualizedListHeight = readFeedTotalListHeight(viewportElement);
-      const effectiveScrollHeight = Math.max(
+      const nextMetrics = resolveFeedScrollbarMetrics({
         clientHeight,
+        hasTransientPaginationSkeletons:
+          hasTransientPaginationSkeletons(viewportElement),
         scrollHeight,
-        virtualizedListHeight ?? 0,
-      );
-      const maxScrollTop = effectiveScrollHeight - clientHeight;
-
-      if (!Number.isFinite(maxScrollTop) || maxScrollTop <= 0) {
-        setScrollbarMetrics({
-          isVisible: false,
-          thumbHeight: 0,
-          thumbOffsetTop: 0,
-        });
-        return;
-      }
-
-      const rawThumbHeight =
-        (clientHeight / effectiveScrollHeight) * clientHeight;
-      const thumbHeight = Math.round(
-        Math.min(
-          clientHeight,
-          Math.max(MIN_FEED_SCROLLBAR_THUMB_HEIGHT_PX, rawThumbHeight),
-        ),
-      );
-      const availableTrackHeight = clientHeight - thumbHeight;
-      const boundedScrollTop = Math.max(0, Math.min(scrollTop, maxScrollTop));
-      const thumbOffsetTop = Math.round(
-        maxScrollTop <= 0
-          ? 0
-          : (boundedScrollTop / maxScrollTop) * availableTrackHeight,
-      );
+        scrollTop,
+        virtualizedListHeight,
+      });
 
       setScrollbarMetrics((currentMetrics) => {
         if (
-          currentMetrics.isVisible &&
-          currentMetrics.thumbHeight === thumbHeight &&
-          currentMetrics.thumbOffsetTop === thumbOffsetTop
+          currentMetrics.isVisible === nextMetrics.isVisible &&
+          currentMetrics.thumbHeight === nextMetrics.thumbHeight &&
+          currentMetrics.thumbOffsetTop === nextMetrics.thumbOffsetTop
         ) {
           return currentMetrics;
         }
 
-        return {
-          isVisible: true,
-          thumbHeight,
-          thumbOffsetTop,
-        };
+        return nextMetrics;
       });
     }, [viewportElement]);
 

@@ -22,6 +22,7 @@ function createOptions(
   return {
     canLoadMoreFromServer: true,
     filteredFeedLength: 12,
+    hasCompletedInvertedServerRevealRef: { current: false },
     hasPendingServerRevealRef: { current: true },
     hasResolvedStandardViewportRevealRef: { current: false },
     isInvertedScroll: true,
@@ -68,6 +69,29 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     expect(options.startServerLoadRearmCooldown).not.toHaveBeenCalled();
   });
 
+  test("keeps the standard pending reveal armed while the new page has not appeared yet", () => {
+    const options = createOptions({
+      isInvertedScroll: false,
+      lastInvertedAwayBoundarySnapshotRef: { current: null },
+      lastInvertedScrollTopRef: { current: null },
+    });
+
+    const { rerender } = renderHook(
+      (currentOptions: LoadingMoreRevealEffectOptions) => {
+        useFeedPaginationLoadingMoreRevealEffect(currentOptions);
+      },
+      { initialProps: options },
+    );
+
+    rerender({
+      ...options,
+      isLoadingMore: false,
+    });
+
+    expect(options.hasPendingServerRevealRef.current).toBe(true);
+    expect(options.startServerLoadRearmCooldown).not.toHaveBeenCalled();
+  });
+
   test("completes the inverted pending reveal once the server reports no more pages", () => {
     const options = createOptions({
       canLoadMoreFromServer: false,
@@ -86,10 +110,29 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     });
 
     expect(options.hasPendingServerRevealRef.current).toBe(false);
+    expect(options.hasCompletedInvertedServerRevealRef.current).toBe(true);
     expect(options.lastInvertedAwayBoundarySnapshotRef.current).toBeNull();
     expect(options.lastInvertedScrollTopRef.current).toBeNull();
     expect(options.startServerLoadRearmCooldown).toHaveBeenCalledTimes(1);
   });
+
+  test("completes a settled pending reveal when server capacity ends after loading", () => {
+    const options = createOptions({
+      canLoadMoreFromServer: false,
+      isLoadingMore: false,
+      previousIsLoadingMoreRef: { current: false },
+    });
+
+    renderHook((currentOptions: LoadingMoreRevealEffectOptions) => {
+      useFeedPaginationLoadingMoreRevealEffect(currentOptions);
+    }, {
+      initialProps: options,
+    });
+
+    expect(options.hasPendingServerRevealRef.current).toBe(false);
+    expect(options.startServerLoadRearmCooldown).toHaveBeenCalledTimes(1);
+  });
+
 });
 
 describe("useBackfillDepletedRevealedPageEffect", () => {
@@ -183,6 +226,55 @@ describe("useBackfillDepletedRevealedPageEffect", () => {
     });
 
     expect(requestMoreFromServer).not.toHaveBeenCalled();
+  });
+
+  test("treats a sort switch as a new depletion scope before requesting refill", () => {
+    const requestMoreFromServer = mock(() => true);
+    const sharedRefs = {
+      hasPendingServerRevealRef: { current: false },
+      hasRequestedServerLoadRef: { current: false },
+      visibleArticleCountRef: { current: 7 },
+    };
+
+    const { rerender } = renderHook(
+      ({ feedViewKey, filteredFeedLength }) => {
+        useBackfillDepletedRevealedPageEffect({
+          articleFilter: "unread",
+          articlesPerPage: 4,
+          canLoadMoreFromServer: true,
+          feedViewKey,
+          filteredFeedLength,
+          hasPendingServerRevealRef: sharedRefs.hasPendingServerRevealRef,
+          hasRequestedServerLoadRef: sharedRefs.hasRequestedServerLoadRef,
+          isInvertedScroll: false,
+          primeInvertedPaginationAnchor: mock(() => {}),
+          requestMoreFromServer,
+          visibleArticleCountRef: sharedRefs.visibleArticleCountRef,
+        });
+      },
+      {
+        initialProps: {
+          feedViewKey: "all-feeds:unread:newest",
+          filteredFeedLength: 9,
+        },
+      },
+    );
+
+    rerender({
+      feedViewKey: "all-feeds:unread:oldest",
+      filteredFeedLength: 5,
+    });
+    expect(requestMoreFromServer).not.toHaveBeenCalled();
+
+    rerender({
+      feedViewKey: "all-feeds:unread:oldest",
+      filteredFeedLength: 4,
+    });
+
+    expect(requestMoreFromServer).toHaveBeenCalledTimes(1);
+    expect(requestMoreFromServer).toHaveBeenCalledWith({
+      isViewportRefill: true,
+    });
   });
 });
 
@@ -405,6 +497,7 @@ describe("useFeedPaginationRevealCountEffect", () => {
       useFeedPaginationRevealCountEffect({
         commitVisibleArticleCount,
         filteredFeedLength: 12,
+        hasCompletedInvertedServerRevealRef: { current: false },
         hasPendingServerRevealRef,
         hasRequestedServerLoadRef,
         hasResolvedStandardViewportRevealRef,
@@ -444,6 +537,7 @@ describe("useFeedPaginationRevealCountEffect", () => {
       useFeedPaginationRevealCountEffect({
         commitVisibleArticleCount,
         filteredFeedLength: 10,
+        hasCompletedInvertedServerRevealRef: { current: false },
         hasPendingServerRevealRef,
         hasRequestedServerLoadRef,
         hasResolvedStandardViewportRevealRef,
@@ -465,6 +559,7 @@ describe("useFeedPaginationRevealCountEffect", () => {
       useFeedPaginationRevealCountEffect({
         commitVisibleArticleCount,
         filteredFeedLength: 10,
+        hasCompletedInvertedServerRevealRef: { current: false },
         hasPendingServerRevealRef: { current: false },
         hasRequestedServerLoadRef: { current: false },
         hasResolvedStandardViewportRevealRef,
@@ -503,6 +598,7 @@ describe("useFeedPaginationRevealCountEffect", () => {
       useFeedPaginationRevealCountEffect({
         commitVisibleArticleCount,
         filteredFeedLength: 6,
+        hasCompletedInvertedServerRevealRef: { current: false },
         hasPendingServerRevealRef,
         hasRequestedServerLoadRef,
         hasResolvedStandardViewportRevealRef,
@@ -544,6 +640,7 @@ describe("useFeedPaginationRevealCountEffect", () => {
       useFeedPaginationRevealCountEffect({
         commitVisibleArticleCount,
         filteredFeedLength: 16,
+        hasCompletedInvertedServerRevealRef: { current: false },
         hasPendingServerRevealRef,
         hasRequestedServerLoadRef,
         hasResolvedStandardViewportRevealRef,

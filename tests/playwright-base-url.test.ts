@@ -4,6 +4,8 @@ import {
   buildPlaywrightBaseUrl,
   resolvePlaywrightBaseUrl,
   resolvePlaywrightScriptEntrypoint,
+  resolveShardCoverageReportDirectory,
+  resolveShardJunitReportPath,
 } from "../scripts/playwright";
 
 describe("playwright base URL resolution", () => {
@@ -69,5 +71,33 @@ describe("playwright script entrypoint resolution", () => {
         "tests/e2e/article-extraction-distillation.e2e.test.ts",
       ],
     });
+  });
+});
+
+describe("playwright shard JUnit report paths", () => {
+  test("inserts the shard run id before a file extension", () => {
+    expect(
+      resolveShardJunitReportPath(
+        "coverage/playwright-junit.xml",
+        "run-1-shard-2",
+      ),
+    ).toBe("coverage/playwright-junit.run-1-shard-2.xml");
+  });
+
+  test("appends the shard run id when no extension is present", () => {
+    expect(resolveShardJunitReportPath("coverage/playwright", "run-1")).toBe(
+      "coverage/playwright.run-1",
+    );
+  });
+});
+
+describe("playwright shard coverage report directories", () => {
+  test("appends the shard run id to the final report directory", () => {
+    expect(
+      resolveShardCoverageReportDirectory(
+        "coverage/playwright",
+        "run-1-shard-2",
+      ),
+    ).toBe("coverage/playwright.run-1-shard-2");
   });
 });

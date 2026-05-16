@@ -14,7 +14,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useTheme } from "next-themes";
 import {
   memo,
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -22,10 +21,7 @@ import {
   useState,
 } from "react";
 
-import type { Article } from "@/lib/core";
-
 import {
-  applyFeedSurfaceLayoutToHost,
   isInvertedFeedScrollMode,
   observeFeedViewportHeightOwners,
   resolveFeedScrollMode,
@@ -33,65 +29,22 @@ import {
   syncViewportToBottomIfNeeded,
   useServerLoadSkeletonHold,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
-import { FeedArticleRow } from "@/app/dashboard/dashboard-components/feed-view/FeedArticleRow";
 import { FeedEmptyState } from "@/app/dashboard/dashboard-components/feed-view/FeedEmptyState";
 import { type FeedListProps } from "@/app/dashboard/dashboard-components/feed-view/FeedList.types";
+import {
+  FeedListConfig,
+  FeedListSkeleton,
+  FeedLoadMoreSkeletonBlock,
+  resolveFeedPlaceholderState,
+  useFeedRowRenderer,
+  useFeedSurfaceHostRef,
+  useFeedVirtualListHeightChange,
+} from "@/app/dashboard/dashboard-components/feed-view/FeedListComposition";
 import { FeedVirtualList } from "@/app/dashboard/dashboard-components/feed-view/FeedVirtualList";
 import { useFeedListSurfaceState } from "@/app/dashboard/dashboard-components/feed-view/list-state";
 import { getArticleKey } from "@/app/dashboard/dashboard-services/article-collection";
 import { MOBILE_INVERTED_SCROLL_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
-import { type CollapsingArticles } from "@/app/dashboard/display-types";
 import { useIsBelowDesktop, useLocalStorage } from "@/lib/hooks";
-
-import { FeedListSkeleton, FeedLoadMoreSkeletonRows } from "./FeedListSkeleton";
-
-const EMPTY_COLLAPSING_ARTICLES: Readonly<CollapsingArticles> = {};
-/**
- * Process the empty pre expand viewport snapshot.
- * @returns The empty pre expand viewport snapshot.
- */
-const EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT = () => null;
-
-const FEED_DEFAULT_ITEM_HEIGHT_PX = 120;
-
-/** Shared class string for the virtualized feed wrapper and list frame elements. */
-const FEED_LIST_FRAME_CLASSNAME = "flex h-full min-h-0 w-full min-w-0 flex-col";
-/** Class string for the outermost surface container. */
-const FEED_LIST_SURFACE_CLASSNAME = "flex min-h-0 w-full min-w-0 flex-col";
-/** Class string for the virtualizer height owner; it must not inherit h-full. */
-const FEED_VIRTUALIZER_CLASSNAME = "w-full min-w-0 flex-none";
-/** Inline style forcing the surface and its children to fill the available height. */
-const FEED_LIST_FILL_STYLE = { height: "100%" } as const;
-/** Motion transition applied when the skeleton exits. */
-const SKELETON_EXIT_TRANSITION = {
-  duration: 0.14,
-  ease: [0.16, 1, 0.3, 1] as const,
-};
-/** Motion transition applied when non-feed placeholder states enter. */
-const CONTENT_ENTER_TRANSITION = {
-  duration: 0.35,
-  ease: [0.16, 1, 0.3, 1] as const,
-};
-const isInvertedScrollFeatureEnabledInRuntime =
-  process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-
-/**
- * Process the sync viewport scroll top.
- * @param viewport - The viewport.
- * @param top - The top.
- */
-function syncViewportScrollTop(viewport: HTMLElement, top: number) {
-  if (typeof viewport.scrollTo === "function") {
-    viewport.scrollTo({
-      behavior: "auto",
-      top,
-    });
-  }
-
-  if (Math.abs(viewport.scrollTop - top) > 1) {
-    viewport.scrollTop = top;
-  }
-}
 
 export const FeedList = memo(
   /**
@@ -105,7 +58,7 @@ export const FeedList = memo(
       articleFilter,
       articlesPerPage,
       canLoadMoreFromServer: canLoadMoreFromServerProp,
-      collapsingArticles = EMPTY_COLLAPSING_ARTICLES,
+      collapsingArticles = FeedListConfig.EMPTY_COLLAPSING_ARTICLES,
       expandedArticleKey,
       feedViewKey,
       filteredFeed,
@@ -140,7 +93,8 @@ export const FeedList = memo(
       canLoadMoreFromServerProp ?? typeof onLoadMore === "function";
     const feedScrollMode = resolveFeedScrollMode(
       isBelowDesktop,
-      isInvertedScrollFeatureEnabledInRuntime && mobileInvertedScroll,
+      FeedListConfig.IS_INVERTED_SCROLL_FEATURE_ENABLED_IN_RUNTIME &&
+        mobileInvertedScroll,
     );
     const isActiveInvertedScroll = isInvertedFeedScrollMode(feedScrollMode);
     const { resolvedTheme } = useTheme();
@@ -157,7 +111,8 @@ export const FeedList = memo(
     const invertedHydrationAnchorFrameRef = useRef<null | number>(null);
     const previousExpandedArticleKeyRef = useRef(expandedArticleKey);
     const preExpandViewportSnapshotGetter =
-      getPreExpandViewportSnapshot ?? EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT;
+      getPreExpandViewportSnapshot ??
+      FeedListConfig.EMPTY_PRE_EXPAND_VIEWPORT_SNAPSHOT;
     const {
       contentKey,
       feedSurfaceMode,
@@ -368,6 +323,22 @@ export const FeedList = memo(
     const lastFeedArticleKey = lastFeedArticle
       ? getArticleKey(lastFeedArticle)
       : null;
+    const handleTotalListHeightChange = useFeedVirtualListHeightChange({
+      hasSearchTerm,
+      invertedHeightFloorRef,
+      invertedPaginationAnchorRef,
+      isCollapseScrollRestoreActive,
+      isInvertedScroll,
+      isMountedRef,
+      isSearchFetching,
+      maybeAutoFillViewport,
+      scrollViewport,
+      setMeasuredTotalListHeight,
+      shouldAutoAnchorInvertedScroll,
+      shouldLockInitialNormalScroll,
+      syncInvertedExpansionScrollLock,
+      syncInvertedPaginationAnchor,
+    });
 
     useLayoutEffect(() => {
       if (
@@ -482,94 +453,43 @@ export const FeedList = memo(
       shouldAutoAnchorInvertedScroll,
     ]);
 
-    const renderFeedRow = useCallback(
-      (article: Article) => {
-        const articleKey = getArticleKey(article);
-        const removalAnimationMode =
-          collapsingArticles[articleKey]?.mode ?? null;
-        const isHydrating = hydratingArticleLinks[article.link] ?? false;
-        const isUpdatingState = updatingArticleState[articleKey] ?? false;
-        const useRichFormatting = hydratedArticleLinks[article.link] ?? false;
-        const isEntering = animatingInArticleKeys?.has(articleKey) ?? false;
+    const renderFeedRow = useFeedRowRenderer({
+      animatingInArticleKeys,
+      collapsingArticles,
+      expandedArticleKey,
+      hydratedArticleLinks,
+      hydratingArticleLinks,
+      isBelowDesktop,
+      isDark,
+      lastFeedArticleKey,
+      onEnteringDone,
+      onExpandedSwipeRead,
+      onPrepareExpand,
+      onSwipeRead,
+      onToggle,
+      onToggleRead,
+      onToggleStarred,
+      showFavicons,
+      updatingArticleState,
+    });
 
-        return (
-          <FeedArticleRow
-            article={article}
-            articleKey={articleKey}
-            hasScrapedContent={Boolean(article.hasFullContent)}
-            isDark={isDark}
-            isEntering={isEntering}
-            isExpanded={expandedArticleKey === articleKey}
-            isHydrating={isHydrating}
-            isLastRow={articleKey === lastFeedArticleKey}
-            isMobile={isBelowDesktop}
-            isUpdatingState={isUpdatingState}
-            key={articleKey}
-            onEnteringDone={onEnteringDone}
-            onExpandedSwipeRead={onExpandedSwipeRead}
-            onPrepareExpand={onPrepareExpand}
-            onSwipeRead={onSwipeRead}
-            onToggle={onToggle}
-            onToggleRead={onToggleRead}
-            onToggleStarred={onToggleStarred}
-            removalAnimationMode={removalAnimationMode}
-            showFavicons={showFavicons}
-            useRichFormatting={useRichFormatting}
-          />
-        );
-      },
-      [
-        animatingInArticleKeys,
-        collapsingArticles,
-        expandedArticleKey,
-        hydratedArticleLinks,
-        hydratingArticleLinks,
-        isDark,
-        isBelowDesktop,
-        lastFeedArticleKey,
-        onEnteringDone,
-        onExpandedSwipeRead,
-        onPrepareExpand,
-        onSwipeRead,
-        onToggle,
-        onToggleRead,
-        onToggleStarred,
-        showFavicons,
-        updatingArticleState,
-      ],
-    );
-
-    // Treat a pending background search as equivalent to a refresh for the
-    // purpose of skeleton display: if the server is still looking for matching
-    // articles and the current locally-filtered window is empty, show article
-    // shells so the user sees loading progress instead of "no results".
-    const shouldShowEmptyFeedSkeleton =
-      !isInitialLoading &&
-      (isRefreshing || isSearchFetching) &&
-      filteredFeed.length === 0;
-    const shouldShowFeedSkeleton =
-      isInitialLoading ||
-      shouldShowViewportResolutionSkeleton ||
-      shouldShowEmptyFeedSkeleton;
-    const showEmptyState = !shouldShowFeedSkeleton && filteredFeed.length === 0;
-    const handleFeedSurfaceRef = useCallback(
-      (node: HTMLDivElement | null) => {
-        applyFeedSurfaceLayoutToHost(node);
-
-        if (shouldShowFeedSkeleton || showEmptyState) {
-          handleViewportHostRef(null);
-          return;
-        }
-
-        handleViewportHostRef(node);
-      },
-      [handleViewportHostRef, shouldShowFeedSkeleton, showEmptyState],
-    );
+    const { shouldShowFeedSkeleton, showEmptyState } =
+      resolveFeedPlaceholderState(
+        isInitialLoading,
+        isRefreshing || isSearchFetching,
+        shouldShowViewportResolutionSkeleton,
+        filteredFeed.length,
+      );
+    const handleFeedSurfaceRef = useFeedSurfaceHostRef({
+      handleViewportHostRef,
+      shouldShowFeedSkeleton,
+      showEmptyState,
+    });
 
     return (
       <>
         <div
-          className={FEED_LIST_SURFACE_CLASSNAME}
+          className={FeedListConfig.FEED_LIST_SURFACE_CLASSNAME}
           data-feed-load-more-skeleton-count={
             showLoadMoreSkeletons && loadMoreSkeletonCount > 0
               ? loadMoreSkeletonCount
@@ -590,18 +510,18 @@ export const FeedList = memo(
           data-feed-visible-article-count={visibleArticleCount}
           data-inverted-scroll={isInvertedScroll ? "true" : undefined}
           ref={handleFeedSurfaceRef}
-          style={FEED_LIST_FILL_STYLE}
+          style={FeedListConfig.FEED_LIST_FILL_STYLE}
         >
           <AnimatePresence initial={false} mode="wait">
             {shouldShowFeedSkeleton ? (
               <motion.div
                 animate={{ opacity: 1, scale: 1 }}
-                className={FEED_LIST_FRAME_CLASSNAME}
+                className={FeedListConfig.FEED_LIST_FRAME_CLASSNAME}
                 exit={{ opacity: 0, scale: 0.995 }}
                 initial={{ opacity: 1, scale: 1 }}
                 key={contentKey}
-                style={FEED_LIST_FILL_STYLE}
-                transition={SKELETON_EXIT_TRANSITION}
+                style={FeedListConfig.FEED_LIST_FILL_STYLE}
+                transition={FeedListConfig.SKELETON_EXIT_TRANSITION}
               >
                 <FeedListSkeleton isInvertedScroll={isInvertedScroll} />
               </motion.div>
@@ -616,7 +536,7 @@ export const FeedList = memo(
                 data-feed-empty-state-frame="true"
                 initial={{ opacity: 0, scale: 0.97, y: 8 }}
                 key={contentKey}
-                transition={CONTENT_ENTER_TRANSITION}
+                transition={FeedListConfig.CONTENT_ENTER_TRANSITION}
               >
                 <FeedEmptyState
                   articleFilter={articleFilter}
@@ -629,14 +549,14 @@ export const FeedList = memo(
               <motion.div
                 className={
                   shouldUseVirtualizedFeedSurface
-                    ? FEED_LIST_FRAME_CLASSNAME
+                    ? FeedListConfig.FEED_LIST_FRAME_CLASSNAME
                     : "flex min-h-0 w-full min-w-0 flex-col"
                 }
                 initial={false}
                 key={contentKey}
                 style={
                   shouldUseVirtualizedFeedSurface
-                    ? FEED_LIST_FILL_STYLE
+                    ? FeedListConfig.FEED_LIST_FILL_STYLE
                     : undefined
                 }
               >
@@ -656,20 +576,17 @@ export const FeedList = memo(
                      * The IntersectionObserver sentinel stays inside the virtualizer so
                      * it fires at the correct virtual position.
                      */}
-                    {isInvertedScroll &&
-                    showLoadMoreSkeletons &&
-                    loadMoreSkeletonCount > 0 ? (
-                      <div data-feed-load-more-skeletons="true">
-                        <FeedLoadMoreSkeletonRows
-                          count={loadMoreSkeletonCount}
-                        />
-                      </div>
-                    ) : null}
+                    <FeedLoadMoreSkeletonBlock
+                      count={loadMoreSkeletonCount}
+                      visible={isInvertedScroll && showLoadMoreSkeletons}
+                    />
                     <FeedVirtualList
                       articles={feedData}
-                      className={FEED_VIRTUALIZER_CLASSNAME}
+                      className={FeedListConfig.FEED_VIRTUALIZER_CLASSNAME}
                       deferTotalListHeightChange={hasSearchTerm}
-                      estimatedItemHeight={FEED_DEFAULT_ITEM_HEIGHT_PX}
+                      estimatedItemHeight={
+                        FeedListConfig.FEED_DEFAULT_ITEM_HEIGHT_PX
+                      }
                       expandedArticleKey={expandedArticleKey}
                       feedViewKey={feedViewKey}
                       isCollapseScrollRestoreActive={
@@ -682,105 +599,16 @@ export const FeedList = memo(
                           ? (virtualizedListHeight ?? undefined)
                           : undefined
                       }
-                      onTotalListHeightChange={(nextTotalListHeight) => {
-                        if (!isMountedRef.current) {
-                          return;
-                        }
-
-                        const viewport = scrollViewportRef.current;
-                        const shouldAutoAnchorViewport =
-                          isInvertedScroll && shouldAutoAnchorInvertedScroll();
-
-                        if (isInvertedScroll && viewport) {
-                          const activePaginationAnchor =
-                            invertedPaginationAnchorRef.current;
-
-                          if (
-                            activePaginationAnchor !== null &&
-                            activePaginationAnchor.anchorArticleKey === null
-                          ) {
-                            const nextAnchoredScrollTop = Math.max(
-                              0,
-                              activePaginationAnchor.initialScrollTop +
-                                (nextTotalListHeight -
-                                  activePaginationAnchor.initialScrollHeight),
-                            );
-
-                            syncViewportScrollTop(
-                              viewport,
-                              nextAnchoredScrollTop,
-                            );
-                            activePaginationAnchor.initialScrollHeight =
-                              nextTotalListHeight;
-                            activePaginationAnchor.initialScrollTop =
-                              nextAnchoredScrollTop;
-                          }
-
-                          const minimumViewportFloor =
-                            viewport.scrollTop + viewport.clientHeight;
-
-                          if (invertedPaginationAnchorRef.current !== null) {
-                            invertedHeightFloorRef.current = Math.max(
-                              invertedHeightFloorRef.current ?? 0,
-                              nextTotalListHeight,
-                              minimumViewportFloor,
-                            );
-                          } else if (!shouldAutoAnchorViewport) {
-                            invertedHeightFloorRef.current = Math.max(
-                              nextTotalListHeight,
-                              minimumViewportFloor,
-                            );
-                          } else {
-                            invertedHeightFloorRef.current = null;
-                          }
-                        }
-
-                        setMeasuredTotalListHeight((currentHeight) =>
-                          currentHeight === nextTotalListHeight
-                            ? currentHeight
-                            : nextTotalListHeight,
-                        );
-
-                        if (isInvertedScroll) {
-                          syncInvertedExpansionScrollLock();
-                          syncInvertedPaginationAnchor();
-
-                          if (
-                            shouldAutoAnchorViewport &&
-                            invertedPaginationAnchorRef.current === null
-                          ) {
-                            syncViewportToBottomIfNeeded(scrollViewport);
-                          }
-                        } else if (
-                          !isCollapseScrollRestoreActive &&
-                          shouldLockInitialNormalScroll()
-                        ) {
-                          syncViewportScrollTop(scrollViewport, 0);
-                        }
-
-                        if (!(hasSearchTerm && isSearchFetching)) {
-                          maybeAutoFillViewport(
-                            Math.max(
-                              nextTotalListHeight,
-                              invertedHeightFloorRef.current ?? 0,
-                            ),
-                          );
-                        }
-                      }}
+                      onTotalListHeightChange={handleTotalListHeightChange}
                       renderArticle={renderFeedRow}
                       scrollMode={feedScrollMode}
                       scrollViewport={scrollViewport}
                       showLoadMoreBoundary={shouldShowLoadMoreBoundary}
                     />
-                    {!isInvertedScroll &&
-                    showLoadMoreSkeletons &&
-                    loadMoreSkeletonCount > 0 ? (
-                      <div data-feed-load-more-skeletons="true">
-                        <FeedLoadMoreSkeletonRows
-                          count={loadMoreSkeletonCount}
-                        />
-                      </div>
-                    ) : null}
+                    <FeedLoadMoreSkeletonBlock
+                      count={loadMoreSkeletonCount}
+                      visible={!isInvertedScroll && showLoadMoreSkeletons}
+                    />
                   </>
                 ) : (
                   <>
@@ -791,25 +619,15 @@ export const FeedList = memo(
                         ref={loadMoreSentinelRef}
                       />
                     ) : null}
-                    {isInvertedScroll &&
-                    showLoadMoreSkeletons &&
-                    loadMoreSkeletonCount > 0 ? (
-                      <div data-feed-load-more-skeletons="true">
-                        <FeedLoadMoreSkeletonRows
-                          count={loadMoreSkeletonCount}
-                        />
-                      </div>
-                    ) : null}
+                    <FeedLoadMoreSkeletonBlock
+                      count={loadMoreSkeletonCount}
+                      visible={isInvertedScroll && showLoadMoreSkeletons}
+                    />
                     {feedData.map(renderFeedRow)}
-                    {!isInvertedScroll &&
-                    showLoadMoreSkeletons &&
-                    loadMoreSkeletonCount > 0 ? (
-                      <div data-feed-load-more-skeletons="true">
-                        <FeedLoadMoreSkeletonRows
-                          count={loadMoreSkeletonCount}
-                        />
-                      </div>
-                    ) : null}
+                    <FeedLoadMoreSkeletonBlock
+                      count={loadMoreSkeletonCount}
+                      visible={!isInvertedScroll && showLoadMoreSkeletons}
+                    />
                     {!isInvertedScroll && shouldShowLoadMoreBoundary ? (
                       <div
                         className="h-px w-full"

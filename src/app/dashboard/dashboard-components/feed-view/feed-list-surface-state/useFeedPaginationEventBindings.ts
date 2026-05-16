@@ -403,7 +403,7 @@ function createScrollIntentHandler(
     options.rearmPaginationBoundaryFromUserIntent();
 
     if (options.paginationFrameRef.current !== null) {
-      return;
+      window.cancelAnimationFrame(options.paginationFrameRef.current);
     }
 
     options.paginationFrameRef.current = window.requestAnimationFrame(() => {

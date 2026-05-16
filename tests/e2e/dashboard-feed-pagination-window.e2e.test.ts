@@ -164,7 +164,6 @@ test.describe("dashboard feed pagination", () => {
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await selectArticleFilter(page, "all");
-
       await configureArticlesPerPage(page, 4);
 
       const initialVisibleCount = await waitForInitialClippedWindow(page, 4);

@@ -3,11 +3,14 @@ import type { SetStateAction } from "react";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+import type { ArticleSortOrder } from "@/lib/core";
+
 import { refillDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPaging";
 import {
   prefetchArticleWindowLimitIfNeeded,
   resetArticleWindowPrefetchState,
 } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
+import { useUnreadWindowRefill } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowEffects";
 import { useDashboardArticleWindowPrefetch } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
 
@@ -161,6 +164,73 @@ describe("refillDashboardArticleWindow", () => {
       expect(isLoadingMoreArticlesRef.current).toBe(false);
       expect(isRefillingDepletedUnreadWindowRef.current).toBe(false);
     });
+  });
+});
+
+describe("useUnreadWindowRefill", () => {
+  test("resets its depletion baseline across sort changes before refilling", async () => {
+    const fetchAllFeeds = mock(async () => {});
+    const setIsLoadingMoreArticles = mock(
+      (_value: SetStateAction<boolean>) => {},
+    );
+    const setRequestedArticleLimit = mock(
+      (_value: SetStateAction<number>) => {},
+    );
+    const sharedRefs = {
+      allowPartialArticleWindowGrowthRef: { current: false },
+      hasStartedArticleWindowSettlementRef: { current: false },
+      isAwaitingArticleWindowSettlementRef: { current: false },
+      isLoadingMoreArticlesRef: { current: false },
+      isRefillingDepletedUnreadWindowRef: { current: false },
+      previousAwaitedFeedLengthRef: { current: 0 },
+    };
+
+    const { rerender } = renderHook(
+      ({ articleSortOrder, currentFilteredFeedLength }) => {
+        useUnreadWindowRefill({
+          ...sharedRefs,
+          articleFilter: "unread",
+          articleSortOrder,
+          articlesPerPage: 4,
+          currentFeedLength: 24,
+          currentFilteredFeedLength,
+          fetchAllFeeds,
+          fetchCategoryFeeds: mock(async () => {}),
+          fetchFeed: mock(async () => {}),
+          hasMoreServerArticles: true,
+          isLoading: false,
+          isLoadingMoreArticles: false,
+          requestedArticleLimit: 24,
+          selectedCategory: ALL_FEEDS_NODE_KEY,
+          setIsLoadingMoreArticles,
+          setRequestedArticleLimit,
+          shouldUseArticleWindow: true,
+        });
+      },
+      {
+        initialProps: {
+          articleSortOrder: "newest" as ArticleSortOrder,
+          currentFilteredFeedLength: 9,
+        },
+      },
+    );
+
+    rerender({
+      articleSortOrder: "oldest",
+      currentFilteredFeedLength: 4,
+    });
+
+    expect(fetchAllFeeds).not.toHaveBeenCalled();
+
+    rerender({
+      articleSortOrder: "oldest",
+      currentFilteredFeedLength: 3,
+    });
+
+    await waitFor(() => {
+      expect(fetchAllFeeds).toHaveBeenCalledTimes(1);
+    });
+    expect(setRequestedArticleLimit).toHaveBeenCalledWith(28);
   });
 });
 

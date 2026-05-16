@@ -24,6 +24,35 @@ async function hasDashboardFeedScrollbarOverflow(page: DashboardPage) {
   });
 }
 
+async function installTransientPaginationSkeletonFixture(page: DashboardPage) {
+  await page.evaluate(async () => {
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-feed-scroll-viewport="true"]',
+    );
+    const feedSurface = viewport?.querySelector<HTMLElement>(
+      "[data-feed-surface-mode]",
+    );
+
+    if (!viewport || !feedSurface) {
+      throw new Error("Expected the hydrated dashboard feed surface.");
+    }
+
+    const committedHeight = Math.max(viewport.clientHeight + 900, 1800);
+    const transientLiveHeight = committedHeight + 900;
+    const committedMaxScrollTop = committedHeight - viewport.clientHeight;
+
+    feedSurface.dataset.feedLoadMoreSkeletonsVisible = "true";
+    feedSurface.dataset.feedTotalListHeight = String(committedHeight);
+    feedSurface.style.height = `${transientLiveHeight}px`;
+    feedSurface.style.minHeight = `${transientLiveHeight}px`;
+    await new Promise((resolve) => {
+      requestAnimationFrame(resolve);
+    });
+    viewport.scrollTop = committedMaxScrollTop;
+    viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+}
+
 /** Returns whether the dashboard feed's custom shadcn-style rail is visually exposed. */
 async function isDashboardFeedScrollbarVisible(page: DashboardPage) {
   return await page.evaluate(() => {
@@ -75,6 +104,9 @@ async function readFeedScrollbarState(page: DashboardPage) {
     }
 
     return {
+      hasTransientPaginationSkeletons:
+        viewport.querySelector<HTMLElement>("[data-feed-surface-mode]")
+          ?.dataset.feedLoadMoreSkeletonsVisible === "true",
       thumbHeight: Number.parseFloat(thumb.style.height || "0"),
       thumbOffsetTop: Number.parseFloat(
         thumb.style.transform.match(/translateY\(([-\d.]+)px\)/u)?.[1] ?? "0",
@@ -230,5 +262,35 @@ test.describe("dashboard feed scrollbar", () => {
       initialState.viewportScrollHeight,
     );
     expect(expandedState.thumbHeight).toBeLessThan(initialState.thumbHeight);
+  });
+
+  test("keeps the overlay thumb pinned while pagination skeletons temporarily inflate scrollHeight", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+    await waitForPreviewDashboardHydration(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    await installTransientPaginationSkeletonFixture(page);
+
+    await expect
+      .poll(async () => {
+        const state = await readFeedScrollbarState(page);
+        const trackBottom = state.viewportClientHeight - state.thumbHeight;
+
+        return {
+          hasTransientPaginationSkeletons: state.hasTransientPaginationSkeletons,
+          isPinnedToCommittedBottom:
+            Math.abs(state.thumbOffsetTop - trackBottom) <= 1,
+          liveScrollHeightExceedsCommittedHeight:
+            state.viewportScrollHeight > state.totalListHeight,
+        };
+      })
+      .toEqual({
+        hasTransientPaginationSkeletons: true,
+        isPinnedToCommittedBottom: true,
+        liveScrollHeightExceedsCommittedHeight: true,
+      });
   });
 });

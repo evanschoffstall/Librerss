@@ -18,6 +18,11 @@ interface FeedListSkeletonProps {
   isInvertedScroll?: boolean;
 }
 
+/** Describes the props for the optional load-more skeleton wrapper. */
+interface FeedLoadMoreSkeletonBlockProps extends FeedLoadMoreSkeletonRowsProps {
+  visible: boolean;
+}
+
 /**
  * Describes the props for the feed load more skeleton rows component.
  */
@@ -57,6 +62,25 @@ export function FeedListSkeleton(props: FeedListSkeletonProps) {
       ref={listRef}
     >
       <FeedLoadMoreSkeletonRows count={skeletonCount} />
+    </div>
+  );
+}
+
+/**
+ * Render the load-more skeleton wrapper when additional rows are pending.
+ * @param props - Visibility flag and skeleton row count.
+ * @returns The load-more skeleton block, or null when hidden.
+ */
+export function FeedLoadMoreSkeletonBlock(
+  props: FeedLoadMoreSkeletonBlockProps,
+) {
+  if (!props.visible || props.count <= 0) {
+    return null;
+  }
+
+  return (
+    <div data-feed-load-more-skeletons="true">
+      <FeedLoadMoreSkeletonRows count={props.count} />
     </div>
   );
 }

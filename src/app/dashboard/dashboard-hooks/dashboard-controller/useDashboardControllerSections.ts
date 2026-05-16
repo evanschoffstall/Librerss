@@ -129,6 +129,7 @@ export function useDashboardArticleWindowState(
   } = options;
   return useDashboardArticleWindow({
     articleFilter: dashboardState.articleFilter,
+    articleSortOrder: dashboardState.articleSortOrder,
     articlesPerPage: dashboardState.articlesPerPage,
     currentFeedLength: dashboardState.feed.length,
     currentFilteredFeedLength:

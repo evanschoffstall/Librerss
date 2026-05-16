@@ -240,6 +240,8 @@ function resolveMaybeLoadNextPageOptions(
     hasActiveInvertedExpansionScrollLock:
       options.hasActiveInvertedExpansionScrollLock,
     hasCollapsingArticlesRef: localState.hasCollapsingArticlesRef,
+    hasCompletedInvertedServerRevealRef:
+      serverLoadState.hasCompletedInvertedServerRevealRef,
     hasReachedStandardLoadBoundary,
     hasUserScrolledRef: options.hasUserScrolledRef,
     isInvertedLoadBoundaryArmedRef: localState.isInvertedLoadBoundaryArmedRef,

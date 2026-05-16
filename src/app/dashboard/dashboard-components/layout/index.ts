@@ -1,5 +1,10 @@
 export { DashboardDesktopSidebar } from "@/app/dashboard/dashboard-components/layout/DashboardDesktopSidebar";
 export {
+  type FeedScrollbarMeasurement,
+  type FeedScrollbarMetrics,
+  resolveFeedScrollbarMetrics,
+} from "@/app/dashboard/dashboard-components/layout/DashboardFeedScrollArea";
+export {
   DashboardFilterBar,
   DashboardFilterBarSkeleton,
 } from "@/app/dashboard/dashboard-components/layout/DashboardFilterBar";

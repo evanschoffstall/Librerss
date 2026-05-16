@@ -29,6 +29,7 @@ interface DeterministicFeedBatchRouteOptions {
   failNextBatchRequestRef?: { current: boolean };
   readArticleIdsRef?: Set<number>;
   respectArticleLimit?: boolean;
+  responseDelayMs?: number;
   totalArticlesPerFeed?: number;
 }
 
@@ -314,7 +315,7 @@ export async function installDeterministicArticleExtractRoute(page: Page) {
  * not depend on live extractor throughput.
  * @param page - The page receiving the route override.
  * @param options - Controls how many mock articles each feed returns and
- * whether the next batch request should fail.
+ * whether the next batch request should fail or pause before fulfillment.
  */
 export async function installDeterministicFeedBatchRoute(
   page: Page,
@@ -400,6 +401,12 @@ export async function installDeterministicFeedBatchRoute(
         url,
       };
     });
+
+    if (options.responseDelayMs !== undefined && options.responseDelayMs > 0) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, options.responseDelayMs);
+      });
+    }
 
     await route.fulfill({
       body: JSON.stringify(payload),
@@ -836,6 +843,10 @@ export async function scrollFeedViewportToTop(page: Page) {
   const viewport = await getActiveFeedViewport(page);
 
   await viewport.evaluate((node) => {
+    if (Math.abs(node.scrollTop) > 1) {
+      node.dispatchEvent(new Event("scroll"));
+    }
+
     if (typeof node.scrollTo === "function") {
       node.scrollTo({ behavior: "auto", top: 0 });
     }

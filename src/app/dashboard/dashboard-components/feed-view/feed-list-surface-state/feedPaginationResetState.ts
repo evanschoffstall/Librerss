@@ -11,6 +11,7 @@ export interface ResetPaginationStateOptions {
   clearServerLoadCooldown: () => void;
   commitVisibleArticleCount: (nextVisibleCount: number) => void;
   filteredFeedLengthRef: { current: number };
+  hasCompletedInvertedServerRevealRef: { current: boolean };
   hasPendingBoundaryRearmAfterCooldownRef: { current: boolean };
   hasPendingServerRevealRef: { current: boolean };
   hasRequestedServerLoadRef: { current: boolean };
@@ -80,6 +81,8 @@ function useResetPaginationRuntimeStateArgs(
   return useMemo(
     () => ({
       clearServerLoadCooldown: options.clearServerLoadCooldown,
+      hasCompletedInvertedServerRevealRef:
+        options.hasCompletedInvertedServerRevealRef,
       hasPendingBoundaryRearmAfterCooldownRef:
         options.hasPendingBoundaryRearmAfterCooldownRef,
       hasPendingServerRevealRef: options.hasPendingServerRevealRef,
@@ -105,6 +108,7 @@ function useResetPaginationRuntimeStateArgs(
     }),
     [
       options.clearServerLoadCooldown,
+      options.hasCompletedInvertedServerRevealRef,
       options.hasPendingBoundaryRearmAfterCooldownRef,
       options.hasPendingServerRevealRef,
       options.hasRequestedServerLoadRef,
