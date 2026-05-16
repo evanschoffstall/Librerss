@@ -37,9 +37,12 @@ export class RateLimiter {
   /** Cached once per instance so env is not re-read on every request. */
   private _trustedProxyCount: number | undefined;
   /**
-   * Stores the cleanup timer.
+   * Periodic cleanup timer. Typed as `NodeJS.Timeout` so `.unref()` is
+   * available without a cast — both Node.js and Bun expose this method on
+   * their timer handles, keeping the interval from blocking process exit when
+   * the module is discarded during hot-module reload or after tests complete.
    */
-  private readonly cleanupTimer: ReturnType<typeof setInterval>;
+  private readonly cleanupTimer: NodeJS.Timeout;
   /**
    * Stores the store.
    */
@@ -57,15 +60,10 @@ export class RateLimiter {
       5 * 60 * 1000,
     );
 
-    // In Node.js, unref() prevents the interval from keeping the process alive
-    // when it is the only remaining handle — important during tests and
-    // hot-module reload where the module may be discarded before the timer fires.
-    const cleanupTimer = this.cleanupTimer as unknown as {
-      unref?: (() => void) | undefined;
-    };
-    if (typeof cleanupTimer.unref === "function") {
-      cleanupTimer.unref();
-    }
+    // unref() tells Node.js/Bun not to keep the process alive for this timer
+    // alone — critical during tests and hot-module reload where this module may
+    // be discarded before the 5-minute interval fires.
+    this.cleanupTimer.unref();
   }
 
   /**
@@ -318,32 +316,28 @@ export class RateLimiter {
 export const rateLimiter = new RateLimiter();
 
 /**
- * Process the reset rate limiter for testing.
+ * Reset internal rate-limiter state for use in tests.
  */
 export function resetRateLimiterForTesting(): void {
   rateLimiter.resetForTesting();
 }
 
 /**
- * Process the log rate limit error.
+ * Log a rate-limiter error to the console.
  * @param message - The message.
  */
 function logRateLimitError(message: string): void {
-  if (typeof console.error === "function") {
-    console.error(message);
-  }
+  console.error(message);
 }
 
 /**
- * Process the log rate limit warning.
+ * Log a rate-limiter warning to the console.
  * @param message - The message.
- * @param context - The context used to process the log rate limit warning.
+ * @param context - The context object attached to the warning message.
  */
 function logRateLimitWarning(
   message: string,
   context: Record<string, number | string>,
 ): void {
-  if (typeof console.warn === "function") {
-    console.warn(message, context);
-  }
+  console.warn(message, context);
 }

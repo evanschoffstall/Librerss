@@ -96,16 +96,16 @@ export async function requireMutableAuthenticatedUser(
   const user = await requireAuthenticatedUser(request);
   if (user instanceof Response) return user;
 
-  const rl = options?.rateLimit;
-  if (rl && (rl.scope ?? "request") === "user") {
+  const rateLimit = options?.rateLimit;
+  if (rateLimit && (rateLimit.scope ?? "request") === "user") {
     // The key already contains the userId, so there is no need to append a
     // client-IP suffix.  Skipping the suffix ensures:
     //   1. One contiguous quota window per user regardless of IP changes.
     //   2. No accidental per-IP bucket splits when the IP is unresolvable.
     const rateLimitError = rateLimiter.check(
       request,
-      `${rl.key}:user:${user.userId}`,
-      { maxAttempts: rl.maxAttempts, windowMs: rl.windowMs },
+      `${rateLimit.key}:user:${user.userId}`,
+      { maxAttempts: rateLimit.maxAttempts, windowMs: rateLimit.windowMs },
       true, // skipClientId — userId is the identity
     );
     if (rateLimitError) return rateLimitError;
@@ -130,11 +130,11 @@ export function requireMutableRequest(
   const sameOriginError = requireSameOrigin(request);
   if (sameOriginError) return sameOriginError;
 
-  const rl = options?.rateLimit;
-  if (rl && (rl.scope ?? "request") === "request") {
-    const rateLimitError = rateLimiter.check(request, rl.key, {
-      maxAttempts: rl.maxAttempts,
-      windowMs: rl.windowMs,
+  const rateLimit = options?.rateLimit;
+  if (rateLimit && (rateLimit.scope ?? "request") === "request") {
+    const rateLimitError = rateLimiter.check(request, rateLimit.key, {
+      maxAttempts: rateLimit.maxAttempts,
+      windowMs: rateLimit.windowMs,
     });
     if (rateLimitError) return rateLimitError;
   }
