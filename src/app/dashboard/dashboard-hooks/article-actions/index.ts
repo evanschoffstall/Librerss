@@ -4,6 +4,7 @@ export type {
   ArticleStatusMutationVersionTracker,
 } from "./articleStatusMutation";
 export {
+  ARTICLE_STATUS_STALE_RESUME_ABORT_REASON,
   createSettledArticleStatusMutationGuard,
   runOptimisticArticleStatusMutation,
   useArticleMutationTracker,

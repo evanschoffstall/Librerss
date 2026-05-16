@@ -91,6 +91,35 @@ async function normalizeDashboardArticleVisibility(page: Page) {
 }
 
 /**
+ * Dispatches the browser visibility lifecycle with a deterministic wall-clock
+ * gap so the dashboard's stale-resume branch observes the intended suspension.
+ * @param page - The page whose dashboard lifecycle listeners should run.
+ * @param suspensionMs - Milliseconds the simulated browser suspension lasts.
+ */
+async function simulateVisibilitySuspension(page: Page, suspensionMs: number) {
+  await page.evaluate((hiddenDurationMs) => {
+    const realNow = Date.now;
+    const hiddenAt = realNow();
+    let clockNow = hiddenAt;
+
+    Date.now = () => clockNow;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => true,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    clockNow = hiddenAt + hiddenDurationMs;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => false,
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Date.now = realNow;
+  }, suspensionMs);
+}
+
+/**
  * Simulates a long tab suspension cycle by dispatching visibilitychange events
  * with a faked suspension duration, then asserts the dashboard recovers cleanly.
  */
@@ -113,44 +142,7 @@ test("dashboard dismisses stale toasts and recovers after long tab suspension", 
   // Create a deliberately visible Sonner toast via the global module.
   const toastCountBefore = await page.locator("[data-sonner-toast]").count();
 
-  // Simulate a stale tab resume: dispatch visibilitychange with `hidden` then
-  // back to `visible`, tricking the interval hook into thinking the tab was
-  // suspended for longer than the stale threshold.
-  await page.evaluate(() => {
-    // Reach into the intervals hook's hidden-at tracking by faking a long gap.
-    // 1. Go hidden
-    Object.defineProperty(document, "hidden", {
-      configurable: true,
-      get: () => true,
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-
-    // 2. Advance time perception so the hook sees a long suspension.
-    //    We just need the resume handler to compute a gap >= STALE_TAB_THRESHOLD_MS.
-    //    The hook reads Date.now() at hide time and again at resume time.
-    //    Since both happen nearly instantly, we override Date.now temporarily.
-    const realNow = Date.now;
-    const freezeTime = realNow();
-
-    // Override Date.now to return a future time on the next call (resume path).
-    let callCount = 0;
-    Date.now = () => {
-      callCount++;
-      // The hide handler already called Date.now once. On resume it calls
-      // Date.now again; return a value 60 seconds later than the hide timestamp.
-      return callCount <= 1 ? freezeTime : freezeTime + 60_000;
-    };
-
-    // 3. Go visible (resume)
-    Object.defineProperty(document, "hidden", {
-      configurable: true,
-      get: () => false,
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-
-    // Restore Date.now
-    Date.now = realNow;
-  });
+  await simulateVisibilitySuspension(page, 60_000);
 
   // After stale resume, pre-existing toasts should dismiss once the resume
   // handler has completed its recovery pass.
@@ -190,30 +182,7 @@ test("short tab switch does not dismiss toasts", async ({ page }) => {
   await gotoPreviewDashboard(page);
   await expectPreviewDashboard(page);
 
-  // Simulate a brief tab switch (below stale threshold).
-  await page.evaluate(() => {
-    Object.defineProperty(document, "hidden", {
-      configurable: true,
-      get: () => true,
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-
-    // Resume almost immediately (5 seconds — below the 30s threshold).
-    const realNow = Date.now;
-    const freezeTime = realNow();
-    let callCount = 0;
-    Date.now = () => {
-      callCount++;
-      return callCount <= 1 ? freezeTime : freezeTime + 5_000;
-    };
-
-    Object.defineProperty(document, "hidden", {
-      configurable: true,
-      get: () => false,
-    });
-    document.dispatchEvent(new Event("visibilitychange"));
-    Date.now = realNow;
-  });
+  await simulateVisibilitySuspension(page, 5_000);
 
   // Dashboard should remain functional with no errors.
   const firstArticle = page.locator("article[data-article-key]").first();
@@ -314,28 +283,7 @@ test("stale tab resume during an in-flight read mutation keeps the dashboard int
       .toBe(1);
     await expect(markUnreadButton).toBeVisible({ timeout: 15_000 });
 
-    await page.evaluate(() => {
-      Object.defineProperty(document, "hidden", {
-        configurable: true,
-        get: () => true,
-      });
-      document.dispatchEvent(new Event("visibilitychange"));
-
-      const realNow = Date.now;
-      const freezeTime = realNow();
-      let callCount = 0;
-      Date.now = () => {
-        callCount += 1;
-        return callCount <= 1 ? freezeTime : freezeTime + 60_000;
-      };
-
-      Object.defineProperty(document, "hidden", {
-        configurable: true,
-        get: () => false,
-      });
-      document.dispatchEvent(new Event("visibilitychange"));
-      Date.now = realNow;
-    });
+    await simulateVisibilitySuspension(page, 60_000);
 
     await expect(
       targetArticle.getByRole("button", { name: /Mark as (?:un)?read/u }),
@@ -343,6 +291,168 @@ test("stale tab resume during an in-flight read mutation keeps the dashboard int
     await expect(targetArticle).toBeVisible({ timeout: 15_000 });
     await expect(page.locator("[data-status-page='500']")).toHaveCount(0);
     await expect(page).toHaveURL(/\/dashboard$/u);
+    await nextJsErrorMonitor.assertNoNextJsErrors();
+  } finally {
+    nextJsErrorMonitor.dispose();
+  }
+});
+
+test("stale tab resume during visible-read keeps marked articles read after refresh", async ({
+  page,
+}) => {
+  const nextJsErrorMonitor = createNextJsErrorMonitor(page);
+  const readArticleIdsRef = new Set<number>();
+
+  await installAuthenticatedDashboardShellRoutes(page);
+  await installDeterministicFeedBatchRoute(page, {
+    articleFeedCount: 1,
+    articlesPerFeed: 8,
+    readArticleIdsRef,
+    respectArticleLimit: true,
+  });
+  await page.route("**/api/articles/status", async (route) => {
+    const requestBody = route.request().postDataJSON() as {
+      articleId?: unknown;
+      isRead?: unknown;
+    };
+
+    if (
+      typeof requestBody.articleId === "number" &&
+      requestBody.isRead === true
+    ) {
+      readArticleIdsRef.add(requestBody.articleId);
+    }
+
+    await route.fulfill({
+      body: JSON.stringify({ ok: true }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.addInitScript(() => {
+    type VisibleReadSuspensionWindow = typeof globalThis &
+      Window & {
+        __visibleReadAttemptedArticleIds?: number[];
+        __visibleReadFirstAttemptCount?: number;
+      };
+
+    const browserWindow = window as VisibleReadSuspensionWindow;
+    const originalFetch = browserWindow.fetch.bind(browserWindow);
+
+    browserWindow.__visibleReadAttemptedArticleIds = [];
+    browserWindow.__visibleReadFirstAttemptCount = 0;
+    browserWindow.fetch = new Proxy(originalFetch, {
+      apply(target, thisArg, argumentsList) {
+        const [input, init] = argumentsList as [
+          RequestInfo | URL,
+          RequestInit | undefined,
+        ];
+        const url =
+          typeof input === "string"
+            ? input
+            : input instanceof Request
+              ? input.url
+              : String(input);
+
+        if (
+          !url.endsWith("/api/articles/status") ||
+          init?.signal === undefined
+        ) {
+          return Reflect.apply(target, thisArg, argumentsList);
+        }
+
+        const requestBody = JSON.parse(String(init.body ?? "{}")) as {
+          articleId?: unknown;
+        };
+        if (typeof requestBody.articleId === "number") {
+          browserWindow.__visibleReadAttemptedArticleIds?.push(
+            requestBody.articleId,
+          );
+        }
+        browserWindow.__visibleReadFirstAttemptCount =
+          (browserWindow.__visibleReadFirstAttemptCount ?? 0) + 1;
+
+        return new Promise<Response>((resolve, reject) => {
+          const abortSignal = init.signal;
+          const timeoutId = browserWindow.setTimeout(() => {
+            resolve(
+              new Response(JSON.stringify({ ok: true }), {
+                headers: { "content-type": "application/json" },
+                status: 200,
+              }),
+            );
+          }, 10_000);
+
+          abortSignal?.addEventListener(
+            "abort",
+            () => {
+              browserWindow.clearTimeout(timeoutId);
+              reject(new DOMException("stale resume", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+      },
+    }) as typeof fetch;
+  });
+
+  try {
+    await gotoAuthenticatedDashboard(page);
+    await page.getByRole("button", { exact: true, name: "unread" }).click();
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    await page
+      .getByRole("button", { name: "Mark fully visible articles as read" })
+      .click();
+    await expect
+      .poll(async () => {
+        return await page.evaluate(() => {
+          return (
+            window as Window & { __visibleReadFirstAttemptCount?: number }
+          ).__visibleReadFirstAttemptCount;
+        });
+      })
+      .toBeGreaterThan(0);
+
+    await simulateVisibilitySuspension(page, 60_000);
+
+    await expect
+      .poll(() => readArticleIdsRef.size, { timeout: 15_000 })
+      .toBeGreaterThan(0);
+    const attemptedArticleIds = await page.evaluate(() => {
+      return (
+        window as Window & { __visibleReadAttemptedArticleIds?: number[] }
+      ).__visibleReadAttemptedArticleIds;
+    });
+    expect(attemptedArticleIds?.length ?? 0).toBeGreaterThan(0);
+
+    await page
+      .getByRole("button", { exact: true, name: "Refresh selected feed" })
+      .click();
+    await expect
+      .poll(async () => {
+        let visibleMarkedArticleCount = 0;
+
+        for (const articleId of attemptedArticleIds ?? []) {
+          visibleMarkedArticleCount += await articleCardByKey(
+            page,
+            `https://example.com/playwright/article-${articleId}`,
+          ).count();
+        }
+
+        return visibleMarkedArticleCount;
+      })
+      .toBe(0);
+
+    for (const articleId of attemptedArticleIds ?? []) {
+      await expect(
+        articleCardByKey(
+          page,
+          `https://example.com/playwright/article-${articleId}`,
+        ),
+      ).toHaveCount(0);
+    }
+
     await nextJsErrorMonitor.assertNoNextJsErrors();
   } finally {
     nextJsErrorMonitor.dispose();

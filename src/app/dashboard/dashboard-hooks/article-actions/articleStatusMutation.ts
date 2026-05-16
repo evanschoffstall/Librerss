@@ -71,6 +71,10 @@ type ArticleStatusPatch = Parameters<
   typeof ArticleService.updateArticleStatus
 >[1];
 
+/** Abort reason used only for browser lifecycle cleanup on stale tab resume. */
+export const ARTICLE_STATUS_STALE_RESUME_ABORT_REASON =
+  "dashboard-stale-tab-resume";
+
 /**
  * Describes the options for optimistic article status mutation.
  */
@@ -270,7 +274,7 @@ export function useArticleStatusMutationController(): ArticleStatusMutationContr
 
   const cancelPendingMutations = useCallback(() => {
     for (const controller of pendingControllersRef.current) {
-      controller.abort("dashboard-stale-tab-resume");
+      controller.abort(ARTICLE_STATUS_STALE_RESUME_ABORT_REASON);
     }
 
     pendingControllersRef.current.clear();
@@ -422,6 +426,18 @@ function createArticleMap(articles: Article[]): Map<string, Article> {
 }
 
 /**
+ * Return whether a rejected status write came from stale-resume cleanup.
+ * @param signal - The lifecycle signal attached to the failed request.
+ * @returns Whether the status write should be retried instead of restored.
+ */
+function isStaleResumeAbort(signal: AbortSignal | undefined) {
+  return (
+    signal?.aborted === true &&
+    signal.reason === ARTICLE_STATUS_STALE_RESUME_ABORT_REASON
+  );
+}
+
+/**
  * Persist article status changes and apply success or failure state to the feed.
  * @param mutationOptions - Runtime mutation inputs and settled-state callbacks.
  * @returns Attempt and failure counts for the completed mutation.
@@ -455,6 +471,40 @@ async function persistAndSettleArticleStatusMutation(
 }
 
 /**
+ * Persist one article status patch with browser-lifecycle retry semantics.
+ *
+ * Stale-tab recovery aborts foreground fetches so suspended sockets cannot keep
+ * the dashboard in a phantom pending state. Article status writes are user
+ * actions, though, so a lifecycle abort must retry rather than undo the
+ * optimistic UI state and make read articles pop back into the list.
+ * @param article - Article whose status is being persisted.
+ * @param statusPatchForArticle - Creates the status patch for the article.
+ * @param signal - Optional lifecycle-owned abort signal for the first attempt.
+ */
+async function persistArticleStatusMutation(
+  article: Article,
+  statusPatchForArticle: (article: Article) => ArticleStatusPatch,
+  signal: AbortSignal | undefined,
+) {
+  const statusPatch = statusPatchForArticle(article);
+
+  try {
+    await ArticleService.updateArticleStatus(article.id, statusPatch, {
+      keepalive: true,
+      signal,
+    });
+  } catch (error) {
+    if (!isStaleResumeAbort(signal)) {
+      throw error;
+    }
+
+    await ArticleService.updateArticleStatus(article.id, statusPatch, {
+      keepalive: true,
+    });
+  }
+}
+
+/**
  * Persist each article-status patch and report the article keys that failed.
  * @param articleEntries - Article-key and article pairs to persist.
  * @param statusPatchForArticle - Creates the API status patch for an article.
@@ -473,17 +523,9 @@ async function persistArticleStatusMutations(
   }
 
   const results = await Promise.allSettled(
-    articleEntries.map(([, article]) => {
-      const statusPatch = statusPatchForArticle(article);
-
-      if (signal === undefined) {
-        return ArticleService.updateArticleStatus(article.id, statusPatch);
-      }
-
-      return ArticleService.updateArticleStatus(article.id, statusPatch, {
-        signal,
-      });
-    }),
+    articleEntries.map(([, article]) =>
+      persistArticleStatusMutation(article, statusPatchForArticle, signal),
+    ),
   );
 
   return new Set(

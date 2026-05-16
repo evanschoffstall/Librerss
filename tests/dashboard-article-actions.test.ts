@@ -20,6 +20,7 @@ import * as realSonnerModule from "sonner";
 
 import type { Article } from "@/lib/core";
 
+import { ARTICLE_STATUS_STALE_RESUME_ABORT_REASON } from "@/app/dashboard/dashboard-hooks/article-actions";
 import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
 import { ArticleService } from "@/lib/api";
 
@@ -155,7 +156,7 @@ describe("useArticleActions - State Management", () => {
       {
         isStarred: true,
       },
-      { signal: expect.any(AbortSignal) },
+      { keepalive: true, signal: expect.any(AbortSignal) },
     );
     expect(setFeed).toHaveBeenCalled();
   });
@@ -187,7 +188,7 @@ describe("useArticleActions - State Management", () => {
       {
         isStarred: false,
       },
-      { signal: expect.any(AbortSignal) },
+      { keepalive: true, signal: expect.any(AbortSignal) },
     );
   });
 
@@ -433,7 +434,7 @@ describe("useArticleActions - State Management", () => {
       {
         isRead: true,
       },
-      { signal: expect.any(AbortSignal) },
+      { keepalive: true, signal: expect.any(AbortSignal) },
     );
   });
 
@@ -659,6 +660,75 @@ describe("useArticleActions - State Management", () => {
       await mutationPromise;
     });
 
+    expect(feedState[0]?.isRead).toBe(true);
+  });
+
+  test("handleMarkArticlesRead retries stale-resume aborts so visible-read rows do not pop back", async () => {
+    type UpdateArticleStatusOptions = Parameters<
+      typeof ArticleService.updateArticleStatus
+    >[2];
+
+    const article = createMockArticle({
+      id: 124,
+      isRead: false,
+      link: "https://example.com/stale-resume-visible-read",
+    });
+    const updateOptions: UpdateArticleStatusOptions[] = [];
+    ArticleService.updateArticleStatus = mock(
+      async (_articleId, _updates, options) => {
+        updateOptions.push(options);
+
+        if (updateOptions.length > 1) {
+          return;
+        }
+
+        await new Promise<void>((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => {
+              reject(new DOMException("stale resume", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+      },
+    ) as unknown as typeof ArticleService.updateArticleStatus;
+
+    let feedState = [article];
+    const setFeed = mock((updater: SetStateAction<Article[]>) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+    const setExpandedArticleKey = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleActions({
+        articleFilter: "unread",
+        expandedArticleKey: null,
+        feed: feedState,
+        setExpandedArticleKey,
+        setFeed,
+      }),
+    );
+
+    let mutationPromise!: Promise<void>;
+    await act(async () => {
+      mutationPromise = result.current.handleMarkArticlesRead([article]);
+      await Promise.resolve();
+    });
+
+    expect(feedState[0]?.isRead).toBe(true);
+
+    await act(async () => {
+      result.current.cancelPendingArticleStatusMutations();
+      await mutationPromise;
+    });
+
+    expect(updateOptions).toHaveLength(2);
+    expect(updateOptions[0]?.keepalive).toBe(true);
+    expect(updateOptions[0]?.signal?.reason).toBe(
+      ARTICLE_STATUS_STALE_RESUME_ABORT_REASON,
+    );
+    expect(updateOptions[1]).toEqual({ keepalive: true });
     expect(feedState[0]?.isRead).toBe(true);
   });
 
@@ -941,7 +1011,7 @@ describe("useArticleActions - State Management", () => {
       {
         isRead: true,
       },
-      { signal: expect.any(AbortSignal) },
+      { keepalive: true, signal: expect.any(AbortSignal) },
     );
     expect(result.current.collapsingArticles).toEqual({
       [article.link]: {
