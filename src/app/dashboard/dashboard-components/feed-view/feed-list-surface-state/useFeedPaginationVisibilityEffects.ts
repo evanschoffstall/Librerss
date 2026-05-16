@@ -41,8 +41,15 @@ export function useCollapsingArticlesRefSync(
 }
 
 /**
- * Manage the feed pagination loading more reveal effect.
- * @param options - The options used to manage the feed pagination loading more reveal effect.
+ * Keep server-pagination skeletons mounted until the loaded article window can replace them.
+ *
+ * The server-load flag can clear before React has rendered the larger filtered
+ * feed. While the visible count is still catching up, both standard and
+ * inverted scroll keep the pending reveal alive so skeletons do not disappear
+ * before the incoming rows are committed. Once the visible window has caught up,
+ * this effect only performs terminal cleanup when the server reports no more
+ * pages; ordinary page reveals are released by the count-transition scheduler.
+ * @param options - The refs, counts, and callbacks that own the pending server reveal.
  */
 export function useFeedPaginationLoadingMoreRevealEffect(
   options: FeedPaginationLoadingMoreRevealEffectOptions,
@@ -64,22 +71,17 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     visibleArticleCount,
   } = options;
   useLayoutEffect(() => {
-    const previousIsLoadingMore = previousIsLoadingMoreRef.current;
     previousIsLoadingMoreRef.current = isLoadingMore;
 
-    if (
-      isLoadingMore ||
-      !previousIsLoadingMore ||
-      !hasPendingServerRevealRef.current
-    ) {
+    if (isLoadingMore || !hasPendingServerRevealRef.current) {
       return;
     }
 
-    if (
-      isInvertedScroll &&
-      canLoadMoreFromServer &&
-      filteredFeedLength <= visibleArticleCount
-    ) {
+    if (filteredFeedLength > visibleArticleCount) {
+      return;
+    }
+
+    if (canLoadMoreFromServer) {
       return;
     }
 

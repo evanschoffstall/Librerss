@@ -69,6 +69,29 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     expect(options.startServerLoadRearmCooldown).not.toHaveBeenCalled();
   });
 
+  test("keeps the standard pending reveal armed while the new page has not appeared yet", () => {
+    const options = createOptions({
+      isInvertedScroll: false,
+      lastInvertedAwayBoundarySnapshotRef: { current: null },
+      lastInvertedScrollTopRef: { current: null },
+    });
+
+    const { rerender } = renderHook(
+      (currentOptions: LoadingMoreRevealEffectOptions) => {
+        useFeedPaginationLoadingMoreRevealEffect(currentOptions);
+      },
+      { initialProps: options },
+    );
+
+    rerender({
+      ...options,
+      isLoadingMore: false,
+    });
+
+    expect(options.hasPendingServerRevealRef.current).toBe(true);
+    expect(options.startServerLoadRearmCooldown).not.toHaveBeenCalled();
+  });
+
   test("completes the inverted pending reveal once the server reports no more pages", () => {
     const options = createOptions({
       canLoadMoreFromServer: false,
@@ -92,6 +115,24 @@ describe("useFeedPaginationLoadingMoreRevealEffect", () => {
     expect(options.lastInvertedScrollTopRef.current).toBeNull();
     expect(options.startServerLoadRearmCooldown).toHaveBeenCalledTimes(1);
   });
+
+  test("completes a settled pending reveal when server capacity ends after loading", () => {
+    const options = createOptions({
+      canLoadMoreFromServer: false,
+      isLoadingMore: false,
+      previousIsLoadingMoreRef: { current: false },
+    });
+
+    renderHook((currentOptions: LoadingMoreRevealEffectOptions) => {
+      useFeedPaginationLoadingMoreRevealEffect(currentOptions);
+    }, {
+      initialProps: options,
+    });
+
+    expect(options.hasPendingServerRevealRef.current).toBe(false);
+    expect(options.startServerLoadRearmCooldown).toHaveBeenCalledTimes(1);
+  });
+
 });
 
 describe("useBackfillDepletedRevealedPageEffect", () => {

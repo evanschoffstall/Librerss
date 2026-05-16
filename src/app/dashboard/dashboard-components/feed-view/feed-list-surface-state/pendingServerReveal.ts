@@ -217,19 +217,34 @@ export function schedulePendingServerRevealCompletion(
           return;
         }
 
-        options.pendingServerRevealCountRef.current = null;
-        completePendingServerReveal(options);
-
-        // For inverted scroll the visible window must advance to cover all
-        // newly loaded articles immediately after the reveal so that the next
-        // boundary hit calls requestMoreFromServer() rather than running a
-        // local expandVisibleWindow() step first.
+        // The skeleton contract is skeletons first, then the incoming article
+        // rows in the same transition. Commit the expanded visible window before
+        // the reveal releases ownership so standard scroll cannot briefly render
+        // the old article window with no load-more skeleton rows.
         if (
-          options.isInvertedScroll &&
           options.filteredFeedLength > options.visibleArticleCountRef.current
         ) {
           options.commitVisibleArticleCount(options.filteredFeedLength);
+          options.pendingServerRevealTimeoutRef.current = setTimeout(() => {
+            options.pendingServerRevealTimeoutRef.current = null;
+
+            if (
+              options.pendingServerRevealCountRef.current !==
+                options.filteredFeedLength ||
+              (!options.hasPendingServerRevealRef.current &&
+                !options.hasRequestedServerLoadRef.current)
+            ) {
+              return;
+            }
+
+            options.pendingServerRevealCountRef.current = null;
+            completePendingServerReveal(options);
+          }, SKELETON_MIN_VISIBLE_MS);
+          return;
         }
+
+        options.pendingServerRevealCountRef.current = null;
+        completePendingServerReveal(options);
       }, SKELETON_MIN_VISIBLE_MS);
     },
   );
@@ -318,6 +333,14 @@ function shouldSkipRevealCountTransition(
 ) {
   if (options.isLoadingMore && hasSettledReveal) {
     return true;
+  }
+
+  if (
+    !options.isLoadingMore &&
+    hasSettledReveal &&
+    options.filteredFeedLength > options.visibleArticleCountRef.current
+  ) {
+    return false;
   }
 
   return (

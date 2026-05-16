@@ -3,12 +3,96 @@ import {
   configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
+  installDeterministicFeedBatchRoute,
   readLoadMoreSkeletonState,
   readVisibleFeedArticleCount,
   scrollFeedViewportToBottom,
   triggerFeedViewportWheelIntent,
 } from "./helpers";
 import { expect, test } from "./test";
+
+const LONG_RUN_PAGE_SIZE = 4;
+const LONG_RUN_PAGINATION_CYCLES = 10;
+
+/**
+ * Scrolls the feed and proves skeletons stay mounted until articles commit.
+ * @param page - The dashboard page under test.
+ * @param cycle - The one-based pagination cycle number used in assertion output.
+ * @param pageSize - The configured article page size for the current run.
+ * @param previousArticleCount - The article count before this cycle started.
+ * @param minimumArticleCount - The minimum count expected after this cycle.
+ * @returns The committed visible article count for the cycle.
+ */
+async function requestNextPageAndExpectContinuousSkeletons(
+  page: Parameters<typeof triggerFeedViewportWheelIntent>[0],
+  cycle: number,
+  pageSize: number,
+  previousArticleCount: number,
+  minimumArticleCount: number,
+) {
+  const previousTransitionSettleDeadline = Date.now() + 300;
+
+  while (Date.now() < previousTransitionSettleDeadline) {
+    if (!(await readLoadMoreSkeletonState(page)).skeletonsVisible) {
+      break;
+    }
+
+    await page.waitForTimeout(16);
+  }
+
+  let isPreviousSkeletonStillVisible = (
+    await readLoadMoreSkeletonState(page)
+  ).skeletonsVisible;
+
+  await triggerFeedViewportWheelIntent(page);
+  await scrollFeedViewportToBottom(page);
+
+  let sawSkeletons = false;
+  let committedArticleCount = previousArticleCount;
+  const deadline = Date.now() + 12_000;
+  let nextScrollIntentAt = Date.now() + 250;
+
+  while (Date.now() < deadline) {
+    const skeletonState = await readLoadMoreSkeletonState(page);
+    const articleCount = await readVisibleFeedArticleCount(page);
+    const now = Date.now();
+
+    if (skeletonState.skeletonsVisible) {
+      expect(skeletonState.skeletonCount).toBe(pageSize);
+      if (!isPreviousSkeletonStillVisible) {
+        sawSkeletons = true;
+      }
+    } else {
+      isPreviousSkeletonStillVisible = false;
+    }
+
+    if (
+      isPreviousSkeletonStillVisible &&
+      skeletonState.skeletonsVisible &&
+      articleCount >= minimumArticleCount
+    ) {
+      sawSkeletons = true;
+    }
+
+    if (sawSkeletons && articleCount >= minimumArticleCount) {
+      committedArticleCount = articleCount;
+      break;
+    }
+
+    if (now >= nextScrollIntentAt) {
+      await triggerFeedViewportWheelIntent(page);
+      await scrollFeedViewportToBottom(page);
+      nextScrollIntentAt = now + 250;
+    }
+
+    await page.waitForTimeout(16);
+  }
+
+  expect(sawSkeletons).toBe(true);
+  expect(committedArticleCount).toBeGreaterThan(previousArticleCount);
+
+  return committedArticleCount;
+}
 
 test.describe("feed pagination skeleton visibility", () => {
   test("shows skeleton rows during scroll-triggered pagination", async ({
@@ -195,6 +279,68 @@ test.describe("pagination settlement race condition regression", () => {
     /* Verify strict monotonic increase. */
     for (let i = 1; i < counts.length; i++) {
       expect(counts[i]).toBeGreaterThan(counts[i - 1]);
+    }
+  });
+
+  test("loads 10 consecutive paginated pages without losing skeletons or the sentinel", async ({
+    page,
+  }) => {
+    test.slow();
+
+    await page.setViewportSize({ height: 640, width: 1024 });
+    await installDeterministicFeedBatchRoute(page, {
+      respectArticleLimit: true,
+      responseDelayMs: 120,
+      totalArticlesPerFeed: 1_000,
+    });
+    await gotoPreviewDashboard(page);
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await configureArticlesPerPage(page, LONG_RUN_PAGE_SIZE);
+
+    await expect
+      .poll(async () => {
+        return await readVisibleFeedArticleCount(page);
+      })
+      .toBeGreaterThanOrEqual(LONG_RUN_PAGE_SIZE);
+    await expect
+      .poll(async () => {
+        return (await readLoadMoreSkeletonState(page)).skeletonsVisible;
+      })
+      .toBe(false);
+
+    let committedArticleCount = await readVisibleFeedArticleCount(page);
+
+    /*
+     * Ten full scroll-triggered pagination cycles catches late boundary rearm
+     * and stale-settlement regressions that a short two-to-four-page smoke path
+     * can miss. Each cycle must show the load-more skeletons first, commit at
+     * least one more configured page of articles, and leave the sentinel mounted
+     * so the next cycle can run.
+     */
+    for (let cycle = 1; cycle <= LONG_RUN_PAGINATION_CYCLES; cycle++) {
+      const previousArticleCount = committedArticleCount;
+      const minimumArticleCount =
+        previousArticleCount + LONG_RUN_PAGE_SIZE;
+
+      committedArticleCount = await requestNextPageAndExpectContinuousSkeletons(
+        page,
+        cycle,
+        LONG_RUN_PAGE_SIZE,
+        previousArticleCount,
+        minimumArticleCount,
+      );
+
+      await expect
+        .poll(
+          async () => {
+            return await hasLoadMoreSentinel(page);
+          },
+          {
+            message: `pagination cycle ${cycle}: sentinel must remain mounted for the next page`,
+          },
+        )
+        .toBe(true);
     }
   });
 });
