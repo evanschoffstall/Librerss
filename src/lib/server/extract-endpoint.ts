@@ -2,12 +2,9 @@ import type { NextRequest } from "next/server";
 
 import { NextResponse } from "next/server";
 
-import type {
-  ExtractPostDeps,
-  ExtractResolvedUserProxy,
-  requireMutableAuthenticatedUser,
-  RouteHandlerContext,
-} from "./handler-dependencies";
+import { ServerServiceError } from "@/lib";
+
+import type { requireMutableAuthenticatedUser } from "./guards";
 import type {
   cleanSanitizedHtml,
   distillArticle,
@@ -20,6 +17,11 @@ import type {
   sanitizeRawContent,
   toErrorMessage,
 } from "./payload-primitives";
+import type {
+  ExtractPostDeps,
+  ExtractResolvedUserProxy,
+} from "./post-contracts";
+import type { RouteHandlerContext } from "./route-context";
 
 import {
   assertExtractableArticleHtml,
@@ -33,10 +35,7 @@ import {
   respondToUpstreamExtractError,
   warnOnEmptyExtraction,
 } from "./content-resolution";
-import {
-  createExtractRuntimeDeps,
-  ServerServiceError,
-} from "./handler-dependencies";
+import { createExtractRuntimeDeps } from "./endpoint-dependencies";
 import {
   ARTICLE_EXTRACTION_ERROR_MESSAGE,
   CONFIG,
