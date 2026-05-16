@@ -46,7 +46,7 @@ interface DashboardRuntimeStateOptions {
 /**
  * Manage the dashboard runtime state.
  * @param options - The options used to manage the dashboard runtime state.
- * @returns The dashboard runtime state state and callbacks.
+ * @returns The dashboard runtime state and callbacks.
  */
 export function useDashboardRuntimeState(
   options: DashboardRuntimeStateOptions,

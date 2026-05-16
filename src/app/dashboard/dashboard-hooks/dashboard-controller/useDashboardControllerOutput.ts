@@ -241,7 +241,7 @@ function buildDashboardControllerLayoutViewState(
 /**
  * Manage the dashboard controller chrome state.
  * @param options - The options used to manage the dashboard controller chrome state.
- * @returns The dashboard controller chrome state state and callbacks.
+ * @returns The dashboard controller chrome state and callbacks.
  */
 function useDashboardControllerChromeState(
   options: DashboardControllerChromeStateOptions,
@@ -265,7 +265,7 @@ function useDashboardControllerChromeState(
 /**
  * Manage the dashboard sidebar content state.
  * @param options - The options used to manage the dashboard sidebar content state.
- * @returns The dashboard sidebar content state state and callbacks.
+ * @returns The dashboard sidebar content state and callbacks.
  */
 function useDashboardSidebarContentState(
   options: DashboardSidebarContentStateOptions,

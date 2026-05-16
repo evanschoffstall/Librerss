@@ -206,10 +206,10 @@ const resolveConfigValue = (key: string): unknown => {
  */
 export const CONFIG = new Proxy({} as ConfigKeys & Record<string, unknown>, {
   /**
-   * Return the .
-   * @param _target - The target.
-   * @param property - The property.
-   * @returns The .
+   * Read a configuration value by key.
+   * @param _target - The proxy target (unused empty object).
+   * @param property - The configuration key to resolve.
+   * @returns The resolved configuration value for the given key.
    */
   get: (_target, property) => {
     if (typeof property !== "string") {

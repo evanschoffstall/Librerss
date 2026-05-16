@@ -111,10 +111,10 @@ export function createCollapseScrollRestoreRuntime(
 
 /**
  * Process the adopt collapse restore viewport.
- * @param state - The callback that state.
+ * @param state - Article-collapse scroll-restore state object.
  * @param nextViewport - The next viewport.
- * @param reconnectLayoutObservers - The callback that reconnect layout observers.
- * @param release - The callback that release.
+ * @param reconnectLayoutObservers - Callback that reconnects layout observers after scroll restoration.
+ * @param release - Callback that releases the active scroll-restore session.
  */
 function adoptCollapseRestoreViewport(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
@@ -138,7 +138,7 @@ function adoptCollapseRestoreViewport(
 /**
  * Process the bind collapse release listeners.
  * @param targetViewport - The target viewport.
- * @param release - The callback that release.
+ * @param release - Callback that releases the active scroll-restore session.
  * @param shouldBind - Whether should bind.
  */
 function bindCollapseReleaseListeners(
@@ -226,9 +226,9 @@ function createCollapseViewportSync(options: CollapseViewportSyncOptions) {
 
 /**
  * Initialize the collapse scroll restore.
- * @param state - The callback that state.
- * @param reconnectLayoutObservers - The callback that reconnect layout observers.
- * @param release - The callback that release.
+ * @param state - Article-collapse scroll-restore state object.
+ * @param reconnectLayoutObservers - Callback that reconnects layout observers after scroll restoration.
+ * @param release - Callback that releases the active scroll-restore session.
  */
 function initializeCollapseScrollRestore(
   state: ReturnType<typeof createCollapseScrollRestoreState>,
@@ -242,9 +242,9 @@ function initializeCollapseScrollRestore(
 
 /**
  * Process the release collapse scroll restore.
- * @param state - The callback that state.
- * @param clearPreExpandSnapshot - The callback that clear pre expand snapshot.
- * @param release - The callback that release.
+ * @param state - Article-collapse scroll-restore state object.
+ * @param clearPreExpandSnapshot - Callback that clears the captured pre-expand scroll snapshot.
+ * @param release - Callback that releases the active scroll-restore session.
  * @param setIsCollapseScrollRestoreActive - The set is collapse scroll restore active.
  */
 function releaseCollapseScrollRestore(
@@ -272,8 +272,8 @@ function releaseCollapseScrollRestore(
 
 /**
  * Process the schedule collapse viewport sync.
- * @param state - The callback that state.
- * @param syncViewportScroll - The callback that sync viewport scroll.
+ * @param state - Article-collapse scroll-restore state object.
+ * @param syncViewportScroll - Callback that synchronizes the viewport scroll position.
  */
 function scheduleCollapseViewportSync(
   state: ReturnType<typeof createCollapseScrollRestoreState>,

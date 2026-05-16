@@ -14,8 +14,8 @@ const authServiceBaseUrl = "/api/auth";
 
 export const AuthService = {
   /**
-   * Return the session.
-   * @returns The session.
+   * Fetch the current authenticated session from the server.
+   * @returns The active session data including user identity.
    */
   async getSession(): Promise<AuthSession> {
     const response = await getApiClient().get<AuthSession>(
@@ -25,10 +25,10 @@ export const AuthService = {
   },
 
   /**
-   * Process the login.
-   * @param email - The email.
-   * @param password - The password.
-   * @returns The login.
+   * Authenticate a user with email and password credentials.
+   * @param email - The user's email address.
+   * @param password - The user's plaintext password.
+   * @returns The authenticated user object on success.
    */
   async login(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
@@ -42,17 +42,17 @@ export const AuthService = {
   },
 
   /**
-   * Process the logout.
+   * Terminate the current session and clear server-side auth state.
    */
   async logout(): Promise<void> {
     await getApiClient().post(`${authServiceBaseUrl}/logout`);
   },
 
   /**
-   * Process the signup.
-   * @param email - The email.
-   * @param password - The password.
-   * @returns The signup.
+   * Create a new account and authenticate the user.
+   * @param email - The new account's email address.
+   * @param password - The new account's plaintext password.
+   * @returns The newly created and authenticated user object.
    */
   async signup(email: string, password: string): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(

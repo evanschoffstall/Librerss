@@ -64,11 +64,11 @@ interface ResolvedFeedReadContext {
   toFeedSource: typeof toFeedSourceResponse;
 }
 /**
- * Process the handle feed read.
- * @param userId - The r id.
+ * Dispatch a GET /api/feeds request to either a single feed or the full source list.
+ * @param userId - The user ID.
  * @param feedUrl - The feed url.
  * @param deps - The deps.
- * @returns The handle feed read.
+ * @returns The JSON response containing feed articles or the full feed source list.
  */
 export async function handleFeedRead(
   userId: number,
@@ -79,19 +79,19 @@ export async function handleFeedRead(
 }
 
 /**
- * Process the format feed source count.
+ * Format a source count for display in log messages.
  * @param sourceCount - The source count value.
- * @returns The format feed source count.
+ * @returns A human-readable string like "3 sources" or "1 source".
  */
 function formatFeedSourceCount(sourceCount: number) {
   return `${sourceCount} source${sourceCount === 1 ? "" : "s"}`;
 }
 
 /**
- * Process the handle feed source list read.
- * @param userId - The r id.
+ * Fetch and return the authenticated user's full feed source list, using the in-memory cache when available.
+ * @param userId - The user ID.
  * @param deps - The deps.
- * @returns The handle feed source list read.
+ * @returns A JSON response containing the array of feed source records.
  */
 async function handleFeedSourceListRead(
   userId: number,
@@ -117,10 +117,10 @@ async function handleFeedSourceListRead(
 }
 
 /**
- * Process the handle placeholder feed read.
- * @param normalizedFeedUrl - The d feed url.
- * @param getPlaceholderArticles - The callback that placeholder articles.
- * @returns The handle placeholder feed read.
+ * Return placeholder feed sources or articles for preview-mode requests.
+ * @param normalizedFeedUrl - The normalized feed URL.
+ * @param getPlaceholderArticles - Optional override to retrieve placeholder articles for the feed.
+ * @returns A JSON response containing placeholder sources or articles for the given URL.
  */
 function handlePlaceholderFeedRead(
   normalizedFeedUrl: null | string,
@@ -133,10 +133,10 @@ function handlePlaceholderFeedRead(
   return NextResponse.json(getPlaceholderArticles(normalizedFeedUrl));
 }
 /**
- * Process the handle resolved feed read.
- * @param userId - The r id.
+ * Dispatch the resolved feed-read request to the appropriate handler based on runtime mode.
+ * @param userId - The user ID.
  * @param context - The context used to process the handle resolved feed read.
- * @returns The handle resolved feed read.
+ * @returns The JSON response produced by the matching feed-read handler.
  */
 function handleResolvedFeedRead(
   userId: number,
@@ -164,11 +164,11 @@ function handleResolvedFeedRead(
 }
 
 /**
- * Process the handle single feed read.
- * @param userId - The r id.
- * @param normalizedFeedUrl - The d feed url.
+ * Fetch and return the articles for a specific feed from the database.
+ * @param userId - The user ID.
+ * @param normalizedFeedUrl - The normalized feed URL.
  * @param deps - The deps.
- * @returns The handle single feed read.
+ * @returns A JSON response containing the article array for the requested feed URL.
  */
 async function handleSingleFeedRead(
   userId: number,
@@ -185,10 +185,10 @@ async function handleSingleFeedRead(
 }
 
 /**
- * Resolve the feed read context.
+ * Build a fully-resolved dependency context for a feed-read request.
  * @param feedUrl - The feed url.
  * @param deps - The deps.
- * @returns The feed read context.
+ * @returns The resolved context object used to dispatch the feed-read operation.
  */
 function resolveFeedReadContext(
   feedUrl: null | string,
@@ -237,7 +237,7 @@ function resolveFeedReadContext(
  * Resolve the feed read dependency.
  * @param dependency - The dependency.
  * @param fallback - The fallback.
- * @returns The feed read dependency.
+ * @returns The resolved dependency function, falling back to the production default if not provided.
  */
 function resolveFeedReadDependency<T>(
   dependency: T | undefined,

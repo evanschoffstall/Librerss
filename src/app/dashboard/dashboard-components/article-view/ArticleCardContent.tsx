@@ -223,7 +223,7 @@ function ArticleCollapsedPreview(props: ArticleCollapsedPreviewProps) {
 /**
  * Return the expanded body interaction props.
  * @param visuallyExpanded - The visually expanded.
- * @param stopExpandedContentPropagation - The callback that stop expanded content propagation.
+ * @param stopExpandedContentPropagation - Callback that stops event propagation from within the expanded article content area.
  * @returns The expanded body interaction props.
  */
 function getExpandedBodyInteractionProps(

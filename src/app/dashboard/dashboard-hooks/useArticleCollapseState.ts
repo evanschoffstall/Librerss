@@ -103,7 +103,7 @@ export function getArticleRemovalAnimationDuration(
 /**
  * Manage the article collapse state.
  * @param options - The options used to manage the article collapse state.
- * @returns The article collapse state state and callbacks.
+ * @returns The article collapse state and callbacks.
  */
 export function useArticleCollapseState(
   options: UseArticleCollapseStateOptions,
@@ -196,7 +196,7 @@ function startCollapseScrollRestore(
 
 /**
  * Manage the article collapse lifecycle state.
- * @returns The article collapse lifecycle state state and callbacks.
+ * @returns The article collapse lifecycle state and callbacks.
  */
 function useArticleCollapseLifecycleState() {
   const collapseRemovalTimeoutsRef = useRef(
@@ -234,7 +234,7 @@ function useArticleCollapseLifecycleState() {
 /**
  * Manage the article collapse scroll restore state.
  * @param options - The options used to manage the article collapse scroll restore state.
- * @returns The article collapse scroll restore state state and callbacks.
+ * @returns The article collapse scroll restore state and callbacks.
  */
 function useArticleCollapseScrollRestoreState(
   options: ArticleCollapseScrollRestoreStateOptions,
@@ -293,7 +293,7 @@ function useArticleCollapseScrollRestoreState(
 /**
  * Manage the article removal animation state.
  * @param options - The options used to manage the article removal animation state.
- * @returns The article removal animation state state and callbacks.
+ * @returns The article removal animation state and callbacks.
  */
 function useArticleRemovalAnimationState(
   options: ArticleRemovalAnimationStateOptions,
@@ -360,7 +360,7 @@ function useArticleRemovalAnimationState(
 /**
  * Manage the article viewport snapshot state.
  * @param articleViewportSnapshotRef - The ref that stores the article viewport snapshot ref.
- * @returns The article viewport snapshot state state and callbacks.
+ * @returns The article viewport snapshot state and callbacks.
  */
 function useArticleViewportSnapshotState(
   articleViewportSnapshotRef: React.RefObject<ArticleViewportSnapshot | null>,

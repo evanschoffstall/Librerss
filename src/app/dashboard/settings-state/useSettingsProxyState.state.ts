@@ -112,7 +112,7 @@ export function applyProxySettingsSnapshot(
 
 /**
  * Manage the settings proxy request state.
- * @returns The settings proxy request state state and callbacks.
+ * @returns The settings proxy request state and callbacks.
  */
 export function useSettingsProxyRequestState(): SettingsProxyRequestState {
   const isMountedRef = useRef(true);
@@ -174,7 +174,7 @@ export function useSettingsProxyRequestState(): SettingsProxyRequestState {
  * Manage the settings proxy writable state.
  * @param isEnabled - Whether is enabled.
  * @param initialSnapshot - The initial snapshot.
- * @returns The settings proxy writable state state and callbacks.
+ * @returns The settings proxy writable state and callbacks.
  */
 export function useSettingsProxyWritableState(
   isEnabled: boolean,
@@ -191,7 +191,7 @@ export function useSettingsProxyWritableState(
 
 /**
  * Manage the settings proxy compatibility state.
- * @returns The settings proxy compatibility state state and callbacks.
+ * @returns The settings proxy compatibility state and callbacks.
  */
 function useSettingsProxyCompatibilityState() {
   const [compatibilityResults, setCompatibilityResults] = useState<
@@ -225,7 +225,7 @@ function useSettingsProxyCompatibilityState() {
  * Manage the settings proxy form state.
  * @param isEnabled - Whether is enabled.
  * @param initialSnapshot - The initial snapshot.
- * @returns The settings proxy form state state and callbacks.
+ * @returns The settings proxy form state and callbacks.
  */
 function useSettingsProxyFormState(
   isEnabled: boolean,

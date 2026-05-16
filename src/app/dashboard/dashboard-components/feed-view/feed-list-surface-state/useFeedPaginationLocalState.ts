@@ -68,7 +68,7 @@ interface PendingCachedRevealCountRef {
 /**
  * Manage the feed pagination local state.
  * @param options - The options used to manage the feed pagination local state.
- * @returns The feed pagination local state state and callbacks.
+ * @returns The feed pagination local state and callbacks.
  */
 export function useFeedPaginationLocalState(
   options: FeedPaginationLocalStateOptions,
@@ -193,8 +193,8 @@ function finalizeCachedPageReveal(
  * Manage the cached page reveal state.
  * @param isMountedRef - The ref that stores the is mounted ref.
  * @param visibleArticleCountRef - The ref that stores the visible article count ref.
- * @param setVisibleArticleCount - The callback that set visible article count.
- * @returns The cached page reveal state state and callbacks.
+ * @param setVisibleArticleCount - Callback that updates the current visible article count.
+ * @returns The cached page reveal state and callbacks.
  */
 function useCachedPageRevealState(
   isMountedRef: CachedPageRevealStateIsMountedRef,

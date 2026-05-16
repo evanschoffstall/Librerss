@@ -215,7 +215,7 @@ function resolveDashboardRouterDerivedState(
  * Resolve the dashboard router view key.
  * @param isSessionLoading - Whether is session loading.
  * @param currentUser - The current user.
- * @param resolvedPreviewMode - The d preview mode.
+ * @param resolvedPreviewMode - The resolved preview mode.
  * @returns The dashboard router view key.
  */
 function resolveDashboardRouterViewKey(
@@ -327,7 +327,7 @@ function useDashboardRouterHydrationEffects(
 /**
  * Manage the dashboard router preference state.
  * @param initialPreviewMode - The initial preview mode.
- * @returns The dashboard router preference state state and callbacks.
+ * @returns The dashboard router preference state and callbacks.
  */
 function useDashboardRouterPreferenceState(initialPreviewMode: boolean) {
   const [hasHydratedClientState, setHasHydratedClientState] = useState(false);
@@ -438,7 +438,7 @@ function useDashboardRouterSessionEffect(
  * Manage the dashboard router session state.
  * @param initialSession - The initial session.
  * @param initialPreviewMode - The initial preview mode.
- * @returns The dashboard router session state state and callbacks.
+ * @returns The dashboard router session state and callbacks.
  */
 function useDashboardRouterSessionState(
   initialSession: AuthSession | undefined,
@@ -472,7 +472,7 @@ function useDashboardRouterSessionState(
 /**
  * Manage the dashboard router state.
  * @param options - The options used to manage the dashboard router state.
- * @returns The dashboard router state state and callbacks.
+ * @returns The dashboard router state and callbacks.
  */
 function useDashboardRouterState(
   options: Pick<

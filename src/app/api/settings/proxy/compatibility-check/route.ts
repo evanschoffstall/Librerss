@@ -119,10 +119,10 @@ interface ResolvedUserProxyConfig {
 }
 
 /**
- * Render the post component.
+ * Handle the POST request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered post component.
+ * @returns A JSON response or error response.
  */
 export async function POST(
   request: NextRequest,
@@ -364,7 +364,7 @@ function resolveCompatibilityCheckDeps(
 
 /**
  * Resolve the compatibility execution context.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param useProxy - The proxy.
  * @param deps - The deps.
  * @returns The compatibility execution context.

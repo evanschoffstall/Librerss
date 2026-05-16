@@ -242,9 +242,9 @@ export function useFeedPaginationRuntime(
 /**
  * Manage the feed pagination boundary controllers.
  * @param options - The options used to manage the feed pagination boundary controllers.
- * @param localState - The callback that local state.
- * @param serverLoadState - The callback that server load state.
- * @param anchorState - The callback that anchor state.
+ * @param localState - Local pagination state returned by useFeedPaginationLocalState.
+ * @param serverLoadState - Server-load pagination state returned by useFeedPaginationServerLoad.
+ * @param anchorState - Inverted pagination anchor state returned by useInvertedPaginationAnchor.
  * @returns The feed pagination boundary controllers state and callbacks.
  */
 function useFeedPaginationBoundaryControllers(
@@ -289,9 +289,9 @@ function useFeedPaginationBoundaryControllers(
 /**
  * Manage the feed pagination reset controllers.
  * @param options - The options used to manage the feed pagination reset controllers.
- * @param localState - The callback that local state.
- * @param serverLoadState - The callback that server load state.
- * @param anchorState - The callback that anchor state.
+ * @param localState - Local pagination state returned by useFeedPaginationLocalState.
+ * @param serverLoadState - Server-load pagination state returned by useFeedPaginationServerLoad.
+ * @param anchorState - Inverted pagination anchor state returned by useInvertedPaginationAnchor.
  * @returns The feed pagination reset controllers state and callbacks.
  */
 function useFeedPaginationResetControllers(
@@ -339,9 +339,9 @@ function useFeedPaginationResetControllers(
 /**
  * Manage the feed pagination reveal effects.
  * @param options - The options used to manage the feed pagination reveal effects.
- * @param anchorState - The callback that anchor state.
- * @param localState - The callback that local state.
- * @param serverLoadState - The callback that server load state.
+ * @param anchorState - Inverted pagination anchor state returned by useInvertedPaginationAnchor.
+ * @param localState - Local pagination state returned by useFeedPaginationLocalState.
+ * @param serverLoadState - Server-load pagination state returned by useFeedPaginationServerLoad.
  */
 function useFeedPaginationRevealEffects(
   options: FeedPaginationEffectsOptions,

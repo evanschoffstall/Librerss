@@ -136,7 +136,7 @@ export function resolveDashboardSelectionRefreshArticleLimit(
 /**
  * Manage the dashboard controller refresh state.
  * @param usePlaceholderData - The placeholder data.
- * @returns The dashboard controller refresh state state and callbacks.
+ * @returns The dashboard controller refresh state and callbacks.
  */
 export function useDashboardControllerRefreshState(
   usePlaceholderData: boolean,

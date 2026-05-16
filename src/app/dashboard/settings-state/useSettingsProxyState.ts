@@ -82,7 +82,7 @@ interface UseSettingsProxyStateResultOptions {
 /**
  * Manage the settings proxy state.
  * @param options - The options used to manage the settings proxy state.
- * @returns The settings proxy state state and callbacks.
+ * @returns The settings proxy state and callbacks.
  */
 export function useSettingsProxyState(
   options: UseSettingsProxyStateOptions = {},

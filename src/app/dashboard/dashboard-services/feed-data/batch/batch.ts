@@ -21,7 +21,7 @@ export interface FeedBatchSource {
  * @param batchResults - The batch results.
  * @param sourceNameByUrl - The source name by url.
  * @param usePlaceholderData - The placeholder data.
- * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param getPlaceholderArticles - Callback that returns placeholder articles for a given feed URL.
  * @param previousFeed - The previous feed.
  * @returns The map batch results to articles.
  */

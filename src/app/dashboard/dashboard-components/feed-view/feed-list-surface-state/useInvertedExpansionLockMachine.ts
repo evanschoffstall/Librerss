@@ -327,7 +327,7 @@ function handleExpansionLockReleaseDeadline(
 /**
  * Process the rebind expansion lock viewport.
  * @param lockState - The lock state.
- * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
+ * @param syncInvertedExpansionScrollLock - Callback that synchronizes the inverted expansion scroll-lock state.
  * @returns The rebind expansion lock viewport.
  */
 function rebindExpansionLockViewport(
@@ -427,7 +427,7 @@ function resolveBaselineScrollTop(
 /**
  * Process the schedule expansion lock sync.
  * @param invertedExpansionScrollLockRef - The ref that stores the inverted expansion scroll lock ref.
- * @param syncInvertedExpansionScrollLock - The callback that sync inverted expansion scroll lock.
+ * @param syncInvertedExpansionScrollLock - Callback that synchronizes the inverted expansion scroll-lock state.
  */
 function scheduleExpansionLockSync(
   invertedExpansionScrollLockRef: React.RefObject<InvertedExpansionScrollLockState | null>,

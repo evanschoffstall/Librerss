@@ -43,11 +43,11 @@ interface FeedSettingsForUserSettings {
 }
 
 /**
- * Create the or update feed source.
+ * Create or update the feed source for the given user within an open transaction.
  * @param tx - The tx.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param payload - The payload.
- * @returns The or update feed source.
+ * @returns The upsert result with the source record and a flag indicating whether it was newly created.
  */
 export async function createOrUpdateFeedSource(
   tx: FeedTransaction,
@@ -67,10 +67,10 @@ export async function createOrUpdateFeedSource(
 }
 
 /**
- * Process the delete feed source for user.
- * @param userId - The r id.
+ * Delete the feed source owned by the given user, also removing its category association.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
- * @returns The delete feed source for user.
+ * @returns The deleted feed source record, or null if no matching source was found.
  */
 export async function deleteFeedSourceForUser(
   userId: number,
@@ -114,9 +114,9 @@ export async function deleteFeedSourceForUser(
 }
 
 /**
- * Process the list feed sources for user.
- * @param userId - The r id.
- * @returns The list feed sources for user.
+ * Return all feed sources owned by the user, joined with their current category assignment.
+ * @param userId - The user ID.
+ * @returns An array of feed source rows ordered by name.
  */
 export async function listFeedSourcesForUser(
   userId: number,
@@ -147,12 +147,12 @@ export async function listFeedSourcesForUser(
 }
 
 /**
- * Process the rename feed source for user.
- * @param userId - The r id.
+ * Rename a feed source and optionally change its URL, transferring the category association when the URL changes.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param name - The name.
  * @param url - The url.
- * @returns The rename feed source for user.
+ * @returns The updated feed source record, or null if no matching source was found.
  */
 export async function renameFeedSourceForUser(
   userId: number,
@@ -229,11 +229,11 @@ export async function renameFeedSourceForUser(
 }
 
 /**
- * Process the set feed source enabled for user.
- * @param userId - The r id.
+ * Toggle the enabled flag on a feed source owned by the given user.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param enabled - The enabled.
- * @returns The set feed source enabled for user.
+ * @returns The updated feed source record, or null if no matching source was found.
  */
 export async function setFeedSourceEnabledForUser(
   userId: number,
@@ -251,9 +251,9 @@ export async function setFeedSourceEnabledForUser(
   return updatedSources[0] ?? null;
 }
 /**
- * Process the to feed source response.
+ * Normalize a feed source list row for API response, applying the default category label when absent.
  * @param row - The row.
- * @returns The to feed source response.
+ * @returns The normalized feed source row with a guaranteed category string.
  */
 export function toFeedSourceResponse(
   row: FeedSourceListRow,
@@ -265,11 +265,11 @@ export function toFeedSourceResponse(
 }
 
 /**
- * Update the feed settings for user.
- * @param userId - The r id.
+ * Update per-source extraction and proxy settings for a feed source owned by the given user.
+ * @param userId - The user ID.
  * @param sourceId - The source id.
  * @param settings - The settings.
- * @returns The feed settings for user.
+ * @returns The updated feed source record, or null when no matching source was found or no fields changed.
  */
 export async function updateFeedSettingsForUser(
   userId: number,
@@ -302,11 +302,11 @@ export async function updateFeedSettingsForUser(
 }
 
 /**
- * Process the find existing feed source.
+ * Look up an existing feed source row for the user by normalized URL within an open transaction.
  * @param tx - The tx.
- * @param userId - The r id.
- * @param normalizedUrl - The d url.
- * @returns The find existing feed source.
+ * @param userId - The user ID.
+ * @param normalizedUrl - The normalized URL.
+ * @returns The matching feed source record, or undefined when none exists.
  */
 async function findExistingFeedSource(
   tx: FeedTransaction,
@@ -325,12 +325,12 @@ async function findExistingFeedSource(
 }
 
 /**
- * Process the upsert feed source.
+ * Insert a new feed source or re-enable and rename an existing one within an open transaction.
  * @param tx - The tx.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param name - The name.
- * @param normalizedUrl - The d url.
- * @returns The upsert feed source.
+ * @param normalizedUrl - The normalized URL.
+ * @returns The upsert result with the source record and a flag indicating whether it was newly created.
  */
 async function upsertFeedSource(
   tx: FeedTransaction,

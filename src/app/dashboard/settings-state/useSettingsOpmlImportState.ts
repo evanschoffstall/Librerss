@@ -15,7 +15,7 @@ interface UseSettingsOpmlImportStateOptions {
 /**
  * Manage the settings opml import state.
  * @param options - The options used to manage the settings opml import state.
- * @returns The settings opml import state state and callbacks.
+ * @returns The settings opml import state and callbacks.
  */
 export function useSettingsOpmlImportState(
   options: UseSettingsOpmlImportStateOptions,

@@ -98,7 +98,7 @@ export interface UseDashboardControllerViewStateOptions {
 /**
  * Manage the dashboard controller view state.
  * @param options - The options used to manage the dashboard controller view state.
- * @returns The dashboard controller view state state and callbacks.
+ * @returns The dashboard controller view state and callbacks.
  */
 export function useDashboardControllerViewState(
   options: UseDashboardControllerViewStateOptions,
@@ -294,7 +294,7 @@ function useDashboardControllerSections(
 
 /**
  * Manage the dashboard controller state memo.
- * @param controllerSections - The callback that controller sections.
+ * @param controllerSections - Grouped pagination controllers for the current feed view.
  * @returns The dashboard controller state memo state and callbacks.
  */
 function useDashboardControllerStateMemo(

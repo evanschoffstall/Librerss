@@ -153,7 +153,7 @@ export function useDashboardControllerEventBindings(
 /**
  * Manage the dashboard controller runtime state.
  * @param options - The options used to manage the dashboard controller runtime state.
- * @returns The dashboard controller runtime state state and callbacks.
+ * @returns The dashboard controller runtime state and callbacks.
  */
 export function useDashboardControllerRuntimeState(
   options: DashboardControllerRuntimeStateOptions,

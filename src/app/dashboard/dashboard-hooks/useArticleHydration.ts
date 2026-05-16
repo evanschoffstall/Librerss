@@ -91,7 +91,7 @@ export function useArticleHydration(options: UseArticleHydrationOptions) {
 
 /**
  * Manage the article hydration state.
- * @returns The article hydration state state and callbacks.
+ * @returns The article hydration state and callbacks.
  */
 function useArticleHydrationState() {
   const [hydratedArticleLinks, setHydratedArticleLinks] = useState<

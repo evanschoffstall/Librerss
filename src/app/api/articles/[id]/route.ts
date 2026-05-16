@@ -23,11 +23,11 @@ interface RouteContext {
 }
 
 /**
- * Render the get component.
+ * Handle the GET request.
  * @param request - The request.
  * @param context - The context used to render the get component.
  * @param deps - The deps.
- * @returns The rendered get component.
+ * @returns A JSON response or error response.
  */
 export async function GET(
   request: NextRequest,

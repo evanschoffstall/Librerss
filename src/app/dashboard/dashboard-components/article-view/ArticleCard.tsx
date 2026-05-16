@@ -496,8 +496,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * Process the handle pointer down.
-     * @param e - The e.
+     * Initiate press tracking on pointer-down when the target is not an interactive control.
+     * @param e - The pointer event.
      */
     const handlePointerDown = (e: React.PointerEvent<HTMLElement>) => {
       if (
@@ -519,8 +519,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * Process the handle pointer move.
-     * @param e - The e.
+     * Track pointer movement to distinguish taps from drags during press tracking.
+     * @param e - The pointer event.
      */
     const handlePointerMove = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -535,8 +535,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * Process the handle pointer end.
-     * @param e - The e.
+     * Clear the active pointer ID when the pointer is lifted.
+     * @param e - The pointer event.
      */
     const handlePointerEnd = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -547,8 +547,8 @@ export const ArticleCard = memo(
     };
 
     /**
-     * Process the handle pointer cancel.
-     * @param e - The e.
+     * Reset press tracking state when the pointer event is cancelled by the browser.
+     * @param e - The pointer event.
      */
     const handlePointerCancel = (e: React.PointerEvent<HTMLElement>) => {
       if (shouldIgnorePressPointerTarget(e.target)) {
@@ -577,8 +577,8 @@ export const ArticleCard = memo(
     }
 
     /**
-     * Process the toggle expanded.
-     * @param e - The e.
+     * Toggle article expansion on click, suppressing the event when the click follows a swipe or targets a control.
+     * @param e - The mouse event.
      */
     const toggleExpanded = (e: React.MouseEvent) => {
       if (ignoreNextClickRef.current) {

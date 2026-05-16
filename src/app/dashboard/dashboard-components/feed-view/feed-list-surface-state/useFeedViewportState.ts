@@ -43,7 +43,7 @@ interface UseFeedViewportStateOptions {
 /**
  * Manage the feed viewport state.
  * @param options - The options used to manage the feed viewport state.
- * @returns The feed viewport state state and callbacks.
+ * @returns The feed viewport state and callbacks.
  */
 export function useFeedViewportState(options: UseFeedViewportStateOptions) {
   const {

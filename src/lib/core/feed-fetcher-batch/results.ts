@@ -403,7 +403,7 @@ export function collectUnchangedUrls(
 
 /**
  * Create the batch fetch request.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrls - The feed urls.
  * @param options - The options used to create the batch fetch request.
  * @returns The batch fetch request.

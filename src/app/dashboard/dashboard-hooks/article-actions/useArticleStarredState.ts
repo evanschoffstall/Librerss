@@ -39,7 +39,7 @@ interface UseArticleStarredStateOptions {
 /**
  * Manage the article starred state.
  * @param options - The options used to manage the article starred state.
- * @returns The article starred state state and callbacks.
+ * @returns The article starred state and callbacks.
  */
 export function useArticleStarredState(options: UseArticleStarredStateOptions) {
   const {

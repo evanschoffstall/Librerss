@@ -79,7 +79,7 @@ interface DashboardViewModelStateOptions {
 }
 /**
  * Manage the dashboard animating article state.
- * @returns The dashboard animating article state state and callbacks.
+ * @returns The dashboard animating article state and callbacks.
  */
 export function useDashboardAnimatingArticleState() {
   const [animatingInArticleKeys, setAnimatingInArticleKeys] = useState(
@@ -113,7 +113,7 @@ export function useDashboardAnimatingArticleState() {
 /**
  * Manage the dashboard article window state.
  * @param options - The options used to manage the dashboard article window state.
- * @returns The dashboard article window state state and callbacks.
+ * @returns The dashboard article window state and callbacks.
  */
 export function useDashboardArticleWindowState(
   options: DashboardArticleWindowStateOptions,
@@ -209,7 +209,7 @@ export function useDashboardControllerResources(
 /**
  * Manage the dashboard feed loading state.
  * @param options - The options used to manage the dashboard feed loading state.
- * @returns The dashboard feed loading state state and callbacks.
+ * @returns The dashboard feed loading state and callbacks.
  */
 export function useDashboardFeedLoadingState(
   options: DashboardFeedLoadingStateOptions,
@@ -245,7 +245,7 @@ export function useDashboardFeedLoadingState(
 /**
  * Manage the dashboard view model state.
  * @param options - The options used to manage the dashboard view model state.
- * @returns The dashboard view model state state and callbacks.
+ * @returns The dashboard view model state and callbacks.
  */
 export function useDashboardViewModelState(
   options: DashboardViewModelStateOptions,

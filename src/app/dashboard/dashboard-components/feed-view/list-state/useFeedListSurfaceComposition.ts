@@ -287,7 +287,7 @@ export function useFeedSurfacePagination(options: UseFeedPaginationOptions) {
 /**
  * Manage the feed surface viewport state.
  * @param options - The options used to manage the feed surface viewport state.
- * @returns The feed surface viewport state state and callbacks.
+ * @returns The feed surface viewport state and callbacks.
  */
 export function useFeedSurfaceViewportState(
   options: FeedSurfaceViewportStateOptions,
@@ -430,7 +430,7 @@ function useFeedSurfaceControllerStates(options: FeedSurfaceControllerOptions) {
 /**
  * Manage the feed surface derived state.
  * @param options - The options used to manage the feed surface derived state.
- * @returns The feed surface derived state state and callbacks.
+ * @returns The feed surface derived state and callbacks.
  */
 function useFeedSurfaceDerivedState(options: FeedSurfaceDerivedStateOptions) {
   const presentationState = getFeedSurfacePresentation({

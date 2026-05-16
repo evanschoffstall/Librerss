@@ -23,7 +23,7 @@ interface UseSettingsModalStateOptions extends SettingsFeedStateOptions {
 /**
  * Manage the settings modal state.
  * @param options - The options used to manage the settings modal state.
- * @returns The settings modal state state and callbacks.
+ * @returns The settings modal state and callbacks.
  */
 export function useSettingsModalState(options: UseSettingsModalStateOptions) {
   const {

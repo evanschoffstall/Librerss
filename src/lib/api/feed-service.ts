@@ -26,9 +26,9 @@ interface CategoryOrderResponse {
 }
 
 /**
- * Process the serialize known last fetched at by url.
- * @param knownLastFetchedAtByUrl - The known last fetched at by url.
- * @returns The serialize known last fetched at by url.
+ * Serialize a feed-URL→Date map to a plain string-keyed object for JSON transport.
+ * @param knownLastFetchedAtByUrl - Map of normalized feed URL to its last-fetched timestamp.
+ * @returns A record mapping each URL to its ISO timestamp string, or undefined if the map is absent.
  */
 function serializeKnownLastFetchedAtByUrl(
   knownLastFetchedAtByUrl: ReadonlyMap<string, Date> | undefined,

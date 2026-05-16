@@ -18,7 +18,7 @@ interface UseSettingsCategoryStateOptions {
 /**
  * Manage the settings category state.
  * @param options - The options used to manage the settings category state.
- * @returns The settings category state state and callbacks.
+ * @returns The settings category state and callbacks.
  */
 export function useSettingsCategoryState(
   options: UseSettingsCategoryStateOptions,

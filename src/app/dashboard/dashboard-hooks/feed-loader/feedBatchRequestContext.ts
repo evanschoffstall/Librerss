@@ -128,7 +128,7 @@ export function clearStaleFeedBeforeRefresh(
 /**
  * Process the finish feed batch request.
  * @param requestState - The request state.
- * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param logRefreshDiagnostics - Callback that logs batch-refresh diagnostic timing data.
  * @param requestId - The request id.
  */
 export function finishFeedBatchRequest(
@@ -150,8 +150,8 @@ export function finishFeedBatchRequest(
 /**
  * Process the load feed batch results or return null.
  * @param context - The context used to process the load feed batch results or return null.
- * @param loadBatchResults - The callback that load batch results.
- * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param loadBatchResults - Callback that processes and stores the resolved batch feed results.
+ * @param logRefreshDiagnostics - Callback that logs batch-refresh diagnostic timing data.
  * @returns The load feed batch results or return null.
  */
 export async function loadFeedBatchResultsOrReturnNull(
@@ -197,7 +197,7 @@ export async function loadFeedBatchResultsOrReturnNull(
 }
 /**
  * Process the log feed batch start.
- * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param logRefreshDiagnostics - Callback that logs batch-refresh diagnostic timing data.
  * @param context - The context used to process the log feed batch start.
  * @param sourceCount - The source count value.
  * @param options - The options used to process the log feed batch start.
@@ -231,7 +231,7 @@ export function logFeedBatchStart(
 
 /**
  * Process the log stale feed batch request.
- * @param logRefreshDiagnostics - The callback that log refresh diagnostics.
+ * @param logRefreshDiagnostics - Callback that logs batch-refresh diagnostic timing data.
  * @param requestId - The request id.
  * @param batchResults - The batch results.
  */

@@ -271,7 +271,7 @@ function useFeedLoaderResources(
 /**
  * Manage the feed loader selection state.
  * @param options - The options used to manage the feed loader selection state.
- * @returns The feed loader selection state state and callbacks.
+ * @returns The feed loader selection state and callbacks.
  */
 function useFeedLoaderSelectionState(options: FeedLoaderSelectionStateOptions) {
   const { categoriesRef, fetchFeedBatch, prefetchFeedBatch } = options;

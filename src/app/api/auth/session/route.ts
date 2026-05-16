@@ -7,9 +7,9 @@ import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import { serverApi } from "@/lib/server";
 
 /**
- * Render the get component.
+ * Handle the GET request.
  * @param request - The request.
- * @returns The rendered get component.
+ * @returns A JSON response or error response.
  */
 export async function GET(request: NextRequest) {
   try {

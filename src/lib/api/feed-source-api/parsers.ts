@@ -21,9 +21,9 @@ import type {
 const MAX_FEED_URL_LENGTH = 2048;
 
 /**
- * Process the assert allowed feed url.
- * @param url - The url.
- * @returns The assert allowed feed url.
+ * Validate that the given URL is allowed to be added as a feed source.
+ * @param url - The URL to validate.
+ * @returns `null` if the URL is permitted, or a 400 error response if it is blocked.
  */
 export async function assertAllowedFeedUrl(
   url: string,
@@ -36,9 +36,9 @@ export async function assertAllowedFeedUrl(
 }
 
 /**
- * Return the requested feed url.
- * @param request - The request.
- * @returns The requested feed url.
+ * Extract the `url` query parameter from the request URL.
+ * @param request - The incoming Next.js request.
+ * @returns The trimmed URL string, or `null` if the parameter is absent or empty.
  */
 export function getRequestedFeedUrl(request: NextRequest): null | string {
   const requestUrl = new URL(request.url);
@@ -52,9 +52,9 @@ export function getRequestedFeedUrl(request: NextRequest): null | string {
 }
 
 /**
- * Parse the create feed payload.
- * @param request - The request.
- * @returns The create feed payload.
+ * Parse and validate the create-feed request body.
+ * @param request - The incoming Next.js request.
+ * @returns The validated {@link CreateFeedPayload}, or a 400 error response if the body is invalid.
  */
 export async function parseCreateFeedPayload(
   request: NextRequest,
@@ -97,9 +97,9 @@ export async function parseCreateFeedPayload(
 }
 
 /**
- * Parse the delete source id.
- * @param request - The request.
- * @returns The delete source id.
+ * Extract and validate the feed source ID from the request's `id` query parameter.
+ * @param request - The incoming Next.js request.
+ * @returns The positive integer source ID, or a 400 error response if the parameter is missing or invalid.
  */
 export function parseDeleteSourceId(request: NextRequest): number | Response {
   const requestUrl = new URL(request.url);
@@ -113,9 +113,9 @@ export function parseDeleteSourceId(request: NextRequest): number | Response {
 }
 
 /**
- * Parse the rename feed payload.
- * @param request - The request.
- * @returns The rename feed payload.
+ * Parse and validate the rename-feed request body.
+ * @param request - The incoming Next.js request.
+ * @returns The validated {@link RenameFeedPayload}, or a 400 error response if the body is invalid.
  */
 export async function parseRenameFeedPayload(
   request: NextRequest,
@@ -129,9 +129,9 @@ export async function parseRenameFeedPayload(
 }
 
 /**
- * Parse the rename feed payload from body.
- * @param payload - The payload.
- * @returns The rename feed payload from body.
+ * Validate a pre-parsed rename-feed request body object.
+ * @param payload - The raw JSON object extracted from the request body.
+ * @returns The validated {@link RenameFeedPayload}, or a 400 error response if any field is invalid.
  */
 export function parseRenameFeedPayloadFromBody(
   payload: Record<string, unknown>,
@@ -170,9 +170,9 @@ export function parseRenameFeedPayloadFromBody(
 }
 
 /**
- * Parse the toggle feed enabled payload from body.
- * @param payload - The payload.
- * @returns The toggle feed enabled payload from body.
+ * Validate a pre-parsed toggle-feed-enabled request body object.
+ * @param payload - The raw JSON object extracted from the request body.
+ * @returns The validated {@link ToggleFeedEnabledPayload}, or a 400 error response if any field is invalid.
  */
 export function parseToggleFeedEnabledPayloadFromBody(
   payload: Record<string, unknown>,
@@ -190,9 +190,9 @@ export function parseToggleFeedEnabledPayloadFromBody(
 }
 
 /**
- * Parse the update feed settings payload from body.
- * @param payload - The payload.
- * @returns The update feed settings payload from body.
+ * Validate a pre-parsed update-feed-settings request body object.
+ * @param payload - The raw JSON object extracted from the request body.
+ * @returns The validated {@link UpdateFeedSettingsPayload}, or a 400 error response if any field is invalid.
  */
 export function parseUpdateFeedSettingsPayloadFromBody(
   payload: Record<string, unknown>,

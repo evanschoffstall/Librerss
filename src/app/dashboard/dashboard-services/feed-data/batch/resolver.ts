@@ -51,7 +51,7 @@ const defaultDependencies: FeedBatchResolverDependencies = {
 
 /**
  * Resolve the feed batch results.
- * @param normalizedSources - The d sources.
+ * @param normalizedSources - The normalized sources.
  * @param usePlaceholderData - The placeholder data.
  * @param options - The options used to resolve the feed batch results.
  * @param signal - The signal.
@@ -118,8 +118,8 @@ function comparePlaceholderArticlesBySortOrder(
 
 /**
  * Resolve the limited placeholder candidates.
- * @param normalizedSources - The d sources.
- * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param normalizedSources - The normalized sources.
+ * @param getPlaceholderArticles - Callback that returns placeholder articles for a given feed URL.
  * @param options - The options used to resolve the limited placeholder candidates.
  * @returns The limited placeholder candidates.
  */
@@ -185,8 +185,8 @@ function resolveLimitedPlaceholderCandidates(
 
 /**
  * Resolve the placeholder batch results.
- * @param normalizedSources - The d sources.
- * @param getPlaceholderArticles - The callback that placeholder articles.
+ * @param normalizedSources - The normalized sources.
+ * @param getPlaceholderArticles - Callback that returns placeholder articles for a given feed URL.
  * @param options - The options used to resolve the placeholder batch results.
  * @returns The placeholder batch results.
  */

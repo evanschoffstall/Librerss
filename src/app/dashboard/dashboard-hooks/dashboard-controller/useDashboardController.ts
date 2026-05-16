@@ -244,7 +244,7 @@ function useDashboardControllerResourceState(
 /**
  * Manage the dashboard controller state.
  * @param options - The options used to manage the dashboard controller state.
- * @returns The dashboard controller state state and callbacks.
+ * @returns The dashboard controller state and callbacks.
  */
 function useDashboardControllerState(
   options: Pick<

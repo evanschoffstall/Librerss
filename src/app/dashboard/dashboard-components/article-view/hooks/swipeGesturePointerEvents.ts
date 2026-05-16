@@ -231,7 +231,7 @@ function createPointerMoveHandler(
  * Create the pointer-capture releaser for the swipe target element.
  * @param element - The swipe target element.
  * @param context - The swipe gesture context.
- * @returns The callback that releases pointer capture when needed.
+ * @returns Callback that releases pointer capture when the gesture ends or cancels.
  */
 function createSwipeCaptureReleaser(
   element: HTMLElement,
@@ -288,7 +288,7 @@ function createSwipeGestureControls(
  * Create the swipe gesture handlers.
  * @param element - The element.
  * @param context - The context used to create the swipe gesture handlers.
- * @param controls - The callback that controls.
+ * @param controls - Swipe gesture control object providing the current gesture state.
  * @returns The swipe gesture handlers.
  */
 function createSwipeGestureHandlers(
@@ -312,7 +312,7 @@ function createSwipeGestureHandlers(
  * Create the callback that attempts to capture the active pointer.
  * @param element - The swipe target element.
  * @param context - The swipe gesture context.
- * @returns The callback that attempts to capture the pointer.
+ * @returns Callback that captures the pointer for exclusive swipe gesture tracking.
  */
 function createSwipePointerCaptureSetter(
   element: HTMLElement,
@@ -332,7 +332,7 @@ function createSwipePointerCaptureSetter(
  * Create the pointer-state resetter used after swipe completion or cancellation.
  * @param context - The swipe gesture context.
  * @param restoreTouchAction - Restores the element touch-action style.
- * @returns The callback that resets swipe pointer state.
+ * @returns Callback that resets all swipe gesture pointer state to idle.
  */
 function createSwipePointerStateResetter(
   context: SwipeGestureContext,
@@ -353,7 +353,7 @@ function createSwipePointerStateResetter(
  * Create the release animation callback for swipe cancellation.
  * @param context - The swipe gesture context.
  * @param clearReleaseTimer - Clears any previously scheduled release timer.
- * @returns The callback that animates the swipe back to idle.
+ * @returns Callback that plays the cancel animation and returns the card to idle position.
  */
 function createSwipeReleaseAnimator(
   context: SwipeGestureContext,
@@ -377,7 +377,7 @@ function createSwipeReleaseAnimator(
 /**
  * Create the release-timer clearer used by swipe gesture controls.
  * @param context - The swipe gesture context.
- * @returns The callback that clears the pending release timer.
+ * @returns Callback that cancels any pending pointer-release timer.
  */
 function createSwipeReleaseTimerClearer(context: SwipeGestureContext) {
   return () => {
@@ -391,7 +391,7 @@ function createSwipeReleaseTimerClearer(context: SwipeGestureContext) {
 /**
  * Create the callback that disables touch-action while swiping.
  * @param element - The swipe target element.
- * @returns The callback that disables touch-action.
+ * @returns Callback that disables native touch-action on the swipe target element.
  */
 function createSwipeTouchActionDisabler(element: HTMLElement) {
   return () => {
@@ -402,7 +402,7 @@ function createSwipeTouchActionDisabler(element: HTMLElement) {
 /**
  * Create the touch-action restorer for the swipe target element.
  * @param element - The swipe target element.
- * @returns The callback that restores touch-action state.
+ * @returns Callback that restores native touch-action on the swipe target element.
  */
 function createSwipeTouchActionRestorer(element: HTMLElement) {
   return () => {

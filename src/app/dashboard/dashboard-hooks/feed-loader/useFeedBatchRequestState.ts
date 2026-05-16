@@ -96,7 +96,7 @@ interface UseFeedBatchRequestStateOptions {
 /**
  * Manage the feed batch request state.
  * @param options - The options used to manage the feed batch request state.
- * @returns The feed batch request state state and callbacks.
+ * @returns The feed batch request state and callbacks.
  */
 export function useFeedBatchRequestState(
   options: UseFeedBatchRequestStateOptions,
@@ -210,7 +210,7 @@ function cancelActiveFeedBatchQuery(
  * Process the reset active feed request.
  * @param requestRefs - The request refs.
  * @param syncBackgroundLoading - The callback that clears the background-loading flag.
- * @param syncLoading - The callback that sync loading.
+ * @param syncLoading - Callback that synchronizes the loading indicator state.
  */
 function resetActiveFeedRequest(
   requestRefs: ReturnType<typeof useFeedBatchRequestRefs>,
@@ -274,7 +274,7 @@ function startNextFeedRequest(options: StartNextFeedRequestOptions) {
  * - `isBackgroundLoading` — a background fetch is in flight (e.g. Search-change); used to
  *   show article-shell skeletons when the visible window is empty without a full shell reload.
  * @param setLoading - External setter that mirrors the foreground loading flag into dashboard state.
- * @returns The feed batch loading state state and callbacks.
+ * @returns The feed batch loading state and callbacks.
  */
 function useFeedBatchLoadingState(
   setLoading: React.Dispatch<React.SetStateAction<boolean>>,

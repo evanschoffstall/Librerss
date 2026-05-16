@@ -11,7 +11,7 @@ export interface ArticleWindowPrefetchStateRefs {
  * Process the prefetch article window limit if needed.
  * @param nextLimit - The next limit.
  * @param refs - The refs.
- * @param prefetchNextPage - The callback that prefetch next page.
+ * @param prefetchNextPage - Callback that triggers prefetching of the next article page.
  * @returns The prefetch article window limit if needed.
  */
 export async function prefetchArticleWindowLimitIfNeeded(

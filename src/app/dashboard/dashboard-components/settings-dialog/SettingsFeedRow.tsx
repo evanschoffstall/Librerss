@@ -374,7 +374,7 @@ function useResetPendingFeedSetting(
 /**
  * Manage the settings feed row state.
  * @param options - The options used to manage the settings feed row state.
- * @returns The settings feed row state state and callbacks.
+ * @returns The settings feed row state and callbacks.
  */
 function useSettingsFeedRowState(
   options: Pick<

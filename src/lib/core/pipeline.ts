@@ -26,7 +26,7 @@ export {
 /**
  * Resolve the authorized feed records.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrls - The feed urls.
  * @returns The authorized feed records.
  */
@@ -43,7 +43,7 @@ export async function resolveAuthorizedFeedRecords(
 }
 
 /**
- * Process the insert missing feed records.
+ * Insert feed records for URLs not yet present in the feeds table, then add them to the URL-keyed map.
  * @param db - The db.
  * @param joinedRows - The joined rows.
  * @param missingUrls - The missing urls.
@@ -81,11 +81,11 @@ async function insertMissingFeedRecords(
 }
 
 /**
- * Process the list authorized feed rows.
+ * Query all feed-source rows that the user owns and that match the requested URLs.
  * @param db - The db.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param feedUrls - The feed urls.
- * @returns The list authorized feed rows.
+ * @returns Rows joining feedSources and feeds for the authorized URLs.
  */
 async function listAuthorizedFeedRows(
   db: ReturnType<DbMod["getDb"]>,
@@ -165,7 +165,7 @@ async function resolveAuthorizedFeedRecordResult(
 // ─── Step 4: Parallel upstream refresh ───────────────────────────────────────
 
 /**
- * Process the set existing feed records.
+ * Populate the URL-keyed feed map with rows that already have a feeds table entry.
  * @param joinedRows - The joined rows.
  * @param feedByUrl - The feed by url.
  */

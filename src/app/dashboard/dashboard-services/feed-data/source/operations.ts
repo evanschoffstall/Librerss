@@ -323,7 +323,7 @@ export async function renameFeedSourceAndRefresh(
  * @param categories - The categories.
  * @param feedKey - The feed key.
  * @param setSelectedCategory - The set selected category.
- * @param fetchFeed - The callback that fetch feed.
+ * @param fetchFeed - Callback that fetches a single feed source by URL.
  */
 export function selectFeedByKeyFromCategories(
   categories: CategoryTreeNode[],

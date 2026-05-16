@@ -190,7 +190,7 @@ function captureFeedBatchOutcome(
  * @param articles - The articles.
  * @param keepExistingFeed - The keep existing feed.
  * @param feedRef - The ref that stores the feed ref.
- * @param onNewArticlesArrived - The callback that on new articles arrived.
+ * @param onNewArticlesArrived - Callback invoked when new articles arrive from a completed batch fetch.
  */
 function notifyNewlyArrivedArticles(
   articles: Article[],

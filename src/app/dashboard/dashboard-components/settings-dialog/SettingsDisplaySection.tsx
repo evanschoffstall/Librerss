@@ -323,8 +323,8 @@ function DisplaySelectGroup(
 /**
  * Manage the display section state.
  * @param autoRefreshIntervalMinutes - The auto refresh interval minutes.
- * @param onAutoRefreshIntervalMinutesChange - The callback that on auto refresh interval minutes change.
- * @returns The display section state state and callbacks.
+ * @param onAutoRefreshIntervalMinutesChange - Callback invoked when the auto-refresh interval setting changes.
+ * @returns The display section state and callbacks.
  */
 function useDisplaySectionState(
   autoRefreshIntervalMinutes: number,

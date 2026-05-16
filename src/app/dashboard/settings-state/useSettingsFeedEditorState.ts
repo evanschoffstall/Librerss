@@ -90,7 +90,7 @@ type UseSettingsFeedEditorStateOptions = Omit<
 /**
  * Manage the settings feed editor state.
  * @param options - The options used to manage the settings feed editor state.
- * @returns The settings feed editor state state and callbacks.
+ * @returns The settings feed editor state and callbacks.
  */
 export function useSettingsFeedEditorState(
   options: UseSettingsFeedEditorStateOptions,
@@ -236,8 +236,8 @@ function buildSharedFeedRowProps(
 
 /**
  * Create the feed settings toggle handler.
- * @param setKey - The callback that set key.
- * @param onUpdateFeedSettings - The callback that on update feed settings.
+ * @param setKey - Callback that updates the active feed editor key.
+ * @param onUpdateFeedSettings - Callback invoked when feed settings are saved.
  * @param settingKey - The setting key.
  * @returns The feed settings toggle handler.
  */
@@ -256,7 +256,7 @@ function createFeedSettingsToggleHandler(
 /**
  * Create the handle add feed.
  * @param state - The state.
- * @param onAddFeed - The callback that on add feed.
+ * @param onAddFeed - Callback invoked when a new feed source is added.
  * @returns The handle add feed.
  */
 function createHandleAddFeed(
@@ -286,8 +286,8 @@ function createHandleAddFeed(
 /**
  * Create the handle save feed rename.
  * @param state - The state.
- * @param onRenameFeed - The callback that on rename feed.
- * @param clearFeedEdit - The callback that clear feed edit.
+ * @param onRenameFeed - Callback invoked when a feed source is renamed.
+ * @param clearFeedEdit - Callback that clears the current feed editor state.
  * @returns The handle save feed rename.
  */
 function createHandleSaveFeedRename(
@@ -317,8 +317,8 @@ function createHandleSaveFeedRename(
 
 /**
  * Create the transient feed key only handler.
- * @param setKey - The callback that set key.
- * @param run - The callback that run.
+ * @param setKey - Callback that updates the active feed editor key.
+ * @param run - Async function to call with the feed key when the operation should run.
  * @returns The transient feed key only handler.
  */
 function createTransientFeedKeyOnlyHandler(
@@ -339,8 +339,8 @@ function createTransientFeedKeyOnlyHandler(
 }
 /**
  * Create the transient feed key value handler.
- * @param setKey - The callback that set key.
- * @param run - The callback that run.
+ * @param setKey - Callback that updates the active feed editor key.
+ * @param run - Async function to call with the feed key when the operation should run.
  * @returns The transient feed key value handler.
  */
 function createTransientFeedKeyValueHandler<TValue>(
@@ -447,7 +447,7 @@ function useSettingsFeedEditorActions(
 
 /**
  * Manage the settings feed editor local state.
- * @returns The settings feed editor local state state and callbacks.
+ * @returns The settings feed editor local state and callbacks.
  */
 function useSettingsFeedEditorLocalState() {
   const [newFeedName, setNewFeedName] = useState("");

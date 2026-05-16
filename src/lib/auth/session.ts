@@ -93,7 +93,7 @@ export function clearSessionCookie(response: NextResponse): void {
 
 /**
  * Create the session.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @returns The session.
  */
 export async function createSession(userId: number): Promise<string> {

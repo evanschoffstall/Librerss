@@ -13,8 +13,8 @@ interface SettingsInlineEditorControlsProps {
 /**
  * Process the handle inline editor key down.
  * @param event - The event.
- * @param onSave - The callback that on save.
- * @param onCancel - The callback that on cancel.
+ * @param onSave - Callback invoked when the user confirms the save action.
+ * @param onCancel - Callback invoked when the user cancels the action.
  */
 export function handleInlineEditorKeyDown(
   event: React.KeyboardEvent<HTMLInputElement>,

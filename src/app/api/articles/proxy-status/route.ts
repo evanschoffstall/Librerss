@@ -9,9 +9,9 @@ import { serverApi } from "@/lib/server";
 export const dynamic = "force-dynamic";
 
 /**
- * Render the get component.
+ * Handle the GET request.
  * @param request - The request.
- * @returns The rendered get component.
+ * @returns A JSON response or error response.
  */
 export async function GET(request: NextRequest) {
   const authResult = await serverApi.requireAuthenticatedUser(request);

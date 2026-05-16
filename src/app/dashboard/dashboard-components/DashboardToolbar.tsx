@@ -255,7 +255,7 @@ function DashboardToolbarTitle(
  * Manage the dashboard toolbar presentation state.
  * @param startInShellLoading - The start in shell loading.
  * @param controlledIsShellLoading - The controlled is shell loading.
- * @returns The dashboard toolbar presentation state state and callbacks.
+ * @returns The dashboard toolbar presentation state and callbacks.
  */
 function useDashboardToolbarPresentationState(
   startInShellLoading: boolean,

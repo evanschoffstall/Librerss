@@ -57,7 +57,7 @@ interface UseFeedListSurfaceStateResult {
 /**
  * Manage the feed list surface state.
  * @param options - The options used to manage the feed list surface state.
- * @returns The feed list surface state state and callbacks.
+ * @returns The feed list surface state and callbacks.
  */
 export function useFeedListSurfaceState(
   options: UseFeedListSurfaceStateOptions,
@@ -111,7 +111,7 @@ export function useFeedListSurfaceState(
 
 /**
  * Build the feed list surface state options.
- * @param compositionState - The callback that composition state.
+ * @param compositionState - Feed list surface state composition passed down from the parent view.
  * @param filteredFeedLength - The filtered feed length value.
  * @param isInvertedScroll - Whether is inverted scroll.
  * @returns The feed list surface state options.

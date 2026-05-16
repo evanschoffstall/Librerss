@@ -52,7 +52,7 @@ interface UseLoginViewStateOptions {
 /**
  * Manage the login view state.
  * @param options - The options used to manage the login view state.
- * @returns The login view state state and callbacks.
+ * @returns The login view state and callbacks.
  */
 export function useLoginViewState(options: UseLoginViewStateOptions) {
   const { allowSignup, initialFormError, onAuthenticated } = options;

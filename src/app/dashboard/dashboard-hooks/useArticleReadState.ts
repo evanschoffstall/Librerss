@@ -50,7 +50,7 @@ interface UseArticleReadStateOptions {
 /**
  * Manage the article read state.
  * @param options - The options used to manage the article read state.
- * @returns The article read state state and callbacks.
+ * @returns The article read state and callbacks.
  */
 export function useArticleReadState(options: UseArticleReadStateOptions) {
   const {

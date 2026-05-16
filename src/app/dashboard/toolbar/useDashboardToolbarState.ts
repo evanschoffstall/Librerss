@@ -103,7 +103,7 @@ interface DashboardToolbarStateState {
  * Manage the dashboard toolbar state.
  * @param startInShellLoading - The start in shell loading.
  * @param controlledIsShellLoading - The controlled is shell loading.
- * @returns The dashboard toolbar state state and callbacks.
+ * @returns The dashboard toolbar state and callbacks.
  */
 export function useDashboardToolbarState(
   startInShellLoading = false,
@@ -186,7 +186,7 @@ function setDashboardPreviewPersistence(enabled: boolean): void {
 /**
  * Manage the dashboard theme state.
  * @param options - The options used to manage the dashboard theme state.
- * @returns The dashboard theme state state and callbacks.
+ * @returns The dashboard theme state and callbacks.
  */
 function useDashboardThemeState(options: DashboardThemeStateOptions) {
   const { mounted, resolvedTheme, setTheme } = options;
@@ -293,7 +293,7 @@ function useDashboardToolbarEventActions(
  * Manage the dashboard toolbar runtime state.
  * @param startInShellLoading - The start in shell loading.
  * @param controlledIsShellLoading - The controlled is shell loading.
- * @returns The dashboard toolbar runtime state state and callbacks.
+ * @returns The dashboard toolbar runtime state and callbacks.
  */
 function useDashboardToolbarRuntimeState(
   startInShellLoading: boolean,

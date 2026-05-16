@@ -113,10 +113,10 @@ interface ResolvedFeedRouteDeps {
 }
 
 /**
- * Render the delete component.
+ * Handle the DELETE request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered delete component.
+ * @returns A JSON response or error response.
  */
 export async function DELETE(
   request: NextRequest,
@@ -147,10 +147,10 @@ export async function DELETE(
 }
 
 /**
- * Render the get component.
+ * Handle the GET request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered get component.
+ * @returns A JSON response or error response.
  */
 export async function GET(
   request: NextRequest,
@@ -196,10 +196,10 @@ export async function GET(
 }
 
 /**
- * Render the patch component.
+ * Handle the PATCH request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered patch component.
+ * @returns A JSON response or error response.
  */
 export async function PATCH(
   request: NextRequest,
@@ -247,10 +247,10 @@ export async function PATCH(
 }
 
 /**
- * Render the post component.
+ * Handle the POST request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered post component.
+ * @returns A JSON response or error response.
  */
 export async function POST(
   request: NextRequest,
@@ -313,10 +313,10 @@ function buildFeedAttemptContext(request: NextRequest) {
   };
 } /**
  * Process the handle patch from parsed json payload.
- * @param userId - The r id.
+ * @param userId - The user ID.
  * @param payload - The payload.
  * @param deps - The deps.
- * @param resolvedDeps - The d deps.
+ * @param resolvedDeps - The resolved dependencies.
  * @returns The handle patch from parsed json payload.
  */
 async function handlePatchFromParsedJsonPayload(
@@ -377,8 +377,8 @@ async function handlePatchFromParsedJsonPayload(
 
 /**
  * Process the rename feed source from payload.
- * @param userId - The r id.
- * @param parsedPayload - The d payload.
+ * @param userId - The user ID.
+ * @param parsedPayload - The parsed payload.
  * @param deps - The deps.
  * @param assertAllowedUrl - The assert allowed url.
  * @returns The rename feed source from payload.
@@ -430,7 +430,7 @@ async function requireMutableFeedRouteContext(
 /**
  * Process the require mutable feed user.
  * @param request - The request.
- * @param resolvedDeps - The d deps.
+ * @param resolvedDeps - The resolved dependencies.
  * @param options - The options used to process the require mutable feed user.
  * @returns The require mutable feed user.
  */
@@ -520,7 +520,7 @@ function resolveRouteDependency<T>(dependency: T | undefined, fallback: T): T {
 /**
  * Resolve the validated feed url.
  * @param request - The request.
- * @param resolvedDeps - The d deps.
+ * @param resolvedDeps - The resolved dependencies.
  * @returns The validated feed url.
  */
 async function resolveValidatedFeedUrl(

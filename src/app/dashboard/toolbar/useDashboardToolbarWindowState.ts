@@ -43,7 +43,7 @@ interface DashboardToolbarWindowState {
 
 /**
  * Manage the dashboard toolbar window state.
- * @returns The dashboard toolbar window state state and callbacks.
+ * @returns The dashboard toolbar window state and callbacks.
  */
 export function useDashboardToolbarWindowState(): DashboardToolbarWindowState {
   const [title, setTitle] = useState("LibreRSS");
@@ -88,7 +88,7 @@ export function useDashboardToolbarWindowState(): DashboardToolbarWindowState {
 }
 /**
  * Process the add dashboard toolbar window listeners.
- * @param listeners - The callback that listeners.
+ * @param listeners - Callback object that binds window-level event listeners.
  */
 function addDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,
@@ -318,7 +318,7 @@ function readSearchSyncTerm(event: Event): string {
 
 /**
  * Process the remove dashboard toolbar window listeners.
- * @param listeners - The callback that listeners.
+ * @param listeners - Callback object that binds window-level event listeners.
  */
 function removeDashboardToolbarWindowListeners(
   listeners: ReturnType<typeof createDashboardToolbarWindowListeners>,

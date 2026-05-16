@@ -327,7 +327,7 @@ function useDashboardArticleWindowLifecycle(
  * Manage the dashboard article window load more control.
  * @param articleWindowState - The article window state.
  * @param options - The options used to manage the dashboard article window load more control.
- * @param prefetchNextPage - The callback that prefetch next page.
+ * @param prefetchNextPage - Callback that triggers prefetching of the next article page.
  * @returns The dashboard article window load more control state and callbacks.
  */
 function useDashboardArticleWindowLoadMoreControl(
@@ -438,7 +438,7 @@ function useDashboardArticleWindowSelectionResetLifecycle(
 /**
  * Manage the dashboard article window state.
  * @param options - The options used to manage the dashboard article window state.
- * @returns The dashboard article window state state and callbacks.
+ * @returns The dashboard article window state and callbacks.
  */
 function useDashboardArticleWindowState(
   options: Pick<

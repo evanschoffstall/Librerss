@@ -270,7 +270,7 @@ export function useInvertedExpansionScrollLockRuntime(
 /**
  * Manage the inverted expansion scroll lock state.
  * @param options - The options used to manage the inverted expansion scroll lock state.
- * @returns The inverted expansion scroll lock state state and callbacks.
+ * @returns The inverted expansion scroll lock state and callbacks.
  */
 export function useInvertedExpansionScrollLockState(
   options: InvertedExpansionScrollLockStateOptions,
@@ -303,7 +303,7 @@ export function useInvertedExpansionScrollLockState(
 
 /**
  * Manage the inverted expansion viewport snapshot.
- * @param getPreExpandViewportSnapshot - The callback that pre expand viewport snapshot.
+ * @param getPreExpandViewportSnapshot - Callback that captures the pre-expand viewport scroll snapshot.
  * @returns The inverted expansion viewport snapshot state and callbacks.
  */
 export function useInvertedExpansionViewportSnapshot(

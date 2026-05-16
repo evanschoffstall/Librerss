@@ -175,9 +175,9 @@ export function useFeedPaginationRuntimeViewportEffects(
 /**
  * Resolve the auto fill viewport options.
  * @param options - The options used to resolve the auto fill viewport options.
- * @param localState - The callback that local state.
- * @param serverLoadState - The callback that server load state.
- * @param expandVisibleWindow - The callback that expand visible window.
+ * @param localState - Local pagination state returned by useFeedPaginationLocalState.
+ * @param serverLoadState - Server-load pagination state returned by useFeedPaginationServerLoad.
+ * @param expandVisibleWindow - Callback that expands the visible article window by one page increment.
  * @returns The auto fill viewport options.
  */
 function resolveAutoFillViewportOptions(
@@ -214,10 +214,10 @@ function resolveAutoFillViewportOptions(
 /**
  * Resolve the maybe load next page options.
  * @param options - The options used to resolve the maybe load next page options.
- * @param localState - The callback that local state.
- * @param serverLoadState - The callback that server load state.
- * @param anchorState - The callback that anchor state.
- * @param expandVisibleWindow - The callback that expand visible window.
+ * @param localState - Local pagination state returned by useFeedPaginationLocalState.
+ * @param serverLoadState - Server-load pagination state returned by useFeedPaginationServerLoad.
+ * @param anchorState - Inverted pagination anchor state returned by useInvertedPaginationAnchor.
+ * @param expandVisibleWindow - Callback that expands the visible article window by one page increment.
  * @param hasReachedStandardLoadBoundary - Whether has reached standard load boundary.
  * @returns The maybe load next page options.
  */
@@ -292,8 +292,8 @@ function useFeedPaginationAutoFillAfterCooldownEffect(
 
 /**
  * Manage the feed pagination intent bindings only.
- * @param controllers - The callback that controllers.
- * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param controllers - Grouped pagination controllers for the current feed view.
+ * @param maybeLoadNextPage - Callback that requests the next page when the load boundary is reached.
  * @param options - The options used to manage the feed pagination intent bindings only.
  */
 function useFeedPaginationIntentBindingsOnly(
@@ -336,8 +336,8 @@ function useFeedPaginationIntentBindingsOnly(
 
 /**
  * Manage the feed pagination observer and cleanup bindings.
- * @param controllers - The callback that controllers.
- * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param controllers - Grouped pagination controllers for the current feed view.
+ * @param maybeLoadNextPage - Callback that requests the next page when the load boundary is reached.
  * @param options - The options used to manage the feed pagination observer and cleanup bindings.
  * @param shouldObserveLoadMoreBoundary - Whether should observe load more boundary.
  */
@@ -424,8 +424,8 @@ function useFeedPaginationServerRevealLifecycleEffects(
 
 /**
  * Manage the feed pagination viewport bindings only.
- * @param controllers - The callback that controllers.
- * @param maybeLoadNextPage - The callback that maybe load next page.
+ * @param controllers - Grouped pagination controllers for the current feed view.
+ * @param maybeLoadNextPage - Callback that requests the next page when the load boundary is reached.
  * @param options - The options used to manage the feed pagination viewport bindings only.
  */
 function useFeedPaginationViewportBindingsOnly(

@@ -26,10 +26,10 @@ interface AccountExportRouteDeps {
 }
 
 /**
- * Render the get component.
+ * Handle the GET request.
  * @param request - The request.
  * @param depsOrContext - The deps or context.
- * @returns The rendered get component.
+ * @returns A JSON response or error response.
  */
 export async function GET(
   request: NextRequest,

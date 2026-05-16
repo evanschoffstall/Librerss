@@ -54,7 +54,7 @@ export function useSettingsDrag(options: UseSettingsDragOptions) {
 
 /**
  * Manage the category settings drag.
- * @param onDropCategory - The callback that on drop category.
+ * @param onDropCategory - Callback invoked when a category is dropped onto a drop target.
  * @returns The category settings drag state and callbacks.
  */
 function useCategorySettingsDrag(
@@ -127,7 +127,7 @@ function useCategorySettingsDrag(
 
 /**
  * Manage the feed settings drag.
- * @param onDropFeed - The callback that on drop feed.
+ * @param onDropFeed - Callback invoked when a feed is dropped onto a drop target.
  * @returns The feed settings drag state and callbacks.
  */
 function useFeedSettingsDrag(onDropFeed: UseSettingsDragOptions["onDropFeed"]) {

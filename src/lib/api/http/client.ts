@@ -136,45 +136,45 @@ let api: ApiClient = createApiClient();
 export function createApiClient(fetchFn: typeof fetch = fetch): ApiClient {
   return {
     /**
-     * Process the delete.
-     * @param url - The url.
-     * @param config - The config.
-     * @returns The delete.
+     * Execute a DELETE request.
+     * @param url - The request URL.
+     * @param config - Optional request configuration.
+     * @returns A promise resolving to the typed API response.
      */
     delete: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "DELETE", url, undefined, config),
     /**
-     * Return the .
-     * @param url - The url.
-     * @param config - The config.
-     * @returns The .
+     * Execute a GET request.
+     * @param url - The request URL.
+     * @param config - Optional request configuration.
+     * @returns A promise resolving to the typed API response.
      */
     get: <T>(url: string, config?: ApiClientConfig) =>
       request<T>(fetchFn, "GET", url, undefined, config),
     /**
-     * Process the patch.
-     * @param url - The url.
-     * @param data - The data.
-     * @param config - The config.
-     * @returns The patch.
+     * Execute a PATCH request.
+     * @param url - The request URL.
+     * @param data - Optional request body.
+     * @param config - Optional request configuration.
+     * @returns A promise resolving to the typed API response.
      */
     patch: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PATCH", url, data, config),
     /**
-     * Process the post.
-     * @param url - The url.
-     * @param data - The data.
-     * @param config - The config.
-     * @returns The post.
+     * Execute a POST request.
+     * @param url - The request URL.
+     * @param data - Optional request body.
+     * @param config - Optional request configuration.
+     * @returns A promise resolving to the typed API response.
      */
     post: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "POST", url, data, config),
     /**
-     * Process the put.
-     * @param url - The url.
-     * @param data - The data.
-     * @param config - The config.
-     * @returns The put.
+     * Execute a PUT request.
+     * @param url - The request URL.
+     * @param data - Optional request body.
+     * @param config - Optional request configuration.
+     * @returns A promise resolving to the typed API response.
      */
     put: <T>(url: string, data?: unknown, config?: ApiClientConfig) =>
       request<T>(fetchFn, "PUT", url, data, config),
@@ -261,7 +261,7 @@ export function setApiClientForTesting(client: ApiClient): void {
  * Process the with request deadline.
  * @param request - The request.
  * @param timeoutMs - The timeout ms value.
- * @param onTimeout - The callback that on timeout.
+ * @param onTimeout - Callback invoked when the request exceeds the timeout threshold.
  * @returns The with request deadline.
  */
 export async function withRequestDeadline<T>(

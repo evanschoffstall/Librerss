@@ -8,7 +8,7 @@ import { useSettingsOpmlImportState } from "@/app/dashboard/settings-state/useSe
 /**
  * Manage the settings feed state.
  * @param options - The options used to manage the settings feed state.
- * @returns The settings feed state state and callbacks.
+ * @returns The settings feed state and callbacks.
  */
 export function useSettingsFeedState(options: SettingsFeedStateOptions) {
   const {

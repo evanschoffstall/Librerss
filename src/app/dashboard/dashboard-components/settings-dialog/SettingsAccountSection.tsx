@@ -163,7 +163,7 @@ function SettingsAccountPolicyLink(props: SettingsAccountPolicyLinkProps) {
 
 /**
  * Manage the settings account actions.
- * @param onAccountDeleted - The callback that on account deleted.
+ * @param onAccountDeleted - Callback invoked after the account is successfully deleted.
  * @returns The settings account actions state and callbacks.
  */
 function useSettingsAccountActions(onAccountDeleted: () => void) {
