@@ -1,7 +1,10 @@
-import { act } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { completeFeedServerLoadCooldown } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
+import {
+  completeFeedServerLoadCooldown,
+  useFeedPaginationServerLoad,
+} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
 
 const originalRequestAnimationFrame = global.requestAnimationFrame;
 const originalCancelAnimationFrame = global.cancelAnimationFrame;
@@ -138,5 +141,41 @@ describe("completeFeedServerLoadCooldown", () => {
     expect(options.maybeLoadNextPageRef.current).toHaveBeenCalledWith(
       "sentinel",
     );
+  });
+});
+
+describe("useFeedPaginationServerLoad", () => {
+  test("does not claim a server load when the dashboard owner rejects the request", () => {
+    const isInvertedLoadBoundaryArmedRef = { current: false };
+    const isStandardLoadBoundaryArmedRef = { current: false };
+    const maybeLoadNextPageRef = {
+      current: null as ((_trigger: "scroll" | "sentinel") => void) | null,
+    };
+    const paginationFrameRef = { current: null as null | number };
+    const onLoadMore = mock(() => false);
+
+    const { result } = renderHook(() => {
+      return useFeedPaginationServerLoad({
+        canLoadMoreFromServer: true,
+        isInvertedLoadBoundaryArmedRef,
+        isInvertedScroll: false,
+        isStandardLoadBoundaryArmedRef,
+        maybeLoadNextPageRef,
+        onLoadMore,
+        paginationFrameRef,
+      });
+    });
+
+    let didRequestMore = false;
+
+    act(() => {
+      didRequestMore = result.current.requestMoreFromServer();
+    });
+
+    expect(didRequestMore).toBe(false);
+    expect(onLoadMore).toHaveBeenCalledTimes(1);
+    expect(result.current.hasRequestedServerLoadRef.current).toBe(false);
+    expect(result.current.hasPendingServerRevealRef.current).toBe(false);
+    expect(result.current.isPendingServerRevealVisible).toBe(false);
   });
 });

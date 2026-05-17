@@ -32,7 +32,15 @@ interface RequestMoreFromServerOptions {
   hasRequestedServerLoadRef: React.RefObject<boolean>;
   isInvertedScroll: boolean;
   isStandardViewportRefillActiveRef: React.RefObject<boolean>;
-  onLoadMore?: () => void;
+  /**
+   * Starts the owning load-more request.
+   *
+   * Returning `false` rejects the request claim when the owner discovers a
+   * fresher local guard at call time. This keeps pagination from deadlocking in
+   * a "requested" state when the UI surface attempted to load more but the
+   * dashboard controller intentionally refused to start a network request.
+   */
+  onLoadMore?: () => unknown;
   setIsPendingServerRevealVisible: React.Dispatch<
     React.SetStateAction<boolean>
   >;
@@ -57,7 +65,7 @@ interface UseFeedPaginationServerLoadOptions {
   maybeLoadNextPageRef: React.RefObject<
     ((_trigger: "scroll" | "sentinel") => void) | null
   >;
-  onLoadMore?: () => void;
+  onLoadMore?: () => unknown;
   paginationFrameRef: React.RefObject<null | number>;
 }
 
@@ -304,13 +312,22 @@ function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
           requestOptions?.isViewportRefill ?? false;
       }
 
+      const didAcceptLoadRequest = options.onLoadMore() !== false;
+
+      if (!didAcceptLoadRequest) {
+        if (!options.isInvertedScroll) {
+          options.isStandardViewportRefillActiveRef.current = false;
+        }
+
+        return false;
+      }
+
       options.hasRequestedServerLoadRef.current = true;
       options.hasPendingServerRevealRef.current = true;
       options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
       options.setIsPendingServerRevealVisible(
         !(requestOptions?.isViewportRefill ?? false),
       );
-      options.onLoadMore();
       return true;
     },
     [options],

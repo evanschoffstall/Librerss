@@ -67,7 +67,7 @@ export function useDashboardArticleWindowLoadMore(
     shouldUseArticleWindow,
   } = options;
 
-  return () => {
+  return (): boolean | undefined => {
     if (
       shouldBlockArticleWindowLoadMore({
         currentFeedLength,
@@ -77,7 +77,7 @@ export function useDashboardArticleWindowLoadMore(
         shouldUseArticleWindow,
       })
     ) {
-      return;
+      return false;
     }
 
     const nextArticleLimit =
@@ -111,5 +111,7 @@ export function useDashboardArticleWindowLoadMore(
       setIsLoadingMoreArticles,
       setRequestedArticleLimit,
     });
+
+    return true;
   };
 }
