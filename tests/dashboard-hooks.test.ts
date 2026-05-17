@@ -2182,9 +2182,13 @@ describe("useArticleReadState", () => {
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(true);
     });
-    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(1, {
-      isRead: true,
-    });
+    expect(ArticleService.updateArticleStatus).toHaveBeenCalledWith(
+      1,
+      {
+        isRead: true,
+      },
+      { keepalive: true },
+    );
   });
 
   test("setArticleReadState marks article as unread", async () => {
@@ -2377,8 +2381,12 @@ describe("useArticleReadState", () => {
     });
   });
 
-  test("cancels pending read-state mutations and restores optimistic state", async () => {
+  test("retries stale-resume read-state aborts and keeps optimistic state", async () => {
     let capturedSignal: AbortSignal | undefined;
+    const updateOptions: (
+      | undefined
+      | { keepalive?: boolean; signal?: AbortSignal }
+    )[] = [];
 
     (ArticleService.updateArticleStatus as ReturnType<typeof mock>)
       .mockClear()
@@ -2386,12 +2394,17 @@ describe("useArticleReadState", () => {
         async (
           _articleId: number,
           _updates: { isRead?: boolean; isStarred?: boolean },
-          options?: { signal?: AbortSignal },
+          options?: { keepalive?: boolean; signal?: AbortSignal },
         ) => {
-          capturedSignal = options?.signal;
+          capturedSignal ??= options?.signal;
+          updateOptions.push(options);
 
-          await new Promise<void>((resolve, reject) => {
-            options?.signal?.addEventListener(
+          if (!options?.signal) {
+            return;
+          }
+
+          await new Promise<void>((_resolve, reject) => {
+            options.signal?.addEventListener(
               "abort",
               () => {
                 reject(new DOMException("aborted", "AbortError"));
@@ -2436,7 +2449,11 @@ describe("useArticleReadState", () => {
 
     await waitFor(() => {
       expect(capturedSignal?.aborted).toBe(true);
-      expect(feedState[0].isRead).toBe(false);
+      expect(updateOptions).toEqual([
+        { keepalive: true, signal: expect.any(AbortSignal) },
+        { keepalive: true },
+      ]);
+      expect(feedState[0].isRead).toBe(true);
       expect(result.current.updatingArticleState).toEqual({});
     });
   });
