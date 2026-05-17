@@ -103,6 +103,27 @@ interface UpdateArticleStatusOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Builds the optional fetch configuration for article-status mutations without
+ * leaking undefined fields into the API-client call contract.
+ * @param options - Caller supplied mutation request options.
+ * @returns Request configuration only when at least one option is present.
+ */
+function createUpdateArticleStatusRequestConfig(
+  options: undefined | UpdateArticleStatusOptions,
+) {
+  if (!options) {
+    return undefined;
+  }
+
+  return {
+    ...(options.keepalive !== undefined
+      ? { keepalive: options.keepalive }
+      : {}),
+    ...(options.signal !== undefined ? { signal: options.signal } : {}),
+  };
+}
+
 export const ArticleService = {
   /**
    * Process the extract article content.
@@ -241,12 +262,12 @@ export const ArticleService = {
       articleId,
       ...updates,
     };
+    const requestConfig = createUpdateArticleStatusRequestConfig(options);
 
-    if (options?.signal === undefined) {
+    if (!requestConfig) {
       await getApiClient().post(
         `${articleServiceBaseUrl}/articles/status`,
         requestBody,
-        { keepalive: options?.keepalive },
       );
       return;
     }
@@ -254,7 +275,7 @@ export const ArticleService = {
     await getApiClient().post(
       `${articleServiceBaseUrl}/articles/status`,
       requestBody,
-      { keepalive: options.keepalive, signal: options.signal },
+      requestConfig,
     );
   },
 };

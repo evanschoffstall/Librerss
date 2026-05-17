@@ -286,6 +286,61 @@ export async function withRequestDeadline<T>(
 }
 
 /**
+ * Build the fetch init for an API request.
+ * @param method - HTTP method for the request.
+ * @param headers - Fully normalized request headers.
+ * @param data - Optional request payload.
+ * @param config - Optional request configuration.
+ * @returns Fetch init passed to the underlying fetch implementation.
+ */
+function buildRequestInit(
+  method: string,
+  headers: Headers,
+  data: unknown,
+  config?: ApiClientConfig,
+): RequestInit {
+  return {
+    body: data === undefined ? undefined : JSON.stringify(data),
+    credentials: "same-origin",
+    headers,
+    keepalive: config?.keepalive,
+    method,
+    signal: config?.signal,
+  };
+}
+
+/**
+ * Create a structured API error for request transport failures.
+ * @param error - Original thrown value from the fetch call.
+ * @param method - HTTP method used for the request.
+ * @param requestHeaders - Request headers sent to the server.
+ * @param url - Request URL that failed.
+ * @returns Structured transport error preserving request metadata.
+ */
+function createTransportApiError(
+  error: unknown,
+  method: string,
+  requestHeaders: Headers,
+  url: string,
+): ApiError {
+  const code =
+    error instanceof DOMException && error.name === "AbortError"
+      ? "ABORT_ERR"
+      : null;
+
+  return new ApiError(
+    error instanceof Error
+      ? error.message
+      : `Request failed for ${method} ${url}`,
+    code,
+    method,
+    headersToRecord(requestHeaders),
+    undefined,
+    url,
+  );
+}
+
+/**
  * Process the headers to record.
  * @param headers - The headers.
  * @returns The headers to record.
@@ -344,39 +399,20 @@ async function request<T>(
   config?: ApiClientConfig,
 ): Promise<ApiResponse<T>> {
   const headers = new Headers(config?.headers);
-  const hasBody = data !== undefined;
 
-  if (hasBody && !headers.has("content-type")) {
+  if (data !== undefined && !headers.has("content-type")) {
     headers.set("content-type", "application/json");
   }
 
   let response: Response;
 
   try {
-    response = await fetchFn(url, {
-      body: hasBody ? JSON.stringify(data) : undefined,
-      credentials: "same-origin",
-      headers,
-      keepalive: config?.keepalive,
-      method,
-      signal: config?.signal,
-    });
-  } catch (error) {
-    const code =
-      error instanceof DOMException && error.name === "AbortError"
-        ? "ABORT_ERR"
-        : null;
-
-    throw new ApiError(
-      error instanceof Error
-        ? error.message
-        : `Request failed for ${method} ${url}`,
-      code,
-      method,
-      headersToRecord(headers),
-      undefined,
+    response = await fetchFn(
       url,
+      buildRequestInit(method, headers, data, config),
     );
+  } catch (error) {
+    throw createTransportApiError(error, method, headers, url);
   }
 
   const parsedResponse = await toApiResponse<T>(response, config?.responseType);
