@@ -1,4 +1,4 @@
-import { lookup } from "node:dns/promises";
+import { lookup } from "dns/promises";
 
 import { CONFIG } from "@/lib/config";
 import { resolveDnsLookupTimeoutMs } from "@/lib/core";

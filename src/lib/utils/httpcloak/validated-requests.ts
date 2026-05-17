@@ -1,5 +1,5 @@
+import dns from "dns/promises";
 import { Session, type SessionOptions } from "httpcloak";
-import dns from "node:dns/promises";
 import net from "node:net";
 
 import {
