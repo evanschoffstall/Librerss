@@ -8,10 +8,13 @@ import {
   networkInterfaces,
   platform,
 } from "node:os";
-import { dirname, relative, resolve, sep } from "node:path";
+import { dirname, resolve, sep } from "node:path";
 
 const ANY_IPV4_HOST_PATTERN = "*.*.*.*";
 const workspaceRequire = createRequire(import.meta.url);
+const projectRoot = resolve(
+  process.env.NEXT_PROJECT_ROOT?.trim() || process.cwd(),
+);
 
 /**
  * Extracts a hostname from an absolute URL-like environment value.
@@ -180,20 +183,14 @@ function resolveOptionalPackageTracingGlob(packageSpecifier: string) {
 }
 
 /**
- * Resolves a package directory glob relative to the repository root so
- * Next.js file tracing includes native/runtime assets from external packages.
+ * Resolves a package directory glob through the project-local node_modules
+ * symlink so temp snapshots can trace shared dependency assets consistently.
  * @param packageSpecifier - Package name to trace into the server bundle.
- * @returns A repository-relative glob matching all files under the package root.
+ * @returns A project-relative glob matching all files under the package root.
  */
 function resolvePackageTracingGlob(packageSpecifier: string) {
-  const packageDirectory = findPackageRootDirectory(
-    workspaceRequire.resolve(packageSpecifier),
-  );
-  const relativeDirectory = relative(import.meta.dirname, packageDirectory)
-    .split(sep)
-    .join("/");
-
-  return `./${relativeDirectory}/**`;
+  findPackageRootDirectory(workspaceRequire.resolve(packageSpecifier));
+  return `./node_modules/${packageSpecifier}/**`;
 }
 
 /**
@@ -358,7 +355,11 @@ const nextConfig: NextConfig = {
       koffiRuntimeTracingGlob,
     ],
   },
+  outputFileTracingRoot: projectRoot,
   serverExternalPackages,
+  turbopack: {
+    root: projectRoot,
+  },
   typescript: {
     tsconfigPath:
       process.env.NEXT_TYPESCRIPT_CONFIG_PATH?.trim() || "tsconfig.json",

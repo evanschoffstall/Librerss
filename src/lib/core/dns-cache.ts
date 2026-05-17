@@ -54,7 +54,7 @@ export async function resolvesToBlockedAddress(
  */
 async function getLookupFn(): Promise<DnsLookupFn> {
   if (!_lookupFn) {
-    const mod = await import("node:dns/promises");
+    const mod = await import("dns/promises");
     _lookupFn = mod.lookup as DnsLookupFn;
   }
   return _lookupFn;
