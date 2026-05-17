@@ -53,8 +53,8 @@ describe("runtime – PLACEHOLDER_ADMIN_USER", () => {
     expect(PLACEHOLDER_ADMIN_USER.sessionToken.length).toBe(64); // 32 bytes = 64 hex
   });
 
-  test("shared core barrel exposes the feed URL validation helpers", async () => {
-    const coreModule = await import("@/lib/core");
+  test("dedicated feed URL validator alias exposes the validation helpers", async () => {
+    const coreModule = await import("@/lib/core/feed-url-validator");
 
     expect(coreModule).toHaveProperty("assertPublicFeedUrl");
     expect(coreModule).toHaveProperty("isAllowedFeedUrl");

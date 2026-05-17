@@ -1,6 +1,6 @@
 import { logger } from "@/lib";
 import { toBodySnippet } from "@/lib/api/http";
-import { isAllowedFeedUrl } from "@/lib/core";
+import { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import {
   detectResponseCompatibilitySignal,
   fetchHtmlWithHttpCloak,

@@ -1,5 +1,8 @@
 import { jsonError } from "@/lib/api/http";
-import { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "@/lib/core";
+import {
+  isAllowedFeedUrl,
+  PUBLIC_FEED_URL_ERROR,
+} from "@/lib/core/feed-url-validator";
 import { stripUrlFragment } from "@/lib/utils";
 
 /** Dep-injection seam — allows tests to swap SSRF validator and error factory. */
