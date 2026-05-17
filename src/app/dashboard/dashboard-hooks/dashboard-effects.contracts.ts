@@ -1,6 +1,10 @@
 import { type Dispatch, type RefObject, type SetStateAction } from "react";
 
-import type { CategoryTreeNode } from "@/lib/core";
+import type {
+  ArticleFilter,
+  ArticleSortOrder,
+  CategoryTreeNode,
+} from "@/lib/core";
 
 import { type FeedSelectionFetchers } from "@/app/dashboard/dashboard-services/selection";
 
@@ -21,6 +25,8 @@ export type UseDashboardEffectsOptions = UseDashboardBroadcastsOptions &
 
 /** Boot-time dashboard selection inputs. */
 export type UseDashboardInitializationOptions = FeedSelectionFetchers & {
+  articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   hasHydratedPersistedPreferences: boolean;
   hasInitializedDashboardRef: RefObject<boolean>;
   initialArticleLimit?: number;

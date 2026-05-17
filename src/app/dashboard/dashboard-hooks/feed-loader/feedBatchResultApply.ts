@@ -182,6 +182,7 @@ function captureFeedBatchOutcome(
     usePlaceholderData,
     getPlaceholderArticlesForSource,
     context.keepExistingFeed ? feedRef.current : [],
+    context.articleSortOrder,
   );
 }
 

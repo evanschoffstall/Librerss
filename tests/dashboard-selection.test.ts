@@ -31,6 +31,8 @@ describe("initializeDashboardSelection", () => {
     const categories: CategoryTreeNode[] = [];
 
     const promise = initializeDashboardSelection({
+      articleFilter: "all",
+      articleSortOrder: "newest",
       fetchAllFeeds: mock(async () => {
         events.push("fetch:start");
         await deferredFetch.promise;
@@ -74,6 +76,8 @@ describe("initializeDashboardSelection", () => {
     const fetchCategoryFeeds = mock(async () => {});
 
     await initializeDashboardSelection({
+      articleFilter: "all",
+      articleSortOrder: "newest",
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -84,6 +88,8 @@ describe("initializeDashboardSelection", () => {
     });
 
     expect(fetchFeed).toHaveBeenCalledWith("https://example.com/feed.xml", {
+      articleFilter: "all",
+      articleSortOrder: "newest",
       requestSource: "dashboard-initial-cache",
       skipRefresh: true,
     });
@@ -96,6 +102,8 @@ describe("initializeDashboardSelection", () => {
     const fetchCategoryFeeds = mock(async () => {});
 
     await initializeDashboardSelection({
+      articleFilter: "all",
+      articleSortOrder: "newest",
       fetchAllFeeds: mock(async () => {}),
       fetchCategoryFeeds,
       fetchFeed: mock(async () => {}),
@@ -106,6 +114,8 @@ describe("initializeDashboardSelection", () => {
     });
 
     expect(fetchCategoryFeeds).toHaveBeenCalledWith(category, {
+      articleFilter: "all",
+      articleSortOrder: "newest",
       requestSource: "dashboard-initial-cache",
       skipRefresh: true,
     });
@@ -117,6 +127,8 @@ describe("initializeDashboardSelection", () => {
     const setSelectedCategory = mock(() => {});
 
     await initializeDashboardSelection({
+      articleFilter: "all",
+      articleSortOrder: "newest",
       fetchAllFeeds,
       fetchCategoryFeeds: mock(async () => {}),
       fetchFeed: mock(async () => {}),
@@ -128,6 +140,34 @@ describe("initializeDashboardSelection", () => {
 
     expect(setSelectedCategory).toHaveBeenCalledWith(ALL_FEEDS_NODE_KEY);
     expect(fetchAllFeeds).toHaveBeenCalledWith(categories, {
+      articleFilter: "all",
+      articleSortOrder: "newest",
+      requestSource: "dashboard-initial-cache",
+      skipRefresh: true,
+    });
+  });
+
+  test("forwards persisted filter and sort order into the initial dashboard fetch", async () => {
+    const categories: CategoryTreeNode[] = [];
+    const fetchAllFeeds = mock(async () => {});
+
+    await initializeDashboardSelection({
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      fetchAllFeeds,
+      fetchCategoryFeeds: mock(async () => {}),
+      fetchFeed: mock(async () => {}),
+      initialArticleLimit: 12,
+      loadFeedSources: mock(async () => categories),
+      selectedCategory: ALL_FEEDS_NODE_KEY,
+      setIsCategoriesLoading: mock(() => {}),
+      setSelectedCategory: mock(() => {}),
+    });
+
+    expect(fetchAllFeeds).toHaveBeenCalledWith(categories, {
+      articleFilter: "all",
+      articleLimit: 12,
+      articleSortOrder: "oldest",
       requestSource: "dashboard-initial-cache",
       skipRefresh: true,
     });

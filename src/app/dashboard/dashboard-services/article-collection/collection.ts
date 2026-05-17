@@ -1,4 +1,4 @@
-import type { Article } from "@/lib/core";
+import type { Article, ArticleSortOrder } from "@/lib/core";
 
 import {
   dedupeArticleRecords,
@@ -18,10 +18,19 @@ export const getArticleKey = (article: Article) =>
 /**
  * Process the dedupe and sort articles.
  * @param articles - The articles.
+ * @param articleSortOrder - The chronological display order to preserve after deduping.
  * @returns The dedupe and sort articles.
  */
-export const dedupeAndSortArticles = (articles: Article[]): Article[] => {
-  return dedupeArticleRecords(articles, preferRicherArticleRecord).sort(
-    sortArticleRecordsByPublicationDateDesc,
-  );
+export const dedupeAndSortArticles = (
+  articles: Article[],
+  articleSortOrder: ArticleSortOrder = "newest",
+): Article[] => {
+  const dedupedArticles = dedupeArticleRecords(
+    articles,
+    preferRicherArticleRecord,
+  ).sort(sortArticleRecordsByPublicationDateDesc);
+
+  return articleSortOrder === "oldest"
+    ? dedupedArticles.reverse()
+    : dedupedArticles;
 };

@@ -65,6 +65,8 @@ type FeedRequestSource =
  * Describes the options for initialize dashboard selection.
  */
 type InitializeDashboardSelectionOptions = FeedSelectionFetchers & {
+  articleFilter: ArticleFilter;
+  articleSortOrder: ArticleSortOrder;
   initialArticleLimit?: number;
   loadFeedSources: () => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
@@ -97,6 +99,8 @@ export async function initializeDashboardSelection(
   options: InitializeDashboardSelectionOptions,
 ): Promise<void> {
   const {
+    articleFilter,
+    articleSortOrder,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -110,6 +114,8 @@ export async function initializeDashboardSelection(
   try {
     const loadedCategories = await loadFeedSources();
     const initialFetchOptions: FeedFetchOptions = {
+      articleFilter,
+      articleSortOrder,
       ...(typeof initialArticleLimit === "number"
         ? { articleLimit: initialArticleLimit }
         : {}),

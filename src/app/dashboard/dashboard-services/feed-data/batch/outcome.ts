@@ -1,5 +1,5 @@
 import type { BatchFeedResponseItem } from "@/lib/api/http";
-import type { Article } from "@/lib/core";
+import type { Article, ArticleSortOrder } from "@/lib/core";
 
 import {
   type FeedBatchSource,
@@ -25,6 +25,7 @@ interface FeedBatchOutcome {
  * @param usePlaceholderData - The placeholder data.
  * @param getPlaceholderArticles - Callback that returns placeholder articles for a given feed URL.
  * @param previousFeed - The previous feed.
+ * @param articleSortOrder - The chronological display order requested for the visible article list.
  * @returns The feed batch outcome.
  */
 export function buildFeedBatchOutcome(
@@ -33,6 +34,7 @@ export function buildFeedBatchOutcome(
   usePlaceholderData: boolean,
   getPlaceholderArticles: (url: string) => Article[],
   previousFeed: Article[] = [],
+  articleSortOrder: ArticleSortOrder = "newest",
 ): FeedBatchOutcome {
   const sourceNamesByUrl = getSourceNamesByUrl(normalizedSources);
 
@@ -43,6 +45,7 @@ export function buildFeedBatchOutcome(
       usePlaceholderData,
       getPlaceholderArticles,
       previousFeed,
+      articleSortOrder,
     ),
     failedFeeds: batchResults.filter((item) => item.error),
     newestLastFetchedAt: getNewestLastFetchedAt(batchResults),

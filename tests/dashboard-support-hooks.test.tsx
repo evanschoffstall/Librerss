@@ -124,6 +124,8 @@ describe("dashboard support hooks", () => {
     const { rerender } = renderHook(
       ({ selectedCategory }) =>
         useDashboardInitialization({
+          articleFilter: "all",
+          articleSortOrder: "newest",
           fetchAllFeeds,
           fetchCategoryFeeds,
           fetchFeed,
@@ -154,6 +156,8 @@ describe("dashboard support hooks", () => {
     const { rerender } = renderHook(
       ({ hasHydratedPersistedPreferences }) =>
         useDashboardInitialization({
+          articleFilter: "all",
+          articleSortOrder: "newest",
           fetchAllFeeds: mock(async () => {}),
           fetchCategoryFeeds: mock(async () => {}),
           fetchFeed: mock(async () => {}),
@@ -187,6 +191,8 @@ describe("dashboard support hooks", () => {
 
     renderHook(() =>
       useDashboardInitialization({
+        articleFilter: "all",
+        articleSortOrder: "newest",
         fetchAllFeeds: mock(async () => {}),
         fetchCategoryFeeds: mock(async () => {}),
         fetchFeed: mock(async () => {}),

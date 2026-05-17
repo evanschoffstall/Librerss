@@ -3,7 +3,7 @@
  */
 
 import type { BatchFeedResponseItem } from "@/lib/api/http";
-import type { Article, CategoryTreeNode } from "@/lib/core";
+import type { Article, ArticleSortOrder, CategoryTreeNode } from "@/lib/core";
 
 import { dedupeAndSortArticles } from "@/app/dashboard/dashboard-services/article-collection";
 import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
@@ -23,6 +23,7 @@ export interface FeedBatchSource {
  * @param usePlaceholderData - The placeholder data.
  * @param getPlaceholderArticles - Callback that returns placeholder articles for a given feed URL.
  * @param previousFeed - The previous feed.
+ * @param articleSortOrder - The chronological display order requested for the visible article list.
  * @returns The map batch results to articles.
  */
 export function mapBatchResultsToArticles(
@@ -31,6 +32,7 @@ export function mapBatchResultsToArticles(
   usePlaceholderData: boolean,
   getPlaceholderArticles: (url: string) => Article[],
   previousFeed: Article[] = [],
+  articleSortOrder: ArticleSortOrder = "newest",
 ): Article[] {
   const previousArticlesByFeedUrl = new Map<string, Article[]>();
   for (const article of previousFeed) {
@@ -77,6 +79,7 @@ export function mapBatchResultsToArticles(
     perFeedArticles
       .filter((result): result is Article[] => Array.isArray(result))
       .flat(),
+    articleSortOrder,
   );
 }
 

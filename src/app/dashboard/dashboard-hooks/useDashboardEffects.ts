@@ -13,6 +13,8 @@ import { useFeedLoadingTimeout } from "@/app/dashboard/dashboard-hooks/useFeedLo
  */
 export function useDashboardEffects(options: UseDashboardEffectsOptions) {
   const {
+    articleFilter,
+    articleSortOrder,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -44,6 +46,8 @@ export function useDashboardEffects(options: UseDashboardEffectsOptions) {
   useLockDocumentScroll();
   useRevealSidebarOnMount(setIsSidebarVisible);
   useDashboardInitialization({
+    articleFilter,
+    articleSortOrder,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,

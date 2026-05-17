@@ -13,6 +13,8 @@ export function useDashboardInitialization(
   options: UseDashboardInitializationOptions,
 ) {
   const {
+    articleFilter,
+    articleSortOrder,
     fetchAllFeeds,
     fetchCategoryFeeds,
     fetchFeed,
@@ -36,6 +38,8 @@ export function useDashboardInitialization(
     hasInitializedDashboardRef.current = true;
 
     void initializeDashboardSelection({
+      articleFilter,
+      articleSortOrder,
       fetchAllFeeds,
       fetchCategoryFeeds,
       fetchFeed,
@@ -46,6 +50,8 @@ export function useDashboardInitialization(
       setSelectedCategory,
     });
   }, [
+    articleFilter,
+    articleSortOrder,
     hasHydratedPersistedPreferences,
     selectedCategory,
     loadFeedSources,

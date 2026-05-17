@@ -741,6 +741,36 @@ describe("article-collection – dedupeAndSortArticles", () => {
     expect(result[1].title).toBe("Old");
   });
 
+  test("sorts by publication date ascending when oldest-first is requested", async () => {
+    const now = new Date();
+    const earlier = new Date(now.getTime() - 86_400_000);
+    const articles = [
+      {
+        content: "",
+        feedId: 1,
+        id: 1,
+        lastChecked: now,
+        link: "https://example.com/old",
+        publicationDate: earlier,
+        title: "Old",
+      },
+      {
+        content: "",
+        feedId: 1,
+        id: 2,
+        lastChecked: now,
+        link: "https://example.com/new",
+        publicationDate: now,
+        title: "New",
+      },
+    ];
+
+    const result = dedupeAndSortArticles(articles, "oldest");
+
+    expect(result[0].title).toBe("Old");
+    expect(result[1].title).toBe("New");
+  });
+
   test("skips articles without link", async () => {
     const now = new Date();
     const articles = [
@@ -1664,6 +1694,42 @@ describe("feed-batch pure helpers", () => {
       "https://example.com/article-77",
       "https://example.com/article-78",
     ]);
+  });
+
+  test("mapBatchResultsToArticles preserves oldest-first ordering for hydrated batch results", async () => {
+    const { mapBatchResultsToArticles } =
+      await import("@/app/dashboard/dashboard-services/feed-data");
+    const olderArticle = makeArticle({
+      id: 1,
+      lastChecked: new Date("2026-03-14T12:10:00.000Z"),
+      link: "https://example.com/article-1",
+      publicationDate: new Date("2026-03-14T10:00:00.000Z"),
+      title: "Older",
+    });
+    const newerArticle = makeArticle({
+      id: 2,
+      lastChecked: new Date("2026-03-14T12:11:00.000Z"),
+      link: "https://example.com/article-2",
+      publicationDate: new Date("2026-03-14T11:00:00.000Z"),
+      title: "Newer",
+    });
+
+    const result = mapBatchResultsToArticles(
+      [
+        {
+          articles: [newerArticle, olderArticle],
+          ok: true,
+          url: "https://example.com/feed",
+        },
+      ],
+      new Map([["https://example.com/feed", "Feed A"]]),
+      false,
+      () => [],
+      [],
+      "oldest",
+    );
+
+    expect(result.map((article) => article.title)).toEqual(["Older", "Newer"]);
   });
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {

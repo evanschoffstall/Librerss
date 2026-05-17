@@ -214,7 +214,9 @@ function createDashboardControllerRuntimeStateOptions(
   options: UseDashboardControllerRuntimeOptions,
 ) {
   return {
+    articleFilter: options.articleFilter,
     articleLimit: options.articleWindowLimit,
+    articleSortOrder: options.articleSortOrder,
     fetchAllFeeds: options.fetchAllFeeds,
     fetchCategoryFeeds: options.fetchCategoryFeeds,
     fetchFeed: options.fetchFeed,

@@ -15,7 +15,9 @@ import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/dashboard-ser
  * Describes the options for dashboard controller runtime state.
  */
 export interface DashboardControllerRuntimeStateOptions {
+  articleFilter: DashboardEffectsOptions["articleFilter"];
   articleLimit: DashboardHandlersOptions["articleLimit"];
+  articleSortOrder: DashboardEffectsOptions["articleSortOrder"];
   fetchAllFeeds: DashboardHandlersOptions["fetchAllFeeds"];
   fetchCategoryFeeds: DashboardHandlersOptions["fetchCategoryFeeds"];
   fetchFeed: DashboardHandlersOptions["fetchFeed"];
@@ -175,6 +177,8 @@ function createDashboardEffectOptions(
 ) {
   return {
     ...createDashboardSharedFetchOptions(options),
+    articleFilter: options.articleFilter,
+    articleSortOrder: options.articleSortOrder,
     hasHydratedPersistedPreferences: options.hasHydratedPersistedPreferences,
     hasInitializedDashboardRef: options.hasInitializedDashboardRef,
     initialArticleLimit: options.initialArticleLimit,
