@@ -24,13 +24,9 @@ const conventionalCommitsPresetConfig = {
   types: conventionalCommitSections,
 };
 
-const hasGitHubToken = Boolean(
-  process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN,
-);
-
 module.exports = {
   branches: ["main"],
-  // repositoryUrl: "git@github.com:evanschoffstall/librerss.git",
+  repositoryUrl: "git@github.com:evanschoffstall/librerss.git",
   plugins: [
     [
       "@semantic-release/commit-analyzer",
@@ -57,9 +53,9 @@ module.exports = {
       {
         assets: ["package.json"],
         message:
-          "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+          "chore(release): ${nextRelease.version} \n\n${nextRelease.notes}",
       },
     ],
-    ...(hasGitHubToken ? ["@semantic-release/github"] : []),
+    "@semantic-release/github",
   ],
 };
