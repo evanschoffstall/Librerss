@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { NextResponse } from "next/server";
 
-import type { isAllowedFeedUrl } from "@/lib/core";
+import type { isAllowedFeedUrl } from "@/lib/core/feed-url-validator";
 import type { getDb } from "@/lib/db";
 
 import {

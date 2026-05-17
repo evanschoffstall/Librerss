@@ -36,11 +36,6 @@ export type {
   FeedSource,
 } from "./types";
 export {
-  assertPublicFeedUrl,
-  isAllowedFeedUrl,
-  PUBLIC_FEED_URL_ERROR,
-} from "./url-validator";
-export {
   getPlaceholderArticlesForSource,
   getPlaceholderSnapshotPathByArticleUrl,
   PLACEHOLDER_ADMIN_USER,

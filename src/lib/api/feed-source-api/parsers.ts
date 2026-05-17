@@ -7,7 +7,10 @@ import {
   parseJsonObjectBodyOrResponse,
   parsePositiveInt,
 } from "@/lib/api/http";
-import { isAllowedFeedUrl, PUBLIC_FEED_URL_ERROR } from "@/lib/core";
+import {
+  isAllowedFeedUrl,
+  PUBLIC_FEED_URL_ERROR,
+} from "@/lib/core/feed-url-validator";
 import { DEFAULT_CATEGORY_LABEL, normalizeCategory } from "@/lib/utils";
 
 import type {
