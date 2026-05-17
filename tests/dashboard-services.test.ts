@@ -633,7 +633,9 @@ describe("feed-batch-outcome", () => {
       ]),
     );
 
-    expect(failureLabel).toBe("One (HTTP 504), Two, Three (HTTP 403) and 1 more");
+    expect(failureLabel).toBe(
+      "One (HTTP 504), Two, Three (HTTP 403) and 1 more",
+    );
   });
 });
 

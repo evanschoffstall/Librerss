@@ -333,61 +333,6 @@ async function readInvertedScrollAttribute(page: Page) {
   return await feedSurface.getAttribute("data-inverted-scroll");
 }
 
-/** Measures the visible gap between the last rendered article and the viewport bottom edge. */
-async function readLastArticleViewportGap(page: Page) {
-  return await page.evaluate(() => {
-    const viewport =
-      [
-        ...document.querySelectorAll<HTMLElement>(
-          "[data-radix-scroll-area-viewport]",
-        ),
-      ].find(
-        (candidate) =>
-          candidate.isConnected &&
-          candidate.getBoundingClientRect().height > 0 &&
-          candidate.getBoundingClientRect().width > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden" &&
-          candidate.querySelector("article[data-article-key]") !== null,
-      ) ?? null;
-
-    if (!viewport) {
-      throw new Error(
-        "Expected a feed viewport and at least one rendered article.",
-      );
-    }
-
-    const viewportBottom = viewport.getBoundingClientRect().bottom;
-    const bottomVisibleArticle = [
-      ...document.querySelectorAll<HTMLElement>("article[data-article-key]"),
-    ]
-      .map((article) => ({
-        bottom: article.getBoundingClientRect().bottom,
-        top: article.getBoundingClientRect().top,
-      }))
-      .filter(
-        (article) =>
-          article.top < viewportBottom &&
-          article.bottom <= viewportBottom + 0.5,
-      )
-      .reduce<null | { bottom: number; top: number }>((selected, candidate) => {
-        if (!selected) {
-          return candidate;
-        }
-
-        return candidate.bottom > selected.bottom ? candidate : selected;
-      }, null);
-
-    if (!bottomVisibleArticle) {
-      throw new Error(
-        "Expected a bottommost visible article in the feed viewport.",
-      );
-    }
-
-    return (
-      Math.round((viewportBottom - bottomVisibleArticle.bottom) * 100) / 100
-    );
-  });
-}
 
 /** Returns a fully visible article key whose header already sits in a stable viewport band. */
 async function readStableVisibleArticleKey(page: Page) {

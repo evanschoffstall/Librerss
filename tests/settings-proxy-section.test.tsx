@@ -73,7 +73,6 @@ describe("SettingsProxySection", () => {
     proxyState.proxyUsername = "alice";
 
     const view = await renderProxySection();
-    const proxyUrlInput = view.getByDisplayValue("https://proxy.example.test");
     const passwordLabel = view.getByText(/Password/);
     const buttons = view.getAllByRole("button");
 

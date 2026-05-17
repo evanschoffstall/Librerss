@@ -109,13 +109,6 @@ async function expectUnreadFeed(page: Page) {
   );
 }
 
-function feedViewport(page: Page) {
-  return page
-    .locator("[data-radix-scroll-area-viewport]")
-    .filter({ has: page.locator("article[data-article-key]") })
-    .first();
-}
-
 function filterBar(page: Page) {
   return page.locator("[data-dashboard-width-link='feed']").first();
 }

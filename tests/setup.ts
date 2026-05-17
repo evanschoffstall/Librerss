@@ -35,7 +35,6 @@ import * as realUiTabsModule from "@/components/ui/tabs";
 import * as realUiTooltipModule from "@/components/ui/tooltip";
 import * as realLibModule from "@/lib";
 import * as realFeedSourceReadModule from "@/lib/api/feed-source-api/read";
-import * as realAuthModuleImport from "@/lib/auth";
 import * as realAuthDevAutoLoginModule from "@/lib/auth/dev-auto-login";
 import * as realAuthSessionModule from "@/lib/auth/session";
 import * as realDbModule from "@/lib/db/db";
@@ -51,7 +50,6 @@ import * as realServerModuleImport from "@/lib/server";
 import * as realUrlModule from "@/lib/utils/url";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
-const realAuthModule = { ...realAuthModuleImport };
 const realServerModule = { ...realServerModuleImport };
 const window = new Window();
 const document = window.document;

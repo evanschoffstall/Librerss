@@ -1243,24 +1243,6 @@ function normalizeRuntimeSignalText(text: string) {
   return text.replace(/\s+/gu, " ").trim();
 }
 
-/** Measures an article's top edge relative to its owning feed viewport. */
-async function readArticleTopWithinViewport(article: Locator) {
-  return await article.evaluate((node) => {
-    const viewport = node.closest<HTMLElement>(
-      "[data-radix-scroll-area-viewport]",
-    );
-    if (!viewport) {
-      throw new Error(
-        "Expected article to be rendered inside the feed viewport.",
-      );
-    }
-
-    return (
-      node.getBoundingClientRect().top - viewport.getBoundingClientRect().top
-    );
-  });
-}
-
 async function readNextJsPortalText(page: Page) {
   return normalizeRuntimeSignalText(
     await page.evaluate(() => {
@@ -1304,19 +1286,4 @@ function shouldCaptureNextJsConsoleError(message: ConsoleMessage) {
   }
 
   return NEXT_JS_CONSOLE_ERROR_PATTERN.test(text);
-}
-
-function toXPathStringLiteral(value: string) {
-  if (!value.includes('"')) {
-    return `"${value}"`;
-  }
-
-  if (!value.includes("'")) {
-    return `'${value}'`;
-  }
-
-  return `concat(${value
-    .split('"')
-    .map((segment) => `"${segment}"`)
-    .join(`, '"', `)})`;
 }

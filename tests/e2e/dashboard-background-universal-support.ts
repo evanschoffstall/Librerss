@@ -139,7 +139,7 @@ export async function expectDashboardBackgroundMouseInteractivity(
  * @param canvas - The canvas locator to inspect.
  */
 export async function expectDashboardBackgroundSuspensionRecovery(
-  page: Page,
+  _page: Page,
   canvas: Locator,
 ) {
   const result = await canvas.evaluate(async (canvasElement) => {

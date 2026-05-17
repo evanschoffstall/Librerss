@@ -3294,7 +3294,6 @@ describe("FeedList", () => {
   });
 
   test("resets visible article count and scroll position when refreshEpoch increments during active refresh", async () => {
-    let testContainer: HTMLElement | null = null;
     let scrollTop = 0;
     const articles = Array.from({ length: 10 }, (_value, index) =>
       buildFeedListArticle({
@@ -3359,8 +3358,6 @@ describe("FeedList", () => {
         />
       </div>,
     );
-
-    testContainer = container;
 
     // The refresh reset hydrates the smallest window that can clip overflow.
     await waitFor(() => {

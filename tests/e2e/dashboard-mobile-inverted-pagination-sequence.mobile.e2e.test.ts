@@ -177,8 +177,6 @@ test.describe("dashboard mobile inverted pagination sequence", () => {
 
     for (const [stepIndex, expectedGrowth] of expectedGrowthByStep.entries()) {
       await scrollFeedViewportToTop(page);
-      const viewportBeforeLoad = await readFeedViewportMetrics(page);
-
       const anchorBeforeLoad = await readStableTopVisibleArticle(page);
       await expandInvertedWindowByOnePage(page, initialCount + expectedGrowth);
 

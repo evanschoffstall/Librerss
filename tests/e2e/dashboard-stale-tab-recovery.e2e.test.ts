@@ -131,9 +131,6 @@ test("dashboard dismisses stale toasts and recovers after long tab suspension", 
 
   // Inject a visible toast so we can verify it gets dismissed on resume.
   await page.evaluate(() => {
-    const { toast } = window as unknown as {
-      toast: (message: string) => void;
-    };
     // Sonner exposes toast on window in dev, but we need to dispatch a custom
     // event or directly call the module. Instead, use the DOM approach:
     // trigger a toast via the app's own mechanism.

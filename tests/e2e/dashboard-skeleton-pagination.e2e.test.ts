@@ -41,7 +41,7 @@ interface SkeletonProbeWindow extends Window {
  */
 async function requestNextPageAndExpectContinuousSkeletons(
   page: Parameters<typeof triggerFeedViewportWheelIntent>[0],
-  cycle: number,
+  _cycle: number,
   pageSize: number,
   previousArticleCount: number,
   minimumArticleCount: number,

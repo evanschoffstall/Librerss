@@ -438,10 +438,6 @@ describe("feed DOM helpers", () => {
     }
 
     class MutationObserverMock {
-      constructor(private readonly callback: MutationCallback) {
-        this.callback = callback;
-      }
-
       disconnect() {
         disconnectMutation();
       }

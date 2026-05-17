@@ -282,7 +282,7 @@ describe("dashboard orchestration hooks", () => {
       "dashboard-hooks",
       "useDashboardIntervals.ts",
     ].join("/");
-    const { STALE_TAB_THRESHOLD_MS, useDashboardIntervals } = (await import(
+    const { useDashboardIntervals } = (await import(
       `${modulePath}?dashboard-orchestration-intervals-real`
     )) as typeof import("@/app/dashboard/dashboard-hooks/useDashboardIntervals");
     const intervalCallbacks = new Map<number, () => void>();

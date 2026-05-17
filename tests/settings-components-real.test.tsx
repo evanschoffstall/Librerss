@@ -220,7 +220,7 @@ describe("settings real components", () => {
       await loadSettingsFeedManagementSection();
     const state = createSettingsState({ isImportingOpml: true });
 
-    const { getAllByText, getByText } = render(
+    const { getByText } = render(
       <SettingsFeedManagementSection
         categories={[createCategory("News", "feed-1")]}
         isPreviewMode={true}

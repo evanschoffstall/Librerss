@@ -377,7 +377,6 @@ test.describe("dashboard preview mode", () => {
   }) => {
     await gotoPreviewDashboard(page);
     const firstArticle = await locateViewportArticle(page, 0);
-    const firstArticleKey = await readArticleKey(firstArticle);
 
     const firstTitle = (
       await firstArticle.getByRole("heading").first().textContent()
@@ -445,8 +444,6 @@ test.describe("dashboard preview mode", () => {
     if (targetScrollTop > 0) {
       await setFeedViewportScrollTop(page, targetScrollTop);
     }
-
-    const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
 
     await selectPreviewSource(page);
     await expect(await locateViewportArticle(page, 0)).toBeVisible({
