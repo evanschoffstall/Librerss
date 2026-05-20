@@ -156,7 +156,8 @@
     "minimatch": "3.1.4",
     "postcss": "8.5.10",
     "undici": "7.24.3",
-    "esbuild": "0.25.12"
+    "esbuild": "0.25.12",
+    "ws": "8.20.1"
   },
   "packageManager": "bun@1.0.0"
 }
