@@ -3,12 +3,14 @@ import { describe, expect, test } from "bun:test";
 import {
   BACKGROUND_CANVAS_BASELINE_FRAME_MS,
   BACKGROUND_CANVAS_MAX_DPR,
+  BACKGROUND_CANVAS_RESUME_GAP_MS,
   BACKGROUND_CANVAS_TARGET_FRAME_MS,
   getBackgroundCanvasLerpFactor,
   getBackgroundCanvasScale,
   getBackgroundParallaxOffset,
   getVisibleBackgroundCanvasElementSize,
   shouldRenderBackgroundCanvasFrame,
+  shouldResetBackgroundCanvasFrameClock,
   shouldRunBackgroundAnimation,
 } from "../src/app/dashboard/dashboard-components/background-internals/background-canvas";
 
@@ -64,6 +66,22 @@ describe("dashboard background canvas helpers", () => {
       shouldRenderBackgroundCanvasFrame(
         100,
         100 + BACKGROUND_CANVAS_TARGET_FRAME_MS,
+      ),
+    ).toBe(true);
+  });
+
+  test("resets animation timing after a suspended-frame gap", () => {
+    expect(shouldResetBackgroundCanvasFrameClock(0, 10_000)).toBe(false);
+    expect(
+      shouldResetBackgroundCanvasFrameClock(
+        100,
+        100 + BACKGROUND_CANVAS_RESUME_GAP_MS - 1,
+      ),
+    ).toBe(false);
+    expect(
+      shouldResetBackgroundCanvasFrameClock(
+        100,
+        100 + BACKGROUND_CANVAS_RESUME_GAP_MS,
       ),
     ).toBe(true);
   });

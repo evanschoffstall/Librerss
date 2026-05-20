@@ -235,6 +235,11 @@ describe("background stack", () => {
     frameCallback?.(140);
     expect(onFrame).toHaveBeenCalledTimes(3);
 
+    frameCallback?.(2_000);
+    expect(onResume).toHaveBeenCalledTimes(3);
+    expect(onFrame).toHaveBeenCalledTimes(4);
+    expect(onFrame.mock.calls.at(-1)?.[1]).toBe(0);
+
     hook.unmount();
 
     const onMouseMove = mock();

@@ -5,6 +5,8 @@ export const BACKGROUND_CANVAS_MAX_DPR = 1.5;
 export const BACKGROUND_CANVAS_TARGET_FRAME_MS = 1000 / 30;
 /** Baseline frame interval the original background motion was tuned for. */
 export const BACKGROUND_CANVAS_BASELINE_FRAME_MS = 1000 / 60;
+/** Maximum frame gap that is still treated as continuous animation. */
+export const BACKGROUND_CANVAS_RESUME_GAP_MS = 1_000;
 
 /** Visible CSS-pixel dimensions that are safe to commit to a canvas. */
 export interface BackgroundCanvasElementSize {
@@ -94,6 +96,29 @@ export function shouldRenderBackgroundCanvasFrame(
   targetFrameMs = BACKGROUND_CANVAS_TARGET_FRAME_MS,
 ) {
   return lastFrameAt === 0 || now - lastFrameAt >= targetFrameMs;
+}
+
+/**
+ * Return whether the canvas animation clock should be reset instead of using
+ * a large elapsed frame gap.
+ *
+ * Browser suspension can pause `requestAnimationFrame` without reliably
+ * delivering `pagehide` or `visibilitychange` first. Treating the first resumed
+ * frame as a normal multi-second delta makes pointer parallax snap to the last
+ * cursor target and can visually cluster particles or stars. Resetting the
+ * frame clock converts that resumed tick into a fresh zero-delta frame while
+ * preserving the canvas contents and layout.
+ * @param lastFrameAt - Timestamp of the previously rendered frame.
+ * @param now - Timestamp of the current animation-frame callback.
+ * @param resumeGapMs - Minimum elapsed gap that indicates browser suspension.
+ * @returns Whether the animation clock should restart before rendering.
+ */
+export function shouldResetBackgroundCanvasFrameClock(
+  lastFrameAt: number,
+  now: number,
+  resumeGapMs = BACKGROUND_CANVAS_RESUME_GAP_MS,
+) {
+  return lastFrameAt > 0 && now - lastFrameAt >= resumeGapMs;
 }
 
 /**

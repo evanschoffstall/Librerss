@@ -3,6 +3,11 @@
 import { useAnimationFrame } from "motion/react";
 import { useEffect, useRef } from "react";
 
+import {
+  shouldRenderBackgroundCanvasFrame,
+  shouldResetBackgroundCanvasFrameClock,
+} from "@/app/dashboard/dashboard-components/background-internals";
+
 /** Listener callbacks registered against document and page lifecycle events. */
 interface BackgroundCanvasAnimationListenerOptions {
   lastFrameAtRef: { current: number };
@@ -67,6 +72,13 @@ export function useBackgroundCanvasAnimation(
 
   useAnimationFrame((now) => {
     if (!motionEnabledRef.current) {
+      return;
+    }
+
+    if (shouldResetBackgroundCanvasFrameClock(lastFrameAtRef.current, now)) {
+      lastFrameAtRef.current = now;
+      onResumeRef.current?.();
+      onFrameRef.current(now, 0);
       return;
     }
 
@@ -152,21 +164,4 @@ function registerBackgroundCanvasAnimationListeners(
     window.removeEventListener("pagehide", pauseAnimation);
     window.removeEventListener("pageshow", resumeAnimation);
   };
-}
-
-/**
- * Return whether the next animation frame should be rendered, throttling the
- * decorative background to roughly thirty frames per second so its CPU and
- * GPU footprint stays negligible.
- * @param lastFrameAt - The timestamp of the previously rendered frame.
- * @param now - The current animation frame timestamp.
- * @param targetFrameMs - The minimum interval between rendered frames.
- * @returns Whether to render a new frame at the current tick.
- */
-function shouldRenderBackgroundCanvasFrame(
-  lastFrameAt: number,
-  now: number,
-  targetFrameMs = 1000 / 30,
-) {
-  return lastFrameAt === 0 || now - lastFrameAt >= targetFrameMs;
 }
