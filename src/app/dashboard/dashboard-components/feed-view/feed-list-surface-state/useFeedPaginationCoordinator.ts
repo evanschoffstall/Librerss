@@ -15,6 +15,7 @@ import {
   useFeedPaginationQueryResetEffect,
   useFeedPaginationRefreshResetEffect,
   useFeedPaginationRevealCountEffect,
+  useFeedPaginationStaleResumeResetEffect,
   useMountedFlagCleanupEffect,
   useRearmPaginationBoundaryFromUserIntent,
   useVisibleArticleCountRefSync,
@@ -179,6 +180,11 @@ export function useFeedPaginationEffects(
       localState.standardViewportRefillTargetVisibleCountRef,
     suppressNextRefreshViewportRefillRef:
       localState.suppressNextRefreshViewportRefillRef,
+  });
+  useFeedPaginationStaleResumeResetEffect({
+    isInvertedScroll: options.isInvertedScroll,
+    resetPaginationState,
+    scrollViewport: options.scrollViewport,
   });
   useFeedPaginationRevealEffects(
     options,

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { useExpandVisibleWindow } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationActions";
 import { useFeedPaginationLocalState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationLocalState";
+import { useFeedPaginationStaleResumeResetEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationStaleResumeResetEffect";
 
 // ---------------------------------------------------------------------------
 // rAF / cAF mocks
@@ -10,6 +11,8 @@ import { useFeedPaginationLocalState } from "@/app/dashboard/dashboard-component
 
 const originalRequestAnimationFrame = global.requestAnimationFrame;
 const originalCancelAnimationFrame = global.cancelAnimationFrame;
+const originalWindowRequestAnimationFrame = window.requestAnimationFrame;
+const originalWindowCancelAnimationFrame = window.cancelAnimationFrame;
 
 interface MockRAFQueue {
   callbacks: Map<number, FrameRequestCallback>;
@@ -70,11 +73,15 @@ describe("useFeedPaginationLocalState – cached page skeleton reveal", () => {
     raf = createMockRAFQueue();
     global.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
     global.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
+    window.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
+    window.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
   });
 
   afterEach(() => {
     global.requestAnimationFrame = originalRequestAnimationFrame;
     global.cancelAnimationFrame = originalCancelAnimationFrame;
+    window.requestAnimationFrame = originalWindowRequestAnimationFrame;
+    window.cancelAnimationFrame = originalWindowCancelAnimationFrame;
   });
 
   test("isCachedPageRevealing initialises to false", () => {
@@ -234,11 +241,15 @@ describe("useExpandVisibleWindow – immediate vs skeletal expand", () => {
     raf = createMockRAFQueue();
     global.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
     global.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
+    window.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
+    window.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
   });
 
   afterEach(() => {
     global.requestAnimationFrame = originalRequestAnimationFrame;
     global.cancelAnimationFrame = originalCancelAnimationFrame;
+    window.requestAnimationFrame = originalWindowRequestAnimationFrame;
+    window.cancelAnimationFrame = originalWindowCancelAnimationFrame;
   });
 
   function buildExpandOptions(articleCount = 20, currentVisible = 4) {
@@ -349,5 +360,123 @@ describe("useExpandVisibleWindow – immediate vs skeletal expand", () => {
     });
 
     expect(scheduleMock).toHaveBeenCalledWith(6); // clamped to feed length
+  });
+});
+
+// ---------------------------------------------------------------------------
+// stale browser resume recovery
+// ---------------------------------------------------------------------------
+
+describe("useFeedPaginationStaleResumeResetEffect", () => {
+  let raf: MockRAFQueue;
+
+  beforeEach(() => {
+    raf = createMockRAFQueue();
+    global.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
+    global.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
+    window.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
+    window.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
+  });
+
+  afterEach(() => {
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+    window.requestAnimationFrame = originalWindowRequestAnimationFrame;
+    window.cancelAnimationFrame = originalWindowCancelAnimationFrame;
+  });
+
+  test("resets pagination and moves standard scroll away from a stale boundary", () => {
+    const originalDateNow = Date.now;
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "hidden",
+    );
+    const resetPaginationState = mock(() => {});
+    const scrollViewport = document.createElement("div");
+    scrollViewport.scrollTop = 240;
+    let isHidden = false;
+    let now = 1_000;
+
+    Date.now = () => now;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => isHidden,
+    });
+
+    try {
+      const hook = renderHook(() =>
+        useFeedPaginationStaleResumeResetEffect({
+          isInvertedScroll: false,
+          resetPaginationState,
+          scrollViewport,
+        }),
+      );
+
+      isHidden = true;
+      document.dispatchEvent(new Event("visibilitychange"));
+      isHidden = false;
+      now = 32_000;
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(resetPaginationState).toHaveBeenCalledTimes(1);
+      expect(scrollViewport.scrollTop).toBe(240);
+
+      act(() => {
+        raf.flush();
+      });
+
+      expect(scrollViewport.scrollTop).toBe(0);
+      hook.unmount();
+    } finally {
+      Date.now = originalDateNow;
+      if (hiddenDescriptor) {
+        Object.defineProperty(document, "hidden", hiddenDescriptor);
+      } else {
+        Reflect.deleteProperty(document, "hidden");
+      }
+    }
+  });
+
+  test("keeps pagination state for short tab switches", () => {
+    const originalDateNow = Date.now;
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "hidden",
+    );
+    const resetPaginationState = mock(() => {});
+    let isHidden = false;
+    let now = 1_000;
+
+    Date.now = () => now;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => isHidden,
+    });
+
+    try {
+      const hook = renderHook(() =>
+        useFeedPaginationStaleResumeResetEffect({
+          isInvertedScroll: false,
+          resetPaginationState,
+          scrollViewport: document.createElement("div"),
+        }),
+      );
+
+      isHidden = true;
+      document.dispatchEvent(new Event("visibilitychange"));
+      isHidden = false;
+      now = 5_000;
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(resetPaginationState).not.toHaveBeenCalled();
+      hook.unmount();
+    } finally {
+      Date.now = originalDateNow;
+      if (hiddenDescriptor) {
+        Object.defineProperty(document, "hidden", hiddenDescriptor);
+      } else {
+        Reflect.deleteProperty(document, "hidden");
+      }
+    }
   });
 });

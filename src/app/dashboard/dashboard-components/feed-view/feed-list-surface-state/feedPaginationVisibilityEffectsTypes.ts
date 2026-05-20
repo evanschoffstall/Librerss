@@ -67,6 +67,15 @@ export type FeedPaginationRevealCountEffectOptions =
   };
 
 /**
+ * Describes the options for recovering feed pagination after a stale browser resume.
+ */
+export interface FeedPaginationStaleResumeResetEffectOptions {
+  isInvertedScroll: boolean;
+  resetPaginationState: () => void;
+  scrollViewport: HTMLElement | null;
+}
+
+/**
  * Describes the options for initial feed pagination auto fill effect.
  */
 export interface InitialFeedPaginationAutoFillEffectOptions {

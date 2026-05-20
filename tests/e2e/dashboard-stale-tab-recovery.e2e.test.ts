@@ -455,3 +455,48 @@ test("stale tab resume during visible-read keeps marked articles read after refr
     nextJsErrorMonitor.dispose();
   }
 });
+
+test("stale tab resume resets feed pagination before continued boundary scrolling", async ({
+  page,
+}) => {
+  const nextJsErrorMonitor = createNextJsErrorMonitor(page);
+
+  try {
+    await gotoPreviewDashboard(page);
+    await expectPreviewDashboard(page);
+
+    const scrollViewport = page.locator("[data-feed-scroll-viewport='true']");
+    await expect(scrollViewport).toBeVisible({ timeout: 15_000 });
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+
+    await scrollViewport.evaluate((viewport) => {
+      viewport.scrollTop = viewport.scrollHeight;
+      viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    await expect
+      .poll(async () => await page.locator("article[data-article-key]").count())
+      .toBeGreaterThan(0);
+
+    await simulateVisibilitySuspension(page, 60_000);
+
+    await expect
+      .poll(
+        async () =>
+          await scrollViewport.evaluate((viewport) => viewport.scrollTop),
+        { timeout: 2_000 },
+      )
+      .toBeLessThanOrEqual(1);
+
+    await scrollViewport.evaluate((viewport) => {
+      viewport.scrollTop = viewport.scrollHeight;
+      viewport.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+
+    await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("[data-status-page='500']")).toHaveCount(0);
+    await nextJsErrorMonitor.assertNoNextJsErrors();
+  } finally {
+    nextJsErrorMonitor.dispose();
+  }
+});

@@ -28,6 +28,9 @@ import {
   completePendingServerReveal,
   handleFeedPaginationRevealCountTransition,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/pendingServerReveal";
+
+export { useFeedPaginationStaleResumeResetEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationStaleResumeResetEffect";
+
 /**
  * Manage the collapsing articles ref sync.
  * @param options - The options used to manage the collapsing articles ref sync.
@@ -113,6 +116,7 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     visibleArticleCount,
   ]);
 }
+
 /**
  * Manage the feed pagination query reset effect.
  * @param options - The options used to manage the feed pagination query reset effect.
