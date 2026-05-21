@@ -355,9 +355,18 @@ export function useMountedFlagCleanupEffect(
 }
 
 /**
- * Manage the rearm pagination boundary from user intent.
- * @param options - The options used to manage the rearm pagination boundary from user intent.
- * @returns The rearm pagination boundary from user intent state and callbacks.
+ * Creates the explicit user-intent boundary rearm callback for feed pagination.
+ *
+ * Standard scroll can remain physically parked at the bottom boundary after a
+ * cached page reveal. In that state there is no "moved away then returned"
+ * scroll delta to rearm from, but a new wheel or touch gesture is still a valid
+ * request for the next page. Server-owned transitions remain protected by
+ * `hasPendingServerRevealRef` and `hasRequestedServerLoadRef`, so this only
+ * reopens local/cached pagination after the previous transition has released
+ * ownership.
+ *
+ * @param options - Mutable pagination refs and the active scroll viewport.
+ * @returns A stable callback invoked from wheel and touch intent handlers.
  */
 export function useRearmPaginationBoundaryFromUserIntent(
   options: RearmPaginationBoundaryFromUserIntentOptions,
@@ -409,12 +418,13 @@ export function useRearmPaginationBoundaryFromUserIntent(
       return;
     }
 
-    const { hasMovedAwayFromBoundary } = resolvePaginationBoundaryState({
-      isInvertedScroll,
-      scrollViewport,
-    });
+    const { hasMovedAwayFromBoundary, hasReachedBoundary } =
+      resolvePaginationBoundaryState({
+        isInvertedScroll,
+        scrollViewport,
+      });
 
-    if (!hasMovedAwayFromBoundary) {
+    if (!hasMovedAwayFromBoundary && !hasReachedBoundary) {
       return;
     }
 
