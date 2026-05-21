@@ -96,6 +96,27 @@ test.describe("dashboard toolbar loading", () => {
       page.getByRole("button", { name: "Refresh selected feed" }).first(),
     ).toBeVisible();
 
+    const hydratedArticleRowGap = await page.evaluate(() => {
+      const articleRows = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]"),
+      ).filter(
+        (row) => row.querySelector("article[data-article-key]") !== null,
+      );
+      const firstRowRect = articleRows[0]?.getBoundingClientRect();
+      const secondRowRect = articleRows[1]?.getBoundingClientRect();
+
+      if (!firstRowRect || !secondRowRect) {
+        return null;
+      }
+
+      return Math.round(secondRowRect.top - firstRowRect.bottom);
+    });
+
+    expect(hydratedArticleRowGap).not.toBeNull();
+    expect(Math.round(skeletonViewportFit?.rowGap ?? -1)).toBe(
+      hydratedArticleRowGap,
+    );
+
     const toolbarPulseState = await page.evaluate(() => {
       const visiblePulseNodes = Array.from(
         document.querySelectorAll("*"),

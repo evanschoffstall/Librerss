@@ -25,6 +25,16 @@ import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
  */
 const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14", "w-16"];
 
+/** Shared loaded and skeleton surface treatment for the token toolbar shell. */
+const FILTER_BAR_SURFACE_CLASS_NAME = `
+  flex h-8 w-full min-w-0 items-center overflow-hidden rounded-full border
+  border-border bg-card/70 px-2.5
+  dark:shadow-2xl dark:shadow-zinc-900/50
+`;
+
+/** Width owner that makes the token toolbar scale with the article cards. */
+const FILTER_BAR_WIDTH_CLASS_NAME = DASHBOARD_FEED_SURFACE_CLASS_NAME;
+
 /**
  * Describes the props for the dashboard filter bar frame component.
  */
@@ -61,23 +71,16 @@ export function DashboardFilterBarSkeleton() {
             lg:block lg:w-[220px] lg:shrink-0
           "
         />
-        <div
-          className="
-            flex-1
-            lg:min-w-0
-          "
-        >
+        <div className="flex-1 lg:min-w-0">
           <div
-            className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
-            data-dashboard-filter-bar-surface="true"
+            className={FILTER_BAR_WIDTH_CLASS_NAME}
+            data-dashboard-width-link="feed"
           >
             <div
-              className="
-                rounded-xl border border-border/60 bg-card/75 px-2
-                backdrop-blur-sm
-              "
+              className={FILTER_BAR_SURFACE_CLASS_NAME}
+              data-dashboard-filter-bar-surface="true"
             >
-              <div className="flex min-h-8 items-center gap-2">
+              <div className="flex size-full items-center gap-2">
                 {FILTER_BAR_SKELETON_WIDTHS.map((widthClassName) => (
                   <Skeleton
                     className={cn("h-5 rounded-full", widthClassName)}
@@ -92,6 +95,7 @@ export function DashboardFilterBarSkeleton() {
                     ml-auto flex items-center gap-1.5 text-right text-[11px]
                     whitespace-nowrap text-muted-foreground/50 select-none
                   "
+                  data-dashboard-filter-bar-status="true"
                 >
                   <Skeleton className="size-2.5 rounded-full" />
                   <Skeleton
@@ -184,23 +188,16 @@ export const DashboardFilterBar = memo(
             lg:block lg:w-[220px] lg:shrink-0
           "
           />
-          <div
-            className="
-            flex-1
-            lg:min-w-0
-          "
-          >
+          <div className="flex-1 lg:min-w-0">
             <div
-              className={DASHBOARD_FEED_SURFACE_CLASS_NAME}
+              className={FILTER_BAR_WIDTH_CLASS_NAME}
               data-dashboard-width-link="feed"
             >
               <div
-                className="
-                rounded-xl border border-border/60 bg-card/75 px-2
-                backdrop-blur-sm
-              "
+                className={FILTER_BAR_SURFACE_CLASS_NAME}
+                data-dashboard-filter-bar-surface="true"
               >
-                <div className="flex min-h-8 items-center gap-2">
+                <div className="flex size-full min-w-0 items-center gap-2">
                   {ARTICLE_FILTER_OPTIONS.map((value) => (
                     <button
                       aria-pressed={articleFilter === value}
@@ -268,6 +265,7 @@ export const DashboardFilterBar = memo(
                     ml-auto flex items-center gap-1.5 text-right text-[11px]
                     whitespace-nowrap text-muted-foreground/50 select-none
                   "
+                    data-dashboard-filter-bar-status="true"
                   >
                     {showLoadingIndicator ? (
                       <MotionSpinner iconClassName="size-2.5" />

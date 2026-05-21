@@ -13,6 +13,7 @@ import {
   type ArticleFilter,
   type ArticleSortOrder,
 } from "@/app/dashboard/dashboard-services/article";
+import { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "@/app/dashboard/shared";
 
 describe("DashboardFilterBar", () => {
   test("renders the full filter-bar skeleton while the dashboard shell is loading", () => {
@@ -58,15 +59,79 @@ describe("DashboardFilterBar", () => {
 
     expect(linkedWidthSurfaces).toHaveLength(2);
 
-    for (const surface of linkedWidthSurfaces) {
-      expect(surface.getAttribute("class") ?? "").toContain(
-        DASHBOARD_FEED_SURFACE_CLASS_NAME,
-      );
-    }
+    expect(linkedWidthSurfaces[0]?.getAttribute("class") ?? "").toContain(
+      DASHBOARD_FEED_WIDTH_CLASS_NAME,
+    );
+    expect(linkedWidthSurfaces[1]?.getAttribute("class") ?? "").toContain(
+      DASHBOARD_FEED_SURFACE_CLASS_NAME,
+    );
 
     expect(
       container.querySelector('[data-dashboard-feed-scrollbar="true"]'),
     ).toBeTruthy();
+  });
+
+  test("renders the token toolbar shell as a full pill in loaded and skeleton states", () => {
+    const { container, rerender } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const loadedSurface = container.querySelector(
+      '[data-dashboard-filter-bar-surface="true"]',
+    );
+
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain(
+      "rounded-full",
+    );
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain(
+      "overflow-hidden",
+    );
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain("h-8");
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain("bg-card/70");
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain(
+      "border-border",
+    );
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain("w-full");
+    expect(loadedSurface?.getAttribute("class") ?? "").toContain(
+      "dark:shadow-zinc-900/50",
+    );
+
+    rerender(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isShellLoading
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    const skeletonSurface = container.querySelector(
+      '[data-dashboard-filter-bar-surface="true"]',
+    );
+
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain(
+      "rounded-full",
+    );
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain(
+      "overflow-hidden",
+    );
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain("h-8");
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain(
+      "bg-card/70",
+    );
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain(
+      "border-border",
+    );
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain("w-full");
+    expect(skeletonSurface?.getAttribute("class") ?? "").toContain(
+      "dark:shadow-zinc-900/50",
+    );
   });
 
   test("renders a feed scrollbar thumb when the feed viewport overflows", async () => {
@@ -329,9 +394,7 @@ describe("DashboardFilterBar", () => {
       );
 
       expect(thumb?.getAttribute("style") ?? "").toContain("height: 125px");
-      expect(thumb?.getAttribute("style") ?? "").toContain(
-        "translateY(375px)",
-      );
+      expect(thumb?.getAttribute("style") ?? "").toContain("translateY(375px)");
     });
   });
 
