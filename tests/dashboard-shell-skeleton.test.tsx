@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
 import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
+import { FeedLoadMoreSkeletonBlock } from "@/app/dashboard/dashboard-components/feed-view/FeedListSkeleton";
 import {
   DashboardFeedViewport,
   DashboardFilterBarSkeleton,
@@ -95,6 +96,33 @@ describe("DashboardShellSkeleton", () => {
     expect(container.querySelectorAll('[class*="sm:pt-14"]')).toHaveLength(0);
   });
 
+  test("uses the hydrated article row gap for dashboard shell skeleton rows", () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const feedListSkeleton = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton="true"]',
+    );
+
+    expect(feedListSkeleton?.className ?? "").toContain("gap-1.5");
+  });
+
+  test("uses the hydrated article row gap for pagination skeleton rows", () => {
+    const { container } = render(
+      <FeedLoadMoreSkeletonBlock count={4} visible />,
+    );
+
+    const loadMoreSkeletons = container.querySelector<HTMLElement>(
+      '[data-feed-load-more-skeletons="true"]',
+    );
+
+    expect(loadMoreSkeletons?.className ?? "").toContain("gap-1.5");
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-feed-list-skeleton-item="true"]',
+      ),
+    ).toHaveLength(4);
+  });
+
   test("shared dashboard skeleton surfaces do not start with a vertical translate", () => {
     const { container } = render(<DashboardShellSkeleton />);
 
@@ -104,8 +132,8 @@ describe("DashboardShellSkeleton", () => {
     const firstArticleSkeleton = container.querySelector<HTMLElement>(
       '[data-dashboard-feed-list-skeleton-item="true"]',
     );
-    const filterBarSkeletonSurface = container.querySelector<HTMLElement>(
-      '[data-dashboard-filter-bar-surface="true"]',
+    const filterBarSkeletonWidthOwner = container.querySelector<HTMLElement>(
+      '[data-dashboard-filter-bar-skeleton="true"] [data-dashboard-width-link="feed"]',
     );
     const sidebarSkeleton = container.querySelector<HTMLElement>(
       '[data-dashboard-sidebar-skeleton="true"]',
@@ -115,14 +143,14 @@ describe("DashboardShellSkeleton", () => {
     expect(firstArticleSkeleton?.style.transform ?? "").not.toContain(
       "translateY",
     );
-    expect(filterBarSkeletonSurface?.style.transform ?? "").not.toContain(
+    expect(filterBarSkeletonWidthOwner?.style.transform ?? "").not.toContain(
       "translateY",
     );
     expect(sidebarSkeleton?.style.transform ?? "").not.toContain("translateY");
     expect(feedListSkeleton?.className ?? "").toContain("max-w-3xl");
     expect(feedListSkeleton?.className ?? "").toContain("lg:max-w-none");
-    expect(filterBarSkeletonSurface?.className ?? "").toContain("max-w-3xl");
-    expect(filterBarSkeletonSurface?.className ?? "").toContain(
+    expect(filterBarSkeletonWidthOwner?.className ?? "").toContain("max-w-3xl");
+    expect(filterBarSkeletonWidthOwner?.className ?? "").toContain(
       "lg:max-w-none",
     );
   });

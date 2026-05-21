@@ -79,7 +79,7 @@ export function FeedLoadMoreSkeletonBlock(
   }
 
   return (
-    <div data-feed-load-more-skeletons="true">
+    <div className="flex flex-col gap-1.5" data-feed-load-more-skeletons="true">
       <FeedLoadMoreSkeletonRows count={props.count} />
     </div>
   );

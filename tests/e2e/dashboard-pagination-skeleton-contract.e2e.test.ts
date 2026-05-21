@@ -58,7 +58,10 @@ function expectSkeletonsToStayVisibleUntilArticleCommit(
 }
 
 /** Waits for the active feed surface to expose load-more skeletons. */
-async function expectVisibleLoadMoreSkeletons(page: Page, minimumCount: number) {
+async function expectVisibleLoadMoreSkeletons(
+  page: Page,
+  minimumCount: number,
+) {
   await expect
     .poll(async () => {
       return await readLoadMoreSkeletonState(page);
@@ -67,6 +70,42 @@ async function expectVisibleLoadMoreSkeletons(page: Page, minimumCount: number) 
       skeletonCount: minimumCount,
       skeletonsVisible: true,
     });
+}
+
+/** Reads the visible gap between the first two hydrated article rows. */
+async function readHydratedArticleRowGap(page: Page) {
+  return await page.evaluate(() => {
+    const articleRows = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]"),
+    ).filter((row) => row.querySelector("article[data-article-key]") !== null);
+    const firstRowRect = articleRows[0]?.getBoundingClientRect();
+    const secondRowRect = articleRows[1]?.getBoundingClientRect();
+
+    if (!firstRowRect || !secondRowRect) {
+      return null;
+    }
+
+    return Math.round(secondRowRect.top - firstRowRect.bottom);
+  });
+}
+
+/** Reads the visible gap between the first two pagination skeleton rows. */
+async function readLoadMoreSkeletonRowGap(page: Page) {
+  return await page.evaluate(() => {
+    const skeletonRows = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-feed-load-more-skeletons="true"] [data-dashboard-feed-list-skeleton-item="true"]',
+      ),
+    );
+    const firstRowRect = skeletonRows[0]?.getBoundingClientRect();
+    const secondRowRect = skeletonRows[1]?.getBoundingClientRect();
+
+    if (!firstRowRect || !secondRowRect) {
+      return null;
+    }
+
+    return Math.round(secondRowRect.top - firstRowRect.bottom);
+  });
 }
 
 /**
@@ -128,12 +167,17 @@ test.describe("pagination skeleton contract", () => {
       await expect
         .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
+      const hydratedArticleRowGap = await readHydratedArticleRowGap(page);
+      expect(hydratedArticleRowGap).not.toBeNull();
 
       await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
 
       // Skeleton must appear at least once during cached page reveal.
       await expectVisibleLoadMoreSkeletons(page, SMALL_PAGE_SIZE);
+      await expect
+        .poll(async () => readLoadMoreSkeletonRowGap(page))
+        .toBe(hydratedArticleRowGap);
 
       // After skeleton clears the expanded article window must be visible.
       await expect
@@ -234,7 +278,8 @@ test.describe("pagination skeleton contract", () => {
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       const baselineArticleCount = await readVisibleFeedArticleCount(page);
-      const minimumCommittedArticleCount = baselineArticleCount + SMALL_PAGE_SIZE;
+      const minimumCommittedArticleCount =
+        baselineArticleCount + SMALL_PAGE_SIZE;
 
       await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
