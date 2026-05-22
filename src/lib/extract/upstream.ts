@@ -25,7 +25,6 @@ interface FetchHtmlDeps {
  * Describes the options for fetch HTML.
  */
 interface FetchHtmlOptions {
-  allowInsecureTls?: boolean;
   proxyUrl?: string;
   useProxy?: boolean;
 }
@@ -41,7 +40,6 @@ type FetchStageResult =
  * Describes the options for HTTP cloak stage.
  */
 interface HttpCloakStageOptions {
-  allowInsecureTls: boolean;
   attempts: number;
   delayFn: (ms: number) => Promise<void>;
   httpCloakFetchFn: typeof fetchHtmlWithHttpCloak;
@@ -69,7 +67,6 @@ interface StageCompatibilityFailureResult {
  */
 interface StageLogContext {
   [key: string]: unknown;
-  allowInsecureTls: boolean;
   attempt: number;
   attempts: number;
   diagnosticHeaders?: ReturnType<typeof pickDiagnosticHeaders>;
@@ -91,7 +88,7 @@ interface StageLogContext {
  */
 type StageLogExtras = Omit<
   StageLogContext,
-  "allowInsecureTls" | "attempt" | "attempts" | "proxyAddress" | "url"
+  "attempt" | "attempts" | "proxyAddress" | "url"
 > & {
   proxyMode?: ProxyMode;
 };
@@ -100,7 +97,6 @@ type StageLogExtras = Omit<
  * Describes the stage options base.
  */
 interface StageOptionsBase {
-  allowInsecureTls: boolean;
   attempts: number;
   label: string;
   proxyMode: ProxyMode;
@@ -120,12 +116,11 @@ export async function fetchHtml(
   deps?: FetchHtmlDeps,
   options?: FetchHtmlOptions,
 ): Promise<string> {
-  const { allowInsecureTls, delay, httpCloakFetchFn, isAllowedUrl, proxyUrl } =
+  const { delay, httpCloakFetchFn, isAllowedUrl, proxyUrl } =
     resolveFetchHtmlOptions(deps, options);
   const proxyMode = resolveProxyMode(proxyUrl);
   const redactProxyUrl = proxyUrl ? redactUrlForLogs(proxyUrl) : null;
   const httpCloakResult = await runHttpCloakStage({
-    allowInsecureTls,
     attempts: 1 + EXTRACT_403_RETRIES,
     delayFn: delay,
     httpCloakFetchFn,
@@ -182,7 +177,6 @@ function buildStageLogContext(
   const { proxyMode, ...rest } = extra;
 
   return {
-    allowInsecureTls: options.allowInsecureTls,
     attempt: attempt + 1,
     attempts: options.attempts,
     proxyAddress: options.redactProxyUrl,
@@ -230,7 +224,6 @@ function createSuccessCompatibilityError(
 
   return new HttpCloakUpstreamError(
     {
-      allowInsecureTls: options.allowInsecureTls,
       proxyAddress: options.redactProxyUrl,
       proxyMode: options.proxyMode,
       redirectHop: result.redirectHop ?? 0,
@@ -411,7 +404,6 @@ function resolveFetchHtmlOptions(
   const useProxy = options?.useProxy === true;
 
   return {
-    allowInsecureTls: options?.allowInsecureTls === true,
     delay:
       deps?.delayFn ??
       ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
@@ -484,7 +476,6 @@ async function runHttpCloakStage(
         options.url,
         options.isAllowedUrl,
         {
-          allowInsecureTls: options.allowInsecureTls,
           proxyUrl: options.proxyUrl,
         },
       );
