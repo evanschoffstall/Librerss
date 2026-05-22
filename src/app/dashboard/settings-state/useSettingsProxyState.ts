@@ -30,7 +30,6 @@ let cachedProxySettingsSnapshot: null | ProxySettingsSnapshot = null;
 
 /** Stable state contract consumed by the dashboard proxy settings surface. */
 export interface UseSettingsProxyStateResult {
-  allowInsecureTls: boolean;
   compatibilityCheckedAt: null | number;
   compatibilityError: null | string;
   compatibilityResults: CompatibilityResult[] | null;
@@ -51,12 +50,10 @@ export interface UseSettingsProxyStateResult {
   proxyUsername: string;
   resultsRef: RefObject<HTMLDivElement | null>;
   saving: boolean;
-  setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<null | string>>;
   setProxyPassword: Dispatch<SetStateAction<string>>;
   setProxyUrl: Dispatch<SetStateAction<string>>;
   setProxyUsername: Dispatch<SetStateAction<string>>;
-  syncAllowInsecureTls: (checked: boolean) => Promise<void>;
 }
 
 /**
@@ -77,7 +74,6 @@ interface UseSettingsProxyStateResultOptions {
   isRunningCompatibilityCheck: boolean;
   proxyState: ReturnType<typeof useSettingsProxyWritableState>;
   saving: boolean;
-  syncAllowInsecureTls: (checked: boolean) => Promise<void>;
 }
 /**
  * Manage the settings proxy state.
@@ -105,18 +101,14 @@ export function useSettingsProxyState(
   });
   const hasProxy = hasConfiguredProxyStatus(proxyState.proxyStatus);
   const clearCompatibilityResults = useClearCompatibilityResults(proxyState);
-  const {
-    handleClear,
-    handleRunCompatibilityCheck,
-    handleSave,
-    syncAllowInsecureTls,
-  } = useSettingsProxyActions({
-    applyProxySettings,
-    clearCompatibilityResults,
-    hasProxy,
-    proxyState,
-    requestState,
-  });
+  const { handleClear, handleRunCompatibilityCheck, handleSave } =
+    useSettingsProxyActions({
+      applyProxySettings,
+      clearCompatibilityResults,
+      hasProxy,
+      proxyState,
+      requestState,
+    });
 
   return buildUseSettingsProxyStateResult({
     handleClear,
@@ -126,7 +118,6 @@ export function useSettingsProxyState(
     isRunningCompatibilityCheck,
     proxyState,
     saving,
-    syncAllowInsecureTls,
   });
 }
 
@@ -146,10 +137,8 @@ function buildUseSettingsProxyStateResult(
     isRunningCompatibilityCheck,
     proxyState,
     saving,
-    syncAllowInsecureTls,
   } = options;
   return {
-    allowInsecureTls: proxyState.allowInsecureTls,
     compatibilityCheckedAt: proxyState.compatibilityCheckedAt,
     compatibilityError: proxyState.compatibilityError,
     compatibilityResults: proxyState.compatibilityResults,
@@ -170,12 +159,10 @@ function buildUseSettingsProxyStateResult(
     proxyUsername: proxyState.proxyUsername,
     resultsRef: proxyState.resultsRef,
     saving,
-    setAllowInsecureTls: proxyState.setAllowInsecureTls,
     setError: proxyState.setError,
     setProxyPassword: proxyState.setProxyPassword,
     setProxyUrl: proxyState.setProxyUrl,
     setProxyUsername: proxyState.setProxyUsername,
-    syncAllowInsecureTls,
   };
 }
 
@@ -203,7 +190,6 @@ function useApplyProxySettings(
   proxyState: ReturnType<typeof useSettingsProxyWritableState>,
 ) {
   const {
-    setAllowInsecureTls,
     setError,
     setHasProxyPassword,
     setIsInitialProxyLoadPending,
@@ -218,7 +204,6 @@ function useApplyProxySettings(
       cachedProxySettingsSnapshot = snapshot;
       setIsInitialProxyLoadPending(false);
       applyProxySettingsSnapshot({
-        setAllowInsecureTls,
         setError,
         setHasProxyPassword,
         setProxyRoutingCheck,
@@ -229,7 +214,6 @@ function useApplyProxySettings(
       });
     },
     [
-      setAllowInsecureTls,
       setError,
       setHasProxyPassword,
       setIsInitialProxyLoadPending,

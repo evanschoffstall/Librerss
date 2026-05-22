@@ -38,7 +38,6 @@ export interface SettingsProxyRequestState {
  * Describes the settings proxy writable state.
  */
 export interface SettingsProxyWritableState {
-  allowInsecureTls: boolean;
   compatibilityCheckedAt: null | number;
   compatibilityError: null | string;
   compatibilityResults: CompatibilityResult[] | null;
@@ -53,7 +52,6 @@ export interface SettingsProxyWritableState {
   proxyUrl: string;
   proxyUsername: string;
   resultsRef: RefObject<HTMLDivElement | null>;
-  setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
   setCompatibilityCheckedAt: Dispatch<SetStateAction<null | number>>;
   setCompatibilityError: Dispatch<SetStateAction<null | string>>;
   setCompatibilityResults: Dispatch<
@@ -74,7 +72,6 @@ export interface SettingsProxyWritableState {
  * Describes the options for apply proxy settings snapshot.
  */
 interface ApplyProxySettingsSnapshotOptions {
-  setAllowInsecureTls: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<null | string>>;
   setHasProxyPassword: Dispatch<SetStateAction<boolean>>;
   setProxyRoutingCheck: Dispatch<SetStateAction<null | ProxyRoutingCheck>>;
@@ -92,7 +89,6 @@ export function applyProxySettingsSnapshot(
   options: ApplyProxySettingsSnapshotOptions,
 ) {
   const {
-    setAllowInsecureTls,
     setError,
     setHasProxyPassword,
     setProxyRoutingCheck,
@@ -102,7 +98,6 @@ export function applyProxySettingsSnapshot(
     snapshot,
   } = options;
   setProxyUrl(snapshot.proxyUrl);
-  setAllowInsecureTls(snapshot.allowInsecureTls);
   setProxyUsername(snapshot.proxyUsername);
   setHasProxyPassword(snapshot.hasProxyPassword);
   setProxyRoutingCheck(snapshot.routingCheck);
@@ -240,9 +235,6 @@ function useSettingsProxyFormState(
   const [error, setError] = useState<null | string>(
     () => initialSnapshot?.error ?? null,
   );
-  const [allowInsecureTls, setAllowInsecureTls] = useState(
-    () => initialSnapshot?.allowInsecureTls ?? false,
-  );
   const [proxyUsername, setProxyUsername] = useState(
     () => initialSnapshot?.proxyUsername ?? "",
   );
@@ -260,7 +252,6 @@ function useSettingsProxyFormState(
   const inputRef = useRef<HTMLInputElement>(null);
 
   return {
-    allowInsecureTls,
     error,
     hasProxyPassword,
     inputRef,
@@ -270,7 +261,6 @@ function useSettingsProxyFormState(
     proxyStatus,
     proxyUrl,
     proxyUsername,
-    setAllowInsecureTls,
     setError,
     setHasProxyPassword,
     setIsInitialProxyLoadPending,
