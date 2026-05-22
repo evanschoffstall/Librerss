@@ -40,6 +40,7 @@ import {
 } from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
 import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
 import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
+import { getFeedSourceTreeQueryKey } from "@/app/dashboard/dashboard-services/feed-view-model";
 import { ArticleService, FeedService } from "@/lib/api";
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 
@@ -57,6 +58,78 @@ const getBundledPlaceholderArticle = () => {
 };
 
 describe("useFeedLoader", () => {
+  test("reuses cached feed sources immediately while refreshing them in the background", async () => {
+    const categoriesRef = { current: [] as CategoryTreeNode[] };
+    const cachedCategories: CategoryTreeNode[] = [
+      {
+        children: [],
+        key: "cached-feed",
+        label: "Cached Feed",
+      },
+    ];
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const setCategories = mock(
+      (updater: React.SetStateAction<CategoryTreeNode[]>) => {
+        categoriesRef.current =
+          typeof updater === "function"
+            ? updater(categoriesRef.current)
+            : updater;
+      },
+    );
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    queryClient.setQueryData(
+      getFeedSourceTreeQueryKey(false),
+      cachedCategories,
+    );
+    FeedService.getFeedSources = mock(
+      async () => [],
+    ) as typeof FeedService.getFeedSources;
+
+    try {
+      const { result } = renderHook(
+        () =>
+          useFeedLoader({
+            articleFilter: "all",
+            articleSortOrder: "newest",
+            categoriesRef,
+            feedRef: { current: [] },
+            setCategories,
+            setExpandedArticleKey: mock(() => {}),
+            setFeed: mock(() => {}),
+            setLoading: mock(() => {}),
+            usePlaceholderData: false,
+          }),
+        { wrapper },
+      );
+
+      let resolvedCategories: CategoryTreeNode[] = [];
+      await runWithAct(async () => {
+        resolvedCategories = await result.current.loadFeedSources();
+      });
+
+      expect(resolvedCategories).toEqual(cachedCategories);
+      expect(setCategories).toHaveBeenCalledWith(cachedCategories);
+
+      await waitFor(() => {
+        expect(FeedService.getFeedSources).toHaveBeenCalledTimes(1);
+      });
+    } finally {
+      queryClient.clear();
+    }
+  });
+
   test("reuses a prefetched batch query without clearing the feed", async () => {
     const categoriesRef = { current: [] as CategoryTreeNode[] };
     const prefetchedFeedUrl = "https://example.com/prefetched.xml";

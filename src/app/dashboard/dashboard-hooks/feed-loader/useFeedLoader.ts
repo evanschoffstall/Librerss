@@ -31,6 +31,13 @@ import { type FeedFetchOptions } from "@/app/dashboard/dashboard-services/select
 import { clientFeedRefreshDiagnosticsEnabled } from "@/lib/config";
 
 /**
+ * Keep the feed source tree warm long enough for repeat dashboard visits to
+ * reuse the last resolved category snapshot instead of blocking on an
+ * immediate refetch before the first feed batch can start.
+ */
+const FEED_SOURCE_TREE_CACHE_STALE_TIME_MS = 60_000;
+
+/**
  * Describes the options for feed loader selection state.
  */
 interface FeedLoaderSelectionStateOptions {
@@ -298,14 +305,35 @@ function useFeedLoaderSelectionState(options: FeedLoaderSelectionStateOptions) {
 function useFeedSourceTreeLoader(options: FeedSourceTreeLoaderOptions) {
   const { queryClient, setCategories, usePlaceholderData } = options;
   return useCallback(async (): Promise<CategoryTreeNode[]> => {
+    const queryKey = getFeedSourceTreeQueryKey(usePlaceholderData);
+    const cachedCategories =
+      queryClient.getQueryData<CategoryTreeNode[]>(queryKey);
+
+    if (cachedCategories) {
+      setCategories(cachedCategories);
+
+      void queryClient.prefetchQuery({
+        /**
+         * Refreshes the cached tree in the background so warm visits can
+         * unmask immediately while still converging on the latest source list.
+         * @returns The fetched category tree.
+         */
+        queryFn: () => loadFeedSourceTree(usePlaceholderData),
+        queryKey,
+        staleTime: 0,
+      });
+
+      return cachedCategories;
+    }
+
     const nextCategories = await queryClient.fetchQuery({
       /**
        * Loads the latest feed source tree for the active placeholder mode.
        * @returns The fetched category tree.
        */
       queryFn: () => loadFeedSourceTree(usePlaceholderData),
-      queryKey: getFeedSourceTreeQueryKey(usePlaceholderData),
-      staleTime: 0,
+      queryKey,
+      staleTime: FEED_SOURCE_TREE_CACHE_STALE_TIME_MS,
     });
     setCategories(nextCategories);
     return nextCategories;
