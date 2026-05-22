@@ -42,6 +42,16 @@ export interface SchedulePendingServerRevealCompletionOptions extends PendingSer
 }
 
 /**
+ * Describes the options for the settled pending-reveal completion path that runs
+ * after loading stops and the current window has already caught up.
+ */
+export interface ScheduleSettledPendingRevealCompletionOptions extends PendingServerRevealLifecycleOptions {
+  settledPendingRevealTimeoutRef: {
+    current: null | ReturnType<typeof setTimeout>;
+  };
+}
+
+/**
  * Describes the pending server reveal count ref.
  */
 interface PendingServerRevealCountRef {
@@ -76,7 +86,7 @@ export function cancelPendingServerRevealCompletion(
   pendingServerRevealCountRef.current = null;
 
   if (pendingServerRevealFrameRef.current !== null) {
-    window.cancelAnimationFrame(pendingServerRevealFrameRef.current);
+    clearTimeout(pendingServerRevealFrameRef.current);
     pendingServerRevealFrameRef.current = null;
   }
 
@@ -191,7 +201,10 @@ export function schedulePendingServerRevealCompletion(
   options: SchedulePendingServerRevealCompletionOptions,
 ) {
   if (
-    options.pendingServerRevealCountRef.current === options.filteredFeedLength
+    options.pendingServerRevealCountRef.current ===
+      options.filteredFeedLength &&
+    (options.pendingServerRevealFrameRef.current !== null ||
+      options.pendingServerRevealTimeoutRef.current !== null)
   ) {
     return;
   }
@@ -202,52 +215,92 @@ export function schedulePendingServerRevealCompletion(
     options.pendingServerRevealTimeoutRef,
   );
   options.pendingServerRevealCountRef.current = options.filteredFeedLength;
-  options.pendingServerRevealFrameRef.current = window.requestAnimationFrame(
-    () => {
-      options.pendingServerRevealFrameRef.current = null;
-      options.pendingServerRevealTimeoutRef.current = setTimeout(() => {
-        options.pendingServerRevealTimeoutRef.current = null;
+  options.pendingServerRevealFrameRef.current = window.setTimeout(() => {
+    options.pendingServerRevealFrameRef.current = null;
+    options.pendingServerRevealTimeoutRef.current = setTimeout(() => {
+      options.pendingServerRevealTimeoutRef.current = null;
 
-        if (
-          options.pendingServerRevealCountRef.current !==
-            options.filteredFeedLength ||
-          (!options.hasPendingServerRevealRef.current &&
-            !options.hasRequestedServerLoadRef.current)
-        ) {
-          return;
-        }
-
-        // The skeleton contract is skeletons first, then the incoming article
-        // rows in the same transition. Commit the expanded visible window before
-        // the reveal releases ownership so standard scroll cannot briefly render
-        // the old article window with no load-more skeleton rows.
-        if (
-          options.filteredFeedLength > options.visibleArticleCountRef.current
-        ) {
-          options.commitVisibleArticleCount(options.filteredFeedLength);
-          options.pendingServerRevealTimeoutRef.current = setTimeout(() => {
-            options.pendingServerRevealTimeoutRef.current = null;
-
-            if (
-              options.pendingServerRevealCountRef.current !==
-                options.filteredFeedLength ||
-              (!options.hasPendingServerRevealRef.current &&
-                !options.hasRequestedServerLoadRef.current)
-            ) {
-              return;
-            }
-
-            options.pendingServerRevealCountRef.current = null;
-            completePendingServerReveal(options);
-          }, SKELETON_MIN_VISIBLE_MS);
-          return;
-        }
-
+      if (
+        options.pendingServerRevealCountRef.current !==
+          options.filteredFeedLength ||
+        (!options.hasPendingServerRevealRef.current &&
+          !options.hasRequestedServerLoadRef.current)
+      ) {
         options.pendingServerRevealCountRef.current = null;
-        completePendingServerReveal(options);
-      }, SKELETON_MIN_VISIBLE_MS);
-    },
-  );
+        return;
+      }
+
+      // The skeleton contract is skeletons first, then the incoming article
+      // rows in the same transition. Commit the expanded visible window before
+      // the reveal releases ownership so standard scroll cannot briefly render
+      // the old article window with no load-more skeleton rows.
+      if (options.filteredFeedLength > options.visibleArticleCountRef.current) {
+        options.commitVisibleArticleCount(options.filteredFeedLength);
+        options.pendingServerRevealTimeoutRef.current = setTimeout(() => {
+          options.pendingServerRevealTimeoutRef.current = null;
+
+          if (
+            options.pendingServerRevealCountRef.current !==
+              options.filteredFeedLength ||
+            (!options.hasPendingServerRevealRef.current &&
+              !options.hasRequestedServerLoadRef.current)
+          ) {
+            options.pendingServerRevealCountRef.current = null;
+            return;
+          }
+
+          options.pendingServerRevealCountRef.current = null;
+          completePendingServerReveal(options);
+        }, SKELETON_MIN_VISIBLE_MS);
+        return;
+      }
+
+      options.pendingServerRevealCountRef.current = null;
+      completePendingServerReveal(options);
+    }, SKELETON_MIN_VISIBLE_MS);
+  }, 0);
+}
+
+/**
+ * Schedule terminal pending-reveal cleanup after the minimum skeleton-visible
+ * interval when loading has already settled and no further visible-count commit
+ * is required.
+ * @param options - The reveal lifecycle refs and timeout handle for the settled cleanup path.
+ * @returns A cleanup callback that cancels the pending settled cleanup timeout.
+ */
+export function scheduleSettledPendingRevealCompletion(
+  options: ScheduleSettledPendingRevealCompletionOptions,
+) {
+  options.settledPendingRevealTimeoutRef.current = setTimeout(() => {
+    options.settledPendingRevealTimeoutRef.current = null;
+
+    if (!options.hasPendingServerRevealRef.current) {
+      return;
+    }
+
+    completePendingServerReveal({
+      hasCompletedInvertedServerRevealRef:
+        options.hasCompletedInvertedServerRevealRef,
+      hasPendingServerRevealRef: options.hasPendingServerRevealRef,
+      hasResolvedStandardViewportRevealRef:
+        options.hasResolvedStandardViewportRevealRef,
+      isInvertedScroll: options.isInvertedScroll,
+      isStandardViewportRefillActiveRef:
+        options.isStandardViewportRefillActiveRef,
+      lastInvertedAwayBoundarySnapshotRef:
+        options.lastInvertedAwayBoundarySnapshotRef,
+      lastInvertedScrollTopRef: options.lastInvertedScrollTopRef,
+      setIsPendingServerRevealVisible: options.setIsPendingServerRevealVisible,
+      startServerLoadRearmCooldown: options.startServerLoadRearmCooldown,
+    });
+  }, SKELETON_MIN_VISIBLE_MS);
+
+  return () => {
+    if (options.settledPendingRevealTimeoutRef.current !== null) {
+      clearTimeout(options.settledPendingRevealTimeoutRef.current);
+      options.settledPendingRevealTimeoutRef.current = null;
+    }
+  };
 }
 
 /**

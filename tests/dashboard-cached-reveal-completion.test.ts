@@ -1,22 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 import { useCachedRevealCompletionEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useCachedRevealCompletionEffect";
-
-// ---------------------------------------------------------------------------
-// rAF mock
-// ---------------------------------------------------------------------------
-
-const originalRequestAnimationFrame = global.requestAnimationFrame;
-const originalCancelAnimationFrame = global.cancelAnimationFrame;
-
-interface MockRAFQueue {
-  callbacks: Map<number, FrameRequestCallback>;
-  cancel: (id: number) => void;
-  flush: () => void;
-  nextId: number;
-  request: (cb: FrameRequestCallback) => number;
-}
 
 function buildDefaultOptions(
   overrides?: Partial<{
@@ -37,29 +22,10 @@ function buildDefaultOptions(
   };
 }
 
-function createMockRAFQueue(): MockRAFQueue {
-  const callbacks = new Map<number, FrameRequestCallback>();
-  let nextId = 1;
-
-  return {
-    callbacks,
-    cancel: (id: number) => {
-      callbacks.delete(id);
-    },
-    flush: () => {
-      const pending = Array.from(callbacks.entries());
-      callbacks.clear();
-      for (const [, cb] of pending) {
-        cb(0);
-      }
-    },
-    nextId,
-    request: (cb: FrameRequestCallback) => {
-      const id = nextId++;
-      callbacks.set(id, cb);
-      return id;
-    },
-  };
+async function flushDeferredPaginationCheck() {
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -67,23 +33,6 @@ function createMockRAFQueue(): MockRAFQueue {
 // ---------------------------------------------------------------------------
 
 describe("useCachedRevealCompletionEffect", () => {
-  let raf: MockRAFQueue;
-
-  beforeEach(() => {
-    raf = createMockRAFQueue();
-    global.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
-    global.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
-    window.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
-    window.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
-  });
-
-  afterEach(() => {
-    global.requestAnimationFrame = originalRequestAnimationFrame;
-    global.cancelAnimationFrame = originalCancelAnimationFrame;
-    window.requestAnimationFrame = originalRequestAnimationFrame;
-    window.cancelAnimationFrame = originalCancelAnimationFrame;
-  });
-
   test("does not fire on initial mount with isCachedPageRevealing=false", () => {
     const options = buildDefaultOptions();
 
@@ -141,7 +90,7 @@ describe("useCachedRevealCompletionEffect", () => {
     expect(options.maybeLoadNextPage).not.toHaveBeenCalled();
   });
 
-  test("schedules deferred maybeLoadNextPage via rAF after reveal", () => {
+  test("schedules deferred maybeLoadNextPage via timeout after reveal", async () => {
     const options = buildDefaultOptions({ isCachedPageRevealing: true });
 
     const { rerender } = renderHook(() =>
@@ -154,21 +103,18 @@ describe("useCachedRevealCompletionEffect", () => {
       rerender();
     });
 
-    // rAF should be scheduled but not yet fired.
+    // The timeout should be scheduled but not yet fired.
     expect(options.paginationFrameRef.current).not.toBeNull();
     expect(options.maybeLoadNextPage).not.toHaveBeenCalled();
 
-    // Flush the rAF.
-    act(() => {
-      raf.flush();
-    });
+    await flushDeferredPaginationCheck();
 
     expect(options.maybeLoadNextPage).toHaveBeenCalledTimes(1);
     expect(options.maybeLoadNextPage).toHaveBeenCalledWith("sentinel");
     expect(options.paginationFrameRef.current).toBeNull();
   });
 
-  test("does not schedule rAF if paginationFrameRef already occupied", () => {
+  test("does not schedule timeout if paginationFrameRef already occupied", () => {
     const options = buildDefaultOptions({ isCachedPageRevealing: true });
     options.paginationFrameRef.current = 999;
 

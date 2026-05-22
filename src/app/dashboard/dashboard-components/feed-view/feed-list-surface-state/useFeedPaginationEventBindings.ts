@@ -103,7 +103,7 @@ export function useFeedPaginationCleanupEffect(
       }
 
       if (paginationFrameId !== null) {
-        window.cancelAnimationFrame(paginationFrameId);
+        window.clearTimeout(paginationFrameId);
       }
 
       if (normalScrollIntentSuppressionFrameId !== null) {
@@ -403,13 +403,13 @@ function createScrollIntentHandler(
     options.rearmPaginationBoundaryFromUserIntent();
 
     if (options.paginationFrameRef.current !== null) {
-      window.cancelAnimationFrame(options.paginationFrameRef.current);
+      window.clearTimeout(options.paginationFrameRef.current);
     }
 
-    options.paginationFrameRef.current = window.requestAnimationFrame(() => {
+    options.paginationFrameRef.current = window.setTimeout(() => {
       options.paginationFrameRef.current = null;
       options.maybeLoadNextPage("scroll");
-    });
+    }, 0);
   };
 }
 
@@ -450,10 +450,10 @@ function handleSentinelIntersection(
     return;
   }
 
-  options.paginationFrameRef.current = window.requestAnimationFrame(() => {
+  options.paginationFrameRef.current = window.setTimeout(() => {
     options.paginationFrameRef.current = null;
     options.maybeLoadNextPage("sentinel");
-  });
+  }, 0);
 }
 
 /**

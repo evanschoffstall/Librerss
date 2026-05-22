@@ -93,10 +93,10 @@ export function completeFeedServerLoadCooldown(
     options.paginationFrameRef.current === null &&
     options.maybeLoadNextPageRef.current
   ) {
-    options.paginationFrameRef.current = window.requestAnimationFrame(() => {
+    options.paginationFrameRef.current = window.setTimeout(() => {
       options.paginationFrameRef.current = null;
       options.maybeLoadNextPageRef.current?.("sentinel");
-    });
+    }, 0);
   }
 
   options.serverLoadCooldownTimerRef.current = null;
@@ -312,9 +312,21 @@ function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
           requestOptions?.isViewportRefill ?? false;
       }
 
+      options.hasRequestedServerLoadRef.current = true;
+      options.hasPendingServerRevealRef.current = true;
+      options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
+      options.setIsPendingServerRevealVisible(
+        !(requestOptions?.isViewportRefill ?? false),
+      );
+
       const didAcceptLoadRequest = options.onLoadMore() !== false;
 
       if (!didAcceptLoadRequest) {
+        options.hasRequestedServerLoadRef.current = false;
+        options.hasPendingServerRevealRef.current = false;
+        options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
+        options.setIsPendingServerRevealVisible(false);
+
         if (!options.isInvertedScroll) {
           options.isStandardViewportRefillActiveRef.current = false;
         }
@@ -322,12 +334,6 @@ function useRequestMoreFromServer(options: RequestMoreFromServerOptions) {
         return false;
       }
 
-      options.hasRequestedServerLoadRef.current = true;
-      options.hasPendingServerRevealRef.current = true;
-      options.hasPendingBoundaryRearmAfterCooldownRef.current = false;
-      options.setIsPendingServerRevealVisible(
-        !(requestOptions?.isViewportRefill ?? false),
-      );
       return true;
     },
     [options],

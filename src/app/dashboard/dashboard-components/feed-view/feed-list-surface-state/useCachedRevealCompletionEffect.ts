@@ -54,10 +54,10 @@ export function useCachedRevealCompletionEffect(
       return;
     }
 
-    paginationFrameRef.current ??= window.requestAnimationFrame(() => {
+    paginationFrameRef.current ??= window.setTimeout(() => {
       paginationFrameRef.current = null;
       maybeLoadNextPage("sentinel");
-    });
+    }, 0);
   }, [
     isCachedPageRevealing,
     isInvertedLoadBoundaryArmedRef,

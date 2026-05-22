@@ -143,7 +143,7 @@ export function resetPaginationRuntimeState(
   options.lastStandardScrollTopRef.current = null;
 
   if (options.paginationFrameRef.current !== null) {
-    window.cancelAnimationFrame(options.paginationFrameRef.current);
+    window.clearTimeout(options.paginationFrameRef.current);
     options.paginationFrameRef.current = null;
   }
 }

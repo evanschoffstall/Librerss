@@ -27,6 +27,7 @@ import {
   cancelPendingServerRevealCompletion,
   completePendingServerReveal,
   handleFeedPaginationRevealCountTransition,
+  scheduleSettledPendingRevealCompletion,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/pendingServerReveal";
 
 export { useFeedPaginationStaleResumeResetEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationStaleResumeResetEffect";
@@ -73,7 +74,13 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     startServerLoadRearmCooldown,
     visibleArticleCount,
   } = options;
+  const settledPendingRevealTimeoutRef = useRef<null | ReturnType<
+    typeof setTimeout
+  >>(null);
+
   useLayoutEffect(() => {
+    const didJustStopLoading =
+      previousIsLoadingMoreRef.current && !isLoadingMore;
     previousIsLoadingMoreRef.current = isLoadingMore;
 
     if (isLoadingMore || !hasPendingServerRevealRef.current) {
@@ -84,8 +91,19 @@ export function useFeedPaginationLoadingMoreRevealEffect(
       return;
     }
 
-    if (canLoadMoreFromServer) {
-      return;
+    if (didJustStopLoading && canLoadMoreFromServer) {
+      return scheduleSettledPendingRevealCompletion({
+        hasCompletedInvertedServerRevealRef,
+        hasPendingServerRevealRef,
+        hasResolvedStandardViewportRevealRef,
+        isInvertedScroll,
+        isStandardViewportRefillActiveRef,
+        lastInvertedAwayBoundarySnapshotRef,
+        lastInvertedScrollTopRef,
+        setIsPendingServerRevealVisible,
+        settledPendingRevealTimeoutRef,
+        startServerLoadRearmCooldown,
+      });
     }
 
     completePendingServerReveal({
@@ -114,6 +132,7 @@ export function useFeedPaginationLoadingMoreRevealEffect(
     previousIsLoadingMoreRef,
     startServerLoadRearmCooldown,
     visibleArticleCount,
+    settledPendingRevealTimeoutRef,
   ]);
 }
 
@@ -473,6 +492,7 @@ export function useResolvedStandardViewportRevealEffect(
     maybeAutoFillViewport,
   ]);
 }
+
 /**
  * Manage the visible article count ref sync.
  * @param options - The options used to manage the visible article count ref sync.

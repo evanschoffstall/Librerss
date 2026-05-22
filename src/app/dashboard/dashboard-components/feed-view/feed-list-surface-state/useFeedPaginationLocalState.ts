@@ -155,7 +155,7 @@ function cancelPendingCachedRevealFrame(
     return;
   }
 
-  window.cancelAnimationFrame(pendingCachedRevealFrameRef.current);
+  clearTimeout(pendingCachedRevealFrameRef.current);
   pendingCachedRevealFrameRef.current = null;
 }
 
@@ -237,7 +237,7 @@ function useCachedPageRevealState(
 
       setIsCachedPageRevealing(true);
 
-      pendingCachedRevealFrameRef.current = window.requestAnimationFrame(() => {
+      pendingCachedRevealFrameRef.current = window.setTimeout(() => {
         pendingCachedRevealFrameRef.current = null;
 
         pendingCachedRevealTimeoutRef.current = setTimeout(() => {

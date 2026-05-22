@@ -1,20 +1,10 @@
 import { act, renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 import {
   completeFeedServerLoadCooldown,
   useFeedPaginationServerLoad,
 } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
-
-const originalRequestAnimationFrame = global.requestAnimationFrame;
-const originalCancelAnimationFrame = global.cancelAnimationFrame;
-
-interface MockRAFQueue {
-  callbacks: Map<number, FrameRequestCallback>;
-  cancel: (id: number) => void;
-  flush: () => void;
-  request: (cb: FrameRequestCallback) => number;
-}
 
 function buildCooldownOptions(
   overrides?: Partial<Parameters<typeof completeFeedServerLoadCooldown>[0]>,
@@ -34,49 +24,14 @@ function buildCooldownOptions(
   };
 }
 
-function createMockRAFQueue(): MockRAFQueue {
-  const callbacks = new Map<number, FrameRequestCallback>();
-  let nextId = 1;
-
-  return {
-    callbacks,
-    cancel: (id: number) => {
-      callbacks.delete(id);
-    },
-    flush: () => {
-      const pending = Array.from(callbacks.entries());
-      callbacks.clear();
-      for (const [, callback] of pending) {
-        callback(0);
-      }
-    },
-    request: (callback: FrameRequestCallback) => {
-      const id = nextId++;
-      callbacks.set(id, callback);
-      return id;
-    },
-  };
+async function flushDeferredPaginationCheck() {
+  await act(async () => {
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 describe("completeFeedServerLoadCooldown", () => {
-  let raf: MockRAFQueue;
-
-  beforeEach(() => {
-    raf = createMockRAFQueue();
-    global.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
-    global.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
-    window.requestAnimationFrame = raf.request as typeof requestAnimationFrame;
-    window.cancelAnimationFrame = raf.cancel as typeof cancelAnimationFrame;
-  });
-
-  afterEach(() => {
-    global.requestAnimationFrame = originalRequestAnimationFrame;
-    global.cancelAnimationFrame = originalCancelAnimationFrame;
-    window.requestAnimationFrame = originalRequestAnimationFrame;
-    window.cancelAnimationFrame = originalCancelAnimationFrame;
-  });
-
-  test("re-arms the standard boundary and schedules a deferred sentinel re-check", () => {
+  test("re-arms the standard boundary and schedules a deferred sentinel re-check", async () => {
     const options = buildCooldownOptions();
 
     completeFeedServerLoadCooldown(options);
@@ -86,9 +41,7 @@ describe("completeFeedServerLoadCooldown", () => {
     expect(options.paginationFrameRef.current).not.toBeNull();
     expect(options.maybeLoadNextPageRef.current).not.toHaveBeenCalled();
 
-    act(() => {
-      raf.flush();
-    });
+    await flushDeferredPaginationCheck();
 
     expect(options.paginationFrameRef.current).toBeNull();
     expect(options.maybeLoadNextPageRef.current).toHaveBeenCalledWith(
@@ -120,7 +73,7 @@ describe("completeFeedServerLoadCooldown", () => {
     expect(options.maybeLoadNextPageRef.current).not.toHaveBeenCalled();
   });
 
-  test("runs an inverted pagination check after cooldown when user intent was queued", () => {
+  test("runs an inverted pagination check after cooldown when user intent was queued", async () => {
     const options = buildCooldownOptions({
       hasPendingBoundaryRearmAfterCooldownRef: { current: true },
       isInvertedScroll: true,
@@ -133,9 +86,7 @@ describe("completeFeedServerLoadCooldown", () => {
     expect(options.paginationFrameRef.current).not.toBeNull();
     expect(options.maybeLoadNextPageRef.current).not.toHaveBeenCalled();
 
-    act(() => {
-      raf.flush();
-    });
+    await flushDeferredPaginationCheck();
 
     expect(options.paginationFrameRef.current).toBeNull();
     expect(options.maybeLoadNextPageRef.current).toHaveBeenCalledWith(
