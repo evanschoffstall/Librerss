@@ -22,7 +22,7 @@ import {
   updateFeedSettingsAndRefresh,
 } from "@/app/dashboard/dashboard-services/feed-data/source/operations";
 import { importOpmlFeedsAndRefresh } from "@/app/dashboard/dashboard-services/opml-import";
-import { FeedService } from "@/lib/api";
+import { ApiError, FeedService } from "@/lib/api";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils";
 
 type FeedSourceResponse = Awaited<
@@ -728,6 +728,46 @@ describe("dashboard OPML and feed-source operations", () => {
       forceRefresh: true,
       requestSource: "feed-added",
     });
+  });
+
+  test("surfaces validated server errors when adding a feed source fails", async () => {
+    const selectedCategory = createStateHarness("");
+
+    FeedService.createFeedSource = mock(async () => {
+      throw new ApiError(
+        "Request failed with status code 502",
+        null,
+        "POST",
+        {},
+        {
+          data: {
+            error: "Upstream returned HTML instead of RSS or Atom feed XML",
+          },
+          headers: {},
+          status: 502,
+          statusText: "Bad Gateway",
+        },
+        "/api/feeds",
+      );
+    }) as typeof FeedService.createFeedSource;
+
+    expect(
+      await addFeedSourceAndRefresh({
+        category: "News",
+        fetchFeed: mock(async () => {}),
+        loadFeedSources: mock(async () => []),
+        name: "Example Feed",
+        setSelectedCategory:
+          selectedCategory.setter as unknown as React.Dispatch<
+            React.SetStateAction<string>
+          >,
+        url: "https://example.com/news.xml",
+      }),
+    ).toBe(false);
+
+    expect(toast.error).toHaveBeenCalledWith(
+      "Upstream returned HTML instead of RSS or Atom feed XML",
+    );
   });
 
   test("reorders feeds locally and persists cross-category moves", async () => {

@@ -14,7 +14,7 @@ import {
   resolvePostEnabledToggleSelection,
   resolvePostRemovalSelection,
 } from "@/app/dashboard/dashboard-services/feed-data/source/state";
-import { FeedService } from "@/lib/api";
+import { FeedService, isApiError } from "@/lib/api";
 import {
   isSafePositiveItemId,
   isSameCategoryLabel,
@@ -176,7 +176,9 @@ export async function addFeedSourceAndRefresh(
     return true;
   } catch (err) {
     console.error("Add feed source error:", err);
-    toast.error("Unable to add feed source.");
+    toast.error(
+      getAddFeedSourceErrorMessage(err) ?? "Unable to add feed source.",
+    );
     return false;
   }
 }
@@ -479,6 +481,28 @@ async function applyPostRemovalSelection(
   if (nextSelection.type === "category") {
     await fetchCategoryFeeds(nextSelection.categoryNode);
   }
+}
+
+/**
+ * Extract a user-facing error message from a failed add-feed request when the
+ * server returned a validated JSON error payload.
+ * @param error - Unknown error thrown by the feed-service client.
+ * @returns The normalized server error string, or `null` when unavailable.
+ */
+function getAddFeedSourceErrorMessage(error: unknown): null | string {
+  if (!isApiError<{ error?: unknown }>(error)) {
+    return null;
+  }
+
+  const responseData = error.response?.data;
+  if (responseData === undefined) {
+    return null;
+  }
+
+  const { error: message } = responseData;
+  return typeof message === "string" && message.trim().length > 0
+    ? message
+    : null;
 }
 /**
  * Return the feed source reference.
