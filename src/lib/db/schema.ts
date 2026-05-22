@@ -83,7 +83,6 @@ const defineUserOwnedAuditColumns = () => ({
 });
 
 export const users = pgTable("User", {
-  allowInsecureTls: boolean("allow_insecure_tls").notNull().default(false),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
     .notNull()
     .defaultNow(),
