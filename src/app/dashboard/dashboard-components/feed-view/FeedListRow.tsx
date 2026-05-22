@@ -1,17 +1,25 @@
 import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import {
+  DASHBOARD_SHELL_HANDOFF_OPACITY_DELAY_MS,
+  DASHBOARD_SHELL_HANDOFF_OPACITY_DURATION_MS,
+  DASHBOARD_SHELL_HANDOFF_TOTAL_DONE_MS,
+} from "@/app/dashboard/dashboard-components";
+import {
+  FEED_ARTICLE_SKELETONS,
   FEED_ROW_COLLAPSE_FLOOR_PX,
   FEED_ROW_GAP_PX,
+  type FeedArticleSkeletonDescriptor,
 } from "@/app/dashboard/dashboard-components/feed-config";
+import { FeedArticleCardSkeleton } from "@/app/dashboard/dashboard-components/feed-view/FeedArticleCardSkeleton";
 import { type FeedListRowProps } from "@/app/dashboard/dashboard-components/feed-view/FeedList.types";
 import { getArticleRemovalAnimationDuration } from "@/app/dashboard/display-types";
 
 /**
  * The three phases of the entrance animation:
  * - "none": article is not entering (idle post-load)
- * - "initial": maxHeight=0/opacity=0 painted; measuring content height
- * - "animating": CSS transition running (expanding height + fading in)
+ * - "initial": skeleton-backed row is mounted with hydrated content hidden
+ * - "animating": hydrated content fades in over the stable skeleton footprint
  * - "done": settled; inline override styles cleared; onEnteringDone fired.
  */
 type EnterPhase = "animating" | "done" | "initial" | "none";
@@ -19,18 +27,6 @@ type EnterPhase = "animating" | "done" | "initial" | "none";
  * Defines the feed row release phase type.
  */
 type FeedRowReleasePhase = "collapsing" | "fading" | "idle";
-
-/** Duration of the height-expansion part of the entrance animation (ms). */
-const ARTICLE_ENTER_HEIGHT_DURATION_MS = 400;
-/** Opacity fade-in duration (ms). */
-const ARTICLE_ENTER_OPACITY_DURATION_MS = 260;
-/** Opacity fade-in delay so it starts the height is visibly growing (ms). */
-const ARTICLE_ENTER_OPACITY_DELAY_MS = 90;
-/** Total time until cleanup fires (height anim + small buffer). */
-const ARTICLE_ENTER_TOTAL_DONE_MS =
-  ARTICLE_ENTER_HEIGHT_DURATION_MS + ARTICLE_ENTER_OPACITY_DELAY_MS + 20;
-/** Ease used for the height expansion — a smooth spring-like deceleration. */
-const ARTICLE_ENTER_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
 
 const FEED_ROW_COLLAPSE_OFFSET_PX = FEED_ROW_COLLAPSE_FLOOR_PX;
 
@@ -66,26 +62,18 @@ export const FeedListRow = memo(
       : 0;
     const transitionMs = Math.max(durationMs, 180);
 
-    // ── Entering: kick off "initial" phase when isEntering prop becomes true ──
-    // Only transition from "none" → "initial" so we don't restart a mid-flight anim.
     useLayoutEffect(() => {
       if (!isEntering || isCollapsing) {
-        if (!isEntering || isCollapsing) {
-          setEnterPhase("none");
-        }
+        setEnterPhase("none");
         return;
       }
 
       setEnterPhase((prev) => (prev === "none" ? "initial" : prev));
     }, [isCollapsing, isEntering]);
 
-    // ── Entering "initial": measure content height, then schedule anim frame ──
     useEffect(() => {
       if (enterPhase !== "initial") return;
 
-      // body.scrollHeight gives the natural content height even when the inner
-      // div has maxHeight:0 applied by the JSX styles below — the overflow clip
-      // on the inner div does not affect the body's own scrollHeight.
       const body = bodyRef.current;
       if (body) {
         measuredHeightRef.current = body.scrollHeight;
@@ -99,14 +87,13 @@ export const FeedListRow = memo(
       };
     }, [enterPhase]);
 
-    // ── Entering "animating": call done handler after the transition window ──
     useEffect(() => {
       if (enterPhase !== "animating") return;
 
       const timerId = setTimeout(() => {
         setEnterPhase("done");
         onEnteringDone?.(articleKey);
-      }, ARTICLE_ENTER_TOTAL_DONE_MS);
+      }, DASHBOARD_SHELL_HANDOFF_TOTAL_DONE_MS);
 
       return () => {
         clearTimeout(timerId);
@@ -191,32 +178,24 @@ export const FeedListRow = memo(
       : "idle";
     const isReleaseCollapsing = isCollapsing && isCommitted;
 
-    // Entering-phase derived helpers (collapse always wins if both are somehow true)
     const isEnteringInitial = !isCollapsing && enterPhase === "initial";
     const isEnteringAnimating = !isCollapsing && enterPhase === "animating";
     const isEnteringActive = isEnteringInitial || isEnteringAnimating;
+    const enteringSkeletonDescriptor =
+      resolveEnteringSkeletonDescriptor(articleKey);
 
-    // Opacity: entering overrides collapse unless collapsing takes over
-    const rowOpacity = isEnteringInitial
-      ? "0"
-      : isSwipeReadExit
-        ? "1"
-        : isReleaseCollapsing
-          ? "0"
-          : "1";
+    const rowOpacity = isSwipeReadExit ? "1" : isReleaseCollapsing ? "0" : "1";
+    const bodyOpacity = isEnteringInitial ? "0" : "1";
+    const bodyTransition = isEnteringActive
+      ? `opacity ${DASHBOARD_SHELL_HANDOFF_OPACITY_DURATION_MS}ms ease-out ${DASHBOARD_SHELL_HANDOFF_OPACITY_DELAY_MS}ms`
+      : undefined;
 
-    // Inner maxHeight: entering wins unless collapsing
     const innerMaxHeight = isCollapsing
       ? `${Math.max(
           isReleaseCollapsing ? FEED_ROW_COLLAPSE_FLOOR_PX : measuredHeight,
           FEED_ROW_COLLAPSE_FLOOR_PX,
         )}px`
-      : isEnteringInitial
-        ? "0"
-        : isEnteringAnimating
-          ? // Extra 32px buffer absorbs padding/border rounding without visible clipping.
-            `${measuredHeight + 32}px`
-          : undefined;
+      : undefined;
 
     return (
       <div
@@ -237,20 +216,18 @@ export const FeedListRow = memo(
           opacity: rowOpacity,
           transition: isCollapsing
             ? `margin-bottom ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), opacity ${Math.round(transitionMs * 0.65)}ms ease-out ${Math.round(transitionMs * 0.1)}ms`
-            : isEnteringActive
-              ? `opacity ${ARTICLE_ENTER_OPACITY_DURATION_MS}ms ease-out ${ARTICLE_ENTER_OPACITY_DELAY_MS}ms`
-              : "none",
+            : "none",
         }}
       >
         <div
-          className="min-w-0"
+          className="relative min-w-0"
           ref={innerRef}
           style={{
             maxHeight: innerMaxHeight,
             minHeight: isReleaseCollapsing
               ? FEED_ROW_COLLAPSE_FLOOR_PX
               : undefined,
-            overflow: isCollapsing || isEnteringActive ? "hidden" : "visible",
+            overflow: isCollapsing ? "hidden" : "visible",
             pointerEvents: isCollapsing || isEnteringActive ? "none" : "auto",
             transform: isCollapsing
               ? isSwipeReadExit
@@ -259,12 +236,25 @@ export const FeedListRow = memo(
               : undefined,
             transition: isCollapsing
               ? `max-height ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1), transform ${transitionMs}ms cubic-bezier(0.25, 1, 0.5, 1)`
-              : isEnteringActive
-                ? `max-height ${ARTICLE_ENTER_HEIGHT_DURATION_MS}ms ${ARTICLE_ENTER_EASE}`
-                : undefined,
+              : undefined,
           }}
         >
-          <div className="min-h-0" ref={bodyRef}>
+          {isEnteringActive ? (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-xl"
+              data-feed-row-enter-skeleton="true"
+            >
+              <FeedArticleCardSkeleton
+                descriptor={enteringSkeletonDescriptor}
+              />
+            </div>
+          ) : null}
+          <div
+            className="relative z-10 min-h-0"
+            ref={bodyRef}
+            style={{ opacity: bodyOpacity, transition: bodyTransition }}
+          >
             {children}
           </div>
         </div>
@@ -272,3 +262,32 @@ export const FeedListRow = memo(
     );
   },
 );
+
+/**
+ * Hashes an article key into a small deterministic integer for visual variety.
+ * @param articleKey - The article key to hash.
+ * @returns A deterministic integer derived from the article key.
+ */
+function hashArticleKey(articleKey: string): number {
+  let hash = 0;
+
+  for (const character of articleKey) {
+    hash = (hash * 31 + (character.codePointAt(0) ?? 0)) | 0;
+  }
+
+  return hash;
+}
+
+/**
+ * Chooses a stable skeleton descriptor for an entering article row.
+ * @param articleKey - The article identity used to keep repeated renders visually stable.
+ * @returns A deterministic feed article skeleton descriptor.
+ */
+function resolveEnteringSkeletonDescriptor(
+  articleKey: string,
+): FeedArticleSkeletonDescriptor {
+  const descriptorIndex =
+    Math.abs(hashArticleKey(articleKey)) % FEED_ARTICLE_SKELETONS.length;
+
+  return FEED_ARTICLE_SKELETONS[descriptorIndex];
+}
