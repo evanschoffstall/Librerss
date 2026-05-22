@@ -1062,7 +1062,7 @@ export async function toggleArticle(article: Locator) {
       .locator("[data-article-swipe-zone='header']")
       .first();
 
-    if (beforeExpanded === "true" && (await header.count()) > 0) {
+    if ((await header.count()) > 0) {
       await header.click({ force: true });
     } else {
       await article.click({ force: true });
@@ -1085,7 +1085,7 @@ export async function toggleArticle(article: Locator) {
       .locator("[data-article-swipe-zone='header']")
       .first();
 
-    if (beforeRetryExpanded === "true" && (await header.count()) > 0) {
+    if ((await header.count()) > 0) {
       await header.click({ force: true });
     } else {
       await article.click({ force: true });

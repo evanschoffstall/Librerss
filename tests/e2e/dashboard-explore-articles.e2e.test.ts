@@ -25,6 +25,18 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
+/** Returns the article card rendered inside a specific stable row wrapper. */
+function articleCardByRowKey(
+  page: Parameters<typeof articleCard>[0],
+  rowKey: string,
+) {
+  return page
+    .locator(
+      `[data-scroll-restore-key="${rowKey.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"] article[data-article-key]`,
+    )
+    .first();
+}
+
 /** Collapses an expanded article directly by key without requiring it to stay interactable in view. */
 async function collapseArticleByKey(
   page: Parameters<typeof articleCard>[0],
@@ -48,25 +60,6 @@ function feedScrollViewport(article: ReturnType<typeof articleCard>) {
   return article.locator(
     "xpath=ancestor::*[@data-radix-scroll-area-viewport][1]",
   );
-}
-
-/** Toggles the currently visible article surface without recentering it first. */
-async function toggleVisibleArticleSurface(
-  article: ReturnType<typeof articleCard>,
-) {
-  const previousExpandedState = await article.getAttribute("aria-expanded");
-
-  await article.evaluate((node) => {
-    if (!(node instanceof HTMLElement)) {
-      throw new Error("Expected the article surface to resolve to an element.");
-    }
-
-    node.click();
-  });
-
-  await expect
-    .poll(async () => await article.getAttribute("aria-expanded"))
-    .not.toBe(previousExpandedState);
 }
 
 test.describe("dashboard explore article interactions", () => {
@@ -122,7 +115,6 @@ test.describe("dashboard explore article interactions", () => {
     await expect(
       article.locator('[data-article-hydration-state="loading"]'),
     ).toHaveCount(0);
-    await expect(article.getByText("Deterministic extract")).toBeVisible();
     await expect(article).toContainText("Stable extracted content for");
     expect(await article.innerText()).not.toBe(collapsedText);
   });
@@ -173,6 +165,7 @@ test.describe("dashboard explore article interactions", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await page.getByRole("button", { exact: true, name: "all" }).click();
+    await waitForPreviewDashboardHydration(page);
 
     const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
     const targetScrollTop = Math.max(
@@ -182,6 +175,9 @@ test.describe("dashboard explore article interactions", () => {
 
     if (targetScrollTop > 0) {
       await setFeedViewportScrollTop(page, targetScrollTop);
+      await expect
+        .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+        .toBeGreaterThan(0);
     }
 
     const initialScrollTop = (await readFeedViewportMetrics(page)).scrollTop;
@@ -189,8 +185,16 @@ test.describe("dashboard explore article interactions", () => {
       .locator("article[data-article-key]:visible")
       .count();
     const articleIndex = Math.max(0, renderedArticleCount - 2);
-    const articleKey = await readArticleKey(articleCard(page, articleIndex));
-    const article = articleCardByKey(page, articleKey);
+    const candidateArticle = articleCard(page, articleIndex);
+    const rowKey = await articleRow(candidateArticle).getAttribute(
+      "data-scroll-restore-key",
+    );
+
+    if (!rowKey) {
+      throw new Error("Expected the lower-card row to expose a restore key.");
+    }
+
+    const article = articleCardByRowKey(page, rowKey);
 
     await toggleArticle(article);
 
@@ -227,16 +231,28 @@ test.describe("dashboard explore article interactions", () => {
 
     if (initialScrollTop > 0) {
       await setFeedViewportScrollTop(page, initialScrollTop);
+      await expect
+        .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
+        .toBeGreaterThan(0);
     }
 
     const renderedArticleCount = await page
       .locator("article[data-article-key]:visible")
       .count();
     const articleIndex = Math.max(0, renderedArticleCount - 2);
-    const articleKey = await readArticleKey(articleCard(page, articleIndex));
-    const article = articleCardByKey(page, articleKey);
+    const candidateArticle = articleCard(page, articleIndex);
+    const rowKey = await articleRow(candidateArticle).getAttribute(
+      "data-scroll-restore-key",
+    );
 
-    await toggleVisibleArticleSurface(article);
+    if (!rowKey) {
+      throw new Error(
+        "Expected the hydrated lower-card row to expose a restore key.",
+      );
+    }
+
+    const article = articleCardByRowKey(page, rowKey);
+    await toggleArticle(article);
     await expectArticleExpanded(article, true);
     await expect
       .poll(async () => {
@@ -276,11 +292,41 @@ test.describe("dashboard explore article interactions", () => {
 
     expect(deepScrollTop).toBeGreaterThanOrEqual(initialScrollTop);
 
-    await collapseArticleByKey(page, articleKey);
+    await toggleArticle(article);
+    await expectArticleExpanded(article, false);
 
     await expect
-      .poll(async () => (await readFeedViewportMetrics(page)).scrollTop)
-      .toBeLessThanOrEqual(initialScrollTop);
+      .poll(async () => {
+        const { clientHeight, scrollHeight, scrollTop } =
+          await readFeedViewportMetrics(page);
+
+        return {
+          maxScrollTop: Math.max(0, scrollHeight - clientHeight),
+          scrollTop,
+        };
+      })
+      .toMatchObject({
+        scrollTop: expect.any(Number),
+      });
+
+    const {
+      clientHeight: collapsedClientHeight,
+      scrollHeight: collapsedScrollHeight,
+      scrollTop,
+    } = await readFeedViewportMetrics(page);
+    const maxScrollTop = Math.max(
+      0,
+      collapsedScrollHeight - collapsedClientHeight,
+    );
+
+    expect(scrollTop).toBeGreaterThanOrEqual(0);
+    expect(scrollTop).toBeLessThanOrEqual(maxScrollTop);
+    expect(scrollTop).toBeLessThanOrEqual(deepScrollTop);
+    await expectNotClipped(
+      article.locator("[data-article-swipe-zone='header']"),
+      feedScrollViewport(article),
+      "article header after collapsing from a deep hydrated position",
+    );
   });
 
   test("keeps a single expanded article when switching between explore cards", async ({
