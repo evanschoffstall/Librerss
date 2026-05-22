@@ -2,6 +2,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
 import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
+import { FEED_ROW_GAP_PX } from "@/app/dashboard/dashboard-components/feed-config";
 import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
 import { FeedLoadMoreSkeletonBlock } from "@/app/dashboard/dashboard-components/feed-view/FeedListSkeleton";
 import {
@@ -88,6 +89,11 @@ describe("DashboardShellSkeleton", () => {
         '[data-dashboard-sidebar-skeleton-row="true"]',
       ),
     ).toHaveLength(6);
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-sidebar-skeleton-category="true"]',
+      ),
+    ).toHaveLength(4);
   });
 
   test("does not stack a second scaffold inset above the first article skeleton", () => {
@@ -103,19 +109,43 @@ describe("DashboardShellSkeleton", () => {
       '[data-dashboard-feed-list-skeleton="true"]',
     );
 
-    expect(feedListSkeleton?.className ?? "").toContain("gap-1.5");
+    expect(feedListSkeleton?.className ?? "").not.toContain("gap-1.5");
+  });
+
+  test("uses the hydrated collapsed article title footprint for skeleton titles", () => {
+    const { container } = render(<DashboardShellSkeleton />);
+
+    const titleBlock = container.querySelector<HTMLElement>(
+      '[data-dashboard-article-skeleton-title-block="true"]',
+    );
+    const titleLine = container.querySelector<HTMLElement>(
+      '[data-dashboard-article-skeleton-title-line="true"]',
+    );
+
+    expect(titleBlock).toBeNull();
+    expect(titleLine?.className ?? "").toContain("h-6");
   });
 
   test("uses the hydrated article row gap for pagination skeleton rows", () => {
     const { container } = render(
-      <FeedLoadMoreSkeletonBlock count={4} visible />,
+      <FeedLoadMoreSkeletonBlock
+        count={4}
+        placement="after-articles"
+        visible
+      />,
     );
 
     const loadMoreSkeletons = container.querySelector<HTMLElement>(
       '[data-feed-load-more-skeletons="true"]',
     );
+    const firstSkeletonRow = container.querySelector<HTMLElement>(
+      '[data-dashboard-feed-list-skeleton-item="true"]',
+    );
 
-    expect(loadMoreSkeletons?.className ?? "").toContain("gap-1.5");
+    expect(loadMoreSkeletons?.className ?? "").not.toContain("gap-1.5");
+    expect(
+      Number.parseFloat(firstSkeletonRow?.style.marginBottom ?? "0"),
+    ).toBeCloseTo(FEED_ROW_GAP_PX - 1 / 3, 5);
     expect(
       container.querySelectorAll(
         '[data-dashboard-feed-list-skeleton-item="true"]',

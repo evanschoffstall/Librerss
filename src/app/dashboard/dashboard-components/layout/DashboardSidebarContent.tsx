@@ -1,17 +1,12 @@
 import { Rss } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
 import { memo } from "react";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
+import { useDashboardShellHandoff } from "@/app/dashboard/dashboard-components";
 import { SidebarFeedCategory } from "@/app/dashboard/dashboard-components/layout/SidebarFeedCategory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-
-const SIDEBAR_SECTION_TRANSITION = {
-  duration: 0.24,
-  ease: [0.16, 1, 0.3, 1] as const,
-};
 
 /**
  * Describes the props for the dashboard sidebar content component.
@@ -40,34 +35,75 @@ interface SidebarSkeletonGroupDescriptor {
  * Describes the sidebar skeleton row descriptor.
  */
 interface SidebarSkeletonRowDescriptor {
+  bodyWidth: string;
   hostWidth: string;
   isActive: boolean;
-  labelWidth: string;
+  minHeightClassName: string;
 }
 
 const SIDEBAR_SKELETON_GROUPS: SidebarSkeletonGroupDescriptor[] = [
   {
     feedRows: [
-      { hostWidth: "w-[62%]", isActive: true, labelWidth: "w-[72%]" },
-      { hostWidth: "w-[54%]", isActive: false, labelWidth: "w-[68%]" },
+      {
+        bodyWidth: "w-[82%]",
+        hostWidth: "w-[54%]",
+        isActive: false,
+        minHeightClassName: "min-h-[56px]",
+      },
+      {
+        bodyWidth: "w-[86%]",
+        hostWidth: "w-[50%]",
+        isActive: false,
+        minHeightClassName: "min-h-[76px]",
+      },
     ],
-    labelWidth: "w-18",
+    labelWidth: "w-30",
   },
   {
     feedRows: [
-      { hostWidth: "w-[66%]", isActive: false, labelWidth: "w-[76%]" },
-      { hostWidth: "w-[58%]", isActive: false, labelWidth: "w-[64%]" },
-      { hostWidth: "w-[70%]", isActive: false, labelWidth: "w-[82%]" },
+      {
+        bodyWidth: "w-[70%]",
+        hostWidth: "w-[48%]",
+        isActive: false,
+        minHeightClassName: "min-h-[56px]",
+      },
+      {
+        bodyWidth: "w-[88%]",
+        hostWidth: "w-[58%]",
+        isActive: false,
+        minHeightClassName: "min-h-[76px]",
+      },
+      {
+        bodyWidth: "w-[68%]",
+        hostWidth: "w-[52%]",
+        isActive: false,
+        minHeightClassName: "min-h-[56px]",
+      },
     ],
     labelWidth: "w-24",
   },
   {
     feedRows: [
-      { hostWidth: "w-[57%]", isActive: false, labelWidth: "w-[66%]" },
+      {
+        bodyWidth: "w-[80%]",
+        hostWidth: "w-[46%]",
+        isActive: false,
+        minHeightClassName: "min-h-[56px]",
+      },
     ],
     labelWidth: "w-16",
   },
 ];
+
+/**
+ * Describes the props for the sidebar category skeleton component.
+ */
+interface SidebarCategorySkeletonProps {
+  /** Whether the skeleton should reserve the active category background. */
+  isActive?: boolean;
+  /** Width class used for the category label placeholder. */
+  labelWidth: string;
+}
 
 /**
  * Describes the props for the sidebar feed row skeleton component.
@@ -75,6 +111,7 @@ const SIDEBAR_SKELETON_GROUPS: SidebarSkeletonGroupDescriptor[] = [
 interface SidebarFeedRowSkeletonProps {
   descriptor: SidebarSkeletonRowDescriptor;
 }
+
 /**
  * Render the dashboard sidebar skeleton component.
  * @returns The rendered dashboard sidebar skeleton component.
@@ -82,13 +119,10 @@ interface SidebarFeedRowSkeletonProps {
 export function DashboardSidebarSkeleton() {
   return (
     <div className="space-y-2 px-2" data-dashboard-sidebar-skeleton="true">
+      <SidebarCategorySkeleton isActive labelWidth="w-16" />
       {SIDEBAR_SKELETON_GROUPS.map((group, groupIndex) => (
         <div className="space-y-0.5" key={groupIndex}>
-          <div className="px-1.5">
-            <div className="w-full rounded-sm px-1.5 py-1">
-              <Skeleton className={cn("h-3 rounded-full", group.labelWidth)} />
-            </div>
-          </div>
+          <SidebarCategorySkeleton labelWidth={group.labelWidth} />
           {group.feedRows.map((feedRow, feedRowIndex) => (
             <SidebarFeedRowSkeleton
               descriptor={feedRow}
@@ -97,6 +131,28 @@ export function DashboardSidebarSkeleton() {
           ))}
         </div>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Render one sidebar category label skeleton with the same header footprint as
+ * hydrated category selector buttons.
+ * @param props - Category row display state and placeholder width.
+ * @returns The rendered sidebar category skeleton.
+ */
+function SidebarCategorySkeleton(props: SidebarCategorySkeletonProps) {
+  const { isActive = false, labelWidth } = props;
+  return (
+    <div className="px-1.5" data-dashboard-sidebar-skeleton-category="true">
+      <div
+        className={cn(
+          "w-full rounded-sm px-1.5 py-1",
+          isActive ? "bg-muted/60" : null,
+        )}
+      >
+        <Skeleton className={cn("h-3 rounded-full", labelWidth)} />
+      </div>
     </div>
   );
 }
@@ -116,6 +172,7 @@ function SidebarFeedRowSkeleton(props: SidebarFeedRowSkeletonProps) {
           flex w-full items-center justify-between gap-2 rounded-lg border-l-2
           p-2 text-left transition-colors
         `,
+        descriptor.minHeightClassName,
         descriptor.isActive
           ? "border-primary/60 bg-muted/70 text-foreground"
           : `
@@ -126,7 +183,7 @@ function SidebarFeedRowSkeleton(props: SidebarFeedRowSkeletonProps) {
       data-dashboard-sidebar-skeleton-row="true"
     >
       <div className="min-w-0 flex-1">
-        <Skeleton className={cn("h-3.5 rounded-full", descriptor.labelWidth)} />
+        <Skeleton className={cn("h-3.5 rounded-full", descriptor.bodyWidth)} />
         <Skeleton
           className={cn("mt-1 h-3 rounded-full", descriptor.hostWidth)}
         />
@@ -145,7 +202,6 @@ export const DashboardSidebarContent = memo(
   function DashboardSidebarContent(props: DashboardSidebarContentProps) {
     const {
       isCategoriesLoading,
-      isSidebarVisible,
       onCategoryClick,
       onCategoryPrefetch,
       onFeedClick,
@@ -154,105 +210,101 @@ export const DashboardSidebarContent = memo(
       showFavicons,
       sidebarCategories,
     } = props;
-    return (
-      <AnimatePresence mode="wait">
-        {isCategoriesLoading ? (
-          <motion.div
-            exit={{ opacity: 0, scale: 0.995 }}
-            key="sidebar-skeleton"
-            transition={{ duration: 0.14, ease: [0.16, 1, 0.3, 1] }}
+    const handoff = useDashboardShellHandoff(isCategoriesLoading);
+
+    if (!handoff.shouldRenderHydratedContent) {
+      return <DashboardSidebarSkeleton />;
+    }
+
+    const sidebarContent = (
+      <div
+        className="space-y-2 px-2"
+        data-dashboard-shell-handoff-content="sidebar"
+        style={handoff.contentStyle}
+      >
+        {sidebarCategories.length === 0 ? (
+          <div
+            className="
+              flex flex-col items-center gap-2.5 px-2 py-10 text-center
+            "
+          >
+            <div
+              className="
+                flex size-9 items-center justify-center rounded-lg border
+                border-border/30 bg-card/50
+              "
+            >
+              <Rss
+                className="size-4 text-muted-foreground/40"
+                strokeWidth={1.5}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground/55">No feeds yet</p>
+          </div>
+        ) : (
+          sidebarCategories.map((categoryNode: CategoryTreeNode) => (
+            <div className="space-y-0.5" key={categoryNode.key}>
+              <div className="px-1.5">
+                <button
+                  className={`
+                    w-full cursor-pointer rounded-sm px-1.5 py-1 text-left
+                    font-sans text-[0.65rem] font-semibold tracking-[0.07em]
+                    uppercase transition-colors
+                    ${
+                      selectedCategory === categoryNode.key
+                        ? "bg-muted/60 text-foreground"
+                        : `
+                          text-muted-foreground/65
+                          hover:bg-muted/30 hover:text-foreground
+                        `
+                    }
+                  `}
+                  onClick={() => {
+                    onCategoryClick(categoryNode);
+                  }}
+                  onFocus={() => {
+                    onCategoryPrefetch(categoryNode);
+                  }}
+                  onMouseEnter={() => {
+                    onCategoryPrefetch(categoryNode);
+                  }}
+                  type="button"
+                >
+                  {categoryNode.label}
+                </button>
+              </div>
+              {(categoryNode.children ?? []).map(
+                (feedNode: CategoryTreeNode) => (
+                  <SidebarFeedCategory
+                    category={feedNode}
+                    isActive={selectedCategory === feedNode.key}
+                    key={feedNode.key}
+                    onClick={onFeedClick}
+                    onPrefetch={onFeedPrefetch}
+                    showFavicon={showFavicons}
+                  />
+                ),
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    );
+
+    if (handoff.shouldRenderSkeletonBackdrop) {
+      return (
+        <div className="relative" data-dashboard-shell-handoff="sidebar">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 z-0"
           >
             <DashboardSidebarSkeleton />
-          </motion.div>
-        ) : (
-          <motion.div
-            animate={{ opacity: 1 }}
-            className="space-y-2 px-2"
-            initial={{ opacity: 0.96 }}
-            key="sidebar-content"
-            transition={SIDEBAR_SECTION_TRANSITION}
-          >
-            {sidebarCategories.length === 0 ? (
-              <div
-                className="
-                flex flex-col items-center gap-2.5 px-2 py-10 text-center
-              "
-              >
-                <div
-                  className="
-                  flex size-9 items-center justify-center rounded-lg border
-                  border-border/30 bg-card/50
-                "
-                >
-                  <Rss
-                    className="size-4 text-muted-foreground/40"
-                    strokeWidth={1.5}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground/55">No feeds yet</p>
-              </div>
-            ) : (
-              sidebarCategories.map((categoryNode: CategoryTreeNode, index) => (
-                <motion.div
-                  animate={{
-                    opacity: isSidebarVisible ? 1 : 0,
-                    y: isSidebarVisible ? 0 : 8,
-                  }}
-                  className="space-y-0.5"
-                  initial={false}
-                  key={categoryNode.key}
-                  transition={{
-                    ...SIDEBAR_SECTION_TRANSITION,
-                    delay: index * 0.035,
-                  }}
-                >
-                  <div className="px-1.5">
-                    <button
-                      className={`
-                      w-full cursor-pointer rounded-sm px-1.5 py-1 text-left
-                      font-sans text-[0.65rem] font-semibold tracking-[0.07em]
-                      uppercase transition-colors
-                      ${
-                        selectedCategory === categoryNode.key
-                          ? "bg-muted/60 text-foreground"
-                          : `
-                  text-muted-foreground/65
-                  hover:bg-muted/30 hover:text-foreground
-                `
-                      }
-                    `}
-                      onClick={() => {
-                        onCategoryClick(categoryNode);
-                      }}
-                      onFocus={() => {
-                        onCategoryPrefetch(categoryNode);
-                      }}
-                      onMouseEnter={() => {
-                        onCategoryPrefetch(categoryNode);
-                      }}
-                      type="button"
-                    >
-                      {categoryNode.label}
-                    </button>
-                  </div>
-                  {(categoryNode.children ?? []).map(
-                    (feedNode: CategoryTreeNode) => (
-                      <SidebarFeedCategory
-                        category={feedNode}
-                        isActive={selectedCategory === feedNode.key}
-                        key={feedNode.key}
-                        onClick={onFeedClick}
-                        onPrefetch={onFeedPrefetch}
-                        showFavicon={showFavicons}
-                      />
-                    ),
-                  )}
-                </motion.div>
-              ))
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
+          </div>
+          <div className="relative z-10">{sidebarContent}</div>
+        </div>
+      );
+    }
+
+    return sidebarContent;
   },
 );

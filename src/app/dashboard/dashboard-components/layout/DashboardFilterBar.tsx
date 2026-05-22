@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 
+import { useDashboardShellHandoff } from "@/app/dashboard/dashboard-components";
 import { MotionSpinner } from "@/app/dashboard/dashboard-components/status";
 import {
   ARTICLE_FILTER_OPTIONS,
@@ -23,7 +24,13 @@ import { DASHBOARD_FEED_SURFACE_CLASS_NAME } from "./DashboardScaffold";
  * Skeleton widths for the filter chip placeholders (4 filter chips + 1 sort
  * order chip). Each value is a Tailwind width class.
  */
-const FILTER_BAR_SKELETON_WIDTHS = ["w-8", "w-12", "w-9", "w-14", "w-16"];
+const FILTER_BAR_SKELETON_WIDTHS = [
+  "w-[34px]",
+  "w-[60px]",
+  "w-[46px]",
+  "w-[58px]",
+  "w-[71px]",
+];
 
 /** Shared loaded and skeleton surface treatment for the token toolbar shell. */
 const FILTER_BAR_SURFACE_CLASS_NAME = `
@@ -81,12 +88,19 @@ export function DashboardFilterBarSkeleton() {
               data-dashboard-filter-bar-surface="true"
             >
               <div className="flex size-full items-center gap-2">
-                {FILTER_BAR_SKELETON_WIDTHS.map((widthClassName) => (
-                  <Skeleton
-                    className={cn("h-5 rounded-full", widthClassName)}
-                    data-dashboard-filter-bar-chip-skeleton="true"
-                    key={widthClassName}
-                  />
+                {FILTER_BAR_SKELETON_WIDTHS.map((widthClassName, index) => (
+                  <div className="contents" key={widthClassName}>
+                    {index === FILTER_BAR_SKELETON_WIDTHS.length - 1 ? (
+                      <span
+                        aria-hidden="true"
+                        className="h-3.5 w-px shrink-0 bg-border/50"
+                      />
+                    ) : null}
+                    <Skeleton
+                      className={cn("h-5 rounded-full", widthClassName)}
+                      data-dashboard-filter-bar-chip-skeleton="true"
+                    />
+                  </div>
                 ))}
 
                 <span
@@ -170,7 +184,9 @@ export const DashboardFilterBar = memo(
       onArticleFilterChange,
       onArticleSortOrderChange,
     } = props;
-    if (isShellLoading) {
+    const handoff = useDashboardShellHandoff(isShellLoading);
+
+    if (!handoff.shouldRenderHydratedContent) {
       return <DashboardFilterBarSkeleton />;
     }
 
@@ -179,7 +195,7 @@ export const DashboardFilterBar = memo(
     const isOldestFirst = articleSortOrder === "oldest";
     const SortIcon = isOldestFirst ? ArrowUpNarrowWide : ArrowDownNarrowWide;
 
-    return (
+    const filterBarContent = (
       <DashboardFilterBarFrame>
         <div className="flex items-center gap-0">
           <div
@@ -292,5 +308,30 @@ export const DashboardFilterBar = memo(
         </div>
       </DashboardFilterBarFrame>
     );
+
+    if (handoff.shouldRenderSkeletonBackdrop) {
+      return (
+        <div
+          className="relative shrink-0"
+          data-dashboard-shell-handoff="filter-bar"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 z-0"
+          >
+            <DashboardFilterBarSkeleton />
+          </div>
+          <div
+            className="relative z-10"
+            data-dashboard-shell-handoff-content="filter-bar"
+            style={handoff.contentStyle}
+          >
+            {filterBarContent}
+          </div>
+        </div>
+      );
+    }
+
+    return filterBarContent;
   },
 );

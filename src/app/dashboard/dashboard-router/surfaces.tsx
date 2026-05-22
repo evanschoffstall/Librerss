@@ -91,11 +91,11 @@ export function DashboardApplicationSurface(
   } = props;
   return (
     <motion.main
-      animate={{ opacity: 1, scale: 1, y: 0 }}
+      animate={{ opacity: 1 }}
       className="relative h-full overflow-hidden bg-background"
-      initial={{ opacity: 0, scale: 0.97, y: 8 }}
+      initial={{ opacity: 1 }}
       key={viewKey}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0 }}
     >
       <ThemeNoticeDialog />
       <DashboardBackground
@@ -138,7 +138,7 @@ export function DashboardLoginSurface(props: DashboardLoginSurfaceProps) {
       className="h-full overflow-hidden bg-background"
       initial={{ opacity: 0, scale: 0.97, y: 8 }}
       key={viewKey}
-      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
     >
       {shouldAutoLogin && initialAutoLoginPath ? (
         <DevAutoLoginRedirect autoLoginPath={initialAutoLoginPath} />
@@ -171,10 +171,10 @@ export function DashboardSkeletonView(props: DashboardSkeletonViewProps) {
       aria-busy="true"
       aria-label="Loading dashboard"
       className="h-full overflow-hidden bg-background"
-      exit={{ opacity: 0, scale: 0.995 }}
+      exit={{ opacity: 1, scale: 1 }}
       initial={{ opacity: 1, scale: 1 }}
       key={viewKey}
-      transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0 }}
     >
       <div className="relative h-full overflow-hidden">
         <div

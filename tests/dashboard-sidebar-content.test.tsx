@@ -29,6 +29,11 @@ describe("DashboardSidebarContent", () => {
         '[data-dashboard-sidebar-skeleton-row="true"]',
       ),
     ).toHaveLength(6);
+    expect(
+      container.querySelectorAll(
+        '[data-dashboard-sidebar-skeleton-category="true"]',
+      ),
+    ).toHaveLength(4);
   });
 
   test("renders the empty sidebar state when no categories are available", async () => {
