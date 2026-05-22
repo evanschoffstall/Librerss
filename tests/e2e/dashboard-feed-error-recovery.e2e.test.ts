@@ -162,7 +162,7 @@ test.describe("dashboard feed error recovery", () => {
 
     await firstArticle.click();
     await expectArticleExpanded(firstArticle, true);
-    await expect(firstArticle).toContainText("Deterministic extract", {
+    await expect(firstArticle).toContainText("Stable extracted content for", {
       timeout: 10_000,
     });
   });
