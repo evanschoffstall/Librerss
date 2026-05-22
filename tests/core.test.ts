@@ -934,6 +934,36 @@ describe("feed-refresh", () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 
+  test("refreshFeedFromUpstream normalizes HTML documents returned for feed URLs", async () => {
+    const { refreshFeedFromUpstream } = await importFeedRefresh();
+
+    const where = mock(async () => []);
+    const set = mock(() => ({ where }));
+    const update = mock(() => ({ set }));
+
+    const result = await refreshFeedFromUpstream(
+      { update } as unknown as any,
+      {
+        id: 14,
+        lastFetched: new Date("2026-02-23T00:00:00.000Z"),
+        lastFetchError: null,
+        url: "https://example.com/html-instead-of-feed",
+      },
+      {
+        fetchFeedXmlFn: async () =>
+          "<!DOCTYPE html><html><head><title>Homepage</title></head><body><main>Not a feed</main></body></html>",
+      },
+    );
+
+    expect(result).toEqual({
+      error: {
+        message: "Upstream returned HTML instead of RSS or Atom feed XML",
+      },
+      ok: false,
+    });
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
   test("refreshFeedFromUpstream tolerates cooldown update failure after fetch error", async () => {
     const { CONFIG } = await import("@/lib/config");
     const { refreshFeedFromUpstream } = await importFeedRefresh();

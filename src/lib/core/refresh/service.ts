@@ -204,12 +204,22 @@ async function applyRefreshFailureCooldown(
 }
 
 /**
- * Return the age in minutes.
- * @param date - The date.
- * @returns The age in minutes.
+ * Create a stable parser error for endpoints that returned an HTML page instead
+ * of an RSS or Atom document.
+ * @returns The normalized feed parser error.
  */
-function getAgeInMinutes(date: Date): number {
-  return (Date.now() - date.getTime()) / 60_000;
+function createHtmlInsteadOfFeedXmlError(): Error {
+  return new Error(HTML_INSTEAD_OF_FEED_XML_ERROR_MESSAGE);
+}
+
+/**
+ * Return whether an upstream response starts like an HTML document instead of a
+ * feed document.
+ * @param responseBody - Upstream response body passed to the feed parser.
+ * @returns Whether the payload is an HTML document rather than RSS or Atom XML.
+ */
+function isHtmlDocumentResponse(responseBody: string): boolean {
+  return HTML_DOCUMENT_PREFIX_PATTERN.test(responseBody);
 }
 
 /**
