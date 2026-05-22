@@ -1,22 +1,38 @@
-import type { BatchFeedError } from "@/lib/core/feed-batch-error";
+import type { FeedUpstreamTransport } from "@/lib/core/feed-http";
 
 import { CONFIG, logger } from "@/lib";
-
-import type { FeedUpstreamTransport } from "./http-client";
-
-import { type RefreshDecision } from "./batch-types";
 import {
   type FeedRecord,
   refreshFeedFromUpstream,
   shouldForceRefreshFeed,
   shouldRefreshFeed,
   type UpstreamRefreshResult,
-} from "./refresher";
+} from "@/lib/core/refresh";
 import {
   resolveFeedBatchConcurrency,
   resolveFeedBatchRefreshBudgetMs,
   resolveFeedRequestTimeoutMs,
-} from "./serverless-feed-refresh-limits";
+} from "@/lib/feed-refresh-runtime";
+
+/** Refresh plan entry describing whether a feed should refresh or use cache. */
+export interface RefreshDecision {
+  decision:
+    | "force-cooldown-use-cache"
+    | "missing-feed-record"
+    | "refresh-force"
+    | "refresh-stale"
+    | "refresh-upstream-override"
+    | "skip-refresh-flag"
+    | "use-cache";
+  lastFetched?: Date;
+  url: string;
+}
+
+/** Describes a normalized refresh error payload returned to batch callers. */
+interface BatchFeedError {
+  message: string;
+  statusCode?: number;
+}
 
 export const BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE =
   "Batch refresh budget exhausted before feed refresh started";

@@ -16,14 +16,24 @@ import {
   type ParsedFeedItem,
   type PendingArticle,
   toPendingArticle,
-} from "./parser";
+} from "@/lib/core/feed-parser";
+import { getAgeInMinutes } from "@/lib/feed-refresh-runtime";
+import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
+import { HttpCloakUpstreamError } from "@/lib/utils/httpcloak";
 
 /**
  * Defines the DB mod type.
  */
 type DbMod = typeof import("@/lib/db");
 
-// ─── Diagnostic logging helpers ───────────────────────────────────────────────
+/**
+ * Describes a normalized refresh error payload returned to batch callers.
+ */
+interface RefreshBatchFeedError {
+  message: string;
+  statusCode?: number;
+}
+
 /**
  * Emit a diagnostic info log when feed refresh diagnostics are enabled.
  * @param msg - The log message.

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { FeedRecord } from "../src/lib/core/refresher";
+import type { FeedRecord } from "../src/lib/core/refresh";
 
 const loadPipelineModule = () => import("../src/lib/core/pipeline");
 

@@ -6,6 +6,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as zlib from "zlib";
 
+import type { PendingArticle } from "@/lib/core/parser";
+
 beforeEach(() => {
   mock.restore();
 });
@@ -599,11 +601,12 @@ describe("feed-refresh", () => {
     "src",
     "lib",
     "core",
-    "refresher.ts?core-feed-refresh",
+    "refresh",
+    "index.ts?core-feed-refresh",
   ].join("/");
 
   const importFeedRefresh = () =>
-    import(feedRefreshPath) as Promise<typeof import("@/lib/core/refresher")>;
+    import(feedRefreshPath) as Promise<typeof import("@/lib/core/refresh")>;
 
   test("shouldRefreshFeed and shouldForceRefreshFeed compare age thresholds", async () => {
     const { shouldForceRefreshFeed, shouldRefreshFeed } =
@@ -696,7 +699,7 @@ describe("feed-refresh", () => {
         url: "https://example.com/feed.xml",
       },
       {
-        dedupePendingArticlesFn: (rows) => rows,
+        dedupePendingArticlesFn: (rows: PendingArticle[]) => rows,
         fetchFeedXmlFn,
         getPublicationDateRangeFn: () => ({
           newestPublicationDate: fixedNow.toISOString(),
@@ -784,7 +787,7 @@ describe("feed-refresh", () => {
         url: "https://example.com/proxied.xml",
       },
       {
-        dedupePendingArticlesFn: (rows) => rows,
+        dedupePendingArticlesFn: (rows: PendingArticle[]) => rows,
         fetchFeedXmlFn,
         getPublicationDateRangeFn: () => ({
           newestPublicationDate: null,
@@ -831,7 +834,7 @@ describe("feed-refresh", () => {
           url: "https://example.com/proxied-log.xml",
         },
         {
-          dedupePendingArticlesFn: (rows) => rows,
+          dedupePendingArticlesFn: (rows: PendingArticle[]) => rows,
           fetchFeedXmlFn: async () => "<rss />",
           getPublicationDateRangeFn: () => ({
             newestPublicationDate: null,
@@ -875,7 +878,7 @@ describe("feed-refresh", () => {
           url: "https://example.com/diag.xml",
         },
         {
-          dedupePendingArticlesFn: (rows) => rows,
+          dedupePendingArticlesFn: (rows: PendingArticle[]) => rows,
           fetchFeedXmlFn: async () => "<rss />",
           getPublicationDateRangeFn: () => ({
             newestPublicationDate: null,
@@ -914,7 +917,7 @@ describe("feed-refresh", () => {
         url: "https://example.com/malformed.xml",
       },
       {
-        dedupePendingArticlesFn: (rows) => rows,
+        dedupePendingArticlesFn: (rows: PendingArticle[]) => rows,
         fetchFeedXmlFn: async () => "<rss />",
         getPublicationDateRangeFn: () => ({
           newestPublicationDate: null,
@@ -1907,7 +1910,7 @@ describe("feed-batch-pipeline", () => {
 
   test("buildRefreshPlan: forceRefresh=true with fresh feed and no error returns force-cooldown-use-cache", async () => {
     const { buildRefreshPlan } = await importFeedBatchHelpers();
-    const { shouldForceRefreshFeed } = await import("@/lib/core/refresher");
+    const { shouldForceRefreshFeed } = await import("@/lib/core/refresh");
 
     // Make a feed fresh enough that shouldForceRefreshFeed returns false
     const justRefreshed = new Date();

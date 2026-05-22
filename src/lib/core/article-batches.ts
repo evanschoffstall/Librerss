@@ -1,12 +1,11 @@
 import { sql } from "drizzle-orm";
 
 import type { ArticleFilter, ArticleSortOrder } from "@/lib/core/filters";
+import type { FeedRecord } from "@/lib/core/refresh";
 
 import { CONFIG } from "@/lib";
 import { ARTICLE_CONTENT_PREVIEW_SOURCE_LENGTH } from "@/lib/core";
 import { toPlainText } from "@/lib/sanitize";
-
-import type { FeedRecord } from "./refresher";
 
 import {
   type ArticleRow,

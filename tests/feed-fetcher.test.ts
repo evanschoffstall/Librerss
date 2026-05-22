@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { ArticleRow, RankedRow } from "@/lib/core";
-import type { FeedRecord } from "@/lib/core/refresher";
+import type { FeedRecord } from "@/lib/core/refresh";
 import type { getDb } from "@/lib/db/db";
 
 import {

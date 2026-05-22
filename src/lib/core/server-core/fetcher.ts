@@ -1,6 +1,10 @@
 /**
  * Public API for fetching and caching feed articles.
  *
+ * Refresh coordination imports must resolve through the dedicated
+ * `@/lib/core/refresh` barrel so server-only refresh runtime code stays out of
+ * the client-safe `@/lib/core` surface.
+ *
  * DB access pattern for batch (regardless of N):
  *   1. One SELECT to verify ownership of all URLs.
  *   2. One SELECT to load all Feed records + lastFetched timestamps.
@@ -48,7 +52,7 @@ import {
   refreshFeedFromUpstream,
   shouldForceRefreshFeed,
   shouldRefreshFeed,
-} from "@/lib/core/feed-refresh";
+} from "@/lib/core/refresh";
 
 import { getCachedBatch, invalidateUserCache, setCachedBatch } from "./cache";
 import {

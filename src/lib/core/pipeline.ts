@@ -5,7 +5,7 @@
 
 import { and, eq, inArray, sql } from "drizzle-orm";
 
-import { type FeedRecord } from "./refresher";
+import { type FeedRecord } from "@/lib/core/refresh";
 
 /**
  * Defines the DB mod type.
@@ -21,7 +21,7 @@ export {
   BATCH_REFRESH_BUDGET_EXHAUSTED_MESSAGE,
   buildRefreshPlan,
   executeParallelRefreshes,
-} from "./refresh-plans";
+} from "@/lib/core/refresh";
 
 /**
  * Resolve the authorized feed records.
