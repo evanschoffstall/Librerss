@@ -36,7 +36,7 @@
       "@/lib/core/feed-fetcher": ["./src/lib/core/server-core/fetcher.ts"],
       "@/lib/core/feed-http": ["./src/lib/core/http-client.ts"],
       "@/lib/core/feed-parser": ["./src/lib/core/parser.ts"],
-      "@/lib/core/feed-refresh": ["./src/lib/core/refresher.ts"],
+      "@/lib/core/feed-refresh": ["./src/lib/core/refresh/index.ts"],
       "@/lib/core/feed-url-validator": ["./src/lib/core/url-validator.ts"],
       "@/lib/core/runtime": ["./src/lib/core/runtime.ts"],
       "@/app/dashboard/DashboardView": [
