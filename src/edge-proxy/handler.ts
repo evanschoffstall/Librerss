@@ -41,7 +41,18 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  return applySecurityHeaders(NextResponse.next());
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = applySecurityHeaders(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+  );
+  response.headers.set(
+    "Content-Security-Policy",
+    buildNonceContentSecurityPolicy(nonce),
+  );
+  return response;
 }
 
 /**
@@ -63,6 +74,42 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
   );
 
   return response;
+}
+
+/**
+ * Builds the per-request Content-Security-Policy header value using a freshly
+ * generated nonce so that `'unsafe-inline'` is never needed in `script-src`.
+ *
+ * `'strict-dynamic'` propagates trust to scripts loaded by nonce-authorised
+ * loaders. `'self'` is kept for older browsers that do not understand
+ * `'strict-dynamic'`. Development adds `'unsafe-eval'` for React tooling and
+ * extends `connect-src` with `ws:`/`wss:` for HMR.
+ * @param nonce - Per-request nonce injected into the script policy.
+ * @returns The complete CSP header value for the current request.
+ */
+function buildNonceContentSecurityPolicy(nonce: string): string {
+  const isDevelopment = process.env.NODE_ENV === "development";
+  const connectSources = ["'self'"];
+  const scriptSources = [`'nonce-${nonce}'`, "'strict-dynamic'", "'self'"];
+
+  if (isDevelopment) {
+    connectSources.push("ws:", "wss:");
+    scriptSources.push("'unsafe-eval'");
+  }
+
+  return [
+    "default-src 'self'",
+    `script-src ${scriptSources.join(" ")}`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: blob:",
+    "font-src 'self' data:",
+    `connect-src ${connectSources.join(" ")}`,
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "worker-src 'self'",
+  ].join("; ");
 }
 
 /**

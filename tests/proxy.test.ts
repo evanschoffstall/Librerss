@@ -72,14 +72,17 @@ describe("Next.js proxy function", () => {
     );
   });
 
-  test("sets all required security headers (except CSP)", async () => {
+  test("sets all required security headers including the nonce CSP", async () => {
     const { proxy } = await importProxyModule();
     const req = new NextRequest("http://localhost:3000/dashboard");
 
     const res = proxy(req);
 
-    // CSP is handled in next.config.ts, not proxy
-    expect(res.headers.get("Content-Security-Policy")).toBeNull();
+    const contentSecurityPolicy = res.headers.get("Content-Security-Policy");
+
+    expect(contentSecurityPolicy).toContain("default-src 'self'");
+    expect(contentSecurityPolicy).toContain("script-src 'nonce-");
+    expect(contentSecurityPolicy).toContain("'strict-dynamic'");
     expect(res.headers.get("X-Frame-Options")).toBe("DENY");
     expect(res.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(res.headers.get("Referrer-Policy")).toBe(
