@@ -36,7 +36,6 @@ interface CompatibilityCheckResponse {
  * Describes the proxy settings.
  */
 interface ProxySettings {
-  allowInsecureTls: boolean;
   configured: boolean;
   error?: string;
   hasProxyPassword: boolean;
@@ -90,7 +89,6 @@ interface RunProxyCompatibilityCheckOptions {
  * Describes the options for save proxy URL.
  */
 interface SaveProxyUrlOptions {
-  allowInsecureTls?: boolean;
   proxyPassword?: null | string;
   proxyUsername?: null | string;
 }
