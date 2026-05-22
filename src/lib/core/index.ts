@@ -28,6 +28,7 @@ export {
   STARRED_STATE,
   USER_LABEL_PREFIX,
 } from "./stream-ids";
+export { getAgeInMinutes } from "./time";
 export type {
   Article,
   AuthSession,
