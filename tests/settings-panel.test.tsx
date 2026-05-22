@@ -77,7 +77,6 @@ const TabsCtx = createContext({
   setActiveTab: (_v: string) => {},
 });
 const useSettingsProxyStateMock = mock(() => ({
-  allowInsecureTls: false,
   compatibilityCheckedAt: null,
   compatibilityError: null,
   compatibilityResults: null,
@@ -97,12 +96,10 @@ const useSettingsProxyStateMock = mock(() => ({
   proxyUsername: "",
   resultsRef: { current: null },
   saving: false,
-  setAllowInsecureTls: () => false,
   setError: () => false,
   setProxyPassword: () => false,
   setProxyUrl: () => false,
   setProxyUsername: () => false,
-  syncAllowInsecureTls: async () => {},
 }));
 
 mock.module("@/components/ui/tabs", () => {

@@ -15,7 +15,6 @@ function mockProxyServiceDeps(options: {
   ) => Promise<null | string>;
   probeResult?: boolean;
   rows: {
-    allowInsecureTls?: boolean;
     proxyPassword?: null | string;
     proxyUrl?: null | string;
     proxyUsername?: null | string;
@@ -122,7 +121,6 @@ describe("server proxy service", () => {
     );
 
     await expect(resolveUserProxy(7)).resolves.toEqual({
-      allowInsecureTls: false,
       proxyUrl: undefined,
     });
     expect(deps.materializeStoredProxyPassword).not.toHaveBeenCalled();
@@ -136,7 +134,6 @@ describe("server proxy service", () => {
       },
       rows: [
         {
-          allowInsecureTls: true,
           proxyPassword: "legacy-ciphertext",
           proxyUrl: "http://embedded-user:embedded-pass@proxy.example:8080",
           proxyUsername: "stored-user",
@@ -148,7 +145,6 @@ describe("server proxy service", () => {
     );
 
     await expect(resolveUserProxy(9)).resolves.toEqual({
-      allowInsecureTls: true,
       proxyUrl: "http://stored-user:stored-pass@proxy.example:8080/",
     });
     expect(deps.updateSet).toHaveBeenCalledWith({
@@ -162,7 +158,6 @@ describe("server proxy service", () => {
       materializeImpl: async () => null,
       rows: [
         {
-          allowInsecureTls: false,
           proxyPassword: null,
           proxyUrl: "http://embedded-user:embedded-pass@proxy.example:8080",
           proxyUsername: null,
@@ -174,7 +169,6 @@ describe("server proxy service", () => {
     );
 
     await expect(resolveUserProxy(10)).resolves.toEqual({
-      allowInsecureTls: false,
       proxyUrl: "http://embedded-user:embedded-pass@proxy.example:8080/",
     });
   });
@@ -184,7 +178,6 @@ describe("server proxy service", () => {
       materializeImpl: async () => "stored-pass",
       rows: [
         {
-          allowInsecureTls: false,
           proxyPassword: "enc-v1:stored",
           proxyUrl: "socks5://proxy.example",
           proxyUsername: "stored-user",
@@ -196,7 +189,6 @@ describe("server proxy service", () => {
     );
 
     await expect(resolveUserProxy(12)).resolves.toEqual({
-      allowInsecureTls: false,
       proxyUrl: "socks5://stored-user:stored-pass@proxy.example:1080",
     });
   });
@@ -208,7 +200,6 @@ describe("server proxy service", () => {
       },
       rows: [
         {
-          allowInsecureTls: false,
           proxyPassword: "enc-v1:broken",
           proxyUrl: "http://proxy.example:8080",
           proxyUsername: "stored-user",

@@ -28,7 +28,6 @@ describe("SettingsProxySection", () => {
     expect(getByText("Proxy URL")).toBeTruthy();
     expect(getByText("Username")).toBeTruthy();
     expect(getByText(/^Password/u)).toBeTruthy();
-    expect(getByText("Allow insecure TLS")).toBeTruthy();
     expect(getByText("Compatibility Check")).toBeTruthy();
     expect(queryByRole("button", { name: "Run Check" })).toBeNull();
     expect(queryByRole("switch")).toBeNull();
@@ -135,7 +134,7 @@ describe("SettingsProxySection", () => {
     ).not.toBeNull();
   });
 
-  test("toggles insecure TLS and runs compatibility checks", async () => {
+  test("runs compatibility checks and shows result rows with correct status labels", async () => {
     proxyState.hasProxy = true;
     proxyState.proxyStatus = "reachable";
     proxyState.proxyUrl = "https://proxy.example.test";
@@ -171,7 +170,6 @@ describe("SettingsProxySection", () => {
 
     const view = await renderProxySection();
 
-    fireEvent.click(view.getByRole("switch"));
     fireEvent.click(view.getByRole("button", { name: "Run Check" }));
 
     expect(view.queryByText(/via proxy/)).not.toBeNull();
@@ -184,7 +182,6 @@ describe("SettingsProxySection", () => {
     expect(view.queryByText("Limited")).not.toBeNull();
     expect(view.queryByText("Connection Error")).not.toBeNull();
     expect(view.queryByText("Failed")).not.toBeNull();
-    expect(proxyEvents.syncAllowInsecureTls).toEqual([true]);
     expect(proxyEvents.handleRunCompatibilityCheck).toBe(1);
   });
 
@@ -198,7 +195,6 @@ describe("SettingsProxySection", () => {
 
     const saveButton = view.getByRole("button", { name: /Save/u });
     const runCheckButton = view.getByRole("button", { name: /Checking…/u });
-    const tlsSwitch = view.getByRole("switch");
     const proxyUrlInput = view.getByDisplayValue(
       "https://proxy.example.test",
     ) as HTMLInputElement;
@@ -206,7 +202,6 @@ describe("SettingsProxySection", () => {
     expect(view.getAllByText("Checking")).toHaveLength(2);
     expect((saveButton as HTMLButtonElement).disabled).toBeTrue();
     expect((runCheckButton as HTMLButtonElement).disabled).toBeTrue();
-    expect(tlsSwitch.getAttribute("data-disabled")).not.toBeNull();
     expect(proxyUrlInput.disabled).toBeTrue();
   });
 });
@@ -220,13 +215,11 @@ function createProxyEvents() {
     setProxyPassword: [] as string[],
     setProxyUrl: [] as string[],
     setProxyUsername: [] as string[],
-    syncAllowInsecureTls: [] as boolean[],
   };
 }
 
 function createProxyState(): UseSettingsProxyStateResult {
   return {
-    allowInsecureTls: false,
     compatibilityCheckedAt: null,
     compatibilityError: null,
     compatibilityResults: null,
@@ -253,7 +246,6 @@ function createProxyState(): UseSettingsProxyStateResult {
     proxyUsername: "",
     resultsRef: { current: null },
     saving: false,
-    setAllowInsecureTls: () => {},
     setError: (value: SetStateAction<null | string>) => {
       proxyEvents.setError.push(resolveStateAction(proxyState.error, value));
     },
@@ -271,9 +263,6 @@ function createProxyState(): UseSettingsProxyStateResult {
       proxyEvents.setProxyUsername.push(
         resolveStateAction(proxyState.proxyUsername, value),
       );
-    },
-    syncAllowInsecureTls: async (value: boolean) => {
-      proxyEvents.syncAllowInsecureTls.push(value);
     },
   };
 }

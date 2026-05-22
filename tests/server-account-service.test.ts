@@ -62,7 +62,6 @@ describe("server account service", () => {
     const results = [
       [
         {
-          allowInsecureTls: false,
           createdAt: new Date("2024-01-01T00:00:00.000Z"),
           email: "reader@example.com",
           lastForceRefreshedAt: null,
@@ -208,7 +207,6 @@ describe("server account service", () => {
     const results = [
       [
         {
-          allowInsecureTls: false,
           createdAt: new Date("2024-01-01T00:00:00.000Z"),
           email: "reader@example.com",
           lastForceRefreshedAt: null,

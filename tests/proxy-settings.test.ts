@@ -101,7 +101,6 @@ describe("proxy settings API route", () => {
         : { proxyUrl: proxyUrlOrOptions };
     let storedProxyPassword = options.proxyPassword ?? null;
     let storedProxyUrl = options.proxyUrl ?? null;
-    let storedAllowInsecureTls = false;
     let storedProxyUsername = options.proxyUsername ?? null;
     mock.module("@/lib/db/db", () => ({
       getDb: () => ({
@@ -111,7 +110,6 @@ describe("proxy settings API route", () => {
               limit: () =>
                 Promise.resolve([
                   {
-                    allowInsecureTls: storedAllowInsecureTls,
                     proxyPassword: storedProxyPassword,
                     proxyUrl: storedProxyUrl,
                     proxyUsername: storedProxyUsername,
@@ -122,14 +120,11 @@ describe("proxy settings API route", () => {
         }),
         update: () => ({
           set: (values: {
-            allowInsecureTls?: boolean;
             proxyPassword?: null | string;
             proxyUrl?: null | string;
             proxyUsername?: null | string;
           }) => {
             if (values.proxyUrl !== undefined) storedProxyUrl = values.proxyUrl;
-            if (values.allowInsecureTls !== undefined)
-              storedAllowInsecureTls = values.allowInsecureTls;
             if (values.proxyPassword !== undefined)
               storedProxyPassword = values.proxyPassword;
             if (values.proxyUsername !== undefined)
@@ -139,7 +134,6 @@ describe("proxy settings API route", () => {
                 returning: () =>
                   Promise.resolve([
                     {
-                      allowInsecureTls: storedAllowInsecureTls,
                       proxyPassword: storedProxyPassword,
                       proxyUsername: storedProxyUsername,
                     },
@@ -773,7 +767,6 @@ describe("getProxyRoutingCheck", () => {
 
     const result = await getProxyRoutingCheck(
       {
-        allowInsecureTls: true,
         proxyUrl: "socks5://proxy.example:1080",
       },
       { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
@@ -803,7 +796,6 @@ describe("getProxyRoutingCheck", () => {
 
     const result = await getProxyRoutingCheck(
       {
-        allowInsecureTls: false,
         proxyUrl: "http://proxy.example:8080",
       },
       { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
@@ -837,7 +829,6 @@ describe("getProxyRoutingCheck", () => {
 
     const result = await getProxyRoutingCheck(
       {
-        allowInsecureTls: false,
         proxyUrl: "http://proxy.example:8080",
       },
       { fetchHtmlWithHttpCloakFn: fetchHtmlWithHttpCloakFn as never },
@@ -933,7 +924,6 @@ describe("fetchHtml proxy passthrough", () => {
   test("does not use proxy when useProxy is false", async () => {
     const httpCloakFetchFn = mock(async (_url, _validator, options) => {
       expect(options).toEqual({
-        allowInsecureTls: false,
         proxyUrl: undefined,
       });
 
@@ -959,7 +949,6 @@ describe("fetchHtml proxy passthrough", () => {
   test("returns HTML normally when useProxy true with injected deps", async () => {
     const httpCloakFetchFn = mock(async (_url, _validator, options) => {
       expect(options).toEqual({
-        allowInsecureTls: false,
         proxyUrl: "http://proxy:8080",
       });
 

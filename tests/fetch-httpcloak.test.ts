@@ -22,7 +22,6 @@ describe("fetch/httpcloak-client", () => {
       "https://example.com/article",
       async () => true,
       {
-        allowInsecureTls: true,
         proxyUrl: "socks5://proxy.example:1080",
       },
       { requestFn },

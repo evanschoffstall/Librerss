@@ -26,7 +26,6 @@ describe("server proxy routing check", () => {
     await expect(
       getProxyRoutingCheck(
         {
-          allowInsecureTls: false,
           proxyUrl: "http://proxy.example:8080",
         },
         { fetchHtmlWithHttpCloakFn: fetchPublicIp as never },
@@ -45,7 +44,6 @@ describe("server proxy routing check", () => {
     await expect(
       getProxyRoutingCheck(
         {
-          allowInsecureTls: true,
           proxyUrl: "http://proxy.example:8080",
         },
         { fetchHtmlWithHttpCloakFn: fetchPublicIp as never },
@@ -82,7 +80,6 @@ describe("server proxy routing check", () => {
     await expect(
       getProxyRoutingCheck(
         {
-          allowInsecureTls: false,
           proxyUrl: "http://proxy.example:8080",
         },
         { fetchHtmlWithHttpCloakFn: fetchPublicIp as never },
@@ -119,7 +116,6 @@ describe("server proxy routing check", () => {
     await expect(
       getProxyRoutingCheck(
         {
-          allowInsecureTls: false,
           proxyUrl: "http://proxy.example:8080",
         },
         { fetchHtmlWithHttpCloakFn: fetchPublicIp as never },

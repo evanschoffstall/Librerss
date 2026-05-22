@@ -788,7 +788,6 @@ describe("article extract cleanup", () => {
     // client — they are gateway failures, not client errors. Only upstream 404
     // is special-cased to 422 Unprocessable Content.
     const httpCloakError = new HttpCloakUpstreamError({
-      allowInsecureTls: false,
       proxyAddress: null,
       proxyMode: "direct",
       redirectHop: 0,
@@ -897,7 +896,6 @@ describe("article extract cleanup", () => {
   test("fetchHtml raises DataDome-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
       throw new HttpCloakUpstreamError({
-        allowInsecureTls: false,
         proxyAddress: null,
         proxyMode: "direct",
         redirectHop: 0,
@@ -919,7 +917,6 @@ describe("article extract cleanup", () => {
   test("fetchHtml raises PerimeterX-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
       throw new HttpCloakUpstreamError({
-        allowInsecureTls: false,
         proxyAddress: null,
         proxyMode: "direct",
         redirectHop: 0,
@@ -941,7 +938,6 @@ describe("article extract cleanup", () => {
   test("fetchHtml raises Cloudflare-specific errors from HTTPCloak responses", async () => {
     const httpCloakFetchFn = mock(async () => {
       throw new HttpCloakUpstreamError({
-        allowInsecureTls: false,
         proxyAddress: null,
         proxyMode: "direct",
         redirectHop: 0,
@@ -1048,7 +1044,6 @@ describe("article extract cleanup", () => {
       );
 
       expect(capturedOptions).toEqual({
-        allowInsecureTls: false,
         proxyUrl: "socks5://127.0.0.1:1080",
       });
     });
@@ -1075,7 +1070,6 @@ describe("article extract cleanup", () => {
       const fn = mock(async () => {
         callCount++;
         throw new HttpCloakUpstreamError({
-          allowInsecureTls: false,
           proxyAddress: null,
           proxyMode: "socks",
           redirectHop: 0,
@@ -1215,7 +1209,6 @@ describe("article extract cleanup", () => {
         async (_url: string, _allowed: any, opts: any) => {
           capturedOptions.push(opts ? { ...opts } : {});
           throw new HttpCloakUpstreamError({
-            allowInsecureTls: false,
             proxyAddress: null,
             proxyMode: "socks",
             redirectHop: 0,
@@ -1241,7 +1234,6 @@ describe("article extract cleanup", () => {
 
       expect(capturedOptions).toEqual([
         {
-          allowInsecureTls: false,
           proxyUrl: "socks5://127.0.0.1:1080",
         },
       ]);

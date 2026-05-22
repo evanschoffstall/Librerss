@@ -30,7 +30,6 @@ function createHttpCloakUpstreamError(
   responseHeaders: Record<string, string> = {},
 ): HttpCloakUpstreamError {
   return new HttpCloakUpstreamError({
-    allowInsecureTls: false,
     proxyAddress: null,
     proxyMode: "direct",
     redirectHop: 0,
@@ -87,7 +86,6 @@ describe("fetchHtml", () => {
       expect(info).toHaveBeenCalledWith(
         "HTTPCloak extraction attempt 1/1 succeeded",
         expect.objectContaining({
-          allowInsecureTls: false,
           attempt: 1,
           attempts: 1,
           diagnosticHeaders: {
@@ -143,7 +141,6 @@ describe("fetchHtml", () => {
   test("passes transport-only options when proxy mode is enabled", async () => {
     const httpCloakFetchFn = mock(async (_url, _validator, options) => {
       expect(options).toEqual({
-        allowInsecureTls: true,
         proxyUrl: "http://proxy.example.com:8080",
       });
 
@@ -163,7 +160,6 @@ describe("fetchHtml", () => {
         isAllowedFeedUrlFn: async () => true,
       },
       {
-        allowInsecureTls: true,
         proxyUrl: "http://proxy.example.com:8080",
         useProxy: true,
       },
@@ -176,7 +172,6 @@ describe("fetchHtml", () => {
   test("ignores proxyUrl when useProxy is false", async () => {
     const httpCloakFetchFn = mock(async (_url, _validator, options) => {
       expect(options).toEqual({
-        allowInsecureTls: false,
         proxyUrl: undefined,
       });
 

@@ -152,7 +152,6 @@ describe("settings-proxy services", () => {
   test("normalizes persisted proxy settings into UI state", () => {
     expect(
       toProxySettingsSnapshot({
-        allowInsecureTls: true,
         error: "Proxy slow",
         hasProxyPassword: true,
         proxyUrl: "https://proxy.example.test",
@@ -161,7 +160,6 @@ describe("settings-proxy services", () => {
         status: "reachable",
       }),
     ).toEqual({
-      allowInsecureTls: true,
       error: "Proxy slow",
       hasProxyPassword: true,
       proxyStatus: "reachable",
@@ -172,7 +170,6 @@ describe("settings-proxy services", () => {
 
     expect(
       toProxySettingsSnapshot({
-        allowInsecureTls: false,
         hasProxyPassword: false,
         proxyUrl: null,
         proxyUsername: null,
@@ -180,7 +177,6 @@ describe("settings-proxy services", () => {
         status: "unreachable",
       }),
     ).toEqual({
-      allowInsecureTls: false,
       error: null,
       hasProxyPassword: false,
       proxyStatus: "none",
