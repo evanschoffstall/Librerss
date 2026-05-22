@@ -130,6 +130,7 @@ interface SetFeedSourceEnabledAndRefreshOptions {
   selectedCategory: string;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
+
 /**
  * Process the add feed source and refresh.
  * @param options - The options used to process the add feed source and refresh.
@@ -229,6 +230,7 @@ export async function moveFeedByDropAndPersist(
     await loadFeedSources();
   }
 }
+
 /**
  * Process the remove feed source and refresh.
  * @param options - The options used to process the remove feed source and refresh.
@@ -272,7 +274,6 @@ export async function removeFeedSourceAndRefresh(
     toast.error("Unable to remove feed source.");
   }
 }
-
 /**
  * Process the rename feed source and refresh.
  * @param options - The options used to process the rename feed source and refresh.
@@ -318,6 +319,7 @@ export async function renameFeedSourceAndRefresh(
     return false;
   }
 }
+
 /**
  * Process the select feed by key from categories.
  * @param categories - The categories.
@@ -337,7 +339,6 @@ export function selectFeedByKeyFromCategories(
   setSelectedCategory(sourceNode.key);
   void fetchFeed(sourceNode.data.url);
 }
-
 /**
  * Process the set feed source enabled and refresh.
  * @param options - The options used to process the set feed source enabled and refresh.
@@ -389,6 +390,7 @@ export async function setFeedSourceEnabledAndRefresh(
     return false;
   }
 }
+
 /**
  * Update the feed settings and refresh.
  * @param options - The options used to update the feed settings and refresh.
@@ -415,7 +417,6 @@ export async function updateFeedSettingsAndRefresh(
     return false;
   }
 }
-
 /**
  * Process the apply post enabled selection.
  * @param options - The options used to process the apply post enabled selection.
