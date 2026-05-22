@@ -5,9 +5,6 @@
 
 import type { Page } from "@playwright/test";
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
 import {
   DESKTOP_VIEWPORT_CASES,
   readStableDesktopMarkVisibleReadBaseline,
@@ -16,6 +13,7 @@ import {
 import {
   articleCard,
   configureArticlesPerPage,
+  gotoAuthenticatedDashboard,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
   readFeedArticleClipState,
@@ -23,11 +21,6 @@ import {
   selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
-
-interface E2ECredentials {
-  email: string;
-  password: string;
-}
 
 async function clickMarkFullyVisibleArticlesAsRead(page: Page) {
   const markFullyVisibleArticlesAsReadButton = page.getByRole("button", {
@@ -46,60 +39,6 @@ async function clickMarkFullyVisibleArticlesAsRead(page: Page) {
       timeout: 20_000,
     });
   }
-}
-
-function getDashboardLoginCredentials(): E2ECredentials {
-  const explicitEmail = process.env.LIBRERSS_E2E_EMAIL?.trim();
-  const explicitPassword = process.env.LIBRERSS_E2E_PASSWORD?.trim();
-
-  if (explicitEmail && explicitPassword) {
-    return { email: explicitEmail, password: explicitPassword };
-  }
-
-  const localEnvFile = readFileSync(join(process.cwd(), ".env.local"), "utf8");
-  const email = readEnvFileValue(localEnvFile, "DEV_AUTO_LOGIN_EMAIL");
-  const password = readEnvFileValue(localEnvFile, "DEV_AUTO_LOGIN_PASSWORD");
-
-  if (!email || !password) {
-    throw new Error(
-      "Missing dashboard e2e credentials. Set LIBRERSS_E2E_EMAIL and LIBRERSS_E2E_PASSWORD, or provide DEV_AUTO_LOGIN_EMAIL and DEV_AUTO_LOGIN_PASSWORD in .env.local.",
-    );
-  }
-
-  return { email, password };
-}
-
-async function gotoAuthenticatedDashboard(page: Page) {
-  const credentials = getDashboardLoginCredentials();
-
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-  if ((await page.locator("article[data-article-key]").count()) > 0) {
-    return;
-  }
-
-  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
-  const loginResponse = await page.evaluate(async ({ email, password }) => {
-    const response = await fetch("/api/auth/login", {
-      body: JSON.stringify({ email, password }),
-      credentials: "same-origin",
-      headers: { "content-type": "application/json" },
-      method: "POST",
-    });
-
-    return {
-      ok: response.ok,
-      status: response.status,
-      statusText: response.statusText,
-    };
-  }, credentials);
-
-  expect(
-    loginResponse.ok,
-    `Expected browser-context /api/auth/login to succeed, received ${loginResponse.status} ${loginResponse.statusText}`,
-  ).toBe(true);
-
-  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
-  await page.waitForURL(/\/dashboard$/);
 }
 
 async function installDelayedReadStatusRoute(
@@ -166,12 +105,6 @@ async function installReadStatusRoute(page: Page, readArticleIds: Set<number>) {
       status: 200,
     });
   });
-}
-
-function readEnvFileValue(fileContents: string, key: string) {
-  const match = fileContents.match(new RegExp(`^${key}=(.*)$`, "mu"));
-
-  return match?.[1]?.trim() ?? null;
 }
 
 async function readRenderedArticleReadActionLabels(

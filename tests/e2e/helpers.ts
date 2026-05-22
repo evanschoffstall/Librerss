@@ -4,6 +4,8 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
@@ -17,6 +19,11 @@ const NEXT_JS_OVERLAY_ERROR_PATTERN =
   /(?:Build Error|Runtime Error|Unhandled Runtime Error)/iu;
 const DASHBOARD_FILTER_CONTROL_READY_TIMEOUT_MS = 15_000;
 const PLAYWRIGHT_SENTINEL_STORAGE_KEY = "librerss:playwright-sentinel";
+export interface E2ECredentials {
+  email: string;
+  password: string;
+}
+
 export interface NextJsErrorMonitor {
   assertNoNextJsErrors: () => Promise<void>;
   dispose: () => void;
@@ -263,6 +270,69 @@ export async function expectPreviewDashboard(page: Page) {
 /** Returns the first rendered article card in the feed list. */
 export function firstArticleCard(page: Page): Locator {
   return articleCard(page, 0);
+}
+
+/**
+ * Reads the dashboard credentials used by authenticated e2e coverage.
+ * @returns Explicit e2e credentials or the local development auto-login pair.
+ */
+export function getDashboardLoginCredentials(): E2ECredentials {
+  const explicitEmail = process.env.LIBRERSS_E2E_EMAIL?.trim();
+  const explicitPassword = process.env.LIBRERSS_E2E_PASSWORD?.trim();
+
+  if (explicitEmail && explicitPassword) {
+    return { email: explicitEmail, password: explicitPassword };
+  }
+
+  const localEnvFile = readFileSync(join(process.cwd(), ".env.local"), "utf8");
+  const email = readEnvFileValue(localEnvFile, "DEV_AUTO_LOGIN_EMAIL");
+  const password = readEnvFileValue(localEnvFile, "DEV_AUTO_LOGIN_PASSWORD");
+
+  if (!email || !password) {
+    throw new Error(
+      "Missing dashboard e2e credentials. Set LIBRERSS_E2E_EMAIL and LIBRERSS_E2E_PASSWORD, or provide DEV_AUTO_LOGIN_EMAIL and DEV_AUTO_LOGIN_PASSWORD in .env.local.",
+    );
+  }
+
+  return { email, password };
+}
+
+/**
+ * Opens the authenticated dashboard, logging in through the browser context
+ * when the current page is still on the public sign-in shell.
+ * @param page - Active Playwright page.
+ */
+export async function gotoAuthenticatedDashboard(page: Page) {
+  const credentials = getDashboardLoginCredentials();
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  if ((await page.locator("article[data-article-key]").count()) > 0) {
+    return;
+  }
+
+  await expect(page.getByText("Sign in to LibreRSS")).toBeVisible();
+  const loginResponse = await page.evaluate(async ({ email, password }) => {
+    const response = await fetch("/api/auth/login", {
+      body: JSON.stringify({ email, password }),
+      credentials: "same-origin",
+      headers: { "content-type": "application/json" },
+      method: "POST",
+    });
+
+    return {
+      ok: response.ok,
+      status: response.status,
+      statusText: response.statusText,
+    };
+  }, credentials);
+
+  expect(
+    loginResponse.ok,
+    `Expected browser-context /api/auth/login to succeed, received ${loginResponse.status} ${loginResponse.statusText}`,
+  ).toBe(true);
+
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/dashboard$/u);
 }
 
 /** Opens the preview dashboard without waiting for the full document load event. */
@@ -1241,6 +1311,21 @@ function isKnownNonRuntimeConsoleError(message: string) {
 
 function normalizeRuntimeSignalText(text: string) {
   return text.replace(/\s+/gu, " ").trim();
+}
+
+function readEnvFileValue(contents: string, key: string) {
+  const line = contents
+    .split(/\r?\n/u)
+    .find((candidate) => candidate.trim().startsWith(`${key}=`));
+
+  if (!line) {
+    return "";
+  }
+
+  return line
+    .slice(line.indexOf("=") + 1)
+    .trim()
+    .replace(/^['"]|['"]$/gu, "");
 }
 
 async function readNextJsPortalText(page: Page) {

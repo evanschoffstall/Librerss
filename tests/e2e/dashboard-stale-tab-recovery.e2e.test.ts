@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 
+import { readStableDesktopMarkVisibleReadBaseline } from "./dashboard-feed-pagination-support";
 import {
   articleCard,
   articleCardByKey,
@@ -397,6 +398,7 @@ test("stale tab resume during visible-read keeps marked articles read after refr
     await gotoAuthenticatedDashboard(page);
     await page.getByRole("button", { exact: true, name: "unread" }).click();
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
+    await readStableDesktopMarkVisibleReadBaseline(page);
 
     await page
       .getByRole("button", { name: "Mark fully visible articles as read" })
