@@ -67,12 +67,10 @@ export function FeedArticleCardSkeleton(props: FeedArticleCardSkeletonProps) {
                 <Skeleton className="size-6 rounded-md" />
               </div>
             </div>
-            <div className="space-y-4">
+            <div>
               <Skeleton
-                className={cn("h-4 rounded-full", descriptor.titleWidths[0])}
-              />
-              <Skeleton
-                className={cn("h-4 rounded-full", descriptor.titleWidths[1])}
+                className={cn("h-6 rounded-full", descriptor.titleWidths[0])}
+                data-dashboard-article-skeleton-title-line="true"
               />
             </div>
           </div>

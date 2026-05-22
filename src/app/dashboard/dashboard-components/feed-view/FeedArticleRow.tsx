@@ -12,6 +12,7 @@ const FEED_ARTICLE_ROW_PROP_KEYS = [
   "isEntering",
   "isExpanded",
   "isHydrating",
+  "isLastRow",
   "isMobile",
   "isUpdatingState",
   "onEnteringDone",

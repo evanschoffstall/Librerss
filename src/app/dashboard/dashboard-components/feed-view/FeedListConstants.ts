@@ -13,12 +13,8 @@ export const FEED_LIST_SURFACE_CLASSNAME =
   "flex min-h-0 w-full min-w-0 flex-col";
 export const FEED_VIRTUALIZER_CLASSNAME = "w-full min-w-0 flex-none";
 export const FEED_LIST_FILL_STYLE = { height: "100%" } as const;
-export const SKELETON_EXIT_TRANSITION = {
-  duration: 0.14,
-  ease: [0.16, 1, 0.3, 1] as const,
-};
 export const CONTENT_ENTER_TRANSITION = {
-  duration: 0.35,
+  duration: 0.18,
   ease: [0.16, 1, 0.3, 1] as const,
 };
 export const IS_INVERTED_SCROLL_FEATURE_ENABLED_IN_RUNTIME =

@@ -30,7 +30,7 @@ import {
 import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { type ArticleRemovalAnimationMode } from "@/app/dashboard/display-types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { normalizeArticleHtmlSpacing, toPlainText } from "@/lib/sanitize";
+import { sanitizeArticleHtml, toPlainText } from "@/lib/sanitize";
 
 /**
  * Describes the options for apply read swipe action.
@@ -146,7 +146,7 @@ export const ArticleCard = memo(
     const rawHtml = article.content || "";
     const { collapsedPreview, content, normalizedHtml, plainContent } =
       useMemo(() => {
-        const normalized = normalizeArticleHtmlSpacing(rawHtml);
+        const normalized = sanitizeArticleHtml(rawHtml);
         const plain = toPlainText(normalized).trim();
         const body = plain || "No description available";
         const { hasOverflow: ho, preview: p } = buildPreview(body);
