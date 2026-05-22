@@ -11,7 +11,6 @@ import {
  * Describes the options for assert successful HTTP cloak response.
  */
 interface AssertSuccessfulHttpCloakResponseOptions {
-  allowInsecureTls: boolean;
   decodedBody: string;
   proxyAddress: null | string;
   proxyMode: "direct" | "proxy";
@@ -29,7 +28,6 @@ interface HttpCloakFetchDeps {
  * Describes the options for HTTP cloak fetch.
  */
 interface HttpCloakFetchOptions {
-  allowInsecureTls?: boolean;
   proxyUrl?: string;
 }
 
@@ -59,13 +57,11 @@ export async function fetchHtmlWithHttpCloak(
   deps?: HttpCloakFetchDeps,
 ): Promise<HttpCloakFetchResult> {
   const proxyMode = options?.proxyUrl ? "proxy" : "direct";
-  const allowInsecureTls = options?.allowInsecureTls ?? false;
   const response = await requestHttpCloakResponse(
     url,
     isAllowedUrl,
     options,
     deps,
-    allowInsecureTls,
   );
 
   const decodedBody = await decodeHttpResponseBody(response, {
@@ -73,7 +69,6 @@ export async function fetchHtmlWithHttpCloak(
   });
 
   assertSuccessfulHttpCloakResponse({
-    allowInsecureTls,
     decodedBody,
     proxyAddress: options?.proxyUrl ?? null,
     proxyMode,
@@ -96,11 +91,9 @@ export async function fetchHtmlWithHttpCloak(
 function assertSuccessfulHttpCloakResponse(
   options: AssertSuccessfulHttpCloakResponseOptions,
 ) {
-  const { allowInsecureTls, decodedBody, proxyAddress, proxyMode, response } =
-    options;
+  const { decodedBody, proxyAddress, proxyMode, response } = options;
   if (response.statusCode < 200 || response.statusCode >= 300) {
     throw new HttpCloakUpstreamError({
-      allowInsecureTls,
       proxyAddress,
       proxyMode,
       redirectHop: response.redirectHop,
@@ -124,7 +117,6 @@ function assertSuccessfulHttpCloakResponse(
  * @param isAllowedUrl - Whether is allowed url.
  * @param options - The options used to process the request http cloak response.
  * @param deps - The deps.
- * @param allowInsecureTls - The allow insecure tls.
  * @returns The request http cloak response.
  */
 async function requestHttpCloakResponse(
@@ -132,11 +124,9 @@ async function requestHttpCloakResponse(
   isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
   options: HttpCloakFetchOptions | undefined,
   deps: HttpCloakFetchDeps | undefined,
-  allowInsecureTls: boolean,
 ) {
   return requestWithHttpCloakValidatedRedirects(
     {
-      allowInsecureTls,
       browserPreset: "chrome-latest",
       maxRedirects: 5,
       proxyUrl: options?.proxyUrl,
