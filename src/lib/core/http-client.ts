@@ -15,7 +15,6 @@ const MAX_FEED_REDIRECTS = 5;
  * Describes the feed upstream transport.
  */
 export interface FeedUpstreamTransport {
-  allowInsecureTls?: boolean;
   proxyUrl?: string;
 }
 
@@ -53,7 +52,6 @@ export async function fetchFeedXml(
   try {
     const response = await requestWithHttpCloakValidatedRedirects(
       {
-        allowInsecureTls: transport?.allowInsecureTls ?? false,
         maxRedirects: MAX_FEED_REDIRECTS,
         proxyUrl: transport?.proxyUrl,
         timeoutMs: resolveFeedRequestTimeoutMs(CONFIG.FEED_REQUEST_TIMEOUT_MS),
@@ -109,7 +107,6 @@ function createFeedStageError(
 
   return new HttpCloakUpstreamError(
     {
-      allowInsecureTls: transport?.allowInsecureTls ?? false,
       proxyAddress: transport?.proxyUrl ?? null,
       proxyMode: transport?.proxyUrl ? "proxy" : "direct",
       redirectHop: response.redirectHop,

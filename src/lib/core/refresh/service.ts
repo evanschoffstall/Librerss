@@ -7,13 +7,8 @@
 import { eq, sql } from "drizzle-orm";
 import Parser from "rss-parser";
 
-import type { BatchFeedError } from "@/lib/core/feed-batch-error";
-
 import { CONFIG, logger } from "@/lib";
-import { redactUrlForLogs, toErrorMessage } from "@/lib/utils";
-import { HttpCloakUpstreamError } from "@/lib/utils/httpcloak";
-
-import { type FeedUpstreamTransport, fetchFeedXml } from "./http-client";
+import { type FeedUpstreamTransport, fetchFeedXml } from "@/lib/core/feed-http";
 import {
   dedupePendingArticles,
   FEED_PARSER_CUSTOM_FIELDS,
@@ -37,6 +32,7 @@ type DbMod = typeof import("@/lib/db");
 export const diagInfo = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.info(msg, ctx);
 };
+
 /**
  * Emit a diagnostic warning log when feed refresh diagnostics are enabled.
  * @param msg - The log message.
@@ -46,15 +42,13 @@ export const diagWarn = (msg: string, ctx?: Record<string, unknown>) => {
   if (CONFIG.FEED_REFRESH_DIAGNOSTICS_ENABLED) logger.warn(msg, ctx);
 };
 
-// ─── RSS parser singleton ─────────────────────────────────────────────────────
-// parseString() creates a fresh readable stream per call — no shared state.
-// The shared custom-field contract lives beside the pure item normalizer so
-// parser configuration and date/content selection cannot drift apart.
 const parser = new Parser({
   customFields: FEED_PARSER_CUSTOM_FIELDS,
 });
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+const HTML_DOCUMENT_PREFIX_PATTERN = /^\s*(?:<!doctype\s+html\b|<html\b)/iu;
+const HTML_INSTEAD_OF_FEED_XML_ERROR_MESSAGE =
+  "Upstream returned HTML instead of RSS or Atom feed XML";
 
 /**
  * Describes the feed record.
@@ -67,13 +61,11 @@ export interface FeedRecord {
   url: string;
 }
 
-// ─── Upstream refresh ─────────────────────────────────────────────────────────
-
 /**
  * Describes the upstream refresh result.
  */
 export type UpstreamRefreshResult =
-  | { error: BatchFeedError; ok: false }
+  | { error: RefreshBatchFeedError; ok: false }
   | { ok: true };
 
 /**
@@ -142,13 +134,12 @@ export async function refreshFeedFromUpstream(
 
     logParsedRefreshResult(feed, parsedItems, publicationDateRange, validItems);
     await persistSuccessfulRefresh(db, feed, now, validItems);
-
     logRefreshComplete(feed, now);
 
     return { ok: true };
   } catch (err) {
     const errorMessage = refreshDeps.toErrorMessageFn(err);
-    const errorDetails: BatchFeedError =
+    const errorDetails: RefreshBatchFeedError =
       err instanceof HttpCloakUpstreamError
         ? { message: errorMessage, statusCode: err.statusCode }
         : { message: errorMessage };
@@ -158,10 +149,7 @@ export async function refreshFeedFromUpstream(
       url: feed.url,
     });
 
-    // Advance lastFetched even on failure so the TTL cooldown applies —
-    // otherwise every request retries the upstream on a consistently-failing feed.
     await applyRefreshFailureCooldown(db, feed, now, errorMessage);
-
     return { error: errorDetails, ok: false };
   }
 }
@@ -272,7 +260,6 @@ function logRefreshStart(
   connectionMode: "direct" | "proxy",
 ): void {
   diagInfo("Upstream refresh started", {
-    allowInsecureTls: proxyTransport?.allowInsecureTls ?? false,
     connectionMode,
     feedId: feed.id,
     lastFetched: feed.lastFetched,
@@ -281,6 +268,20 @@ function logRefreshStart(
       : null,
     url: feed.url,
   });
+}
+
+/**
+ * Parse upstream feed XML while normalizing obvious HTML-document responses to
+ * a stable feed-content error.
+ * @param xml - Upstream payload returned for the configured feed URL.
+ * @returns The parsed feed items produced by rss-parser.
+ */
+async function parseFeedXml(xml: string): Promise<{ items: ParsedFeedItem[] }> {
+  if (isHtmlDocumentResponse(xml)) {
+    throw createHtmlInsteadOfFeedXmlError();
+  }
+
+  return parser.parseString(xml);
 }
 
 /**
@@ -377,8 +378,7 @@ function resolveRefreshDeps(
         fetchFeedXml(url, undefined, transport)),
     getPublicationDateRangeFn:
       deps?.getPublicationDateRangeFn ?? getPublicationDateRange,
-    parseFeedXmlFn:
-      deps?.parseFeedXmlFn ?? ((xml: string) => parser.parseString(xml)),
+    parseFeedXmlFn: deps?.parseFeedXmlFn ?? parseFeedXml,
     toErrorMessageFn: deps?.toErrorMessageFn ?? toErrorMessage,
     toPendingArticleFn: deps?.toPendingArticleFn ?? toPendingArticle,
   };

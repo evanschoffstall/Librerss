@@ -119,7 +119,6 @@ export interface FeedRecord {
  * Describes the feed upstream transport.
  */
 export interface FeedUpstreamTransport {
-  allowInsecureTls?: boolean;
   proxyUrl?: string;
 }
 
