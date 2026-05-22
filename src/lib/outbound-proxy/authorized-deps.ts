@@ -26,7 +26,6 @@ export interface AuthorizedProxyDependencies {
  * Defines the proxy routing check fn type.
  */
 type ProxyRoutingCheckFn = (options: {
-  allowInsecureTls: boolean;
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
 
