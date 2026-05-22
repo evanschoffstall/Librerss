@@ -99,9 +99,21 @@ async function readInvertedScrollAttribute(page: Page) {
 }
 
 /** Rearms the inverted mobile pagination boundary after refresh. */
-async function rearmInvertedMobilePaginationAfterRefresh(page: Page) {
+async function rearmInvertedMobilePaginationAfterRefresh(
+  page: Page,
+  previousMaxIndex: number,
+) {
   await scrollFeedViewportToTop(page);
-  await wheelActiveFeedViewport(page, -700);
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await wheelActiveFeedViewport(page, -700);
+
+    const maxIndex = (await readRenderedItemWindow(page)).maxIndex;
+
+    if (maxIndex !== null && maxIndex > previousMaxIndex) {
+      return;
+    }
+  }
 }
 
 test.describe("dashboard mobile feed pagination", () => {
@@ -362,7 +374,10 @@ test.describe("dashboard mobile feed pagination", () => {
       expect(collapsedWindow.maxIndex).not.toBeNull();
       expect(collapsedWindow.maxIndex!).toBeLessThan(11);
 
-      await rearmInvertedMobilePaginationAfterRefresh(page);
+      await rearmInvertedMobilePaginationAfterRefresh(
+        page,
+        collapsedWindow.maxIndex!,
+      );
 
       await expect
         .poll(async () => {

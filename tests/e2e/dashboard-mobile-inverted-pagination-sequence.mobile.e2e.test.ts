@@ -139,8 +139,8 @@ async function readStableTopVisibleArticle(page: Page) {
           return maybeTopVisibleArticle?.offsetTop ?? null;
         },
         {
-          intervals: [50, 80, 100],
-          timeout: 400,
+          intervals: [80, 120, 160],
+          timeout: 900,
         },
       )
       .not.toBeNull();

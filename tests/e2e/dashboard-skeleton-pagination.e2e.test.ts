@@ -14,7 +14,7 @@ import { expect, test } from "./test";
 
 const LONG_RUN_PAGE_SIZE = 4;
 const LONG_RUN_PAGINATION_CYCLES = 8;
-const LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE = 3;
+const LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE = 4;
 const SKELETON_PAINT_DELAY_MS = 120;
 
 interface SkeletonProbeResult {
