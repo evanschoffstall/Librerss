@@ -217,7 +217,7 @@ function useDashboardControllerResourceState(
     isCategoriesLoading: options.dashboardState.isCategoriesLoading,
     loading: options.dashboardState.loading,
     searchTerm: options.dashboardState.searchTerm,
-    settleMs: 140,
+    settleMs: 70,
     usePlaceholderData: options.usePlaceholderData,
   });
   const controllerResources = useDashboardControllerResources({

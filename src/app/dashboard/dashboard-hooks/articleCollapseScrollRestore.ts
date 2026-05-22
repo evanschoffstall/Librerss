@@ -102,6 +102,7 @@ export function createCollapseScrollRestoreRuntime(
   });
 
   initializeCollapseScrollRestore(state, reconnectLayoutObservers, release);
+  syncViewportScroll();
 
   return {
     release,

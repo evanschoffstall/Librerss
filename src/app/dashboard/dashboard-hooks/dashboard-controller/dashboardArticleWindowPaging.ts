@@ -292,33 +292,29 @@ export function scheduleDashboardArticleWindowRefresh(
     setRequestedArticleLimit,
   } = options;
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      void refreshCurrentSelection({
-        articleLimit,
-        fetchAllFeeds,
-        fetchCategoryFeeds,
-        fetchFeed,
-        keepExistingFeed: true,
-        requestSource: "feed-scroll-load-more",
-        selectedCategory,
-        selectedCategoryNode,
-        selectedFeedUrl,
-        skipRefresh: true,
-      })
-        .catch(() => {
-          setRequestedArticleLimit((currentLimit) =>
-            currentLimit === nextArticleLimit
-              ? Math.max(articlesPerPage, currentLimit - articlesPerPage)
-              : currentLimit,
-          );
-        })
-        .finally(() => {
-          isLoadingMoreArticlesRef.current = false;
-          setIsLoadingMoreArticles(false);
-        });
+  void refreshCurrentSelection({
+    articleLimit,
+    fetchAllFeeds,
+    fetchCategoryFeeds,
+    fetchFeed,
+    keepExistingFeed: true,
+    requestSource: "feed-scroll-load-more",
+    selectedCategory,
+    selectedCategoryNode,
+    selectedFeedUrl,
+    skipRefresh: true,
+  })
+    .catch(() => {
+      setRequestedArticleLimit((currentLimit) =>
+        currentLimit === nextArticleLimit
+          ? Math.max(articlesPerPage, currentLimit - articlesPerPage)
+          : currentLimit,
+      );
+    })
+    .finally(() => {
+      isLoadingMoreArticlesRef.current = false;
+      setIsLoadingMoreArticles(false);
     });
-  });
 }
 
 /**
