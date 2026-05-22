@@ -208,10 +208,24 @@ describe("DashboardToolbar", () => {
       await Promise.resolve();
     });
 
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-shell-handoff="toolbar"]'),
+      ).toBeTruthy();
+      expect(queryByPlaceholderText("Search...")).toBeTruthy();
+    });
     expect(
       container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
-    ).toBeNull();
-    expect(queryByPlaceholderText("Search...")).toBeTruthy();
+    ).toBeTruthy();
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
+      ).toBeNull();
+      expect(
+        container.querySelector('[data-dashboard-shell-handoff="toolbar"]'),
+      ).toBeNull();
+    });
   });
 
   test("settles the optimistic toolbar skeleton when the document is already complete", async () => {
@@ -242,6 +256,9 @@ describe("DashboardToolbar", () => {
       expect(
         container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),
       ).toBeTruthy();
+      await waitFor(() => {
+        expect(queryByPlaceholderText("Search...")).toBeTruthy();
+      });
       await waitFor(() => {
         expect(
           container.querySelector('[data-dashboard-toolbar-skeleton="true"]'),

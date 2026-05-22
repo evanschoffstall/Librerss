@@ -2,7 +2,10 @@
 
 import { Search } from "lucide-react";
 
-import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
+import {
+  DashboardToolbarSkeleton,
+  useDashboardShellHandoff,
+} from "@/app/dashboard/dashboard-components";
 import { DashboardToolbarDesktopActions } from "@/app/dashboard/dashboard-components/DashboardToolbarDesktopActions";
 import {
   DashboardToolbarMobileActions,
@@ -57,8 +60,9 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
     startInShellLoading,
     controlledIsShellLoading,
   );
+  const handoff = useDashboardShellHandoff(toolbar.isShellLoading);
 
-  if (toolbar.isShellLoading) {
+  if (!handoff.shouldRenderHydratedContent) {
     return (
       <DashboardToolbarSkeleton
         isDevelopmentMode={toolbar.isDevelopmentMode}
@@ -68,7 +72,28 @@ export function DashboardToolbar(props: DashboardToolbarProps) {
     );
   }
 
-  return <DashboardToolbarContent toolbar={toolbar} />;
+  const toolbarContent = <DashboardToolbarContent toolbar={toolbar} />;
+
+  if (handoff.shouldRenderSkeletonBackdrop) {
+    return (
+      <>
+        <DashboardToolbarSkeleton
+          isDevelopmentMode={toolbar.isDevelopmentMode}
+          mobileToolbarBottom={toolbar.mobileToolbarBottom}
+          mobileToolbarMirror={toolbar.mobileToolbarMirror}
+        />
+        <div
+          data-dashboard-shell-handoff="toolbar"
+          data-dashboard-shell-handoff-content="toolbar"
+          style={handoff.contentStyle}
+        >
+          {toolbarContent}
+        </div>
+      </>
+    );
+  }
+
+  return toolbarContent;
 }
 
 /**

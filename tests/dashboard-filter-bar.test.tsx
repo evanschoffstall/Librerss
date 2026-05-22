@@ -38,6 +38,44 @@ describe("DashboardFilterBar", () => {
     expect(queryByRole("button", { name: "unread" })).toBeNull();
   });
 
+  test("keeps the token toolbar skeleton behind hydrated chips during handoff", async () => {
+    const { container, queryByRole, rerender } = render(
+      <DashboardFilterBar
+        articleFilter="unread"
+        isShellLoading
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    rerender(
+      <DashboardFilterBar
+        articleFilter="unread"
+        lastRefreshLabel="just now"
+        loading={false}
+        onArticleFilterChange={() => {}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-shell-handoff="filter-bar"]'),
+      ).toBeTruthy();
+      expect(queryByRole("button", { name: "unread" })).toBeTruthy();
+    });
+
+    expect(
+      container.querySelector('[data-dashboard-filter-bar-skeleton="true"]'),
+    ).toBeTruthy();
+
+    await waitFor(() => {
+      expect(
+        container.querySelector('[data-dashboard-shell-handoff="filter-bar"]'),
+      ).toBeNull();
+    });
+  });
+
   test("shares the feed-width CSS contract with the article viewport", () => {
     const { container } = render(
       <>
