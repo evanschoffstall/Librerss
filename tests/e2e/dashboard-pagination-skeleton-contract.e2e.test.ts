@@ -20,6 +20,26 @@ interface DesktopViewportCase {
   width: number;
 }
 
+interface EnteringRowSeamProbeResult {
+  sawEnteringRow: boolean;
+  sawEnteringRowWithoutSkeleton: boolean;
+  sawZeroHeightEnteringRow: boolean;
+}
+
+interface EnteringRowSeamProbeWindow extends Window {
+  __librerssEnteringRowSeamProbe?: {
+    disconnect: () => void;
+    sawEnteringRow: boolean;
+    sawEnteringRowWithoutSkeleton: boolean;
+    sawZeroHeightEnteringRow: boolean;
+  };
+}
+
+interface LoadMoreSkeletonGapSample {
+  boundaryGap: null | number;
+  skeletonGap: null | number;
+}
+
 interface SkeletonContinuitySample {
   articleCount: number;
   skeletonCount: number;
@@ -33,6 +53,18 @@ const DESKTOP_VIEWPORT_CASES: DesktopViewportCase[] = [
 
 const SMALL_PAGE_SIZE = 4;
 const LARGE_PAGE_SIZE = 8;
+const ROW_GAP_MATCH_TOLERANCE_PX = 0.5;
+
+/** Asserts that a measured pagination gap tracks hydrated article spacing. */
+function expectPaginationGapToMatchHydratedRows(
+  paginationGap: null | number,
+  hydratedArticleRowGap: number,
+) {
+  expect(paginationGap).not.toBeNull();
+  expect(
+    Math.abs((paginationGap ?? 0) - hydratedArticleRowGap),
+  ).toBeLessThanOrEqual(ROW_GAP_MATCH_TOLERANCE_PX);
+}
 
 /**
  * Asserts that skeleton visibility does not drop after the transition begins.
@@ -85,26 +117,7 @@ async function readHydratedArticleRowGap(page: Page) {
       return null;
     }
 
-    return Math.round(secondRowRect.top - firstRowRect.bottom);
-  });
-}
-
-/** Reads the visible gap between the first two pagination skeleton rows. */
-async function readLoadMoreSkeletonRowGap(page: Page) {
-  return await page.evaluate(() => {
-    const skeletonRows = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-feed-load-more-skeletons="true"] [data-dashboard-feed-list-skeleton-item="true"]',
-      ),
-    );
-    const firstRowRect = skeletonRows[0]?.getBoundingClientRect();
-    const secondRowRect = skeletonRows[1]?.getBoundingClientRect();
-
-    if (!firstRowRect || !secondRowRect) {
-      return null;
-    }
-
-    return Math.round(secondRowRect.top - firstRowRect.bottom);
+    return Math.round((secondRowRect.top - firstRowRect.bottom) * 100) / 100;
   });
 }
 
@@ -147,6 +160,130 @@ async function sampleSkeletonContinuityUntilArticleCommit(
   );
 }
 
+/** Starts a DOM observer that verifies entering article rows keep skeleton backing. */
+async function startEnteringRowSeamProbe(page: Page) {
+  await page.evaluate(() => {
+    const probeWindow = window as EnteringRowSeamProbeWindow;
+    probeWindow.__librerssEnteringRowSeamProbe?.disconnect();
+
+    const probe = {
+      disconnect: () => observer.disconnect(),
+      sawEnteringRow: false,
+      sawEnteringRowWithoutSkeleton: false,
+      sawZeroHeightEnteringRow: false,
+    };
+    const inspectEnteringRows = () => {
+      const enteringRows = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-article-entering="true"]',
+        ),
+      );
+
+      for (const row of enteringRows) {
+        probe.sawEnteringRow = true;
+
+        const rowRect = row.getBoundingClientRect();
+        const hasSkeletonBacking =
+          row.querySelector('[data-feed-row-enter-skeleton="true"]') !== null;
+
+        if (rowRect.height <= 0) {
+          probe.sawZeroHeightEnteringRow = true;
+        }
+
+        if (!hasSkeletonBacking) {
+          probe.sawEnteringRowWithoutSkeleton = true;
+        }
+      }
+    };
+    const observer = new MutationObserver(inspectEnteringRows);
+
+    observer.observe(document.body, {
+      attributeFilter: ["data-article-entering"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    probeWindow.__librerssEnteringRowSeamProbe = probe;
+    inspectEnteringRows();
+  });
+}
+
+/** Stops the entering-row seam observer and returns the captured flags. */
+async function stopEnteringRowSeamProbe(
+  page: Page,
+): Promise<EnteringRowSeamProbeResult> {
+  return await page.evaluate(() => {
+    const probeWindow = window as EnteringRowSeamProbeWindow;
+    const probe = probeWindow.__librerssEnteringRowSeamProbe;
+
+    if (!probe) {
+      return {
+        sawEnteringRow: false,
+        sawEnteringRowWithoutSkeleton: true,
+        sawZeroHeightEnteringRow: true,
+      };
+    }
+
+    probe.disconnect();
+    delete probeWindow.__librerssEnteringRowSeamProbe;
+
+    return {
+      sawEnteringRow: probe.sawEnteringRow,
+      sawEnteringRowWithoutSkeleton: probe.sawEnteringRowWithoutSkeleton,
+      sawZeroHeightEnteringRow: probe.sawZeroHeightEnteringRow,
+    };
+  });
+}
+
+/** Waits for the next pagination skeleton frame and captures its row gaps. */
+async function waitForLoadMoreSkeletonGaps(
+  page: Page,
+): Promise<LoadMoreSkeletonGapSample> {
+  const sampleHandle = await page.waitForFunction(() => {
+    const articleRows = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]"),
+    ).filter((row) => row.querySelector("article[data-article-key]") !== null);
+    const skeletonRows = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-feed-load-more-skeletons="true"] [data-dashboard-feed-list-skeleton-item="true"]',
+      ),
+    );
+    const firstRowRect = skeletonRows[0]?.getBoundingClientRect();
+    const secondRowRect = skeletonRows[1]?.getBoundingClientRect();
+    const lastArticleRowRect = firstRowRect
+      ? articleRows
+          .map((row) => row.getBoundingClientRect())
+          .filter((rowRect) => rowRect.bottom <= firstRowRect.top)
+          .at(-1)
+      : undefined;
+
+    if (!lastArticleRowRect || !firstRowRect || !secondRowRect) {
+      return null;
+    }
+
+    const boundaryGap =
+      Math.round((firstRowRect.top - lastArticleRowRect.bottom) * 100) / 100;
+    const skeletonGap =
+      Math.round((secondRowRect.top - firstRowRect.bottom) * 100) / 100;
+
+    if (boundaryGap <= 0 || skeletonGap <= 0) {
+      return null;
+    }
+
+    return {
+      boundaryGap,
+      skeletonGap,
+    };
+  });
+
+  const sample = await sampleHandle.jsonValue();
+  if (sample === null) {
+    throw new Error("Expected pagination skeleton gaps to be captured.");
+  }
+
+  return sample;
+}
+
 test.describe("pagination skeleton contract", () => {
   for (const viewportCase of DESKTOP_VIEWPORT_CASES) {
     test(`shows load-more skeletons during scroll-triggered cached page reveal on ${viewportCase.name}`, async ({
@@ -168,21 +305,36 @@ test.describe("pagination skeleton contract", () => {
         .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE);
       const hydratedArticleRowGap = await readHydratedArticleRowGap(page);
-      expect(hydratedArticleRowGap).not.toBeNull();
+      if (hydratedArticleRowGap === null) {
+        throw new Error("Expected hydrated article row gap to be measurable.");
+      }
 
+      const loadMoreSkeletonGapsPromise = waitForLoadMoreSkeletonGaps(page);
+      await startEnteringRowSeamProbe(page);
       await triggerFeedViewportWheelIntent(page, 240);
       await scrollFeedViewportToBottom(page);
 
       // Skeleton must appear at least once during cached page reveal.
       await expectVisibleLoadMoreSkeletons(page, SMALL_PAGE_SIZE);
-      await expect
-        .poll(async () => readLoadMoreSkeletonRowGap(page))
-        .toBe(hydratedArticleRowGap);
+      const loadMoreSkeletonGaps = await loadMoreSkeletonGapsPromise;
+      expectPaginationGapToMatchHydratedRows(
+        loadMoreSkeletonGaps.boundaryGap,
+        hydratedArticleRowGap,
+      );
+      expectPaginationGapToMatchHydratedRows(
+        loadMoreSkeletonGaps.skeletonGap,
+        hydratedArticleRowGap,
+      );
 
       // After skeleton clears the expanded article window must be visible.
       await expect
         .poll(async () => readVisibleFeedArticleCount(page))
         .toBeGreaterThanOrEqual(SMALL_PAGE_SIZE * 2);
+
+      const seamProbeResult = await stopEnteringRowSeamProbe(page);
+      expect(seamProbeResult.sawEnteringRow).toBe(true);
+      expect(seamProbeResult.sawEnteringRowWithoutSkeleton).toBe(false);
+      expect(seamProbeResult.sawZeroHeightEnteringRow).toBe(false);
     });
 
     test(`initial render is bounded to the clipped overflow window on ${viewportCase.name}`, async ({

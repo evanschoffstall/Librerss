@@ -12,23 +12,31 @@ test.describe("dashboard toolbar loading", () => {
     await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
 
     await expect(
-      page.locator('[data-dashboard-toolbar-skeleton="true"]'),
+      page.locator('[data-dashboard-toolbar-skeleton="true"]').first(),
     ).toBeVisible();
     await expect(
-      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+      page.locator('[data-dashboard-feed-list-skeleton="true"]').first(),
     ).toBeVisible();
     await expect(
-      page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
+      page.locator('[data-dashboard-filter-bar-skeleton="true"]').first(),
     ).toBeVisible();
 
     const skeletonViewportFit = await page.evaluate(() => {
       const viewport = document.querySelector<HTMLElement>(
         '[data-feed-scroll-viewport="true"]',
       );
-      const skeletonRows = Array.from(
+      const feedListSkeleton = Array.from(
         document.querySelectorAll<HTMLElement>(
-          '[data-dashboard-feed-list-skeleton-item="true"]',
+          '[data-dashboard-feed-list-skeleton="true"]',
         ),
+      ).find((node) => {
+        const rect = node.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      });
+      const skeletonRows = Array.from(
+        feedListSkeleton?.querySelectorAll<HTMLElement>(
+          '[data-dashboard-feed-list-skeleton-item="true"]',
+        ) ?? [],
       );
 
       if (!viewport || skeletonRows.length === 0) {
@@ -77,9 +85,9 @@ test.describe("dashboard toolbar loading", () => {
     await expect(page.getByPlaceholder("Search...")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "unread" })).toHaveCount(0);
 
-    await page
-      .locator('[data-dashboard-feed-list-skeleton="true"]')
-      .waitFor({ state: "detached", timeout: 15_000 });
+    await expect(
+      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 15_000 });
     await expect(firstArticleCard(page)).toBeVisible({ timeout: 250 });
 
     await waitForPreviewDashboardHydration(page);
@@ -96,7 +104,7 @@ test.describe("dashboard toolbar loading", () => {
       page.getByRole("button", { name: "Refresh selected feed" }).first(),
     ).toBeVisible();
 
-    const hydratedArticleRowGap = await page.evaluate(() => {
+    const hydratedArticleRowMetrics = await page.evaluate(() => {
       const articleRows = Array.from(
         document.querySelectorAll<HTMLElement>("[data-scroll-restore-key]"),
       ).filter(
@@ -109,12 +117,15 @@ test.describe("dashboard toolbar loading", () => {
         return null;
       }
 
-      return Math.round(secondRowRect.top - firstRowRect.bottom);
+      return {
+        rowGap: Math.round(secondRowRect.top - firstRowRect.bottom),
+        rowHeight: Math.round(firstRowRect.height),
+      };
     });
 
-    expect(hydratedArticleRowGap).not.toBeNull();
+    expect(hydratedArticleRowMetrics).not.toBeNull();
     expect(Math.round(skeletonViewportFit?.rowGap ?? -1)).toBe(
-      hydratedArticleRowGap,
+      hydratedArticleRowMetrics?.rowGap,
     );
 
     const toolbarPulseState = await page.evaluate(() => {
@@ -196,9 +207,9 @@ test.describe("dashboard toolbar loading", () => {
     await gotoPreviewDashboard(page);
     await waitForPreviewDashboardHydration(page);
 
-    await page
-      .locator('[data-dashboard-feed-list-skeleton="true"]')
-      .waitFor({ state: "detached", timeout: 15_000 });
+    await expect(
+      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 15_000 });
     await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
 
     await page
@@ -229,23 +240,23 @@ test.describe("dashboard toolbar loading", () => {
 
     // Phase 1: all skeletons must be simultaneously visible right after mount.
     await expect(
-      page.locator('[data-dashboard-toolbar-skeleton="true"]'),
+      page.locator('[data-dashboard-toolbar-skeleton="true"]').first(),
     ).toBeVisible();
     await expect(
-      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+      page.locator('[data-dashboard-feed-list-skeleton="true"]').first(),
     ).toBeVisible();
     await expect(
-      page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
+      page.locator('[data-dashboard-filter-bar-skeleton="true"]').first(),
     ).toBeVisible();
     await expect(
-      page.locator('[data-dashboard-sidebar-skeleton="true"]'),
+      page.locator('[data-dashboard-sidebar-skeleton="true"]').first(),
     ).toBeVisible();
 
     // Phase 2: wait for hydration — the feed list skeleton detaching is the
     // leading edge signal that the shell loading gate has cleared.
-    await page
-      .locator('[data-dashboard-feed-list-skeleton="true"]')
-      .waitFor({ state: "detached", timeout: 15_000 });
+    await expect(
+      page.locator('[data-dashboard-feed-list-skeleton="true"]'),
+    ).toHaveCount(0, { timeout: 15_000 });
 
     // After the gate clears all other skeletons must also be gone.  The 500 ms
     // window is generous for React to commit all surfaces in the same render

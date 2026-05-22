@@ -16,19 +16,25 @@ test.describe("dashboard mobile shell loading", () => {
       '[data-dashboard-feed-list-skeleton="true"]',
     );
 
-    await expect(feedSkeleton).toBeVisible();
+    await expect(feedSkeleton.first()).toBeVisible();
 
     const skeletonGeometry = await page.evaluate(() => {
       const viewport = document.querySelector<HTMLElement>(
         '[data-feed-scroll-viewport="true"]',
       );
-      const skeletonSurface = document.querySelector<HTMLElement>(
-        '[data-dashboard-feed-list-skeleton="true"]',
-      );
-      const skeletonRows = Array.from(
+      const skeletonSurface = Array.from(
         document.querySelectorAll<HTMLElement>(
-          '[data-dashboard-feed-list-skeleton-item="true"]',
+          '[data-dashboard-feed-list-skeleton="true"]',
         ),
+      ).find((candidate) => {
+        const rect = candidate.getBoundingClientRect();
+
+        return rect.width > 0 && rect.height > 0;
+      });
+      const skeletonRows = Array.from(
+        skeletonSurface?.querySelectorAll<HTMLElement>(
+          '[data-dashboard-feed-list-skeleton-item="true"]',
+        ) ?? [],
       );
 
       if (!viewport || !skeletonSurface || skeletonRows.length === 0) {

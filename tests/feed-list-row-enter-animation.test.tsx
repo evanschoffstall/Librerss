@@ -2,8 +2,8 @@
  * Tests for the FeedListRow entrance animation state machine.
  *
  * Verifies that:
- *   - Initial entering state collapses the row to zero height / zero opacity.
- *   - After a requestAnimationFrame tick the row transitions to its full height.
+ *   - Initial entering state keeps the row's natural height and shows a skeleton backing layer.
+ *   - After a requestAnimationFrame tick the hydrated article fades in over the skeleton layer.
  *   - The `data-article-entering` attribute is present while the transition runs.
  *   - `onEnteringDone` fires after the animation completes.
  *   - The component resets cleanly when `isEntering` goes back to false.
@@ -68,7 +68,7 @@ describe("FeedListRow entering animation", () => {
     expect(outer.style.contain).toBe("style");
   });
 
-  test("initial entering state: outer opacity 0, inner maxHeight 0", () => {
+  test("initial entering state keeps layout visible behind a skeleton layer", () => {
     const { container } = render(
       <FeedListRow
         articleKey="https://example.com/a"
@@ -82,14 +82,17 @@ describe("FeedListRow entering animation", () => {
 
     const outer = container.firstElementChild as HTMLDivElement;
     const inner = outer?.firstElementChild as HTMLDivElement;
+    const body = inner?.lastElementChild as HTMLDivElement;
 
-    // Initial entering phase: invisible and collapsed before the RAF fires.
-    expect(Number(outer?.style.opacity)).toBe(0);
-    // React serialises numeric 0 without a unit.
-    expect(inner?.style.maxHeight).toBe("0");
+    expect(Number(outer?.style.opacity)).toBe(1);
+    expect(inner?.style.maxHeight).toBe("");
+    expect(body?.style.opacity).toBe("0");
+    expect(
+      container.querySelector('[data-feed-row-enter-skeleton="true"]'),
+    ).not.toBeNull();
   });
 
-  test("after RAF the row transitions to full height", async () => {
+  test("after RAF the hydrated article fades over the skeleton layer", async () => {
     const { container } = render(
       <FeedListRow
         articleKey="https://example.com/b"
@@ -103,15 +106,17 @@ describe("FeedListRow entering animation", () => {
 
     const outer = container.firstElementChild as HTMLDivElement;
     const inner = outer?.firstElementChild as HTMLDivElement;
+    const body = inner?.lastElementChild as HTMLDivElement;
 
-    // Flush the RAF (scheduled as setTimeout 0 by installFeedListDomMocks).
     await flushAsyncWork();
 
-    // Animating phase: opacity restored, maxHeight is content height + buffer.
     expect(Number(outer?.style.opacity)).toBe(1);
-    // maxHeight during animating = scrollHeight + 32; scrollHeight=0 in happy-dom.
-    expect(inner?.style.maxHeight).toBe("32px");
-    expect(inner?.style.transition).toContain("max-height");
+    expect(inner?.style.maxHeight).toBe("");
+    expect(body?.style.opacity).toBe("1");
+    expect(body?.style.transition).toContain("opacity");
+    expect(
+      container.querySelector('[data-feed-row-enter-skeleton="true"]'),
+    ).not.toBeNull();
   });
 
   test("data-article-entering attribute is set on outer div during animation", async () => {
