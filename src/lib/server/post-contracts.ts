@@ -27,6 +27,5 @@ export interface ExtractPostDeps {
  * Describes the extract resolved user proxy.
  */
 export interface ExtractResolvedUserProxy {
-  allowInsecureTls: boolean;
   proxyUrl: string | undefined;
 }

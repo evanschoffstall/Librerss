@@ -23,7 +23,6 @@ export interface ProxyRoutingCheck {
  * Describes the proxy settings snapshot.
  */
 export interface ProxySettingsSnapshot {
-  allowInsecureTls: boolean;
   error: null | string;
   hasProxyPassword: boolean;
   proxyStatus: ProxyUIStatus;
@@ -54,7 +53,6 @@ interface CompatibilityResultsCache {
  * Describes the persisted proxy settings.
  */
 interface PersistedProxySettings {
-  allowInsecureTls: boolean;
   error?: string;
   hasProxyPassword: boolean;
   proxyUrl: null | string;
@@ -217,7 +215,6 @@ export function toProxySettingsSnapshot(
   settings: PersistedProxySettings,
 ): ProxySettingsSnapshot {
   return {
-    allowInsecureTls: settings.allowInsecureTls,
     error: settings.error ?? null,
     hasProxyPassword: settings.hasProxyPassword,
     proxyStatus: settings.proxyUrl === null ? "none" : settings.status,

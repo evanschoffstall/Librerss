@@ -73,7 +73,6 @@ interface RequestWithHttpCloakDeps {
  * Describes the options for request with HTTP cloak.
  */
 interface RequestWithHttpCloakOptions {
-  allowInsecureTls?: boolean;
   browserPreset?: string;
   maxRedirects: number;
   proxyUrl?: string;
@@ -350,7 +349,7 @@ async function resolveHttpCloakTransport(
       proxy: proxyUrl,
       retry: 0,
       timeout: timeoutSeconds,
-      verify: !(options.allowInsecureTls ?? false),
+      verify: true,
     }),
     timeoutSeconds,
   };

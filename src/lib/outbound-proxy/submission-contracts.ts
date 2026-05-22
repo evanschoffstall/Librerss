@@ -11,7 +11,6 @@ export interface EmbeddedUrlCredentials {
  * Describes the normalized proxy submission.
  */
 export interface NormalizedProxySubmission {
-  allowInsecureTls: boolean | undefined;
   embeddedCredentials: EmbeddedUrlCredentials | null;
   proxyPassword: null | string | undefined;
   proxyUrl: null | string;
@@ -23,7 +22,6 @@ export interface NormalizedProxySubmission {
  * Describes the persisted proxy row.
  */
 export interface PersistedProxyRow {
-  allowInsecureTls: boolean;
   proxyPassword: null | string;
   proxyUsername: null | string;
 }
@@ -35,7 +33,6 @@ export interface ProxyRouteDeps {
   detectFn?: (host: string, port: number) => Promise<"http" | "socks5">;
   dnsCheckFn?: (host: string) => Promise<boolean>;
   getProxyRoutingCheckFn?: (options: {
-    allowInsecureTls: boolean;
     proxyUrl: string;
   }) => Promise<import("./service").ProxyRoutingCheckResult>;
   probeFn?: (proxyUrl: string) => Promise<boolean>;
@@ -48,7 +45,6 @@ export interface ProxyRouteDeps {
  * Describes the proxy settings request body.
  */
 export interface ProxySettingsRequestBody {
-  allowInsecureTls?: boolean;
   proxyPassword?: null | string;
   proxyUrl?: null | string;
   proxyUsername?: null | string;
@@ -65,7 +61,6 @@ export interface SavedProxyRecord extends PersistedProxyRow {
  * Describes the saved proxy view.
  */
 export interface SavedProxyView {
-  allowInsecureTls: boolean;
   fallbackPassword: null | string;
   hasProxyPassword: boolean;
   proxyUrl: string;

@@ -64,7 +64,6 @@ export interface ProxyStatusResult {
  * Describes the resolved user proxy.
  */
 export interface ResolvedUserProxy {
-  allowInsecureTls: boolean;
   proxyUrl: string | undefined;
 }
 
@@ -79,7 +78,6 @@ interface ProxyRoutingCheckDeps {
  * Describes the options for proxy routing check.
  */
 interface ProxyRoutingCheckOptions {
-  allowInsecureTls: boolean;
   proxyUrl: string;
 }
 
@@ -101,7 +99,6 @@ interface ResolvedProxyUrlOptions {
  * Describes the stored user proxy row.
  */
 interface StoredUserProxyRow {
-  allowInsecureTls: boolean;
   proxyPassword: null | string;
   proxyUrl: null | string;
   proxyUsername: null | string;
@@ -121,8 +118,8 @@ export async function getProxyRoutingCheck(
     deps?.fetchHtmlWithHttpCloakFn ?? fetchHtmlWithHttpCloak;
 
   const [directResult, proxiedResult] = await Promise.allSettled([
-    readPublicIp(undefined, false, fetchPublicIp),
-    readPublicIp(options.proxyUrl, options.allowInsecureTls, fetchPublicIp),
+    readPublicIp(undefined, fetchPublicIp),
+    readPublicIp(options.proxyUrl, fetchPublicIp),
   ]);
 
   const directIp =
@@ -195,7 +192,7 @@ export async function getProxyStatus(
 /**
  * Resolve the user proxy.
  * @param userId - The user ID.
- * @returns The resolved user proxy including a credential-injected proxy URL and TLS setting, or a bare proxy when no credentials are stored.
+ * @returns The resolved user proxy including a credential-injected proxy URL, or undefined when no proxy is configured.
  */
 export async function resolveUserProxy(
   userId: number,
@@ -203,7 +200,7 @@ export async function resolveUserProxy(
   const row = await loadStoredUserProxyRow(userId);
 
   if (!row) {
-    return { allowInsecureTls: false, proxyUrl: undefined };
+    return { proxyUrl: undefined };
   }
 
   const canonicalProxyUrl = normalizeStoredProxyUrl(row.proxyUrl);
@@ -217,7 +214,7 @@ export async function resolveUserProxy(
     proxyUsername: row.proxyUsername,
   });
 
-  return { allowInsecureTls: row.allowInsecureTls, proxyUrl };
+  return { proxyUrl };
 }
 
 /**
@@ -269,7 +266,6 @@ async function loadStoredUserProxyRow(
 ): Promise<StoredUserProxyRow | undefined> {
   const db = getDb();
   const proxyFields = {
-    allowInsecureTls: users.allowInsecureTls,
     proxyPassword: users.proxyPassword,
     proxyUrl: users.proxyUrl,
     proxyUsername: users.proxyUsername,
@@ -401,13 +397,11 @@ function parsePublicIpPayload(body: string): { ip: string } {
 /**
  * Read the current public IP address by querying configured provider endpoints.
  * @param proxyUrl - The proxy url.
- * @param allowInsecureTls - The allow insecure tls.
  * @param fetchPublicIp - The fetch public ip.
  * @returns The detected public IP address string from the first successful provider.
  */
 async function readPublicIp(
   proxyUrl: string | undefined,
-  allowInsecureTls: boolean,
   fetchPublicIp: typeof fetchHtmlWithHttpCloak,
 ): Promise<string> {
   let lastError: Error | null = null;
@@ -419,7 +413,6 @@ async function readPublicIp(
         (candidateUrl) =>
           Promise.resolve(validatePublicIpEndpoint(candidateUrl)),
         {
-          allowInsecureTls,
           ...(proxyUrl ? { proxyUrl } : {}),
         },
       );

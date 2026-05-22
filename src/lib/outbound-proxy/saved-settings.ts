@@ -25,7 +25,6 @@ import {
 /**
  * Build a JSON response for a configured but unreachable proxy, including the error message.
  * @param proxyUrl - The proxy url.
- * @param allowInsecureTls - Whether insecure TLS verification is disabled for the proxy connection.
  * @param proxyUsername - The proxy username.
  * @param hasProxyPassword - Whether a proxy password is currently stored.
  * @param error - The error.
@@ -33,13 +32,11 @@ import {
  */
 export function configuredResponseWithError(
   proxyUrl: string,
-  allowInsecureTls: boolean,
   proxyUsername: null | string,
   hasProxyPassword: boolean,
   error: string,
 ): Response {
   return NextResponse.json({
-    allowInsecureTls,
     configured: true,
     error,
     hasProxyPassword,
@@ -75,10 +72,6 @@ export function normalizeProxySubmission(
   const rawProxyUrl = normalizeProxyUrlValue(body.proxyUrl);
 
   return {
-    allowInsecureTls:
-      typeof body.allowInsecureTls === "boolean"
-        ? body.allowInsecureTls
-        : undefined,
     embeddedCredentials: rawProxyUrl ? getUrlCredentials(rawProxyUrl) : null,
     proxyPassword: normalizeOptionalProxyPassword(body.proxyPassword),
     proxyUrl: rawProxyUrl,
@@ -128,7 +121,6 @@ export function resolveSavedProxyView(
   const embeddedCredentials = getUrlCredentials(canonicalProxyUrl);
 
   return {
-    allowInsecureTls: savedProxy?.allowInsecureTls ?? false,
     fallbackPassword: embeddedCredentials?.password ?? null,
     hasProxyPassword: hasSavedProxyPassword(
       savedProxy,
@@ -175,7 +167,6 @@ export function resolveStoredProxyPasswordValue(
  */
 export function unconfiguredResponse(error?: string): Response {
   return NextResponse.json({
-    allowInsecureTls: false,
     configured: false,
     hasProxyPassword: false,
     proxyUrl: null,

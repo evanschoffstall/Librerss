@@ -253,7 +253,6 @@ describe("Feeds API - Route branches with injected deps", () => {
         getRequestedFeedUrlFn: () => "https://example.com/feed.xml",
         handleFeedReadFn: async () => {
           throw new HttpCloakUpstreamError({
-            allowInsecureTls: false,
             proxyAddress: null,
             proxyMode: "direct",
             redirectHop: 0,
@@ -779,7 +778,6 @@ describe("feeds route GET – upstream error handling", () => {
       getRequestedFeedUrlFn: () => "https://x.com/f",
       handleFeedReadFn: async () => {
         throw new HttpCloakUpstreamError({
-          allowInsecureTls: false,
           proxyAddress: null,
           proxyMode: "direct",
           redirectHop: 0,

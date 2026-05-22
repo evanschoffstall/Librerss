@@ -67,15 +67,6 @@ interface SettingsProxyLifecycleOptions {
 }
 
 /**
- * Describes the options for sync allow insecure tls.
- */
-interface SyncAllowInsecureTlsOptions {
-  applyProxySettings: (snapshot: ProxySettingsSnapshot) => void;
-  proxyState: SettingsProxyWritableState;
-  requestState: SettingsProxyRequestState;
-}
-
-/**
  * Manage the clear compatibility results.
  * @param proxyState - The proxy state.
  * @returns The clear compatibility results state and callbacks.
@@ -124,11 +115,6 @@ export function useSettingsProxyActions(options: SettingsProxyActionsOptions) {
     handleSave: createHandleSave({
       applyProxySettings,
       clearCompatibilityResults,
-      proxyState,
-      requestState,
-    }),
-    syncAllowInsecureTls: createSyncAllowInsecureTls({
-      applyProxySettings,
       proxyState,
       requestState,
     }),
@@ -293,7 +279,6 @@ function createHandleSave(options: ProxyMutationHandlerOptions) {
 
     try {
       const result = await ArticleService.saveProxyUrl(trimmed, {
-        allowInsecureTls: proxyState.allowInsecureTls,
         proxyPassword: nextProxyPassword,
         proxyUsername: trimmedUsername,
       });
@@ -311,47 +296,6 @@ function createHandleSave(options: ProxyMutationHandlerOptions) {
       proxyState.setError(
         err instanceof Error ? err.message : "Failed to save proxy URL",
       );
-      proxyState.setProxyStatus("unreachable");
-    } finally {
-      if (requestState.isCurrentProxyRequest(requestId)) {
-        requestState.setActiveProxyMutationRequestId(null);
-      }
-    }
-  };
-}
-
-/**
- * Create the sync allow insecure tls.
- * @param options - The options used to create the sync allow insecure tls.
- * @returns The sync allow insecure tls.
- */
-function createSyncAllowInsecureTls(options: SyncAllowInsecureTlsOptions) {
-  const { applyProxySettings, proxyState, requestState } = options;
-  return async (checked: boolean) => {
-    const currentUrl = proxyState.proxyUrl.trim();
-    if (!currentUrl) {
-      return;
-    }
-
-    const requestId = requestState.startProxyRequest();
-    requestState.setActiveProxyMutationRequestId(requestId);
-    proxyState.setAllowInsecureTls(checked);
-    proxyState.setProxyRoutingCheck(null);
-    proxyState.setProxyStatus("checking");
-
-    try {
-      const result = await ArticleService.saveProxyUrl(currentUrl, {
-        allowInsecureTls: checked,
-      });
-      if (!requestState.isCurrentProxyRequest(requestId)) {
-        return;
-      }
-      applyProxySettings(toProxySettingsSnapshot(result));
-    } catch {
-      if (!requestState.isCurrentProxyRequest(requestId)) {
-        return;
-      }
-      proxyState.setAllowInsecureTls(!checked);
       proxyState.setProxyStatus("unreachable");
     } finally {
       if (requestState.isCurrentProxyRequest(requestId)) {

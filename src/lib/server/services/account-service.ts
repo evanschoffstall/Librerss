@@ -56,7 +56,6 @@ interface ExportAccountBaseRecords {
     updatedAt: typeof articleStatuses.$inferSelect.updatedAt;
   }[];
   userRows: {
-    allowInsecureTls: typeof users.$inferSelect.allowInsecureTls;
     createdAt: typeof users.$inferSelect.createdAt;
     email: typeof users.$inferSelect.email;
     lastForceRefreshedAt: typeof users.$inferSelect.lastForceRefreshedAt;
@@ -86,7 +85,6 @@ interface ExportAccountRelations {
  * Describes the exported user.
  */
 interface ExportedUser {
-  allowInsecureTls: typeof users.$inferSelect.allowInsecureTls;
   createdAt: typeof users.$inferSelect.createdAt;
   email: typeof users.$inferSelect.email;
   hasProxyPassword: boolean;
@@ -176,7 +174,6 @@ function buildExportedUser(
   const embeddedProxyCredentials = getEmbeddedProxyCredentials(user.proxyUrl);
 
   return {
-    allowInsecureTls: user.allowInsecureTls,
     createdAt: user.createdAt,
     email: user.email,
     hasProxyPassword:
@@ -369,7 +366,6 @@ function selectUserExportRow(
 ) {
   return db
     .select({
-      allowInsecureTls: users.allowInsecureTls,
       createdAt: users.createdAt,
       email: users.email,
       lastForceRefreshedAt: users.lastForceRefreshedAt,

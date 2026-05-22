@@ -1,4 +1,4 @@
-import { Globe, Info, Save, Trash2, XCircle } from "lucide-react";
+import { Globe, Save, Trash2, XCircle } from "lucide-react";
 
 import {
   ProxyRoutingBadge,
@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -48,16 +47,6 @@ type ProxySectionHeaderProps = Pick<
   > | null;
   showStatusBadges: boolean;
   showStatusSkeletons: boolean;
-};
-
-/**
- * Describes the props for the proxy tls toggle component.
- */
-type ProxyTlsToggleProps = Pick<
-  UseSettingsProxyStateResult,
-  "allowInsecureTls" | "saving" | "syncAllowInsecureTls"
-> & {
-  showTlsToggle: boolean;
 };
 
 /**
@@ -219,44 +208,6 @@ export function ProxySectionHeader(props: ProxySectionHeaderProps) {
   );
 }
 
-/**
- * Render the proxy tls toggle component.
- * @param props - The component props.
- * @returns The rendered proxy tls toggle component.
- */
-export function ProxyTlsToggle(props: ProxyTlsToggleProps) {
-  const { allowInsecureTls, saving, showTlsToggle, syncAllowInsecureTls } =
-    props;
-  return (
-    <div className="row-between">
-      <div className="flex items-center gap-1.5">
-        <Label className="cursor-pointer text-xs" htmlFor="allow-insecure-tls">
-          Allow insecure TLS
-        </Label>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Info className="size-3 cursor-help text-muted-foreground" />
-          </TooltipTrigger>
-          <TooltipContent className="max-w-44 text-xs" side="right">
-            Skips certificate validation. Use only for trusted private proxies.
-          </TooltipContent>
-        </Tooltip>
-      </div>
-      {!showTlsToggle ? (
-        <Skeleton className="h-5 w-9 rounded-full" />
-      ) : (
-        <Switch
-          checked={allowInsecureTls}
-          disabled={saving}
-          id="allow-insecure-tls"
-          onCheckedChange={(checked) => {
-            void syncAllowInsecureTls(checked);
-          }}
-        />
-      )}
-    </div>
-  );
-}
 /**
  * Render the proxy url section component.
  * @param props - The component props.

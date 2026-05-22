@@ -2,7 +2,6 @@
  * Describes the options for HTTP cloak upstream error.
  */
 export interface HttpCloakUpstreamErrorOptions {
-  allowInsecureTls: boolean;
   proxyAddress: null | string;
   proxyMode: string;
   redirectHop: number;
@@ -16,11 +15,6 @@ export interface HttpCloakUpstreamErrorOptions {
  * Implements the HTTP cloak upstream error.
  */
 export class HttpCloakUpstreamError extends Error {
-  /**
-   * Stores the allow insecure tls.
-   */
-  readonly allowInsecureTls: boolean;
-
   /**
    * Stores the proxy address.
    */
@@ -60,7 +54,6 @@ export class HttpCloakUpstreamError extends Error {
       message ?? `Upstream responded with status ${options.statusCode}`;
 
     super(resolvedMessage);
-    this.allowInsecureTls = options.allowInsecureTls;
     this.name = "HttpCloakUpstreamError";
     this.proxyAddress = options.proxyAddress;
     this.proxyMode = options.proxyMode;

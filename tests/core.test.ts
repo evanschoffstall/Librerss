@@ -792,7 +792,6 @@ describe("feed-refresh", () => {
         }),
         parseFeedXmlFn: async () => ({ items: [] }),
         proxyTransport: {
-          allowInsecureTls: true,
           proxyUrl: "socks5://proxy.example:1080",
         },
       },
@@ -802,7 +801,6 @@ describe("feed-refresh", () => {
     expect(fetchFeedXmlFn).toHaveBeenCalledWith(
       "https://example.com/proxied.xml",
       {
-        allowInsecureTls: true,
         proxyUrl: "socks5://proxy.example:1080",
       },
     );
@@ -841,7 +839,6 @@ describe("feed-refresh", () => {
           }),
           parseFeedXmlFn: async () => ({ items: [] }),
           proxyTransport: {
-            allowInsecureTls: false,
             proxyUrl: "socks5://user:secret@proxy.example:1080",
           },
         },

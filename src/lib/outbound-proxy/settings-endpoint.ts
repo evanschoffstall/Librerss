@@ -66,7 +66,6 @@ interface PersistedProxyProbeResponseOptions {
  * Describes the persist proxy settings values.
  */
 interface PersistProxySettingsValues {
-  allowInsecureTls?: boolean;
   proxyPassword?: null | string;
   proxyUrl: null | string;
   proxyUsername?: null | string;
@@ -75,7 +74,6 @@ interface PersistProxySettingsValues {
  * Describes the options for probe and respond.
  */
 interface ProbeAndRespondOptions {
-  allowInsecureTls?: boolean;
   getProxyRoutingCheckFn: ProxyRoutingCheckFn;
   logLabel: string;
   probe: (url: string) => Promise<boolean>;
@@ -88,14 +86,12 @@ interface ProbeAndRespondOptions {
  * Defines the proxy routing check fn type.
  */
 type ProxyRoutingCheckFn = (options: {
-  allowInsecureTls: boolean;
   proxyUrl: string;
 }) => Promise<ProxyRoutingCheckResult>;
 /**
  * Describes the options for respond with saved password read error.
  */
 interface RespondWithSavedPasswordReadErrorOptions {
-  allowInsecureTls: boolean;
   hasProxyPassword: boolean;
   proxyUrl: null | string;
   proxyUsername: null | string;
@@ -135,7 +131,6 @@ export async function handleProxySettingsGet(
   );
   if (materializedPassword instanceof Response) {
     return respondWithSavedPasswordReadError({
-      allowInsecureTls: savedProxyView.allowInsecureTls,
       hasProxyPassword: savedProxyView.hasProxyPassword,
       proxyUrl: savedProxyView.proxyUrl,
       proxyUsername: savedProxyView.proxyUsername,
@@ -143,7 +138,6 @@ export async function handleProxySettingsGet(
   }
 
   return probeAndRespond({
-    allowInsecureTls: savedProxyView.allowInsecureTls,
     getProxyRoutingCheckFn: authorized.getProxyRoutingCheck,
     logLabel: "Proxy unreachable on GET",
     probe: authorized.probe,
@@ -191,7 +185,6 @@ export async function handleProxySettingsPut(
   });
   if (responsePassword instanceof Response) {
     return respondWithSavedPasswordReadError({
-      allowInsecureTls: persistedSubmission.persistedProxy.allowInsecureTls,
       hasProxyPassword:
         persistedSubmission.persistedProxy.proxyPassword !== null,
       proxyUrl,
@@ -216,7 +209,6 @@ function buildPersistedProxyProbeResponse(
   options: PersistedProxyProbeResponseOptions,
 ) {
   return probeAndRespond({
-    allowInsecureTls: options.persistedProxy.allowInsecureTls,
     getProxyRoutingCheckFn: options.authorized.getProxyRoutingCheck,
     logLabel: "Proxy saved but unreachable",
     probe: options.authorized.probe,
@@ -246,7 +238,6 @@ async function persistAuthorizedProxySubmission(
   }
 
   const persistedProxy = await persistProxySettings(options.auth.userId, {
-    allowInsecureTls: options.submission.allowInsecureTls,
     proxyPassword: storedProxyPassword,
     proxyUrl: options.proxyUrl,
     proxyUsername: effectiveProxyUsername,
@@ -269,9 +260,6 @@ async function persistProxySettings(
     .update(users)
     .set({
       proxyUrl: values.proxyUrl,
-      ...(values.allowInsecureTls !== undefined && {
-        allowInsecureTls: values.allowInsecureTls,
-      }),
       ...(values.proxyPassword !== undefined && {
         proxyPassword: values.proxyPassword,
       }),
@@ -281,14 +269,12 @@ async function persistProxySettings(
     })
     .where(eq(users.id, userId))
     .returning({
-      allowInsecureTls: users.allowInsecureTls,
       proxyPassword: users.proxyPassword,
       proxyUsername: users.proxyUsername,
     });
 
   return (
     rows[0] ?? {
-      allowInsecureTls: false,
       proxyPassword: null,
       proxyUsername: null,
     }
@@ -318,7 +304,6 @@ async function probeAndRespond(
   }
 
   return NextResponse.json({
-    allowInsecureTls: options.allowInsecureTls ?? false,
     configured: true,
     hasProxyPassword: proxyPassword !== null,
     proxyUrl: options.proxyUrl,
@@ -326,7 +311,6 @@ async function probeAndRespond(
     routingCheck: reachable
       ? await resolveRoutingCheck(
           options.getProxyRoutingCheckFn,
-          options.allowInsecureTls ?? false,
           transportProxyUrl,
         )
       : null,
@@ -344,7 +328,6 @@ async function readSavedProxyRecord(
 ): Promise<null | SavedProxyRecord> {
   const rows = await getDb()
     .select({
-      allowInsecureTls: users.allowInsecureTls,
       proxyPassword: users.proxyPassword,
       proxyUrl: users.proxyUrl,
       proxyUsername: users.proxyUsername,
@@ -431,17 +414,15 @@ async function resolveResponseProxyPassword(
 /**
  * Resolve the routing check.
  * @param getProxyRoutingCheckFn - The proxy routing check fn.
- * @param allowInsecureTls - The allow insecure tls.
  * @param proxyUrl - The proxy url.
  * @returns The routing check.
  */
 async function resolveRoutingCheck(
   getProxyRoutingCheckFn: ProxyRoutingCheckFn,
-  allowInsecureTls: boolean,
   proxyUrl: string,
 ): Promise<ProxyRoutingCheckResult> {
   try {
-    return await getProxyRoutingCheckFn({ allowInsecureTls, proxyUrl });
+    return await getProxyRoutingCheckFn({ proxyUrl });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Exit IP check failed.";
@@ -474,7 +455,6 @@ function respondWithSavedPasswordReadError(
 
   return configuredResponseWithError(
     options.proxyUrl,
-    options.allowInsecureTls,
     options.proxyUsername,
     options.hasProxyPassword,
     "Saved proxy password could not be read. Save it again to continue using authenticated proxy access.",

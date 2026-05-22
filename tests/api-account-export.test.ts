@@ -46,7 +46,6 @@ describe("account export route", () => {
       feedSources: [],
       sessions: [],
       user: {
-        allowInsecureTls: false,
         createdAt: new Date("2026-03-15T00:00:00.000Z"),
         email: "reader@example.com",
         hasProxyPassword: true,

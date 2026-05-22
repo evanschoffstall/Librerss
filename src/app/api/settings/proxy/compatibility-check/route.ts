@@ -62,7 +62,6 @@ interface CompatibilityCheckDeps {
  * Describes the compatibility check execution context.
  */
 interface CompatibilityCheckExecutionContext {
-  allowInsecureTls: boolean;
   loggerInstance: typeof logger;
   proxyUrl?: string;
   useProxy: boolean;
@@ -114,7 +113,6 @@ interface ResolvedCompatibilityCheckDeps {
  * Describes the resolved user proxy configuration.
  */
 interface ResolvedUserProxyConfig {
-  allowInsecureTls: boolean;
   proxyUrl?: string;
 }
 
@@ -293,16 +291,14 @@ function hasCompatibilitySignal(vendor: string, bodyLower: string) {
  */
 function normalizeResolvedUserProxy(value: unknown): ResolvedUserProxyConfig {
   if (!value || typeof value !== "object") {
-    return { allowInsecureTls: false };
+    return {};
   }
 
   const candidate = value as {
-    allowInsecureTls?: unknown;
     proxyUrl?: unknown;
   };
 
   return {
-    allowInsecureTls: candidate.allowInsecureTls === true,
     proxyUrl:
       typeof candidate.proxyUrl === "string" && candidate.proxyUrl.length > 0
         ? candidate.proxyUrl
@@ -376,7 +372,6 @@ async function resolveCompatibilityExecutionContext(
 ): Promise<CompatibilityCheckExecutionContext | Response> {
   if (!useProxy) {
     return {
-      allowInsecureTls: false,
       loggerInstance: deps.loggerInstance,
       useProxy,
       userId,
@@ -395,10 +390,7 @@ async function resolveCompatibilityExecutionContext(
       );
     }
 
-    const allowInsecureTls = resolved.allowInsecureTls;
-
     return {
-      allowInsecureTls,
       loggerInstance: deps.loggerInstance,
       proxyUrl,
       useProxy,
@@ -444,7 +436,6 @@ async function runCompatibilityCheck(
       site.url,
       () => Promise.resolve(true),
       {
-        allowInsecureTls: executionContext.allowInsecureTls,
         proxyUrl: executionContext.proxyUrl,
       },
     );

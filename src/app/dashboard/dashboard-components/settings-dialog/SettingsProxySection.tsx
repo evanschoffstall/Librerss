@@ -3,7 +3,6 @@
 import {
   ProxyCredentialsSection,
   ProxySectionHeader,
-  ProxyTlsToggle,
   ProxyUrlSection,
   SettingsProxySectionBody,
 } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySectionParts";
@@ -50,7 +49,6 @@ export function SettingsProxySectionContent(
   proxyState: UseSettingsProxyStateResult,
 ) {
   const {
-    allowInsecureTls,
     error,
     handleClear,
     handleSave,
@@ -66,7 +64,6 @@ export function SettingsProxySectionContent(
     setProxyPassword,
     setProxyUrl,
     setProxyUsername,
-    syncAllowInsecureTls,
   } = proxyState;
   const viewState = getProxySectionViewState(proxyState);
 
@@ -102,14 +99,6 @@ export function SettingsProxySectionContent(
         showPasswordField={viewState.showPasswordField}
         showUsernameField={viewState.showUsernameField}
       />
-      <Separator />
-      <ProxyTlsToggle
-        allowInsecureTls={allowInsecureTls}
-        saving={saving}
-        showTlsToggle={viewState.showTlsToggle}
-        syncAllowInsecureTls={syncAllowInsecureTls}
-      />
-      <Separator />
       <Separator />
       <SettingsProxySectionBody proxyState={proxyState} />
     </section>
@@ -172,7 +161,6 @@ function getProxySectionViewState(
     showProxyUrlRow: !isLoading || proxyUrl.length > 0 || hasProxy,
     showStatusBadges,
     showStatusSkeletons: isLoading && !showStatusBadges,
-    showTlsToggle: !isLoading || hasProxy,
     showUsernameField: !isLoading || proxyUsername.length > 0,
   };
 }

@@ -68,7 +68,6 @@ function makeProxySettings(
   const proxyUrl = overrides.proxyUrl ?? null;
 
   return {
-    allowInsecureTls: false,
     configured: proxyUrl !== null,
     error: undefined,
     hasProxyPassword: false,
@@ -94,7 +93,6 @@ describe("useSettingsProxyState", () => {
     ArticleService.saveProxyUrl = mock(
       async (proxyUrl: null | string, options) =>
         makeProxySettings({
-          allowInsecureTls: options?.allowInsecureTls ?? false,
           configured: proxyUrl !== null,
           hasProxyPassword:
             options?.proxyPassword === undefined
@@ -141,7 +139,6 @@ describe("useSettingsProxyState", () => {
     );
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings({
-        allowInsecureTls: true,
         configured: true,
         error: "Proxy responded slowly",
         hasProxyPassword: true,
@@ -159,7 +156,6 @@ describe("useSettingsProxyState", () => {
 
     expect(result.current.proxyUrl).toBe("https://proxy.example.test");
     expect(result.current.proxyUsername).toBe("alice");
-    expect(result.current.allowInsecureTls).toBe(true);
     expect(result.current.hasProxyPassword).toBe(true);
     expect(result.current.error).toBe("Proxy responded slowly");
     expect(result.current.hasProxy).toBe(true);
@@ -251,7 +247,6 @@ describe("useSettingsProxyState", () => {
 
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings({
-        allowInsecureTls: true,
         configured: true,
         hasProxyPassword: true,
         proxyUrl: "socks5://proxy.example.test:1080",
@@ -270,7 +265,6 @@ describe("useSettingsProxyState", () => {
 
     expect(result.current.proxyUrl).toBe("socks5://proxy.example.test:1080");
     expect(result.current.proxyUsername).toBe("strict-user");
-    expect(result.current.allowInsecureTls).toBe(true);
     expect(result.current.hasProxyPassword).toBe(true);
   });
 
@@ -378,7 +372,6 @@ describe("useSettingsProxyState", () => {
     );
     ArticleService.saveProxyUrl = mock(async (proxyUrl, options) =>
       makeProxySettings({
-        allowInsecureTls: options?.allowInsecureTls ?? false,
         configured: proxyUrl !== null,
         hasProxyPassword: true,
         proxyUrl,
@@ -394,7 +387,6 @@ describe("useSettingsProxyState", () => {
     });
 
     await act(async () => {
-      result.current.setAllowInsecureTls(true);
       result.current.setProxyUrl("  https://proxy.example.test/path  ");
       result.current.setProxyUsername("  bob  ");
       result.current.setProxyPassword("secret");
@@ -407,7 +399,6 @@ describe("useSettingsProxyState", () => {
     expect(ArticleService.saveProxyUrl).toHaveBeenCalledWith(
       "https://proxy.example.test/path",
       {
-        allowInsecureTls: true,
         proxyPassword: "secret",
         proxyUsername: "bob",
       },
@@ -597,7 +588,7 @@ describe("useSettingsProxyState", () => {
     expect(result.current.isRunningCompatibilityCheck).toBe(false);
   });
 
-  test("persists insecure TLS updates for saved proxies and rolls back failed saves", async () => {
+  test("keeps the saved proxy settings visible when a later save fails", async () => {
     const useSettingsProxyState = await loadUseSettingsProxyState();
     ArticleService.getProxySettings = mock(async () =>
       makeProxySettings({
@@ -616,23 +607,34 @@ describe("useSettingsProxyState", () => {
     });
 
     await act(async () => {
-      await result.current.syncAllowInsecureTls(true);
+      result.current.setProxyUsername("saved-user");
+    });
+
+    await act(async () => {
+      await result.current.handleSave();
     });
 
     expect(ArticleService.saveProxyUrl).toHaveBeenCalledWith(
       "https://proxy.example.test",
-      { allowInsecureTls: true },
+      { proxyPassword: null, proxyUsername: "saved-user" },
     );
-    expect(result.current.allowInsecureTls).toBe(true);
+    expect(result.current.proxyUsername).toBe("saved-user");
 
     ArticleService.saveProxyUrl = mock(async () => {
       throw new Error("save failed");
     }) as typeof ArticleService.saveProxyUrl;
 
     await act(async () => {
-      await result.current.syncAllowInsecureTls(false);
+      result.current.setProxyUsername("failed-user");
     });
 
-    expect(result.current.allowInsecureTls).toBe(true);
+    await act(async () => {
+      await result.current.handleSave();
+    });
+
+    expect(result.current.proxyUrl).toBe("https://proxy.example.test");
+    expect(result.current.proxyUsername).toBe("failed-user");
+    expect(result.current.error).toBe("save failed");
+    expect(result.current.proxyStatus).toBe("unreachable");
   });
 });

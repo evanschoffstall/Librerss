@@ -67,7 +67,6 @@ interface ExtractRequestBody {
  * Describes the extract request resolution.
  */
 interface ExtractRequestResolution {
-  allowInsecureTls: boolean;
   articleUrl: string;
   cachedPayload: ExtractResponsePayload | null;
   distillStrategy: DistillStrategy;
@@ -266,7 +265,6 @@ async function resolveArticleHtml(
   return (
     localSnapshot?.html ??
     (await deps.fetchArticleHtml(requestResolution.articleUrl, undefined, {
-      allowInsecureTls: requestResolution.allowInsecureTls,
       proxyUrl: requestResolution.resolvedProxyUrl,
       useProxy: requestResolution.useProxy,
     }))
@@ -331,7 +329,7 @@ async function resolveExtractRequest(
   const distillStrategy = resolveSupportedDistillStrategy(
     bodyResult.distillStrategy,
   );
-  const { allowInsecureTls, resolvedProxyUrl } = await resolveProxyRequest(
+  const { resolvedProxyUrl } = await resolveProxyRequest(
     authUserId,
     deps.resolveUserProxy,
     useProxy,
@@ -342,7 +340,6 @@ async function resolveExtractRequest(
   }
 
   return {
-    allowInsecureTls,
     articleUrl: parsedUrl,
     cachedPayload: getCachedExtractResponse(
       parsedUrl,
@@ -368,18 +365,16 @@ async function resolveProxyRequest(
   resolveUserProxy: (userId: number) => Promise<ExtractResolvedUserProxy>,
   useProxy: boolean,
 ): Promise<{
-  allowInsecureTls: boolean;
   resolvedProxyUrl: string | undefined;
 }> {
   if (!useProxy || !authUserId) {
-    return { allowInsecureTls: false, resolvedProxyUrl: undefined };
+    return { resolvedProxyUrl: undefined };
   }
 
   try {
     const resolved = await resolveUserProxy(authUserId);
 
     return {
-      allowInsecureTls: resolved.allowInsecureTls,
       resolvedProxyUrl: resolved.proxyUrl,
     };
   } catch (error) {

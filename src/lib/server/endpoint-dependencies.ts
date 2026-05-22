@@ -55,7 +55,6 @@ export function createExtractRuntimeDeps(
       deps.resolveUserProxyFn ??
       (() =>
         Promise.resolve({
-          allowInsecureTls: false,
           proxyUrl: undefined,
         })),
     shouldUseCache: deps.shouldUseExtractCacheFn ?? isExtractCacheEnabled,

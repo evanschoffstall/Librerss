@@ -530,7 +530,6 @@ async function resolveBatchProxyTransport(options: BatchProxyTransportOptions) {
   const resolvedProxy = await options.resolveUserProxyForRoute(options.userId);
 
   return {
-    allowInsecureTls: resolvedProxy.allowInsecureTls,
     proxyUrl: resolvedProxy.proxyUrl,
   };
 }

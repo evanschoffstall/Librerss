@@ -18,7 +18,6 @@ const fetchHtmlWithHttpCloakMock = mock(
     url: string,
     _isAllowedUrl: (candidateUrl: string) => Promise<boolean>,
     options?: {
-      allowInsecureTls?: boolean;
       proxyUrl?: string;
     },
   ) => ({
@@ -32,7 +31,6 @@ const loggerInfoMock = mock(() => {});
 const parseJsonBodyOrResponseMock = mock(async () => ({ useProxy: true }));
 const requireMutableAuthenticatedUserMock = mock(async () => ({ userId: 1 }));
 const resolveUserProxyMock = mock(async () => ({
-  allowInsecureTls: true,
   proxyUrl: "socks5://proxy.example:1080",
 }));
 
