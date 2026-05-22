@@ -1,5 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 
+import { waitForPreviewDashboardHydration } from "./helpers";
 import { expect } from "./test";
 
 /** Supported dashboard background modes covered by universal rendering tests. */
@@ -34,7 +35,7 @@ const DEFAULT_SIGNATURE_CHANGE_OPTIONS = {
   minAlphaDelta: 24,
   minCentroidShift: 0.04,
 } satisfies Required<CanvasSignatureChangeOptions>;
-const MAX_SIGNATURE_WAIT_FRAMES = 360;
+const MAX_SIGNATURE_WAIT_MS = 4_000;
 
 /**
  * Return the canvas locator for the active dashboard background mode.
@@ -262,12 +263,14 @@ export async function gotoDashboardWithBackgroundMode(
     );
   }, backgroundMode);
   await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
+  await waitForPreviewDashboardHydration(page);
 }
 
 /**
  * Wait until the canvas signature differs from a baseline within a bounded
- * number of requestAnimationFrame turns. The polling runs in the browser so it
- * samples exactly what the user-facing canvas paints between frames.
+ * amount of wall-clock time. The polling runs in the browser so it samples
+ * exactly what the user-facing canvas paints between frames without exceeding
+ * Playwright's default locator-evaluation timeout.
  * @param canvas - The canvas locator to inspect.
  * @param baselineSignature - The signature that should become stale.
  * @param options - Thresholds used to decide that the canvas moved.
@@ -282,7 +285,7 @@ async function waitForCanvasSignatureChange(
     (element, evaluationOptions) =>
       new Promise<CanvasSignatureChangeResult>((resolve) => {
         const canvasElement = element as HTMLCanvasElement;
-        let frameCount = 0;
+        const startedAt = performance.now();
 
         /** Captures a compact signature from the current canvas pixels. */
         const readSignature = (): CanvasMotionSignature => {
@@ -374,13 +377,14 @@ async function waitForCanvasSignatureChange(
           );
         };
 
-        /** Polls on animation frames until the canvas moves or the budget ends. */
+        /** Polls on animation frames until the canvas moves or the time budget ends. */
         const pollSignature = () => {
           const currentSignature = readSignature();
-          if (
-            hasChanged(currentSignature) ||
-            frameCount >= evaluationOptions.maxFrameCount
-          ) {
+
+          const hasTimedOut =
+            performance.now() - startedAt >= evaluationOptions.maxWaitMs;
+
+          if (hasChanged(currentSignature) || hasTimedOut) {
             resolve({
               changed: hasChanged(currentSignature),
               currentSignature,
@@ -388,7 +392,6 @@ async function waitForCanvasSignatureChange(
             return;
           }
 
-          frameCount += 1;
           window.requestAnimationFrame(pollSignature);
         };
 
@@ -396,7 +399,7 @@ async function waitForCanvasSignatureChange(
       }),
     {
       baselineSignature,
-      maxFrameCount: MAX_SIGNATURE_WAIT_FRAMES,
+      maxWaitMs: MAX_SIGNATURE_WAIT_MS,
       minAlphaDelta:
         options.minAlphaDelta ?? DEFAULT_SIGNATURE_CHANGE_OPTIONS.minAlphaDelta,
       minCentroidShift:
