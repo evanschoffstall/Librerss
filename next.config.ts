@@ -117,35 +117,6 @@ export function resolveAllowedDevOrigins(
 }
 
 /**
- * Builds the app-wide CSP, relaxing only the directives development mode requires.
- * @returns The serialized Content-Security-Policy header value.
- */
-function buildContentSecurityPolicy() {
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const connectSources = ["'self'"];
-  const scriptSources = ["'self'", "'unsafe-inline'"];
-
-  if (isDevelopment) {
-    connectSources.push("ws:", "wss:");
-    scriptSources.push("'unsafe-eval'");
-  }
-
-  return [
-    "default-src 'self'",
-    `script-src ${scriptSources.join(" ")}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https: blob:",
-    "font-src 'self' data:",
-    `connect-src ${connectSources.join(" ")}`,
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "worker-src 'self'",
-  ].join("; ");
-}
-
-/**
  * Walks upward from a resolved module entry until the owning package.json is
  * found, avoiding unsupported package.json export subpaths.
  * @param entryPath - Resolved package entry path inside node_modules.
@@ -292,12 +263,16 @@ const nextConfig: NextConfig = {
     LIBRERSS_BUILD_CONFIG: JSON.stringify(buildTimeServerConfig),
   },
   /**
-   * Adds security headers to every application route.
+   * Adds static security headers to every application route.
+   *
+   * Content-Security-Policy is intentionally absent here because it is
+   * applied per-request in `src/middleware.ts` with a fresh nonce so that
+   * `'unsafe-inline'` is never needed in `script-src`.  All other headers
+   * are request-independent and can safely be set once at build time.
+   *
    * @returns Header definitions consumed by Next.js at build time.
    */
   async headers() {
-    const contentSecurityPolicy = buildContentSecurityPolicy();
-
     return [
       {
         headers: [
@@ -329,13 +304,6 @@ const nextConfig: NextConfig = {
             // rollout if you have HTTP-only subdomains.
             key: "Strict-Transport-Security",
             value: "max-age=31536000; includeSubDomains",
-          },
-          {
-            // Mitigates reflected / stored XSS by constraining resource
-            // loading origins. Development additionally requires unsafe-eval
-            // for React stack reconstruction and websocket connect sources for HMR.
-            key: "Content-Security-Policy",
-            value: contentSecurityPolicy,
           },
         ],
         source: "/:path*",
