@@ -1126,44 +1126,31 @@ export async function toggleArticle(article: Locator) {
   await expect(article).toBeVisible({ timeout: 15_000 });
   await article.scrollIntoViewIfNeeded();
 
-  try {
-    const beforeExpanded = await article.getAttribute("aria-expanded");
-    const header = article
-      .locator("[data-article-swipe-zone='header']")
-      .first();
+  for (
+    let attempt = 0;
+    attempt < ARTICLE_TOGGLE_STRATEGIES.length;
+    attempt += 1
+  ) {
+    const beforeExpanded = await readArticleExpandedState(article);
+    const expectedExpanded = beforeExpanded === "true" ? "false" : "true";
 
-    if ((await header.count()) > 0) {
-      await header.click({ force: true });
-    } else {
-      await article.click({ force: true });
+    try {
+      await ARTICLE_TOGGLE_STRATEGIES[attempt](article);
+      await expect
+        .poll(async () => await article.getAttribute("aria-expanded"))
+        .toBe(expectedExpanded);
+      return;
+    } catch (error) {
+      if (
+        !isRetryableArticleToggleError(error) ||
+        attempt === ARTICLE_TOGGLE_STRATEGIES.length - 1
+      ) {
+        throw error;
+      }
+
+      await expect(article).toBeVisible({ timeout: 15_000 });
+      await article.scrollIntoViewIfNeeded();
     }
-
-    await expect
-      .poll(async () => await article.getAttribute("aria-expanded"))
-      .not.toBe(beforeExpanded);
-  } catch (error) {
-    if (
-      !(error instanceof Error) ||
-      (!error.message.includes("Element is not attached to the DOM") &&
-        !error.message.includes("Timeout"))
-    ) {
-      throw error;
-    }
-
-    const beforeRetryExpanded = await article.getAttribute("aria-expanded");
-    const header = article
-      .locator("[data-article-swipe-zone='header']")
-      .first();
-
-    if ((await header.count()) > 0) {
-      await header.click({ force: true });
-    } else {
-      await article.click({ force: true });
-    }
-
-    await expect
-      .poll(async () => await article.getAttribute("aria-expanded"))
-      .not.toBe(beforeRetryExpanded);
   }
 }
 
@@ -1210,6 +1197,24 @@ export async function wheelActiveFeedViewport(page: Page, deltaY = 240) {
   await page.mouse.wheel(0, deltaY);
 }
 
+const ARTICLE_TOGGLE_STRATEGIES = [
+  clickArticleToggleTarget,
+  pressArticleToggleTarget,
+  dispatchArticleToggleTargetClick,
+] as const;
+
+/** Clicks the article header when present so toggles avoid nested action buttons. */
+async function clickArticleToggleTarget(article: Locator) {
+  const header = article.locator("[data-article-swipe-zone='header']").first();
+
+  if ((await header.count()) > 0) {
+    await header.click({ force: true });
+    return;
+  }
+
+  await article.click({ force: true });
+}
+
 /** Clicks a visible control and falls back to a DOM click when toasts intercept the pointer. */
 async function clickVisibleControl(locator: Locator) {
   await expect(locator).toBeVisible();
@@ -1228,6 +1233,20 @@ async function clickVisibleControl(locator: Locator) {
 
     throw error;
   }
+}
+
+/** Dispatches a DOM click on the header to exercise React's delegated click handler. */
+async function dispatchArticleToggleTargetClick(article: Locator) {
+  await article.evaluate((articleElement) => {
+    if (!(articleElement instanceof HTMLElement)) {
+      throw new Error("Expected article toggle target to be an element.");
+    }
+
+    const header = articleElement.querySelector<HTMLElement>(
+      "[data-article-swipe-zone='header']",
+    );
+    (header ?? articleElement).click();
+  });
 }
 
 function escapeCssAttributeValue(value: string) {
@@ -1309,8 +1328,38 @@ function isKnownNonRuntimeConsoleError(message: string) {
   });
 }
 
+function isRetryableArticleToggleError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.message.includes("Element is not attached to the DOM") ||
+      error.message.includes("Timeout"))
+  );
+}
+
 function normalizeRuntimeSignalText(text: string) {
   return text.replace(/\s+/gu, " ").trim();
+}
+
+/** Uses the card's keyboard contract when a pointer click misses a lower virtualized row. */
+async function pressArticleToggleTarget(article: Locator) {
+  await article.focus();
+  await article.press("Enter");
+}
+
+async function readArticleExpandedState(article: Locator) {
+  await expect
+    .poll(async () => await article.getAttribute("aria-expanded"))
+    .toMatch(/^(?:false|true)$/u);
+
+  const expandedState = await article.getAttribute("aria-expanded");
+
+  if (expandedState !== "false" && expandedState !== "true") {
+    throw new Error(
+      `Expected article aria-expanded to settle before toggling, received ${String(expandedState)}.`,
+    );
+  }
+
+  return expandedState;
 }
 
 function readEnvFileValue(contents: string, key: string) {
