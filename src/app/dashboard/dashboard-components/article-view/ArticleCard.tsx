@@ -959,7 +959,7 @@ export const ArticleCard = memo(
         <article
           aria-expanded={isExpanded}
           className={`
-          article-swipe-surface group relative overflow-visible border
+          group relative overflow-visible border
           border-border
           dark:shadow-2xl dark:shadow-zinc-900/50
           ${visuallyExpanded ? `rounded-t-[0.5rem] rounded-b-xl` : `rounded-xl`}

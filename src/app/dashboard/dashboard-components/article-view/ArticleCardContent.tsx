@@ -159,10 +159,7 @@ function ArticleBodyMotion(props: ArticleBodyMotionProps) {
             opacity: phase === "collapsed" ? 0 : 1,
             y: phase === "expanding" ? 0 : phase === "collapsed" ? 4 : 0,
           }}
-          className={`
-            article-swipe-body overflow-hidden
-            ${visuallyExpanded ? `select-text` : ""}
-          `}
+          className="overflow-hidden"
           initial={false}
           ref={bodyMeasureRef}
           style={getExpandedBodyMotionStyle(phase, visuallyExpanded)}

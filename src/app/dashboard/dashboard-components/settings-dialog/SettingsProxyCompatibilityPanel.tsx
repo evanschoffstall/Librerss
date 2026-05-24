@@ -195,7 +195,7 @@ function CompatibilityPanelHeader(props: CompatibilityPanelHeaderProps) {
     showLoadingSkeleton,
   } = props;
   return (
-    <div className="row-between">
+    <div className="flex items-center justify-between gap-4">
       <div>
         <p className="text-xs font-medium">Compatibility Check</p>
         <p className="text-[11px] text-muted-foreground">

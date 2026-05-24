@@ -28,6 +28,11 @@ const COLLAPSED_HEADER_STYLE = {
   WebkitTouchCallout: "none",
   WebkitUserSelect: "none",
 } as const;
+const COLLAPSED_TITLE_STYLE = {
+  display: "-webkit-box",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+} as const;
 
 /**
  * Describes the props for the article card header component.
@@ -285,6 +290,7 @@ function ArticleHeaderTitle(
           ? "text-[1.125rem] leading-[1.35] font-bold"
           : collapsedTitleClassName,
       ].join(" ")}
+      style={visuallyExpanded ? undefined : COLLAPSED_TITLE_STYLE}
     >
       {article.title}
     </h3>

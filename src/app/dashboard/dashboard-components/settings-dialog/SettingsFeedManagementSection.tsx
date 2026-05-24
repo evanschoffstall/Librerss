@@ -58,11 +58,11 @@ export function SettingsFeedManagementSection(
       isPreviewMode={isPreviewMode}
       showOverlay={showPreviewOverlay}
     >
-      <section className="settings-card">
+      <section className="space-y-4 rounded-lg border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="section-heading">
-              <Rss className="icon-muted" />
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Rss className="size-3.5 text-muted-foreground" />
               Feeds
             </h3>
             <p className="mt-1 text-xs text-muted-foreground">

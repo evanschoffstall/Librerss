@@ -68,7 +68,7 @@ export function SettingsProxySectionContent(
   const viewState = getProxySectionViewState(proxyState);
 
   return (
-    <section className="settings-card">
+    <section className="space-y-4 rounded-lg border bg-card p-4">
       <ProxySectionHeader
         badgeStatus={viewState.badgeStatus}
         proxyRoutingCheck={proxyRoutingCheck}

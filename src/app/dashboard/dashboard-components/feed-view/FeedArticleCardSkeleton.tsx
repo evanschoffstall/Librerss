@@ -26,7 +26,7 @@ export function FeedArticleCardSkeleton(props: FeedArticleCardSkeletonProps) {
       <article
         aria-hidden="true"
         className="
-          article-swipe-surface group relative overflow-visible rounded-xl
+          group relative overflow-visible rounded-xl
           border border-border
           dark:shadow-2xl dark:shadow-zinc-900/50
         "

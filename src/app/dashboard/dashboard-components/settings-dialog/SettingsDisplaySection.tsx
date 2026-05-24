@@ -94,10 +94,10 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
   );
 
   return (
-    <section className="settings-card">
+    <section className="space-y-4 rounded-lg border bg-card p-4">
       <div>
-        <h3 className="section-heading">
-          <Monitor className="icon-muted" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Monitor className="size-3.5 text-muted-foreground" />
           Display
         </h3>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -151,7 +151,7 @@ function AutoRefreshControl(props: AutoRefreshControlProps) {
     setAutoRefreshDraft,
   } = props;
   return (
-    <div className="row-between items-start gap-4">
+    <div className="flex items-start justify-between gap-4">
       <div>
         <Label htmlFor="auto-refresh-interval">Auto refresh</Label>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -265,7 +265,7 @@ function DisplaySelectGroup(
   } = props;
   return (
     <>
-      <div className="row-between">
+      <div className="flex items-center justify-between gap-4">
         <Label>Background</Label>
         <Select
           onValueChange={(value) => {
@@ -283,7 +283,7 @@ function DisplaySelectGroup(
           </SelectContent>
         </Select>
       </div>
-      <div className="row-between">
+      <div className="flex items-center justify-between gap-4">
         <Label>Articles per page</Label>
         <Select
           onValueChange={(value) => {
@@ -303,7 +303,7 @@ function DisplaySelectGroup(
           </SelectContent>
         </Select>
       </div>
-      <div className="row-between">
+      <div className="flex items-center justify-between gap-4">
         <Label>Readable article mode</Label>
         <Select onValueChange={onDistillStrategyChange} value={distillStrategy}>
           <SelectTrigger className="w-[180px]">

@@ -168,8 +168,8 @@ export function ProxySectionHeader(props: ProxySectionHeaderProps) {
       "
     >
       <div className="min-w-0 flex-1">
-        <h3 className="section-heading">
-          <Globe className="icon-muted" />
+        <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <Globe className="size-3.5 text-muted-foreground" />
           Connection Routing
         </h3>
         <p className="mt-0.5 text-xs text-muted-foreground">
