@@ -234,14 +234,17 @@ afterEach(() => {
       "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions",
       () => realUseFeedSourceActionsModule,
     );
-    mock.module("@/app/dashboard/settings-state", () => realSettingsStateModule);
-    mock.module("@/app/dashboard/toolbar", () => realToolbarModule);
-    mock.module("@/lib/api/feed-source-api/read", () => realFeedSourceReadModule);
-    mock.module("@/lib/auth", () => realAuthSessionModule);
     mock.module(
-      "@/lib/auth/dev-auto-login",
-      () => realAuthDevAutoLoginModule,
+      "@/app/dashboard/settings-state",
+      () => realSettingsStateModule,
     );
+    mock.module("@/app/dashboard/toolbar", () => realToolbarModule);
+    mock.module(
+      "@/lib/api/feed-source-api/read",
+      () => realFeedSourceReadModule,
+    );
+    mock.module("@/lib/auth", () => realAuthSessionModule);
+    mock.module("@/lib/auth/dev-auto-login", () => realAuthDevAutoLoginModule);
     mock.module("@/lib/db/db", () => realDbModule);
     mock.module("@/lib/db/feed-records", () => realFeedRecordsModule);
     mock.module(

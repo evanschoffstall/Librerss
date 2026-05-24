@@ -4,7 +4,8 @@ import * as realMotionReactModule from "motion/react";
 import React from "react";
 
 const mockMotion = new Proxy(realMotionReactModule.motion, {
-  get: (_target, tag) =>
+  get:
+    (_target, tag) =>
     ({ children }: { children: React.ReactNode }) =>
       React.createElement(tag as string, undefined, children),
 });
@@ -108,16 +109,23 @@ describe("login components", () => {
     ).toBeTruthy();
 
     const footer = render(<LoginFooterLinks />);
-    expect(footer.getByRole("link", { name: "Privacy Policy" }).getAttribute("href")).toBe(
-      "/privacy",
-    );
-    expect(footer.getByRole("link", { name: "Terms" }).getAttribute("href")).toBe("/terms");
-    expect(render(<LoginFieldError message={undefined} />).container.textContent).toBe("");
-    expect(render(<LoginFieldError message="Problem" />).getByText("Problem")).toBeTruthy();
+    expect(
+      footer.getByRole("link", { name: "Privacy Policy" }).getAttribute("href"),
+    ).toBe("/privacy");
+    expect(
+      footer.getByRole("link", { name: "Terms" }).getAttribute("href"),
+    ).toBe("/terms");
+    expect(
+      render(<LoginFieldError message={undefined} />).container.textContent,
+    ).toBe("");
+    expect(
+      render(<LoginFieldError message="Problem" />).getByText("Problem"),
+    ).toBeTruthy();
   });
 
   test("renders action and header variants for login and signup", async () => {
-    const { LoginCardHeader, LoginPrimaryActions } = await loadLoginComponents();
+    const { LoginCardHeader, LoginPrimaryActions } =
+      await loadLoginComponents();
     const onEnterPreview = mock();
     const onSubmit = mock();
     const onToggleMode = mock();
@@ -138,7 +146,9 @@ describe("login components", () => {
       />,
     );
     fireEvent.click(actions.getByRole("button", { name: "Continue" }));
-    fireEvent.click(actions.getByRole("button", { name: "Need an account? Sign up" }));
+    fireEvent.click(
+      actions.getByRole("button", { name: "Need an account? Sign up" }),
+    );
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onToggleMode).toHaveBeenCalledTimes(1);
 
@@ -153,8 +163,11 @@ describe("login components", () => {
       />,
     );
     expect(
-      (actions.getByRole("button", { name: "Create account" }) as HTMLButtonElement)
-        .disabled,
+      (
+        actions.getByRole("button", {
+          name: "Create account",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     expect(
       (
@@ -185,7 +198,8 @@ describe("login components", () => {
           confirm: "Confirm your password.",
           email: "Email is required.",
           form: "Session expired.",
-          legal: "Accept the privacy policy and terms before creating an account.",
+          legal:
+            "Accept the privacy policy and terms before creating an account.",
           password: "Password is required.",
         }}
         hasAcceptedLegalTerms={false}
@@ -207,7 +221,9 @@ describe("login components", () => {
     expect(view.getByText("Confirm your password.")).toBeTruthy();
     fireEvent.click(view.getByRole("checkbox"));
     fireEvent.click(view.getByRole("button", { name: "Create account" }));
-    fireEvent.click(view.getByRole("button", { name: "Explore without an account" }));
+    fireEvent.click(
+      view.getByRole("button", { name: "Explore without an account" }),
+    );
 
     expect(onChangeLegalTerms).toHaveBeenCalledWith(true);
     expect(onSubmit).toHaveBeenCalledTimes(1);

@@ -1,4 +1,11 @@
-import { act, cleanup, fireEvent, render, renderHook, waitFor } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import * as realMotionReactModule from "motion/react";
 import React from "react";
@@ -36,14 +43,19 @@ let originalLogout: typeof authService.logout;
 let originalSignup: typeof authService.signup;
 
 const mockMotion = new Proxy(realMotionReactModule.motion, {
-  get: (_target, tag) =>
+  get:
+    (_target, tag) =>
     ({ children, ...props }: React.HTMLAttributes<HTMLElement>) => {
-      const { animate: _animate, initial: _initial, transition: _transition, ...rest } =
-        props as React.HTMLAttributes<HTMLElement> & {
-          animate?: unknown;
-          initial?: unknown;
-          transition?: unknown;
-        };
+      const {
+        animate: _animate,
+        initial: _initial,
+        transition: _transition,
+        ...rest
+      } = props as React.HTMLAttributes<HTMLElement> & {
+        animate?: unknown;
+        initial?: unknown;
+        transition?: unknown;
+      };
 
       return React.createElement(tag as string, rest, children);
     },
@@ -74,12 +86,9 @@ function setupLoginViewModule() {
     ...realMotionReactModule,
     motion: mockMotion,
   }));
-  mock.module(
-    "@/app/dashboard/dashboard-components/login/login-state",
-    () => ({
-      useLoginViewState: useLoginViewStateMock,
-    }),
-  );
+  mock.module("@/app/dashboard/dashboard-components/login/login-state", () => ({
+    useLoginViewState: useLoginViewStateMock,
+  }));
   mock.module(
     "@/app/dashboard/dashboard-components/login/LoginCardContent",
     () => ({
@@ -95,14 +104,68 @@ function setupLoginViewModule() {
       }) => (
         <div>
           <p>{props.fieldErrors.form}</p>
-          <button onClick={() => { triggerEmailChangeMock(); props.onChangeEmail("person@example.com"); }} type="button">trigger-email</button>
-          <button onClick={() => { triggerPasswordMock(); props.onChangePassword("password123"); }} type="button">trigger-password</button>
-          <button onClick={() => { triggerConfirmChangeMock(); props.onChangeConfirmPassword("password123"); }} type="button">trigger-confirm</button>
-          <button onClick={() => { triggerLegalChangeMock(); props.onChangeLegalTerms(true); }} type="button">trigger-legal</button>
-          <button onClick={() => { triggerSubmitMock(); props.onSubmit(); }} type="button">trigger-submit</button>
-          <button onClick={() => { triggerToggleMock(); props.onToggleMode(); }} type="button">trigger-toggle</button>
+          <button
+            onClick={() => {
+              triggerEmailChangeMock();
+              props.onChangeEmail("person@example.com");
+            }}
+            type="button"
+          >
+            trigger-email
+          </button>
+          <button
+            onClick={() => {
+              triggerPasswordMock();
+              props.onChangePassword("password123");
+            }}
+            type="button"
+          >
+            trigger-password
+          </button>
+          <button
+            onClick={() => {
+              triggerConfirmChangeMock();
+              props.onChangeConfirmPassword("password123");
+            }}
+            type="button"
+          >
+            trigger-confirm
+          </button>
+          <button
+            onClick={() => {
+              triggerLegalChangeMock();
+              props.onChangeLegalTerms(true);
+            }}
+            type="button"
+          >
+            trigger-legal
+          </button>
+          <button
+            onClick={() => {
+              triggerSubmitMock();
+              props.onSubmit();
+            }}
+            type="button"
+          >
+            trigger-submit
+          </button>
+          <button
+            onClick={() => {
+              triggerToggleMock();
+              props.onToggleMode();
+            }}
+            type="button"
+          >
+            trigger-toggle
+          </button>
           {props.onEnterPreview ? (
-            <button onClick={() => { triggerPreviewMock(); props.onEnterPreview?.(); }} type="button">
+            <button
+              onClick={() => {
+                triggerPreviewMock();
+                props.onEnterPreview?.();
+              }}
+              type="button"
+            >
               trigger-preview
             </button>
           ) : null}
