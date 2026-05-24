@@ -95,35 +95,36 @@ export async function readDesktopMarkVisibleReadSnapshot(
   page: Page,
 ): Promise<DesktopMarkVisibleReadSnapshot> {
   return await page.evaluate(() => {
-    const viewport = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-feed-scroll-viewport="true"], [data-radix-scroll-area-viewport]',
-      ),
-    )
-      .filter((candidate) => {
-        const rect = candidate.getBoundingClientRect();
+    const viewport =
+      Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-feed-scroll-viewport="true"], [data-radix-scroll-area-viewport]',
+        ),
+      )
+        .filter((candidate) => {
+          const rect = candidate.getBoundingClientRect();
 
-        return (
-          candidate.querySelector("article[data-article-key]") !== null &&
-          rect.width > 0 &&
-          rect.height > 0 &&
-          window.getComputedStyle(candidate).visibility !== "hidden"
-        );
-      })
-      .sort((left, right) => {
-        const rightArticleCount = right.querySelectorAll(
-          "article[data-article-key]",
-        ).length;
-        const leftArticleCount = left.querySelectorAll(
-          "article[data-article-key]",
-        ).length;
+          return (
+            candidate.querySelector("article[data-article-key]") !== null &&
+            rect.width > 0 &&
+            rect.height > 0 &&
+            window.getComputedStyle(candidate).visibility !== "hidden"
+          );
+        })
+        .sort((left, right) => {
+          const rightArticleCount = right.querySelectorAll(
+            "article[data-article-key]",
+          ).length;
+          const leftArticleCount = left.querySelectorAll(
+            "article[data-article-key]",
+          ).length;
 
-        if (rightArticleCount !== leftArticleCount) {
-          return rightArticleCount - leftArticleCount;
-        }
+          if (rightArticleCount !== leftArticleCount) {
+            return rightArticleCount - leftArticleCount;
+          }
 
-        return right.scrollHeight - left.scrollHeight;
-      })[0] ?? null;
+          return right.scrollHeight - left.scrollHeight;
+        })[0] ?? null;
 
     const feedSurface =
       viewport?.closest<HTMLElement>("[data-feed-surface-mode]") ??
@@ -149,9 +150,7 @@ export async function readDesktopMarkVisibleReadSnapshot(
       .filter((articleKey): articleKey is string => Boolean(articleKey));
     const fullyVisibleArticleKeys = articleElements
       .filter((articleElement) => {
-        if (
-          articleElement.closest('[data-article-entering="true"]') !== null
-        ) {
+        if (articleElement.closest('[data-article-entering="true"]') !== null) {
           return false;
         }
 
@@ -168,9 +167,7 @@ export async function readDesktopMarkVisibleReadSnapshot(
       .filter((articleKey): articleKey is string => Boolean(articleKey));
     const partiallyVisibleArticleKeys = articleElements
       .filter((articleElement) => {
-        if (
-          articleElement.closest('[data-article-entering="true"]') !== null
-        ) {
+        if (articleElement.closest('[data-article-entering="true"]') !== null) {
           return false;
         }
 
@@ -344,10 +341,7 @@ export async function waitForDesktopClippedWindow(
     .poll(async () => {
       const visibleCount = await readVisibleFeedArticleCount(page);
 
-      return (
-        visibleCount > pageSize &&
-        visibleCount < pageSize * 3
-      );
+      return visibleCount > pageSize && visibleCount < pageSize * 3;
     })
     .toBe(true);
 
@@ -370,35 +364,39 @@ export async function waitForStableDesktopMarkVisibleReadCycle(
   let settledSnapshot: DesktopMarkVisibleReadSnapshot | null = null;
 
   await expect
-    .poll(async () => {
-      const snapshot = await readDesktopMarkVisibleReadSnapshot(page);
-      const hasVisibleUnreadWindow = snapshot.fullyVisibleArticleKeys.length > 0;
-      const hasClippedOverflowWindow =
-        snapshot.partiallyVisibleArticleKeys.length > 0;
-      const renderedWindowRecovered =
-        snapshot.renderedCount >= minimumRenderedCount;
-      const visibleWindowChanged =
-        previousFullyVisibleArticleKeys.length === 0 ||
-        !haveMatchingArticleKeys(
-          previousFullyVisibleArticleKeys,
-          snapshot.fullyVisibleArticleKeys,
-        );
+    .poll(
+      async () => {
+        const snapshot = await readDesktopMarkVisibleReadSnapshot(page);
+        const hasVisibleUnreadWindow =
+          snapshot.fullyVisibleArticleKeys.length > 0;
+        const hasClippedOverflowWindow =
+          snapshot.partiallyVisibleArticleKeys.length > 0;
+        const renderedWindowRecovered =
+          snapshot.renderedCount >= minimumRenderedCount;
+        const visibleWindowChanged =
+          previousFullyVisibleArticleKeys.length === 0 ||
+          !haveMatchingArticleKeys(
+            previousFullyVisibleArticleKeys,
+            snapshot.fullyVisibleArticleKeys,
+          );
 
-      settledSnapshot =
-        hasVisibleUnreadWindow &&
-        hasClippedOverflowWindow &&
-        renderedWindowRecovered &&
-        visibleWindowChanged
-          ? snapshot
-          : null;
+        settledSnapshot =
+          hasVisibleUnreadWindow &&
+          hasClippedOverflowWindow &&
+          renderedWindowRecovered &&
+          visibleWindowChanged
+            ? snapshot
+            : null;
 
-      return {
-        hasClippedOverflowWindow,
-        hasVisibleUnreadWindow,
-        renderedWindowRecovered,
-        visibleWindowChanged,
-      };
-    }, { timeout: 20_000 })
+        return {
+          hasClippedOverflowWindow,
+          hasVisibleUnreadWindow,
+          renderedWindowRecovered,
+          visibleWindowChanged,
+        };
+      },
+      { timeout: 20_000 },
+    )
     .toMatchObject({
       hasClippedOverflowWindow: true,
       hasVisibleUnreadWindow: true,

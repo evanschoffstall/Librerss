@@ -19,7 +19,12 @@ const motion = new Proxy(
     get: (_target, tag) =>
       React.forwardRef<HTMLElement, MockMotionProps>(
         function MockMotionComponent(
-          { transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...props },
+          {
+            transition: _transition,
+            whileHover: _whileHover,
+            whileTap: _whileTap,
+            ...props
+          },
           ref,
         ) {
           return React.createElement(tag as string, {

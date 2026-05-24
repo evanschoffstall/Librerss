@@ -45,10 +45,7 @@ describe("FeedList row render fan-out", () => {
     const handleToggleRead = () => {};
     const handleToggleStarred = () => {};
     const recordCommit = (_id: string) => {
-      articleRenderCounts.set(
-        _id,
-        (articleRenderCounts.get(_id) ?? 0) + 1,
-      );
+      articleRenderCounts.set(_id, (articleRenderCounts.get(_id) ?? 0) + 1);
     };
 
     const { rerender } = render(

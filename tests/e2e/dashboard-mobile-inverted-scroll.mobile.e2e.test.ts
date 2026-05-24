@@ -333,7 +333,6 @@ async function readInvertedScrollAttribute(page: Page) {
   return await feedSurface.getAttribute("data-inverted-scroll");
 }
 
-
 /** Returns a fully visible article key whose header already sits in a stable viewport band. */
 async function readStableVisibleArticleKey(page: Page) {
   return await page.evaluate((targetHeaderTop) => {

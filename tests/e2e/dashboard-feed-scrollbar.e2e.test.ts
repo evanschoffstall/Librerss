@@ -105,8 +105,8 @@ async function readFeedScrollbarState(page: DashboardPage) {
 
     return {
       hasTransientPaginationSkeletons:
-        viewport.querySelector<HTMLElement>("[data-feed-surface-mode]")
-          ?.dataset.feedLoadMoreSkeletonsVisible === "true",
+        viewport.querySelector<HTMLElement>("[data-feed-surface-mode]")?.dataset
+          .feedLoadMoreSkeletonsVisible === "true",
       thumbHeight: Number.parseFloat(thumb.style.height || "0"),
       thumbOffsetTop: Number.parseFloat(
         thumb.style.transform.match(/translateY\(([-\d.]+)px\)/u)?.[1] ?? "0",
@@ -280,7 +280,8 @@ test.describe("dashboard feed scrollbar", () => {
         const trackBottom = state.viewportClientHeight - state.thumbHeight;
 
         return {
-          hasTransientPaginationSkeletons: state.hasTransientPaginationSkeletons,
+          hasTransientPaginationSkeletons:
+            state.hasTransientPaginationSkeletons,
           isPinnedToCommittedBottom:
             Math.abs(state.thumbOffsetTop - trackBottom) <= 1,
           liveScrollHeightExceedsCommittedHeight:
