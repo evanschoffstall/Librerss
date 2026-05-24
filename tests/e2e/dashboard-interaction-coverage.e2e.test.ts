@@ -349,7 +349,10 @@ async function readArticleBodyState(page: Page, articleKey: string) {
       throw new Error("Expected article to exist while reading body state.");
     }
 
-    const body = article.querySelector<HTMLElement>(".article-swipe-body");
+    const body =
+      article.querySelector<HTMLElement>(
+        '[data-article-swipe-zone="content"]',
+      ) ?? article.querySelector<HTMLElement>(".article-swipe-body");
     if (!body) {
       throw new Error("Expected article body surface to exist.");
     }
@@ -510,7 +513,17 @@ test.describe("dashboard interaction coverage", () => {
     });
 
     await expect(articleLinkInput).toHaveValue(articleKey);
-    await page.getByRole("button", { name: "Select" }).click();
+    const copyLinkSelectButton = copyLinkDialog.getByRole("button", {
+      name: "Select",
+    });
+
+    await copyLinkSelectButton.evaluate((button) => {
+      if (!(button instanceof HTMLButtonElement)) {
+        throw new Error("Expected Copy Link select control to be a button.");
+      }
+
+      button.click();
+    });
     await expect
       .poll(async () => {
         return await articleLinkInput.evaluate((element) => {
@@ -525,16 +538,27 @@ test.describe("dashboard interaction coverage", () => {
       0,
     );
 
-    await article.hover();
-    await article
+    await page.waitForURL(/\/dashboard\?explore=1$/u);
+    const rawHtmlArticle = articleCardByKey(page, articleKey);
+    await expect(rawHtmlArticle).toBeVisible({ timeout: 15_000 });
+    await rawHtmlArticle
       .getByRole("button", { name: "View raw article HTML" })
-      .click();
-    await expect(
-      page.getByRole("heading", { name: "Raw Article HTML" }),
-    ).toBeVisible();
-    const rawHtmlInput = page
-      .locator("textarea[aria-label='Raw article HTML']")
-      .last();
+      .evaluate((button: HTMLButtonElement) => {
+        if (!(button instanceof HTMLButtonElement)) {
+          throw new Error(
+            "Expected View raw article HTML control to be a button.",
+          );
+        }
+
+        button.click();
+      });
+    const rawHtmlDialog = page.getByRole("dialog", {
+      name: "Raw Article HTML",
+    });
+    await expect(rawHtmlDialog).toBeVisible();
+    const rawHtmlInput = rawHtmlDialog.getByRole("textbox", {
+      name: "Raw article HTML",
+    });
 
     await expect
       .poll(async () => {
@@ -542,7 +566,17 @@ test.describe("dashboard interaction coverage", () => {
       })
       .toBeGreaterThan(20);
 
-    await page.getByRole("button", { name: "Select" }).click();
+    await rawHtmlDialog
+      .getByRole("button", { name: "Select" })
+      .evaluate((button: HTMLButtonElement) => {
+        if (!(button instanceof HTMLButtonElement)) {
+          throw new Error(
+            "Expected Raw Article HTML select control to be a button.",
+          );
+        }
+
+        button.click();
+      });
     await expect
       .poll(async () => {
         return await rawHtmlInput.evaluate((element) => {
@@ -557,16 +591,17 @@ test.describe("dashboard interaction coverage", () => {
       page.getByRole("heading", { name: "Raw Article HTML" }),
     ).toHaveCount(0);
 
-    const expandedArticle = page
-      .locator("article[data-article-key][aria-expanded='true']")
-      .first();
+    const expandedArticle = articleCardByKey(page, articleKey);
+    if ((await expandedArticle.getAttribute("aria-expanded")) !== "true") {
+      await toggleArticle(expandedArticle);
+    }
+    await expectArticleExpanded(expandedArticle, true);
 
     await expect
       .poll(async () => {
         return (await selectExpandedArticleText(expandedArticle)).length;
       })
       .toBeGreaterThan(20);
-    await expectArticleExpanded(expandedArticle, true);
 
     await page.evaluate(() => {
       window.getSelection()?.removeAllRanges();

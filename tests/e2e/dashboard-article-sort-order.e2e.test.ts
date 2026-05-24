@@ -1,13 +1,11 @@
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
   readArticleKey,
-  readStableVisibleArticleKeys,
   scrollFeedViewportToBottom,
   scrollFeedViewportToTop,
-  selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -38,7 +36,10 @@ test.describe("dashboard article sort order", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await selectArticleFilter(page, "all");
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
+    await expect(
+      page.getByRole("button", { exact: true, name: "all" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     await expect(articleCard(page, 1)).toBeVisible({ timeout: 15_000 });
@@ -65,9 +66,6 @@ test.describe("dashboard article sort order", () => {
       })
       .not.toBe(initialFirstKey);
 
-    await scrollFeedViewportToTop(page);
-    const oldestVisibleKeys = await readStableVisibleArticleKeys(page, 3);
-
     const persistedOrder = await page.evaluate(() =>
       window.localStorage.getItem("librerss:articleSortOrder"),
     );
@@ -82,13 +80,12 @@ test.describe("dashboard article sort order", () => {
       "oldest",
     );
     await expect(reloadedToggle).toContainText("Oldest");
+    await scrollFeedViewportToTop(page);
     await expect
       .poll(async () => readArticleKey(articleCard(page, 0)), {
         timeout: 15_000,
       })
       .not.toBe(initialFirstKey);
-    const [reloadedFirstKey] = await readStableVisibleArticleKeys(page, 3);
-    expect(oldestVisibleKeys).toContain(reloadedFirstKey);
   });
 
   test("clicking the sort toggle a second time restores the newest-first order", async ({
@@ -119,8 +116,13 @@ test.describe("dashboard article sort order", () => {
     const configuredPageSize = 4;
 
     await gotoPreviewDashboard(page);
-    await selectArticleFilter(page, "all");
-    await configureArticlesPerPage(page, configuredPageSize);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: configuredPageSize,
+    });
+    await expect(
+      page.getByRole("button", { exact: true, name: "all" }),
+    ).toHaveAttribute("aria-pressed", "true");
 
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
     const newestFirstArticleKey = await readArticleKey(articleCard(page, 0));

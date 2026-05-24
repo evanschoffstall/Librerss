@@ -1,25 +1,33 @@
+import { createNextJsErrorMonitor } from "./helpers";
 import { expect, test } from "./test";
 
 test.describe("public app routes", () => {
   test("landing links to the privacy and terms pages", async ({ page }) => {
-    await page.goto("/landing");
+    const nextJsErrorMonitor = createNextJsErrorMonitor(page);
 
-    await expect(
-      page.getByRole("heading", { name: "Your reading," }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Privacy Policy" }),
-    ).toBeVisible();
-    await expect(page.getByRole("link", { name: "Terms" })).toBeVisible();
+    try {
+      await page.goto("/landing");
 
-    await page.getByRole("link", { name: "Privacy Policy" }).click();
-    await page.waitForURL(/\/privacy$/);
-    await expect(page.getByText("Privacy Policy").first()).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(
-      page.getByRole("link", { name: "Back to landing" }).first(),
-    ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Your reading," }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Privacy Policy" }),
+      ).toBeVisible();
+      await expect(page.getByRole("link", { name: "Terms" })).toBeVisible();
+
+      await page.getByRole("link", { name: "Privacy Policy" }).click();
+      await page.waitForURL(/\/privacy$/);
+      await expect(page.getByText("Privacy Policy").first()).toBeVisible({
+        timeout: 15_000,
+      });
+      await expect(
+        page.getByRole("link", { name: "Back to landing" }).first(),
+      ).toBeVisible();
+      await nextJsErrorMonitor.assertNoNextJsErrors();
+    } finally {
+      nextJsErrorMonitor.dispose();
+    }
   });
 
   test("privacy page exposes account-control language and returns to landing", async ({

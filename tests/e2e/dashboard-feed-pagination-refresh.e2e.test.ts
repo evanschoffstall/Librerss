@@ -11,14 +11,13 @@ import {
   waitForDesktopClippedWindow,
 } from "./dashboard-feed-pagination-support";
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
   readRenderedArticleCount,
   readRenderedItemWindow,
   scrollFeedViewportToBottom,
-  selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -37,8 +36,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "all");
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       const initialCount = await waitForDesktopClippedWindow(page, 4);
@@ -68,8 +69,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "all");
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await waitForDesktopClippedWindow(page, 4);
@@ -96,8 +99,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "all");
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expandDesktopFeedWindow(page);
@@ -125,8 +130,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "all");
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expandDesktopFeedWindow(page);

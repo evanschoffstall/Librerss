@@ -1,6 +1,7 @@
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 
 import {
+  applyDashboardPreferencesForTest,
   enterPreviewFromLogin,
   gotoPreviewDashboard,
   locateViewportArticle,
@@ -474,6 +475,7 @@ test.describe("dashboard preview mode", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const allButton = page.getByRole("button", { exact: true, name: "all" });
     const unreadButton = page.getByRole("button", {
@@ -481,7 +483,6 @@ test.describe("dashboard preview mode", () => {
       name: "unread",
     });
 
-    await allButton.click();
     await expect(allButton).toHaveAttribute("aria-pressed", "true");
 
     const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);

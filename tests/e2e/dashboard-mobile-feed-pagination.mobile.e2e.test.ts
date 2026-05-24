@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   readFeedViewportMetrics,
@@ -129,8 +129,10 @@ test.describe("dashboard mobile feed pagination", () => {
       await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
       await expect
@@ -170,8 +172,10 @@ test.describe("dashboard mobile feed pagination", () => {
       await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
@@ -229,8 +233,10 @@ test.describe("dashboard mobile feed pagination", () => {
       await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
       await wheelActiveFeedViewport(page, -700);
@@ -280,8 +286,10 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
 
       await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
       await expect
@@ -327,8 +335,10 @@ test.describe("dashboard mobile feed pagination", () => {
       await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
       await expect
@@ -363,8 +373,10 @@ test.describe("dashboard mobile feed pagination", () => {
       await enableMobileInvertedScroll(page);
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
       await expect(readInvertedScrollAttribute(page)).resolves.toBe("true");
 
       await expandInvertedMobileWindow(page);
@@ -399,8 +411,10 @@ test.describe("dashboard mobile feed pagination", () => {
 
       await gotoPreviewDashboard(page);
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: 4,
+      });
       await expect(readInvertedScrollAttribute(page)).resolves.toBeNull();
 
       await expect

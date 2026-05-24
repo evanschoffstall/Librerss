@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   openDashboardSettings,
   readFeedViewportMetrics,
@@ -14,7 +14,6 @@ import {
 import { expect, test } from "./test";
 
 const MOBILE_INVERTED_SCROLL_STORAGE_KEY = "librerss:mobileInvertedScroll";
-const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY = "librerss:articlesPerPage";
 const STABLE_HEADER_POSITION_TOLERANCE_PX = 8;
 
 interface ArticleHeaderViewportOffsets {
@@ -515,20 +514,6 @@ async function scrollFeedViewportWithIntent(
   return resolvedScrollTop;
 }
 
-/** Injects a localStorage value before the app reads it. */
-async function setLocalStoragePreference(
-  page: Page,
-  key: string,
-  value: string,
-) {
-  await page.evaluate(
-    ({ key: storageKey, value: storageValue }) => {
-      window.localStorage.setItem(storageKey, storageValue);
-    },
-    { key, value },
-  );
-}
-
 /** Toggles the best currently rendered instance for an article key. */
 async function toggleArticleByKey(page: Page, articleKey: string) {
   await page.evaluate((targetArticleKey) => {
@@ -644,20 +629,14 @@ test.describe("dashboard mobile inverted scroll", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "unread" }).click();
-    await expect(
-      page.getByRole("button", { exact: true, name: "unread" }),
-    ).toHaveAttribute("aria-pressed", "true");
-
-    await setLocalStoragePreference(
-      page,
-      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-      "true",
-    );
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "unread",
+      mobileInvertedScroll: true,
+    });
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const invertedAttr = await readInvertedScrollAttribute(page);
     expect(invertedAttr).toBe("true");
@@ -711,20 +690,14 @@ test.describe("dashboard mobile inverted scroll", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await setLocalStoragePreference(
-      page,
-      DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
-      "4",
-    );
-    await setLocalStoragePreference(
-      page,
-      MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-      "true",
-    );
+    await applyDashboardPreferencesForTest(page, {
+      articlesPerPage: 4,
+      mobileInvertedScroll: true,
+    });
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
     await waitForPreviewDashboardHydration(page);
 
     const invertedAttr = await readInvertedScrollAttribute(page);
@@ -769,8 +742,10 @@ test.describe("dashboard mobile inverted scroll", () => {
     await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await configureArticlesPerPage(page, 4);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
 
     const cancellationSignals: string[] = [];
     const captureCancellationSignal = (message: string) => {
@@ -831,7 +806,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
     const invertedAttr = await readInvertedScrollAttribute(page);
@@ -853,7 +828,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     await expect
       .poll(async () => {
@@ -948,7 +923,7 @@ test.describe("dashboard mobile inverted scroll", () => {
     await enableMobileInvertedScroll(page);
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     await expect
       .poll(async () => {

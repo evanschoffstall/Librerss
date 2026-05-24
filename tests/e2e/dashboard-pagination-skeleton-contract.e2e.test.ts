@@ -1,8 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   installDeterministicFeedBatchRoute,
@@ -295,8 +295,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
@@ -346,8 +348,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, LARGE_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: LARGE_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
@@ -370,8 +374,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
@@ -389,8 +395,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect
@@ -425,8 +433,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       const baselineArticleCount = await readVisibleFeedArticleCount(page);
@@ -454,8 +464,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
 
@@ -478,8 +490,10 @@ test.describe("pagination skeleton contract", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await page.getByRole("button", { exact: true, name: "all" }).click();
-      await configureArticlesPerPage(page, SMALL_PAGE_SIZE);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "all",
+        articlesPerPage: SMALL_PAGE_SIZE,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect

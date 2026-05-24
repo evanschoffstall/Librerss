@@ -9,6 +9,15 @@ import { join } from "node:path";
 
 const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
+const DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY = "librerss:selectedCategory";
+const DASHBOARD_ARTICLE_FILTER_STORAGE_KEY = "librerss:articleFilter";
+const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY = "librerss:articlesPerPage";
+const DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY = "librerss:articleSortOrder";
+const DASHBOARD_STORAGE_SYNC_EVENT = "librerss:storage-sync";
+const PLAYWRIGHT_DASHBOARD_BACKGROUND_MODE_STORAGE_KEY =
+  "librerss:backgroundMode";
+const PLAYWRIGHT_AUTO_REFRESH_INTERVAL_STORAGE_KEY =
+  "librerss:autoRefreshIntervalMinutes";
 const KNOWN_NON_RUNTIME_CONSOLE_ERROR_PATTERNS = [
   /Cross-Origin-Opener-Policy header has been ignored/iu,
   /va\.vercel-scripts\.com\/v1\/script\.debug\.js/iu,
@@ -27,6 +36,16 @@ export interface E2ECredentials {
 export interface NextJsErrorMonitor {
   assertNoNextJsErrors: () => Promise<void>;
   dispose: () => void;
+}
+
+interface DashboardPreferenceSeedOptions {
+  articleFilter?: "all" | "read" | "starred" | "unread";
+  articleSortOrder?: "newest" | "oldest";
+  articlesPerPage?: number;
+  autoRefreshIntervalMinutes?: number;
+  backgroundMode?: "none" | "particles" | "stars";
+  mobileInvertedScroll?: boolean;
+  selectedCategory?: string;
 }
 
 interface DeterministicFeedBatchRouteOptions {
@@ -49,6 +68,77 @@ const DETERMINISTIC_PREVIEW_PARAGRAPH = [
 interface NextJsErrorSignal {
   source: "console" | "overlay" | "pageerror";
   text: string;
+}
+
+/**
+ * Applies persisted dashboard preferences through the same-window storage sync
+ * event that the real UI uses, avoiding repeated setup clicks in tests.
+ * @param page - Active Playwright page.
+ * @param options - Preference values to persist and broadcast.
+ */
+export async function applyDashboardPreferencesForTest(
+  page: Page,
+  options: DashboardPreferenceSeedOptions,
+) {
+  await page.evaluate((preferenceOptions) => {
+    const storageEntries: [string, unknown][] = [];
+
+    if (preferenceOptions.selectedCategory !== undefined) {
+      storageEntries.push([
+        "librerss:selectedCategory",
+        preferenceOptions.selectedCategory,
+      ]);
+    }
+
+    if (preferenceOptions.articleFilter !== undefined) {
+      storageEntries.push([
+        "librerss:articleFilter",
+        preferenceOptions.articleFilter,
+      ]);
+    }
+
+    if (preferenceOptions.articleSortOrder !== undefined) {
+      storageEntries.push([
+        "librerss:articleSortOrder",
+        preferenceOptions.articleSortOrder,
+      ]);
+    }
+
+    if (preferenceOptions.articlesPerPage !== undefined) {
+      storageEntries.push([
+        "librerss:articlesPerPage",
+        preferenceOptions.articlesPerPage,
+      ]);
+    }
+
+    if (preferenceOptions.autoRefreshIntervalMinutes !== undefined) {
+      storageEntries.push([
+        "librerss:autoRefreshIntervalMinutes",
+        preferenceOptions.autoRefreshIntervalMinutes,
+      ]);
+    }
+
+    if (preferenceOptions.mobileInvertedScroll !== undefined) {
+      storageEntries.push([
+        "librerss:mobileInvertedScroll",
+        preferenceOptions.mobileInvertedScroll,
+      ]);
+    }
+
+    for (const [storageKey, value] of storageEntries) {
+      const serializedValue = JSON.stringify(value);
+
+      window.localStorage.setItem(storageKey, serializedValue);
+      window.dispatchEvent(
+        new CustomEvent("librerss:storage-sync", {
+          detail: {
+            key: storageKey,
+            value: serializedValue,
+          },
+        }),
+      );
+    }
+  }, options);
 }
 
 /** Returns the indexed rendered article card within the explore feed. */
@@ -233,7 +323,11 @@ export async function expectPreviewDashboard(page: Page) {
       { timeout: 20_000 },
     )
     .toBe("1");
-  await expect(firstArticleCard(page)).toBeVisible({ timeout: 15_000 });
+  await expect
+    .poll(async () => page.locator("article[data-article-key]").count(), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
 
   const viewportWidth =
     page.viewportSize()?.width ??
@@ -305,6 +399,7 @@ export function getDashboardLoginCredentials(): E2ECredentials {
 export async function gotoAuthenticatedDashboard(page: Page) {
   const credentials = getDashboardLoginCredentials();
 
+  await disableDashboardBackgroundForTest(page);
   await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
   if ((await page.locator("article[data-article-key]").count()) > 0) {
     return;
@@ -340,6 +435,7 @@ export async function gotoPreviewDashboard(
   page: Page,
   path = "/dashboard?explore=1",
 ) {
+  await disableDashboardBackgroundForTest(page);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expectPreviewDashboard(page);
 }
@@ -805,35 +901,6 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
   });
 }
 
-/** Reads a stable set of visible article keys after virtualized feed updates settle. */
-export async function readStableVisibleArticleKeys(
-  page: Page,
-  expectedCount: number,
-) {
-  let stableArticleKeys: string[] = [];
-
-  await expect
-    .poll(async () => {
-      const currentArticleKeys = await Promise.all(
-        Array.from({ length: expectedCount }, async (_, index) => {
-          return await readArticleKey(articleCard(page, index));
-        }),
-      );
-      const hasStableKeys =
-        currentArticleKeys.length === stableArticleKeys.length &&
-        currentArticleKeys.every((articleKey, index) => {
-          return articleKey === stableArticleKeys[index];
-        });
-
-      stableArticleKeys = currentArticleKeys;
-
-      return hasStableKeys ? currentArticleKeys.join("\n") : "__pending__";
-    })
-    .not.toBe("__pending__");
-
-  return stableArticleKeys;
-}
-
 /** Reads the first visible feed article plus its top offset inside the viewport. */
 export async function readTopVisibleFeedArticle(
   page: Page,
@@ -1040,9 +1107,9 @@ export async function selectArticleFilter(
 /** Selects visible expanded article text and returns the current selection content. */
 export async function selectExpandedArticleText(article: Locator) {
   return await article.evaluate((node) => {
-    const selectableTarget = node.querySelector<HTMLElement>(
-      ".article-swipe-body",
-    );
+    const selectableTarget =
+      node.querySelector<HTMLElement>('[data-article-swipe-zone="content"]') ??
+      node.querySelector<HTMLElement>(".article-swipe-body");
 
     if (!selectableTarget || selectableTarget.innerText.trim().length <= 20) {
       return "";
@@ -1226,6 +1293,16 @@ export async function wheelActiveFeedViewport(page: Page, deltaY = 240) {
   await page.mouse.wheel(0, deltaY);
 }
 
+/**
+ * Seeds the dashboard background preference before navigation so ordinary
+ * Playwright coverage does not spend worker CPU on decorative canvas loops.
+ */
+async function disableDashboardBackgroundForTest(page: Page) {
+  await page.addInitScript((storageKey) => {
+    window.localStorage.setItem(storageKey, JSON.stringify("none"));
+  }, PLAYWRIGHT_DASHBOARD_BACKGROUND_MODE_STORAGE_KEY);
+}
+
 const ARTICLE_TOGGLE_STRATEGIES = [
   clickArticleToggleTarget,
   pressArticleToggleTarget,
@@ -1262,6 +1339,37 @@ async function clickVisibleControl(locator: Locator) {
 
     throw error;
   }
+}
+
+/**
+ * Disables CSS-driven motion before hydration so interaction-heavy tests do
+ * not spend worker time painting transitions that are irrelevant to the
+ * asserted behavior.
+ * @param page - Active Playwright page.
+ */
+async function disableMotionForTest(page: Page) {
+  await page.addInitScript(() => {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => {
+        const style = document.createElement("style");
+
+        style.setAttribute("data-playwright-disable-motion", "true");
+        style.textContent = [
+          "* , *::before, *::after {",
+          "  animation-delay: 0s !important;",
+          "  animation-duration: 0s !important;",
+          "  animation-iteration-count: 1 !important;",
+          "  scroll-behavior: auto !important;",
+          "  transition-delay: 0s !important;",
+          "  transition-duration: 0s !important;",
+          "}",
+        ].join("\n");
+        document.head.append(style);
+      },
+      { once: true },
+    );
+  });
 }
 
 /** Dispatches a DOM click on the header to exercise React's delegated click handler. */
@@ -1435,6 +1543,67 @@ function resolveDeterministicArticlesPerFeed(options: {
   }
 
   return Math.max(0, options.requestedArticleLimit ?? 1);
+}
+
+/**
+ * Seeds persisted dashboard preferences before the app hydrates so tests can
+ * land directly in the target state without driving setup controls first.
+ * @param page - Active Playwright page.
+ * @param options - Preference values to persist before navigation.
+ */
+async function seedDashboardPreferencesForTest(
+  page: Page,
+  options: DashboardPreferenceSeedOptions,
+) {
+  await page.addInitScript((seedOptions) => {
+    const storageEntries: [string, unknown][] = [];
+
+    if (seedOptions.backgroundMode !== undefined) {
+      storageEntries.push([
+        "librerss:backgroundMode",
+        seedOptions.backgroundMode,
+      ]);
+    }
+
+    if (seedOptions.selectedCategory !== undefined) {
+      storageEntries.push([
+        "librerss:selectedCategory",
+        seedOptions.selectedCategory,
+      ]);
+    }
+
+    if (seedOptions.articleFilter !== undefined) {
+      storageEntries.push([
+        "librerss:articleFilter",
+        seedOptions.articleFilter,
+      ]);
+    }
+
+    if (seedOptions.articleSortOrder !== undefined) {
+      storageEntries.push([
+        "librerss:articleSortOrder",
+        seedOptions.articleSortOrder,
+      ]);
+    }
+
+    if (seedOptions.articlesPerPage !== undefined) {
+      storageEntries.push([
+        "librerss:articlesPerPage",
+        seedOptions.articlesPerPage,
+      ]);
+    }
+
+    if (seedOptions.autoRefreshIntervalMinutes !== undefined) {
+      storageEntries.push([
+        "librerss:autoRefreshIntervalMinutes",
+        seedOptions.autoRefreshIntervalMinutes,
+      ]);
+    }
+
+    for (const [storageKey, value] of storageEntries) {
+      window.localStorage.setItem(storageKey, JSON.stringify(value));
+    }
+  }, options);
 }
 
 function shouldCaptureNextJsConsoleError(message: ConsoleMessage) {

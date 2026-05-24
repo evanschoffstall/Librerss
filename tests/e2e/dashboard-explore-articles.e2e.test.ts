@@ -9,6 +9,7 @@ import {
   MULTI_ARTICLE_OWNERSHIP_WRONG_SENTENCE,
 } from "../article-extraction-fixtures";
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
   articleCardByKey,
   articleRow,
@@ -72,7 +73,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const article = articleCard(page, 0);
     const row = articleRow(article);
@@ -104,7 +105,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const article = articleCard(page, 0);
     const collapsedText = await article.innerText();
@@ -142,7 +143,7 @@ test.describe("dashboard explore article interactions", () => {
     });
 
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const article = articleCard(page, 0);
 
@@ -164,7 +165,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
     await waitForPreviewDashboardHydration(page);
 
     const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
@@ -221,7 +222,7 @@ test.describe("dashboard explore article interactions", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await waitForPreviewDashboardHydration(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const { clientHeight, scrollHeight } = await readFeedViewportMetrics(page);
     const initialScrollTop = Math.max(
@@ -333,7 +334,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const firstArticleKey = await readArticleKey(articleCard(page, 0));
     const secondArticleKey = await readArticleKey(articleCard(page, 1));
@@ -369,7 +370,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
     await waitForPreviewDashboardHydration(page);
 
     for (const articleIndex of [0, 1, 2]) {
@@ -401,7 +402,7 @@ test.describe("dashboard explore article interactions", () => {
     page,
   }) => {
     await gotoPreviewDashboard(page);
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
 
     const article = articleCard(page, 0);
 

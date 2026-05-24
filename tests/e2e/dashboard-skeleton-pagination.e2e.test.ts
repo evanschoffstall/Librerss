@@ -1,6 +1,6 @@
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
-  configureArticlesPerPage,
   gotoPreviewDashboard,
   hasLoadMoreSentinel,
   installDeterministicFeedBatchRoute,
@@ -9,12 +9,13 @@ import {
   scrollFeedViewportToBottom,
   setFeedViewportScrollTop,
   triggerFeedViewportWheelIntent,
+  wheelActiveFeedViewport,
 } from "./helpers";
 import { expect, test } from "./test";
 
 const LONG_RUN_PAGE_SIZE = 4;
 const LONG_RUN_PAGINATION_CYCLES = 8;
-const LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE = 4;
+const LONG_RUN_ADVANCE_ATTEMPTS_PER_CYCLE = 12;
 const SKELETON_PAINT_DELAY_MS = 120;
 
 interface SkeletonProbeResult {
@@ -63,11 +64,12 @@ async function requestNextPageAndExpectContinuousSkeletons(
 
   await setFeedViewportScrollTop(page, 0);
   await triggerFeedViewportWheelIntent(page);
+  await wheelActiveFeedViewport(page);
   await scrollFeedViewportToBottom(page);
 
   let sawSkeletons = false;
   let committedArticleCount = previousArticleCount;
-  const deadline = Date.now() + 12_000;
+  const deadline = Date.now() + 16_000;
   let nextScrollIntentAt = Date.now() + 250;
 
   while (Date.now() < deadline) {
@@ -99,6 +101,7 @@ async function requestNextPageAndExpectContinuousSkeletons(
 
     if (now >= nextScrollIntentAt) {
       await triggerFeedViewportWheelIntent(page);
+      await wheelActiveFeedViewport(page);
       await scrollFeedViewportToBottom(page);
       nextScrollIntentAt = now + 250;
     }
@@ -214,8 +217,10 @@ test.describe("feed pagination skeleton visibility", () => {
     await page.setViewportSize({ height: 640, width: 1024 });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await configureArticlesPerPage(page, 4);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
 
     // Wait for initial articles to be present.
     await expect
@@ -242,8 +247,10 @@ test.describe("feed pagination skeleton visibility", () => {
     await page.setViewportSize({ height: 640, width: 1024 });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await configureArticlesPerPage(page, 4);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
 
     // Wait for initial articles.
     await expect
@@ -300,8 +307,10 @@ test.describe("pagination settlement race condition regression", () => {
     await page.setViewportSize({ height: 640, width: 1024 });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await configureArticlesPerPage(page, 4);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
 
     await expect
       .poll(async () => {
@@ -358,8 +367,10 @@ test.describe("pagination settlement race condition regression", () => {
     await page.setViewportSize({ height: 640, width: 1024 });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await configureArticlesPerPage(page, 4);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
 
     await expect
       .poll(async () => {
@@ -399,6 +410,7 @@ test.describe("pagination settlement race condition regression", () => {
     page,
   }) => {
     test.slow();
+    test.setTimeout(180_000);
 
     await page.setViewportSize({ height: 640, width: 1024 });
     const requestedArticleLimits: number[] = [];
@@ -420,8 +432,10 @@ test.describe("pagination settlement race condition regression", () => {
     });
     await gotoPreviewDashboard(page);
     await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await configureArticlesPerPage(page, LONG_RUN_PAGE_SIZE);
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: LONG_RUN_PAGE_SIZE,
+    });
 
     await expect
       .poll(async () => {

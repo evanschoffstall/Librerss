@@ -11,6 +11,7 @@ import {
   waitForStableDesktopMarkVisibleReadCycle,
 } from "./dashboard-feed-pagination-support";
 import {
+  applyDashboardPreferencesForTest,
   articleCard,
   configureArticlesPerPage,
   gotoAuthenticatedDashboard,
@@ -196,8 +197,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "unread");
-      await configureArticlesPerPage(page, 4);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "unread",
+        articlesPerPage: 4,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await waitForInitialClippedWindow(page, 4);
@@ -244,8 +247,10 @@ test.describe("dashboard feed pagination", () => {
       });
 
       await gotoPreviewDashboard(page);
-      await selectArticleFilter(page, "unread");
-      await configureArticlesPerPage(page, repeatedCyclePageSize);
+      await applyDashboardPreferencesForTest(page, {
+        articleFilter: "unread",
+        articlesPerPage: repeatedCyclePageSize,
+      });
 
       await expect(articleCard(page, 0)).toBeVisible({ timeout: 15_000 });
       await expect(markViewportReadButton).toBeEnabled({ timeout: 15_000 });

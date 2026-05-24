@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 
 import {
-  configureArticlesPerPage,
+  applyDashboardPreferencesForTest,
   expectDashboardLogin,
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
@@ -115,12 +115,14 @@ test.describe("dashboard preview safety", () => {
     await gotoPreviewDashboard(page, "/dashboard?explore=1");
     await seedClientStateSentinel(page, "reset-me");
     await previewSourceButton(page, "Placeholder Feeds").click();
-    await page.getByRole("button", { exact: true, name: "all" }).click();
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articlesPerPage: 4,
+    });
     await page.getByPlaceholder("Search...").fill("mars");
     await openDashboardSettings(page);
     await page.getByRole("switch", { name: "Show favicons" }).click();
     await page.keyboard.press("Escape");
-    await configureArticlesPerPage(page, 4);
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.getByRole("button", { name: "Reset app state" }).click();
@@ -195,13 +197,15 @@ test.describe("dashboard preview safety", () => {
   }) => {
     await gotoPreviewDashboard(page);
     await previewSourceButton(page, "Placeholder Feeds").click();
-    await page.getByRole("button", { exact: true, name: "all" }).click();
-    await page.getByRole("button", { name: /sort by date/i }).click();
+    await applyDashboardPreferencesForTest(page, {
+      articleFilter: "all",
+      articleSortOrder: "oldest",
+      articlesPerPage: 4,
+    });
     await page.getByPlaceholder("Search...").fill("mars");
     await openDashboardSettings(page);
     await page.getByRole("switch", { name: "Show favicons" }).click();
     await page.keyboard.press("Escape");
-    await configureArticlesPerPage(page, 4);
     const persistedSelection = await readDashboardPersistence(page);
 
     await page.reload({ waitUntil: "domcontentloaded" });
