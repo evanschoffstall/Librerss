@@ -41,17 +41,9 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set("x-nonce", nonce);
-
-  const response = applySecurityHeaders(
-    NextResponse.next({ request: { headers: requestHeaders } }),
-  );
-  response.headers.set(
-    "Content-Security-Policy",
-    buildNonceContentSecurityPolicy(nonce),
-  );
+  const response = applySecurityHeaders(NextResponse.next());
+  const contentSecurityPolicy = buildContentSecurityPolicy();
+  response.headers.set("Content-Security-Policy", contentSecurityPolicy);
   return response;
 }
 
@@ -77,20 +69,18 @@ function applySecurityHeaders(response: NextResponse): NextResponse {
 }
 
 /**
- * Builds the per-request Content-Security-Policy header value using a freshly
- * generated nonce so that `'unsafe-inline'` is never needed in `script-src`.
+ * Builds the Content-Security-Policy header value used for all HTML routes.
  *
- * `'strict-dynamic'` propagates trust to scripts loaded by nonce-authorised
- * loaders. `'self'` is kept for older browsers that do not understand
- * `'strict-dynamic'`. Development adds `'unsafe-eval'` for React tooling and
- * extends `connect-src` with `ws:`/`wss:` for HMR.
- * @param nonce - Per-request nonce injected into the script policy.
+ * This app ships same-origin Next.js bundles and inline bootstrap scripts, so
+ * the static-compatible policy allows same-origin scripts and inline bootstrap
+ * execution instead of relying on request-time nonces. Development still adds
+ * `'unsafe-eval'` and websocket origins for React tooling.
  * @returns The complete CSP header value for the current request.
  */
-function buildNonceContentSecurityPolicy(nonce: string): string {
+function buildContentSecurityPolicy(): string {
   const isDevelopment = process.env.NODE_ENV === "development";
   const connectSources = ["'self'"];
-  const scriptSources = [`'nonce-${nonce}'`, "'strict-dynamic'", "'self'"];
+  const scriptSources = ["'self'", "'unsafe-inline'"];
 
   if (isDevelopment) {
     connectSources.push("ws:", "wss:");

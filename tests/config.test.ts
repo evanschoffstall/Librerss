@@ -181,11 +181,18 @@ describe("lib/config – NEXT_PUBLIC client accessors", () => {
 
   test("maxArticleConsecutiveBlankLines uses NEXT_PUBLIC when set", async () => {
     const { maxArticleConsecutiveBlankLines } = await import("@/lib/config");
+    const previousMaxBlankLines =
+      process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
     process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES = "7";
     try {
       expect(maxArticleConsecutiveBlankLines()).toBe(7);
     } finally {
-      delete process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+      if (previousMaxBlankLines === undefined) {
+        delete process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES;
+      } else {
+        process.env.NEXT_PUBLIC_MAX_ARTICLE_CONSECUTIVE_BLANK_LINES =
+          previousMaxBlankLines;
+      }
     }
   });
 });
