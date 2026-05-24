@@ -22,13 +22,11 @@ const ANONYMOUS_USER: serverApi.AuthenticatedUser = {
   sessionId: -1,
   userId: -1,
 };
-const PLACEHOLDER_ARTICLES_DIR = join(
-  process.cwd(),
-  "public/placeholder-articles",
-);
+const REPO_ROOT = join(import.meta.dir, "..");
+const PLACEHOLDER_ARTICLES_DIR = join(REPO_ROOT, "public/placeholder-articles");
 
 export const EXTRACTION_PROOF_EXPECTED_DIR = join(
-  process.cwd(),
+  REPO_ROOT,
   "tests/regen-extraction-proof",
 );
 
