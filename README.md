@@ -89,7 +89,7 @@ When signup is disabled, create an account from the CLI:
 bun run db:create-user <email> <password>
 ```
 
-Passwords must be at least 8 characters long.
+Passwords must be at least 8 characters long. The CLI also prompts whether the new account should be persisted as an admin for invitation management.
 
 ### 5. Start the app
 
