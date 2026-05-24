@@ -30,6 +30,7 @@ interface DashboardPageProps {
   searchParams: Promise<{
     devLogin?: string | string[];
     explore?: string | string[];
+    invite?: string | string[];
   }>;
 }
 
@@ -74,6 +75,7 @@ export default async function Dashboard(props: DashboardPageProps) {
           initialLoginErrorMessage={bootstrapState.initialLoginErrorMessage}
           initialPreviewMode={bootstrapState.initialPreviewMode}
           initialSession={bootstrapState.initialSession}
+          invitationToken={bootstrapState.invitationToken}
         />
       </Suspense>
     </div>

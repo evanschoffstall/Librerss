@@ -58,6 +58,7 @@ interface DashboardLoginSurfaceProps {
   allowSignup: boolean;
   initialAutoLoginPath?: string;
   initialFormError?: string;
+  invitationToken?: string;
   onAuthenticated: React.Dispatch<
     React.SetStateAction<AuthSession["user"] | null>
   >;
@@ -127,6 +128,7 @@ export function DashboardLoginSurface(props: DashboardLoginSurfaceProps) {
     allowSignup,
     initialAutoLoginPath,
     initialFormError,
+    invitationToken,
     onAuthenticated,
     onEnterPreview,
     shouldAutoLogin,
@@ -146,6 +148,7 @@ export function DashboardLoginSurface(props: DashboardLoginSurfaceProps) {
         <LoginView
           allowSignup={allowSignup}
           initialFormError={initialFormError}
+          invitationToken={invitationToken}
           onAuthenticated={onAuthenticated}
           onEnterPreview={onEnterPreview}
         />

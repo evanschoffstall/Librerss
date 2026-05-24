@@ -52,14 +52,20 @@ export const AuthService = {
    * Create a new account and authenticate the user.
    * @param email - The new account's email address.
    * @param password - The new account's plaintext password.
+   * @param invitationToken - Optional secure invitation token from a closed-signup registration link.
    * @returns The newly created and authenticated user object.
    */
-  async signup(email: string, password: string): Promise<AuthUser> {
+  async signup(
+    email: string,
+    password: string,
+    invitationToken?: string,
+  ): Promise<AuthUser> {
     const response = await getApiClient().post<AuthSessionResponse>(
       `${authServiceBaseUrl}/signup`,
       {
         acceptedLegalVersion: LEGAL_CONSENT_VERSION,
         email,
+        invitationToken,
         password,
       },
     );

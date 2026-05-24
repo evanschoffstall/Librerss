@@ -237,6 +237,18 @@ describe("login state", () => {
 
     expect(
       validateLoginFields({
+        allowSignup: false,
+        confirmPassword: "password123",
+        email: "person@example.com",
+        hasAcceptedLegalTerms: true,
+        invitationToken: "a".repeat(43),
+        mode: "signup",
+        password: "password123",
+      }),
+    ).toBeNull();
+
+    expect(
+      validateLoginFields({
         allowSignup: true,
         confirmPassword: "",
         email: "   ",
@@ -388,12 +400,51 @@ describe("login state", () => {
       result.current.setHasAcceptedLegalTerms(true);
     });
     await act(async () => {
-      await result.current.handleKeyDown({ key: "Enter" } as React.KeyboardEvent);
+      await result.current.handleKeyDown({
+        key: "Enter",
+      } as React.KeyboardEvent);
     });
 
     await waitFor(() => {
-      expect(signupMock).toHaveBeenCalledWith("person@example.com", "password123");
+      expect(signupMock).toHaveBeenCalledWith(
+        "person@example.com",
+        "password123",
+        undefined,
+      );
     });
     expect(toastSuccessMock).toHaveBeenCalledWith("Account created.");
+  });
+
+  test("starts invitation links in signup mode and submits the token", async () => {
+    const onAuthenticated = mock();
+    const user = { email: "person@example.com", id: "user-1" };
+    signupMock.mockResolvedValue(user);
+    const { useLoginViewState } = await loadUseLoginViewStateModule();
+
+    const { result } = renderHook(() =>
+      useLoginViewState({
+        allowSignup: false,
+        invitationToken: "a".repeat(43),
+        onAuthenticated,
+      }),
+    );
+
+    expect(result.current.mode).toBe("signup");
+    act(() => {
+      result.current.setEmail("person@example.com");
+      result.current.setPassword("password123");
+      result.current.setConfirmPassword("password123");
+      result.current.setHasAcceptedLegalTerms(true);
+    });
+    await act(async () => {
+      await result.current.handleSubmit();
+    });
+
+    expect(signupMock).toHaveBeenCalledWith(
+      "person@example.com",
+      "password123",
+      "a".repeat(43),
+    );
+    expect(onAuthenticated).toHaveBeenCalledWith(user);
   });
 });

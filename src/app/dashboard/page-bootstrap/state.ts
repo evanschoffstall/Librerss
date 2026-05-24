@@ -9,6 +9,7 @@ export interface DashboardPageBootstrapState {
   initialLoginErrorMessage?: string;
   initialPreviewMode: boolean;
   initialSession: AuthSession;
+  invitationToken?: string;
 }
 
 /**
@@ -17,6 +18,7 @@ export interface DashboardPageBootstrapState {
 export interface DashboardPageSearchParams {
   devLogin?: string | string[];
   explore?: string | string[];
+  invite?: string | string[];
 }
 
 /**
@@ -124,6 +126,7 @@ export async function resolveDashboardPageBootstrap(
   const hasDevAutoLoginFailure = input.deps.isDevAutoLoginFailure(
     input.searchParams.devLogin,
   );
+  const invitationToken = getSearchParamValue(input.searchParams.invite);
   const initialPreviewMode = input.deps.resolveDashboardPreviewMode({
     hasExploreQuery: hasPreviewQuery,
   });
@@ -137,6 +140,7 @@ export async function resolveDashboardPageBootstrap(
       !initialPreviewMode &&
       !initialSession.authenticated &&
       !hasDevAutoLoginFailure &&
+      !invitationToken &&
       input.deps.isDevAutoLoginEnabled()
         ? input.deps.buildDevAutoLoginRequestPath("/dashboard")
         : undefined,
@@ -145,5 +149,6 @@ export async function resolveDashboardPageBootstrap(
       : undefined,
     initialPreviewMode,
     initialSession,
+    invitationToken,
   };
 }

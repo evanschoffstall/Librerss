@@ -74,6 +74,7 @@ interface DashboardRouterProps {
   initialLoginErrorMessage?: string;
   initialPreviewMode: boolean;
   initialSession?: AuthSession;
+  invitationToken?: string;
 }
 /**
  * Describes the options for dashboard router session effect.
@@ -123,6 +124,7 @@ export function DashboardRouter(props: DashboardRouterProps) {
           allowSignup={routerState.allowSignup}
           initialAutoLoginPath={props.initialAutoLoginPath}
           initialFormError={props.initialLoginErrorMessage}
+          invitationToken={props.invitationToken}
           onAuthenticated={routerState.setCurrentUser}
           onEnterPreview={
             routerState.allowSignup ? undefined : routerState.handleEnterPreview
