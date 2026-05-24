@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         allowSignup: RUNTIME_FLAGS.allowSignup,
         authenticated: false,
+        canManageInvitations: false,
+        invitationsEnabled: RUNTIME_FLAGS.invitationsEnabled,
         usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
         user: null,
       });
@@ -27,6 +29,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       allowSignup: RUNTIME_FLAGS.allowSignup,
       authenticated: true,
+      canManageInvitations: RUNTIME_FLAGS.invitationsEnabled && user.isAdmin,
+      invitationsEnabled: RUNTIME_FLAGS.invitationsEnabled,
       usePlaceholderData: RUNTIME_FLAGS.usePlaceholderData,
       user: { email: user.email, id: user.userId },
     });

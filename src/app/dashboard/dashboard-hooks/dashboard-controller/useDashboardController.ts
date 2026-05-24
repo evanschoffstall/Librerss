@@ -25,6 +25,7 @@ import { type BackgroundMode } from "@/app/dashboard/dashboard-services/dashboar
  */
 export interface DashboardControllerProps {
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   distillStrategy: string;
   onBackgroundModeChange: (value: BackgroundMode) => void;
   onDistillStrategyChange: (value: string) => void;
@@ -90,6 +91,7 @@ interface DashboardControllerWindowRuntimeStateOptions {
 export function useDashboardController(options: DashboardControllerProps) {
   const {
     backgroundMode,
+    canManageInvitations,
     distillStrategy,
     onBackgroundModeChange,
     onDistillStrategyChange,
@@ -111,6 +113,7 @@ export function useDashboardController(options: DashboardControllerProps) {
     animationState: controllerState.animationState,
     articleWindowState: controllerState.articleWindowState,
     backgroundMode,
+    canManageInvitations,
     controllerResources: controllerState.controllerResources,
     dashboardState: controllerState.dashboardState,
     distillStrategy,

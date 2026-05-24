@@ -16,6 +16,7 @@ interface LoginCardContentProps {
   email: string;
   fieldErrors: LoginFieldErrors;
   hasAcceptedLegalTerms: boolean;
+  invitationToken?: string;
   isSubmitting: boolean;
   mode: "login" | "signup";
   onChangeConfirmPassword: (value: string) => void;
@@ -60,6 +61,7 @@ export function LoginCardContent(props: LoginCardContentProps) {
     email,
     fieldErrors,
     hasAcceptedLegalTerms,
+    invitationToken,
     isSubmitting,
     mode,
     onChangeConfirmPassword,
@@ -108,6 +110,7 @@ export function LoginCardContent(props: LoginCardContentProps) {
       ) : null}
       <LoginPrimaryActions
         allowSignup={allowSignup}
+        hasInvitationToken={Boolean(invitationToken)}
         isSubmitting={isSubmitting}
         mode={mode}
         onEnterPreview={onEnterPreview}

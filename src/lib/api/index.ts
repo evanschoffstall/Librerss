@@ -2,6 +2,8 @@ export { AccountService } from "./account-service";
 export { ArticleService } from "./article-service";
 export { AuthService } from "./auth-service";
 export { FeedService } from "./feed-service";
+export { InvitationService } from "./invitation-service";
+export type { CreatedInvitationLink } from "./invitation-service";
 export {
   ApiError,
   asTrimmedString,

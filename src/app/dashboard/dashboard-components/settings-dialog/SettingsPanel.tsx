@@ -68,6 +68,7 @@ const SETTINGS_TABS = [
  * Describes the props for the settings panel component.
  */
 export interface SettingsPanelProps extends SettingsDisplaySectionProps {
+  canManageInvitations?: boolean;
   categories: CategoryTreeNode[];
   isPreviewMode?: boolean;
   onAddCategory: (name: string) => boolean;
@@ -101,6 +102,20 @@ type SettingsTabValue = (typeof SETTINGS_TABS)[number]["value"];
 const SETTINGS_TAB_VALUES = new Set<SettingsTabValue>(
   SETTINGS_TABS.map((tab) => tab.value),
 );
+
+/**
+ * Describes the props for settings tab content.
+ */
+interface SettingsTabContentProps extends SettingsDisplaySectionProps {
+  activeTab: SettingsTabValue;
+  canManageInvitations: boolean;
+  categories: CategoryTreeNode[];
+  isPreviewMode: boolean;
+  onAccountDeleted: () => void;
+  onRemoveCategory: (label: string) => Promise<boolean>;
+  pendingCategoryRemovalLabel: null | string;
+  state: ReturnType<typeof useSettingsModalState>;
+}
 
 /**
  * Describes the options for settings tab triggers.
@@ -202,6 +217,7 @@ function renderSettingsPanelTabContent(
       articlesPerPage={options.articlesPerPage}
       autoRefreshIntervalMinutes={options.autoRefreshIntervalMinutes}
       backgroundMode={options.backgroundMode}
+      canManageInvitations={options.canManageInvitations ?? false}
       categories={options.categories}
       distillStrategy={options.distillStrategy}
       isPreviewMode={options.isPreviewMode}
@@ -338,22 +354,13 @@ function SettingsPanelMobileShell(options: SettingsPanelShellOptions) {
  * @param props - The component props.
  * @returns The rendered settings tab content component.
  */
-function SettingsTabContent(
-  props: SettingsDisplaySectionProps & {
-    activeTab: SettingsTabValue;
-    categories: CategoryTreeNode[];
-    isPreviewMode: boolean;
-    onAccountDeleted: () => void;
-    onRemoveCategory: (label: string) => Promise<boolean>;
-    pendingCategoryRemovalLabel: null | string;
-    state: ReturnType<typeof useSettingsModalState>;
-  },
-) {
+function SettingsTabContent(props: SettingsTabContentProps) {
   const {
     activeTab,
     articlesPerPage,
     autoRefreshIntervalMinutes,
     backgroundMode,
+    canManageInvitations,
     categories,
     distillStrategy,
     isPreviewMode,
@@ -409,7 +416,10 @@ function SettingsTabContent(
 
       {!isPreviewMode && (
         <TabsContent className="mt-0" value="account">
-          <SettingsAccountSection onAccountDeleted={onAccountDeleted} />
+          <SettingsAccountSection
+            canManageInvitations={canManageInvitations}
+            onAccountDeleted={onAccountDeleted}
+          />
         </TabsContent>
       )}
     </>

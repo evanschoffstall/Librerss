@@ -113,6 +113,13 @@ describe("schema", () => {
     expect(articleStatus).toBe(articleStatuses);
   });
 
+  test("schema exports signup invitations table", async () => {
+    const { signupInvitations } = await import("@/lib/db/schema");
+    expect(signupInvitations.id).toBeDefined();
+    expect(signupInvitations.tokenHash).toBeDefined();
+    expect(signupInvitations.expiresAt).toBeDefined();
+  });
+
   test("schema exports categories table", async () => {
     const { categories, feedCategories } = await import("@/lib/db/schema");
     expect(categories).toBe(feedCategories);

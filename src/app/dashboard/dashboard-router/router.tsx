@@ -44,6 +44,7 @@ interface DashboardRouterEffectsOptions {
   initialPreviewMode: boolean;
   resolvedPreviewMode: boolean;
   setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
+  setCanManageInvitations: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentUser: React.Dispatch<
     React.SetStateAction<AuthSession["user"] | null>
   >;
@@ -84,6 +85,7 @@ interface DashboardRouterSessionEffectOptions {
   hasPreviewQuery: boolean;
   resolvedPreviewMode: boolean;
   setAllowSignup: React.Dispatch<React.SetStateAction<boolean>>;
+  setCanManageInvitations: React.Dispatch<React.SetStateAction<boolean>>;
   setCurrentUser: React.Dispatch<
     React.SetStateAction<AuthSession["user"] | null>
   >;
@@ -135,6 +137,7 @@ export function DashboardRouter(props: DashboardRouterProps) {
       ) : (
         <DashboardApplicationSurface
           backgroundMode={routerState.resolvedBackgroundMode}
+          canManageInvitations={routerState.canManageInvitations}
           distillStrategy={routerState.resolvedDistillStrategy}
           isLightMode={routerState.isLightMode}
           onBackgroundModeChange={routerState.setBackgroundMode}
@@ -163,6 +166,7 @@ function buildDashboardRouterState(options: DashboardRouterStateOptions) {
   } = options;
   return {
     allowSignup: routerSessionState.allowSignup,
+    canManageInvitations: routerSessionState.canManageInvitations,
     currentUser: routerSessionState.currentUser,
     handleEnterPreview,
     isLightMode: routerDerivedState.isLightMode,
@@ -257,6 +261,7 @@ function useDashboardRouterEffects(options: DashboardRouterEffectsOptions) {
     initialPreviewMode,
     resolvedPreviewMode,
     setAllowSignup,
+    setCanManageInvitations,
     setCurrentUser,
     setHasHydratedClientState,
     setIsPreviewMode,
@@ -277,6 +282,7 @@ function useDashboardRouterEffects(options: DashboardRouterEffectsOptions) {
     hasPreviewQuery,
     resolvedPreviewMode,
     setAllowSignup,
+    setCanManageInvitations,
     setCurrentUser,
     setIsSessionLoading,
     setUsePlaceholderData,
@@ -369,6 +375,7 @@ function useDashboardRouterSessionEffect(
     hasPreviewQuery,
     resolvedPreviewMode,
     setAllowSignup,
+    setCanManageInvitations,
     setCurrentUser,
     setIsSessionLoading,
     setUsePlaceholderData,
@@ -403,6 +410,7 @@ function useDashboardRouterSessionEffect(
         }
 
         setAllowSignup(session.allowSignup);
+        setCanManageInvitations(session.canManageInvitations);
         setUsePlaceholderData(session.usePlaceholderData);
         setCurrentUser(session.authenticated ? session.user : null);
       } catch {
@@ -411,6 +419,7 @@ function useDashboardRouterSessionEffect(
         }
 
         setAllowSignup(true);
+        setCanManageInvitations(false);
         setCurrentUser(null);
       } finally {
         if (!isCanceled) {
@@ -429,6 +438,7 @@ function useDashboardRouterSessionEffect(
     hasPreviewQuery,
     resolvedPreviewMode,
     setAllowSignup,
+    setCanManageInvitations,
     setCurrentUser,
     setIsSessionLoading,
     setUsePlaceholderData,
@@ -455,15 +465,20 @@ function useDashboardRouterSessionState(
   const [allowSignup, setAllowSignup] = useState(
     initialSession?.allowSignup ?? true,
   );
+  const [canManageInvitations, setCanManageInvitations] = useState(
+    initialSession?.canManageInvitations ?? false,
+  );
   const [usePlaceholderData, setUsePlaceholderData] = useState(
     initialSession?.usePlaceholderData ?? false,
   );
 
   return {
     allowSignup,
+    canManageInvitations,
     currentUser,
     isSessionLoading,
     setAllowSignup,
+    setCanManageInvitations,
     setCurrentUser,
     setIsSessionLoading,
     setUsePlaceholderData,
@@ -517,6 +532,7 @@ function useDashboardRouterState(
     initialPreviewMode,
     resolvedPreviewMode: routerDerivedState.resolvedPreviewMode,
     setAllowSignup: routerSessionState.setAllowSignup,
+    setCanManageInvitations: routerSessionState.setCanManageInvitations,
     setCurrentUser: routerSessionState.setCurrentUser,
     setHasHydratedClientState: routerPreferenceState.setHasHydratedClientState,
     setIsPreviewMode: routerPreferenceState.setIsPreviewMode,

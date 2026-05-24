@@ -90,6 +90,7 @@ interface DashboardSettingsState<CategoryTreeController> {
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   categories: CategoryTreeNode[];
   categoryTree: CategoryTreeController;
   distillStrategy: string;

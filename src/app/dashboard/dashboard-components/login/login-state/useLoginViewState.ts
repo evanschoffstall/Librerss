@@ -24,6 +24,7 @@ interface AuthErrorResponse {
  */
 interface SubmitAuthenticationRequestOptions {
   email: string;
+  invitationToken?: string;
   mode: "login" | "signup";
   password: string;
 }
@@ -46,6 +47,7 @@ interface SubmitLoginViewFormOptions extends SubmitAuthenticationRequestOptions 
 interface UseLoginViewStateOptions {
   allowSignup: boolean;
   initialFormError?: string;
+  invitationToken?: string;
   onAuthenticated: (user: AuthUser) => void;
 }
 
@@ -55,8 +57,11 @@ interface UseLoginViewStateOptions {
  * @returns The login view state and callbacks.
  */
 export function useLoginViewState(options: UseLoginViewStateOptions) {
-  const { allowSignup, initialFormError, onAuthenticated } = options;
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const { allowSignup, initialFormError, invitationToken, onAuthenticated } =
+    options;
+  const [mode, setMode] = useState<"login" | "signup">(() =>
+    invitationToken ? "signup" : "login",
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -87,6 +92,7 @@ export function useLoginViewState(options: UseLoginViewStateOptions) {
       confirmPassword,
       email,
       hasAcceptedLegalTerms,
+      invitationToken,
       mode,
       onAuthenticated,
       password,
@@ -150,7 +156,7 @@ async function submitAuthenticationRequest(
 ) {
   const { email, mode, password } = options;
   return mode === "signup"
-    ? AuthService.signup(email.trim(), password)
+    ? AuthService.signup(email.trim(), password, options.invitationToken)
     : AuthService.login(email.trim(), password);
 }
 
@@ -166,6 +172,7 @@ async function submitLoginViewForm(
     confirmPassword,
     email,
     hasAcceptedLegalTerms,
+    invitationToken,
     mode,
     onAuthenticated,
     password,
@@ -177,6 +184,7 @@ async function submitLoginViewForm(
     confirmPassword,
     email,
     hasAcceptedLegalTerms,
+    invitationToken,
     mode,
     password,
   });
@@ -189,7 +197,12 @@ async function submitLoginViewForm(
   setFieldErrors({});
   setIsSubmitting(true);
   try {
-    const user = await submitAuthenticationRequest({ email, mode, password });
+    const user = await submitAuthenticationRequest({
+      email,
+      invitationToken,
+      mode,
+      password,
+    });
 
     onAuthenticated(user);
     toast.success(mode === "signup" ? "Account created." : "Welcome back.");

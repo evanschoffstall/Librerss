@@ -3,13 +3,14 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
 import { SettingsAccountSection } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsAccountSection";
-import { AccountService } from "@/lib/api";
+import { AccountService, InvitationService } from "@/lib/api";
 
 const originalConfirm = window.confirm;
 const originalCreateObjectUrl = URL.createObjectURL;
 const originalRevokeObjectUrl = URL.revokeObjectURL;
 const originalDeleteAccount = AccountService.deleteAccount;
 const originalExportAccountData = AccountService.exportAccountData;
+const originalCreateInvitation = InvitationService.createInvitation;
 const originalToastSuccess = toast.success;
 const originalToastError = toast.error;
 let originalAnchorClick: (() => void) | undefined;
@@ -34,6 +35,11 @@ beforeEach(() => {
   originalAnchorClick ??= window.HTMLAnchorElement?.prototype.click;
   AccountService.deleteAccount = mock(async () => {});
   AccountService.exportAccountData = mock(async () => new Blob(["{}"]));
+  InvitationService.createInvitation = mock(async () => ({
+    email: "invited@example.com",
+    expiresAt: "2026-06-06T00:00:00.000Z",
+    url: "http://localhost/dashboard?invite=token",
+  }));
   toast.success = mock(() => "success");
   toast.error = mock(() => "error");
 });
@@ -59,11 +65,69 @@ afterEach(() => {
   }
   AccountService.deleteAccount = originalDeleteAccount;
   AccountService.exportAccountData = originalExportAccountData;
+  InvitationService.createInvitation = originalCreateInvitation;
   toast.success = originalToastSuccess;
   toast.error = originalToastError;
 });
 
 describe("SettingsAccountSection", () => {
+  test("generates and copies invitation links for invitation admins", async () => {
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: mock(async () => {}) },
+    });
+
+    try {
+      const { getByLabelText, getByRole } = render(
+        <SettingsAccountSection
+          canManageInvitations
+          onAccountDeleted={mock()}
+        />,
+      );
+
+      const invitationEmailInput = getByLabelText("Invitation email");
+      fireEvent.input(invitationEmailInput, {
+        target: { value: "invited@example.com" },
+      });
+      await waitFor(() => {
+        expect(invitationEmailInput).toHaveProperty(
+          "value",
+          "invited@example.com",
+        );
+      });
+      fireEvent.click(getByRole("button", { name: "Generate Link" }));
+
+      await waitFor(() => {
+        expect(InvitationService.createInvitation).toHaveBeenCalledWith(
+          "invited@example.com",
+        );
+        expect(toast.success).toHaveBeenCalledWith(
+          "Invitation link generated.",
+        );
+      });
+
+      expect(getByLabelText("Generated invitation link")).toHaveProperty(
+        "value",
+        "http://localhost/dashboard?invite=token",
+      );
+
+      fireEvent.click(getByRole("button", { name: "Copy" }));
+
+      await waitFor(() => {
+        expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+          "http://localhost/dashboard?invite=token",
+        );
+        expect(toast.success).toHaveBeenCalledWith("Invitation link copied.");
+      });
+    } finally {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
+  });
+
   test("exports account data and deletes the account after confirmation", async () => {
     const onAccountDeleted = mock(() => {});
     const { getByRole, getByText } = render(

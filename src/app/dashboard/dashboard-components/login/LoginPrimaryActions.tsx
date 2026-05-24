@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
  */
 interface LoginPrimaryActionsProps {
   allowSignup: boolean;
+  hasInvitationToken?: boolean;
   isSubmitting: boolean;
   mode: "login" | "signup";
   onEnterPreview?: () => void;
@@ -23,6 +24,7 @@ interface LoginPrimaryActionsProps {
 export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
   const {
     allowSignup,
+    hasInvitationToken = false,
     isSubmitting,
     mode,
     onEnterPreview,
@@ -56,7 +58,7 @@ export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
         ) : null}
         {mode === "signup" ? "Create account" : "Continue"}
       </Button>
-      {allowSignup ? (
+      {allowSignup || hasInvitationToken ? (
         <Button
           className="px-0"
           disabled={isSubmitting}
@@ -70,10 +72,12 @@ export function LoginPrimaryActions(props: LoginPrimaryActionsProps) {
         >
           {mode === "signup"
             ? "Already have an account? Sign in"
-            : "Need an account? Sign up"}
+            : hasInvitationToken
+              ? "Use invitation"
+              : "Need an account? Sign up"}
         </Button>
       ) : null}
-      {!allowSignup && onEnterPreview ? (
+      {!allowSignup && !hasInvitationToken && onEnterPreview ? (
         <Button
           className="w-full px-0 text-muted-foreground"
           disabled={isSubmitting}

@@ -36,6 +36,7 @@ import { useLocalStorage } from "@/lib/hooks";
  */
 interface DashboardApplicationSurfaceProps {
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   distillStrategy: string;
   isLightMode: boolean;
   onBackgroundModeChange: (value: BackgroundMode) => void;
@@ -83,6 +84,7 @@ export function DashboardApplicationSurface(
 ) {
   const {
     backgroundMode,
+    canManageInvitations,
     distillStrategy,
     isLightMode,
     onBackgroundModeChange,
@@ -107,6 +109,7 @@ export function DashboardApplicationSurface(
         <DashboardQueryProvider>
           <DashboardView
             backgroundMode={backgroundMode}
+            canManageInvitations={canManageInvitations}
             distillStrategy={distillStrategy}
             onBackgroundModeChange={onBackgroundModeChange}
             onDistillStrategyChange={onDistillStrategyChange}

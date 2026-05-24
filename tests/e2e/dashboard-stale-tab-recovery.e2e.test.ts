@@ -44,6 +44,8 @@ async function installAuthenticatedDashboardShellRoutes(page: Page) {
       body: JSON.stringify({
         allowSignup: false,
         authenticated: true,
+        canManageInvitations: false,
+        invitationsEnabled: true,
         usePlaceholderData: false,
         user: { email: "stale-tab-recovery@example.test", id: 1 },
       }),

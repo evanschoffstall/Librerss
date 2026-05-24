@@ -17,6 +17,7 @@ interface LoginValidationInput {
   confirmPassword: string;
   email: string;
   hasAcceptedLegalTerms: boolean;
+  invitationToken?: string;
   mode: "login" | "signup";
   password: string;
 }
@@ -34,12 +35,13 @@ export function validateLoginFields(
     confirmPassword,
     email,
     hasAcceptedLegalTerms,
+    invitationToken,
     mode,
     password,
   } = options;
   const errors: LoginFieldErrors = {};
 
-  if (mode === "signup" && !allowSignup) {
+  if (mode === "signup" && !allowSignup && !invitationToken) {
     errors.form = "Signup is disabled by server configuration.";
     return errors;
   }

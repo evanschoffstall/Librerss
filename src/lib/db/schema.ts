@@ -88,6 +88,7 @@ export const users = pgTable("User", {
     .defaultNow(),
   email: varchar("email", { length: 320 }).notNull().unique(),
   id: serial("id").primaryKey(),
+  isAdmin: boolean("is_admin").notNull().default(false),
   lastForceRefreshedAt: timestamp("last_force_refreshed_at", {
     mode: "date",
     withTimezone: true,
@@ -117,6 +118,37 @@ export const sessions = pgTable(
   (table) => [
     uniqueIndex("session_token_hash_idx").on(table.tokenHash),
     defineIndex("session_user_created_at_idx", table.userId, table.createdAt),
+  ],
+);
+
+export const signupInvitations = pgTable(
+  "SignupInvitation",
+  {
+    consumedAt: timestamp("consumed_at", { mode: "date", withTimezone: true }),
+    consumedByUserId: integer("consumed_by_user_id").references(
+      () => users.id,
+      {
+        onDelete: "set null",
+      },
+    ),
+    createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdByUserId: integer("created_by_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    email: varchar("email", { length: 320 }),
+    expiresAt: timestamp("expires_at", {
+      mode: "date",
+      withTimezone: true,
+    }).notNull(),
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+  },
+  (table) => [
+    uniqueIndex("signup_invitation_token_hash_idx").on(table.tokenHash),
+    defineIndex("signup_invitation_created_by_idx", table.createdByUserId),
+    defineIndex("signup_invitation_email_idx", table.email),
   ],
 );
 

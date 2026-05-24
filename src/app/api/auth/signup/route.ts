@@ -8,8 +8,11 @@ import { jsonError, parseJsonObjectBodyOrResponse } from "@/lib/api/http";
 import {
   createSession,
   hashPassword,
+  isValidSignupInvitationToken,
   normalizeEmailInput,
+  redeemSignupInvitation,
   setSessionCookie,
+  SignupInvitationError,
 } from "@/lib/auth";
 import { RUNTIME_FLAGS } from "@/lib/core/placeholder";
 import { getDb, isUniqueConstraintError, users } from "@/lib/db";
@@ -26,10 +29,11 @@ interface ResolvedSignupRouteDeps {
   hashPasswordFn: typeof hashPassword;
   isUniqueConstraintErrorFn: typeof isUniqueConstraintError;
   logAndRespondErrorFn: typeof serverApi.logAndRespondError;
+  redeemSignupInvitationFn: typeof redeemSignupInvitation;
   requireMutableRequestFn: typeof serverApi.requireMutableRequest;
   runtimeFlags: Pick<
     typeof RUNTIME_FLAGS,
-    "allowSignup" | "usePlaceholderData"
+    "allowSignup" | "invitationsEnabled" | "usePlaceholderData"
   >;
   setSessionCookieFn: typeof setSessionCookie;
 }
@@ -45,6 +49,7 @@ type SignupDb = Pick<ReturnType<typeof getDb>, "insert" | "select">;
 interface SignupPayload {
   acceptedLegalVersion: string;
   email: string;
+  invitationToken?: string;
   password: string;
 }
 
@@ -58,12 +63,21 @@ interface SignupRouteDeps {
   isUniqueConstraintErrorFn?: typeof isUniqueConstraintError;
   logAndRespondErrorFn?: typeof serverApi.logAndRespondError;
   logger?: Pick<typeof logger, "error" | "info" | "warn">;
+  redeemSignupInvitationFn?: typeof redeemSignupInvitation;
   requireMutableRequestFn?: typeof serverApi.requireMutableRequest;
   runtimeFlags?: Pick<
     typeof RUNTIME_FLAGS,
-    "allowSignup" | "usePlaceholderData"
+    "allowSignup" | "invitationsEnabled" | "usePlaceholderData"
   >;
   setSessionCookieFn?: typeof setSessionCookie;
+}
+
+/**
+ * Describes a newly created signup user.
+ */
+interface SignupUser {
+  email: string;
+  id: number;
 }
 
 /**
@@ -86,15 +100,18 @@ export async function POST(
       return requestError;
     }
 
-    const availabilityError = resolveSignupAvailabilityError(resolvedDeps);
-    if (availabilityError) {
-      return availabilityError;
-    }
-
     const db = resolvedDeps.getDbFn() as SignupDb;
     const parsedPayload = await resolveSignupPayload(request);
     if (parsedPayload instanceof Response) {
       return parsedPayload;
+    }
+
+    const availabilityError = resolveSignupAvailabilityError(
+      resolvedDeps,
+      parsedPayload.invitationToken,
+    );
+    if (availabilityError) {
+      return availabilityError;
     }
 
     const existingUserError = await resolveExistingUserError(
@@ -108,6 +125,11 @@ export async function POST(
 
     return await createSignupSuccessResponse(db, parsedPayload, resolvedDeps);
   } catch (error) {
+    if (error instanceof SignupInvitationError) {
+      resolvedDeps.appLogger.warn("Signup attempt with invalid invitation");
+      return jsonError(error.message, 400);
+    }
+
     if (resolvedDeps.isUniqueConstraintErrorFn(error)) {
       resolvedDeps.appLogger.warn("Signup attempt with existing email");
       return jsonError(
@@ -118,6 +140,55 @@ export async function POST(
 
     return resolvedDeps.logAndRespondErrorFn("Signup error", error);
   }
+}
+
+/**
+ * Create a signed-in signup response for a newly created user.
+ * @param createdUser - The created user.
+ * @param payload - The signup payload used for audit logging.
+ * @param deps - The resolved route dependencies.
+ * @param message - The log message to emit.
+ * @returns The authenticated signup response.
+ */
+async function createAuthenticatedSignupResponse(
+  createdUser: SignupUser,
+  payload: SignupPayload,
+  deps: ResolvedSignupRouteDeps,
+  message: string,
+): Promise<Response> {
+  const token = await deps.createSessionFn(createdUser.id);
+  deps.appLogger.info(message, {
+    acceptedLegalVersion: payload.acceptedLegalVersion,
+    email: createdUser.email,
+    userId: createdUser.id,
+  });
+
+  const response = NextResponse.json({ user: createdUser }, { status: 201 });
+  deps.setSessionCookieFn(response, token);
+  return response;
+}
+
+/**
+ * Create the signup success response for an invitation-backed account.
+ * @param payload - The validated signup payload including invitation token.
+ * @param deps - The resolved route dependencies.
+ * @returns The signup success response.
+ */
+async function createInvitedSignupSuccessResponse(
+  payload: SignupPayload & { invitationToken: string },
+  deps: ResolvedSignupRouteDeps,
+): Promise<Response> {
+  const createdUser = await deps.redeemSignupInvitationFn({
+    email: payload.email,
+    invitationToken: payload.invitationToken,
+    password: payload.password,
+  });
+  return createAuthenticatedSignupResponse(
+    createdUser,
+    payload,
+    deps,
+    "User signed up successfully with invitation",
+  );
 }
 
 /**
@@ -132,6 +203,14 @@ async function createSignupSuccessResponse(
   payload: SignupPayload,
   deps: ResolvedSignupRouteDeps,
 ): Promise<Response> {
+  const invitationToken = payload.invitationToken;
+  if (invitationToken) {
+    return await createInvitedSignupSuccessResponse(
+      { ...payload, invitationToken },
+      deps,
+    );
+  }
+
   const passwordHash = await deps.hashPasswordFn(payload.password);
   const createdUsers = await db
     .insert(users)
@@ -146,17 +225,36 @@ async function createSignupSuccessResponse(
   }
 
   const createdUser = createdUsers[0];
+  return createAuthenticatedSignupResponse(
+    createdUser,
+    payload,
+    deps,
+    "User signed up successfully",
+  );
+}
 
-  const token = await deps.createSessionFn(createdUser.id);
-  deps.appLogger.info("User signed up successfully", {
-    acceptedLegalVersion: payload.acceptedLegalVersion,
-    email: createdUser.email,
-    userId: createdUser.id,
-  });
+/**
+ * Parse an optional invitation token from the signup payload.
+ * @param token - Candidate invitation token value.
+ * @returns A normalized token, undefined, or a validation response.
+ */
+function parseSignupInvitationToken(
+  token: unknown,
+): Response | string | undefined {
+  if (token === undefined || token === null || token === "") {
+    return undefined;
+  }
 
-  const response = NextResponse.json({ user: createdUser }, { status: 201 });
-  deps.setSessionCookieFn(response, token);
-  return response;
+  if (typeof token !== "string") {
+    return jsonError("Invitation link is invalid or expired.", 400);
+  }
+
+  const trimmedToken = token.trim();
+  if (!isValidSignupInvitationToken(trimmedToken)) {
+    return jsonError("Invitation link is invalid or expired.", 400);
+  }
+
+  return trimmedToken;
 }
 
 /**
@@ -169,6 +267,7 @@ function parseSignupPayload(
 ): Response | SignupPayload {
   const acceptedLegalVersion = payload.acceptedLegalVersion;
   const email = normalizeEmailInput(payload.email);
+  const invitationToken = parseSignupInvitationToken(payload.invitationToken);
   const password = payload.password;
 
   if (acceptedLegalVersion !== LEGAL_CONSENT_VERSION) {
@@ -191,6 +290,10 @@ function parseSignupPayload(
     return jsonError("A valid email is required", 400);
   }
 
+  if (invitationToken instanceof Response) {
+    return invitationToken;
+  }
+
   if (typeof password !== "string" || !isStrongPassword(password)) {
     logger.warn("Signup attempt with weak password", { email });
     return jsonError(
@@ -199,7 +302,20 @@ function parseSignupPayload(
     );
   }
 
-  return { acceptedLegalVersion, email, password };
+  return { acceptedLegalVersion, email, invitationToken, password };
+}
+
+/**
+ * Resolve an optional dependency with its production fallback.
+ * @param dependency - Optional test or route dependency override.
+ * @param fallback - Production dependency fallback.
+ * @returns The resolved dependency.
+ */
+function resolveDependency<Value>(
+  dependency: undefined | Value,
+  fallback: Value,
+): Value {
+  return dependency ?? fallback;
 }
 
 /**
@@ -234,25 +350,38 @@ async function resolveExistingUserError(
 /**
  * Resolve the signup availability error.
  * @param deps - The deps.
+ * @param invitationToken - Optional validated invitation token from the signup payload.
  * @returns The signup availability error.
  */
 function resolveSignupAvailabilityError(
   deps: ResolvedSignupRouteDeps,
+  invitationToken: string | undefined,
 ): null | Response {
-  if (!deps.runtimeFlags.allowSignup) {
+  if (deps.runtimeFlags.usePlaceholderData) {
+    deps.appLogger.warn("Signup attempt when using placeholder data");
+    return jsonError(
+      "Signup is disabled when DATABASE_URL is not configured",
+      503,
+    );
+  }
+
+  if (deps.runtimeFlags.allowSignup) {
+    return null;
+  }
+
+  if (!invitationToken) {
     deps.appLogger.warn("Signup attempt when signup is disabled");
     return jsonError("Signup is disabled by server configuration", 403);
   }
 
-  if (!deps.runtimeFlags.usePlaceholderData) {
+  if (deps.runtimeFlags.invitationsEnabled) {
     return null;
   }
 
-  deps.appLogger.warn("Signup attempt when using placeholder data");
-  return jsonError(
-    "Signup is disabled when DATABASE_URL is not configured",
-    503,
+  deps.appLogger.warn(
+    "Signup attempt with invitation when invitations disabled",
   );
+  return jsonError("Invitations are disabled by server configuration", 403);
 }
 
 /**
@@ -299,17 +428,30 @@ function resolveSignupRouteDeps(
   deps: SignupRouteDeps,
 ): ResolvedSignupRouteDeps {
   return {
-    appLogger: deps.logger ?? logger,
-    createSessionFn: deps.createSessionFn ?? createSession,
-    getDbFn: (deps.getDbFn ?? getDb) as typeof getDb,
-    hashPasswordFn: deps.hashPasswordFn ?? hashPassword,
-    isUniqueConstraintErrorFn:
-      deps.isUniqueConstraintErrorFn ?? isUniqueConstraintError,
-    logAndRespondErrorFn:
-      deps.logAndRespondErrorFn ?? serverApi.logAndRespondError,
-    requireMutableRequestFn:
-      deps.requireMutableRequestFn ?? serverApi.requireMutableRequest,
-    runtimeFlags: deps.runtimeFlags ?? RUNTIME_FLAGS,
-    setSessionCookieFn: deps.setSessionCookieFn ?? setSessionCookie,
+    appLogger: resolveDependency(deps.logger, logger),
+    createSessionFn: resolveDependency(deps.createSessionFn, createSession),
+    getDbFn: resolveDependency(deps.getDbFn, getDb) as typeof getDb,
+    hashPasswordFn: resolveDependency(deps.hashPasswordFn, hashPassword),
+    isUniqueConstraintErrorFn: resolveDependency(
+      deps.isUniqueConstraintErrorFn,
+      isUniqueConstraintError,
+    ),
+    logAndRespondErrorFn: resolveDependency(
+      deps.logAndRespondErrorFn,
+      serverApi.logAndRespondError,
+    ),
+    redeemSignupInvitationFn: resolveDependency(
+      deps.redeemSignupInvitationFn,
+      redeemSignupInvitation,
+    ),
+    requireMutableRequestFn: resolveDependency(
+      deps.requireMutableRequestFn,
+      serverApi.requireMutableRequest,
+    ),
+    runtimeFlags: resolveDependency(deps.runtimeFlags, RUNTIME_FLAGS),
+    setSessionCookieFn: resolveDependency(
+      deps.setSessionCookieFn,
+      setSessionCookie,
+    ),
   };
 }

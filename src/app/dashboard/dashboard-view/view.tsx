@@ -30,6 +30,7 @@ type DashboardViewProps = DashboardControllerProps;
 export const DashboardView = (props: DashboardViewProps) => {
   const {
     backgroundMode,
+    canManageInvitations,
     distillStrategy,
     onBackgroundModeChange,
     onDistillStrategyChange,
@@ -41,6 +42,7 @@ export const DashboardView = (props: DashboardViewProps) => {
   );
   const { feedList, filterBar, settings, sidebar } = useDashboardController({
     backgroundMode,
+    canManageInvitations,
     distillStrategy,
     onBackgroundModeChange,
     onDistillStrategyChange,

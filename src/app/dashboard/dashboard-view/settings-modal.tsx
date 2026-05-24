@@ -31,6 +31,7 @@ export function DashboardSettingsModal(props: DashboardSettingsModalProps) {
       articlesPerPage={settings.articlesPerPage}
       autoRefreshIntervalMinutes={settings.autoRefreshIntervalMinutes}
       backgroundMode={settings.backgroundMode}
+      canManageInvitations={settings.canManageInvitations}
       categories={settings.categories}
       distillStrategy={settings.distillStrategy}
       isPreviewMode={settings.usePlaceholderData}

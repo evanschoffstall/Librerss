@@ -35,13 +35,16 @@ interface DashboardPageBootstrapDeps {
   buildDevAutoLoginRequestPath: (returnTo: string) => string;
   getUserFromSessionToken: (
     sessionToken: string,
-  ) => Promise<null | { email: string; userId: number }>;
+  ) => Promise<null | { email: string; isAdmin: boolean; userId: number }>;
   isDevAutoLoginEnabled: () => boolean;
   isDevAutoLoginFailure: (value: string | string[] | undefined) => boolean;
   resolveDashboardPreviewMode: (options: {
     hasExploreQuery: boolean;
   }) => boolean;
-  runtimeFlags: Pick<AuthSession, "allowSignup" | "usePlaceholderData">;
+  runtimeFlags: Pick<
+    AuthSession,
+    "allowSignup" | "invitationsEnabled" | "usePlaceholderData"
+  >;
   sessionCookieName: string;
 }
 
@@ -60,11 +63,16 @@ interface DashboardPageBootstrapInput {
  * @returns The anonymous dashboard session.
  */
 export function buildAnonymousDashboardSession(
-  runtimeFlags: Pick<AuthSession, "allowSignup" | "usePlaceholderData">,
+  runtimeFlags: Pick<
+    AuthSession,
+    "allowSignup" | "invitationsEnabled" | "usePlaceholderData"
+  >,
 ): AuthSession {
   return {
     allowSignup: runtimeFlags.allowSignup,
     authenticated: false,
+    canManageInvitations: false,
+    invitationsEnabled: runtimeFlags.invitationsEnabled,
     usePlaceholderData: runtimeFlags.usePlaceholderData,
     user: null,
   };
@@ -97,6 +105,9 @@ export async function getInitialDashboardSession(
     return {
       allowSignup: deps.runtimeFlags.allowSignup,
       authenticated: true,
+      canManageInvitations:
+        deps.runtimeFlags.invitationsEnabled && user.isAdmin,
+      invitationsEnabled: deps.runtimeFlags.invitationsEnabled,
       usePlaceholderData: deps.runtimeFlags.usePlaceholderData,
       user: { email: user.email, id: user.userId },
     };

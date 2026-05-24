@@ -101,6 +101,8 @@ test.describe("feed Atom updated dates", () => {
         body: JSON.stringify({
           allowSignup: false,
           authenticated: true,
+          canManageInvitations: false,
+          invitationsEnabled: true,
           usePlaceholderData: false,
           user: { email: "atom-updated-date@example.test", id: 1 },
         }),
@@ -207,6 +209,8 @@ test.describe("feed Atom updated dates", () => {
         body: JSON.stringify({
           allowSignup: false,
           authenticated: true,
+          canManageInvitations: false,
+          invitationsEnabled: true,
           usePlaceholderData: false,
           user: { email: "atom-id-only@example.test", id: 1 },
         }),

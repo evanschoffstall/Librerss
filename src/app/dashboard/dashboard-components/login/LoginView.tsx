@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 interface LoginViewProps {
   allowSignup: boolean;
   initialFormError?: string;
+  invitationToken?: string;
   onAuthenticated: (user: AuthUser) => void;
   onEnterPreview?: () => void;
 }
@@ -30,15 +31,22 @@ const LOGIN_CARD_TRANSITION = {
  * @returns The rendered login view component.
  */
 export const LoginView = (props: LoginViewProps) => {
-  const { allowSignup, initialFormError, onAuthenticated, onEnterPreview } =
-    props;
+  const {
+    allowSignup,
+    initialFormError,
+    invitationToken,
+    onAuthenticated,
+    onEnterPreview,
+  } = props;
   const loginViewState = useLoginViewState({
     allowSignup,
     initialFormError,
+    invitationToken,
     onAuthenticated,
   });
   const cardContentProps = buildLoginCardContentProps(
     allowSignup,
+    invitationToken,
     loginViewState,
     onEnterPreview,
   );
@@ -68,12 +76,14 @@ export const LoginView = (props: LoginViewProps) => {
 /**
  * Build the props passed to the login card content component.
  * @param allowSignup - Whether signup should be enabled.
+ * @param invitationToken - Optional invitation token from the current route.
  * @param loginViewState - The current login view state and callbacks.
  * @param onEnterPreview - Optional preview-entry callback.
  * @returns The login card content props.
  */
 function buildLoginCardContentProps(
   allowSignup: boolean,
+  invitationToken: string | undefined,
   loginViewState: ReturnType<typeof useLoginViewState>,
   onEnterPreview: LoginViewProps["onEnterPreview"],
 ) {
@@ -83,6 +93,7 @@ function buildLoginCardContentProps(
     email: loginViewState.email,
     fieldErrors: loginViewState.fieldErrors,
     hasAcceptedLegalTerms: loginViewState.hasAcceptedLegalTerms,
+    invitationToken,
     isSubmitting: loginViewState.isSubmitting,
     mode: loginViewState.mode,
     /**

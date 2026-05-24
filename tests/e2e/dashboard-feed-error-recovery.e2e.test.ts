@@ -73,6 +73,8 @@ async function installDashboardShellRoutes(page: Page) {
       body: JSON.stringify({
         allowSignup: false,
         authenticated: true,
+        canManageInvitations: false,
+        invitationsEnabled: true,
         usePlaceholderData: false,
         user: { email: "feed-error-recovery@example.test", id: 1 },
       }),

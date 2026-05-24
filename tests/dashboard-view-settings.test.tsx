@@ -7,6 +7,7 @@ const settings = {
   articlesPerPage: 12,
   autoRefreshIntervalMinutes: 30,
   backgroundMode: "none" as const,
+  canManageInvitations: false,
   categories: [
     {
       children: [],

@@ -41,6 +41,7 @@ export {
   feeds,
   feedSources,
   sessions,
+  signupInvitations,
   users,
 } from "./schema";
 export type {

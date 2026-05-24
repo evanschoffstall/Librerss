@@ -44,6 +44,7 @@ interface DashboardControllerChromeStateOptions {
  */
 interface DashboardControllerLayoutViewStateOptions {
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   controllerResources: ReturnType<typeof useDashboardControllerResources>;
   dashboardState: ReturnType<typeof useDashboardState>;
   loadingState: ReturnType<typeof useDashboardFeedLoadingState>;
@@ -61,6 +62,7 @@ interface DashboardControllerOutputOptions {
   animationState: ReturnType<typeof useDashboardAnimatingArticleState>;
   articleWindowState: ReturnType<typeof useDashboardArticleWindow>;
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   controllerResources: ReturnType<typeof useDashboardControllerResources>;
   dashboardState: ReturnType<typeof useDashboardState>;
   distillStrategy: string;
@@ -95,6 +97,7 @@ export function useDashboardControllerOutput(
     animationState,
     articleWindowState,
     backgroundMode,
+    canManageInvitations,
     controllerResources,
     dashboardState,
     distillStrategy,
@@ -123,6 +126,7 @@ export function useDashboardControllerOutput(
     }),
     ...buildDashboardControllerLayoutViewState({
       backgroundMode,
+      canManageInvitations,
       controllerResources,
       dashboardState,
       loadingState,
@@ -202,6 +206,7 @@ function buildDashboardControllerLayoutViewState(
 ) {
   const {
     backgroundMode,
+    canManageInvitations,
     controllerResources,
     dashboardState,
     loadingState,
@@ -215,6 +220,7 @@ function buildDashboardControllerLayoutViewState(
     articlesPerPage: dashboardState.articlesPerPage,
     autoRefreshIntervalMinutes: dashboardState.autoRefreshIntervalMinutes,
     backgroundMode,
+    canManageInvitations,
     isFeedListInitialLoading: loadingState.isFeedListInitialLoading,
     isFeedListRefreshing: loadingState.isFeedListRefreshing,
     isMobileSidebarOpen: dashboardState.isMobileSidebarOpen,

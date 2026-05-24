@@ -40,6 +40,7 @@ export interface UseDashboardControllerViewStateOptions {
   articlesPerPage: number;
   autoRefreshIntervalMinutes: number;
   backgroundMode: BackgroundMode;
+  canManageInvitations: boolean;
   categories: CategoryTreeNode[];
   categoryTree: ReturnType<typeof useDashboardCategoryTree>;
   collapsingArticles: CollapsingArticles;
@@ -236,6 +237,7 @@ function buildDashboardSettingsState(
     articlesPerPage: options.articlesPerPage,
     autoRefreshIntervalMinutes: options.autoRefreshIntervalMinutes,
     backgroundMode: options.backgroundMode,
+    canManageInvitations: options.canManageInvitations,
     categories: options.displayCategories,
     categoryTree: options.categoryTree,
     distillStrategy: options.distillStrategy,
