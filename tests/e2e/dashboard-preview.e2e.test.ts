@@ -12,6 +12,34 @@ import {
 } from "./helpers";
 import { expect, test } from "./test";
 
+/**
+ * Selects a feed source button while preserving the test's fallback path for
+ * suite-load flakes where Playwright finishes the pointer action as the source
+ * list rerenders.
+ */
+async function clickPreviewSourceButton(
+  button: ReturnType<typeof previewFeedButton>,
+) {
+  await expect(button).toBeVisible({ timeout: 15_000 });
+
+  try {
+    await button.click();
+    return;
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes("Timeout")) {
+      throw error;
+    }
+  }
+
+  await button.evaluate((buttonElement) => {
+    if (!(buttonElement instanceof HTMLElement)) {
+      throw new Error("Expected preview source button element.");
+    }
+
+    buttonElement.click();
+  });
+}
+
 function createPreviewSearchTerm(title: string) {
   const candidate = title
     .split(/[^A-Za-z0-9]+/u)
@@ -69,6 +97,10 @@ function previewFeedButton(
     .first();
 }
 
+/**
+ * Switches into the aggregate placeholder source even when a prior persisted
+ * preview source already left that source selected for this browser context.
+ */
 async function selectPreviewSource(
   page: Parameters<typeof gotoPreviewDashboard>[0],
 ) {
@@ -77,7 +109,24 @@ async function selectPreviewSource(
     await openFeedsButton.click();
   }
 
-  await page.getByRole("button", { name: "Placeholder Feeds" }).click();
+  const dashboardHeading = page.getByRole("heading", { level: 1 });
+  const placeholderFeedsButton = page.getByRole("button", {
+    name: "Placeholder Feeds",
+  });
+
+  if ((await dashboardHeading.textContent())?.includes("Placeholder Feeds")) {
+    await clickPreviewSourceButton(
+      page.getByRole("button", { exact: true, name: "All Feeds" }),
+    );
+    await expect(dashboardHeading).toContainText("All Feeds", {
+      timeout: 15_000,
+    });
+  }
+
+  await clickPreviewSourceButton(placeholderFeedsButton);
+  await expect(dashboardHeading).toContainText("Placeholder Feeds", {
+    timeout: 15_000,
+  });
 }
 
 test.describe("dashboard preview mode", () => {

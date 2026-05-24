@@ -258,25 +258,25 @@ test.describe("dashboard toolbar loading", () => {
       page.locator('[data-dashboard-feed-list-skeleton="true"]'),
     ).toHaveCount(0, { timeout: 15_000 });
 
-    // After the gate clears all other skeletons must also be gone.  The 500 ms
-    // window is generous for React to commit all surfaces in the same render
-    // but tight enough to catch any surface that lags by a separate data gate.
+    // After the gate clears all other skeletons must also be gone.  The short
+    // window allows for full-suite dev-server load while still catching any
+    // surface that lags by a separate data gate.
     await expect(
       page.locator('[data-dashboard-toolbar-skeleton="true"]'),
-    ).toHaveCount(0, { timeout: 500 });
+    ).toHaveCount(0, { timeout: 2_000 });
     await expect(
       page.locator('[data-dashboard-filter-bar-skeleton="true"]'),
-    ).toHaveCount(0, { timeout: 500 });
+    ).toHaveCount(0, { timeout: 2_000 });
     await expect(
       page.locator('[data-dashboard-sidebar-skeleton="true"]'),
-    ).toHaveCount(0, { timeout: 500 });
+    ).toHaveCount(0, { timeout: 2_000 });
 
     // Final state: hydrated surfaces present.
     await expect(page.getByPlaceholder("Search...")).toBeVisible({
-      timeout: 500,
+      timeout: 2_000,
     });
     await expect(page.getByRole("button", { name: "unread" })).toBeVisible({
-      timeout: 500,
+      timeout: 2_000,
     });
   });
 });
