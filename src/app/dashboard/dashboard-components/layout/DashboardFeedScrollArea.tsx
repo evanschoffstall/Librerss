@@ -221,6 +221,7 @@ export const DashboardFeedScrollArea = React.forwardRef<
       }
 
       let animationFrameId = 0;
+      const observedContentRoot = viewportElement.firstElementChild;
       let resizeObserver: MutationObserver | null | ResizeObserver = null;
       let mutationObserver: MutationObserver | null = null;
       /**
@@ -238,17 +239,19 @@ export const DashboardFeedScrollArea = React.forwardRef<
           scheduleMetricsUpdate();
         });
         resizeObserver.observe(viewportElement);
-        if (viewportElement.firstElementChild instanceof HTMLElement) {
-          resizeObserver.observe(viewportElement.firstElementChild);
+        if (observedContentRoot instanceof HTMLElement) {
+          resizeObserver.observe(observedContentRoot);
         }
       }
 
-      if (typeof MutationObserver === "function") {
+      if (
+        typeof MutationObserver === "function" &&
+        observedContentRoot instanceof HTMLElement
+      ) {
         mutationObserver = new MutationObserver(() => {
           scheduleMetricsUpdate();
         });
-        mutationObserver.observe(viewportElement, {
-          attributes: true,
+        mutationObserver.observe(observedContentRoot, {
           childList: true,
           subtree: true,
         });
