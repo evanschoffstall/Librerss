@@ -167,7 +167,7 @@ describe("settings real components", () => {
     fireEvent.change(getByPlaceholderText("https://example.com/feed.xml"), {
       target: { value: "https://example.com/new.xml" },
     });
-    fireEvent.click(getByText("Add Feed"));
+    fireEvent.click(getByRole("button", { name: "Add Feed" }));
     fireEvent.click(getByLabelText("Edit Example Feed"));
     fireEvent.click(getByLabelText("Disable extraction"));
     fireEvent.click(getByLabelText("Enable proxy"));

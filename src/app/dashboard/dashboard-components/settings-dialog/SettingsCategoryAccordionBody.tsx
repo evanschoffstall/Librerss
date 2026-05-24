@@ -121,17 +121,33 @@ function CategoryAddFeedActions(props: CategoryAddFeedActionsProps) {
         Cancel
       </Button>
       <Button
-        className="h-8 px-3 text-xs"
+        aria-label={isSavingFeed ? "Saving feed" : "Add Feed"}
+        className="h-8 px-2 text-xs md:px-3"
         disabled={!canAddFeed || isSavingFeed}
         onClick={onSubmit}
         size="sm"
       >
         {isSavingFeed ? (
-          <MotionSpinner className="mr-1" iconClassName="size-3" />
+          <>
+            <MotionSpinner className="md:mr-1" iconClassName="size-3" />
+            <span aria-hidden="true" className="hidden md:inline">
+              Saving…
+            </span>
+          </>
         ) : (
-          <Plus className="mr-1 size-3" />
+          <>
+            <span aria-hidden="true" className="text-sm md:hidden">
+              +
+            </span>
+            <Plus
+              aria-hidden="true"
+              className="hidden size-3 md:mr-1 md:inline-block"
+            />
+            <span aria-hidden="true" className="hidden md:inline">
+              Add Feed
+            </span>
+          </>
         )}
-        {isSavingFeed ? "Saving…" : "Add Feed"}
       </Button>
     </>
   );
@@ -188,7 +204,7 @@ function CategoryAddFeedForm(
       <div className="flex gap-2">
         <Input
           autoFocus
-          className="h-8 flex-1 text-sm"
+          className="h-8 flex-1"
           onChange={(event) => {
             onNewFeedNameChange(event.target.value);
           }}
@@ -196,7 +212,7 @@ function CategoryAddFeedForm(
           value={newFeedName}
         />
         <Input
-          className="h-8 flex-2 text-sm"
+          className="h-8 flex-2"
           onChange={(event) => {
             onNewFeedUrlChange(event.target.value);
           }}

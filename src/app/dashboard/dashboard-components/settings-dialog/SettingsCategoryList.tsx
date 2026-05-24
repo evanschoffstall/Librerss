@@ -100,7 +100,7 @@ function AddCategoryControls(props: AddCategoryControlsProps) {
   return (
     <div className="flex w-full max-w-xs items-center gap-2">
       <Input
-        className="h-8 text-sm"
+        className="h-8"
         onChange={(event) => {
           onNewCategoryNameChange(event.target.value);
         }}

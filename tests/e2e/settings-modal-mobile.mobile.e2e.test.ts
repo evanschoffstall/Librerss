@@ -3,10 +3,47 @@ import type { Locator, Page } from "@playwright/test";
 import {
   expectNotClipped,
   gotoPreviewDashboard,
+  installDeterministicFeedBatchRoute,
   openDashboardSettings,
   openDashboardSettingsTab,
 } from "./helpers";
 import { expect, test } from "./test";
+
+interface MobileSettingsFeedRecord {
+  category: string;
+  enabled: boolean;
+  extractionDisabled: boolean;
+  id: number;
+  name: string;
+  proxyEnabled: boolean;
+  url: string;
+}
+
+const MOBILE_SETTINGS_FEEDS: MobileSettingsFeedRecord[] = [
+  {
+    category: "News",
+    enabled: true,
+    extractionDisabled: false,
+    id: 1,
+    name: "Existing Feed",
+    proxyEnabled: false,
+    url: "https://example.com/e2e/mobile-existing.xml",
+  },
+];
+
+/**
+ * Open the mocked authenticated dashboard and wait for the mobile shell.
+ * @param page - The page to navigate.
+ */
+async function gotoAuthenticatedMobileDashboard(page: Page) {
+  await page.goto("/dashboard", { waitUntil: "domcontentloaded" });
+  await page.waitForURL(/\/dashboard$/u);
+  await expect(
+    page.getByRole("button", { name: "Open actions menu" }),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
+}
 
 /** Injects a mounted Radix-style rail so the mobile CSS contract can be measured directly. */
 async function injectMeasuredRadixScrollbar(dialog: Locator) {
@@ -32,6 +69,46 @@ async function injectMeasuredRadixScrollbar(dialog: Locator) {
       opacity: style.opacity,
       pointerEvents: style.pointerEvents,
     };
+  });
+}
+
+/**
+ * Install deterministic authenticated shell routes for mobile settings coverage.
+ * @param page - The page that should receive the dashboard route overrides.
+ */
+async function installAuthenticatedMobileSettingsRoutes(page: Page) {
+  await page.route("**/api/auth/session", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        allowSignup: false,
+        authenticated: true,
+        canManageInvitations: false,
+        invitationsEnabled: true,
+        usePlaceholderData: false,
+        user: { email: "mobile-settings@example.test", id: 1 },
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/feeds", async (route) => {
+    if (route.request().method() !== "GET") {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      body: JSON.stringify(MOBILE_SETTINGS_FEEDS),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/feeds/category-order", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({ orderedLabels: ["News"] }),
+      contentType: "application/json",
+      status: 200,
+    });
   });
 }
 
@@ -205,5 +282,52 @@ test.describe("settings modal mobile tray", () => {
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();
+  });
+
+  test("keeps mobile feed-entry inputs at the non-zoom text size and renders a compact add button", async ({
+    page,
+  }) => {
+    await installAuthenticatedMobileSettingsRoutes(page);
+    await installDeterministicFeedBatchRoute(page, {
+      articleFeedCount: 1,
+      articlesPerFeed: 6,
+      respectArticleLimit: true,
+    });
+    await gotoAuthenticatedMobileDashboard(page);
+    await openDashboardSettingsTab(page, "Feeds");
+
+    const dialog = page.getByRole("dialog", { name: "Reader Settings" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Add feed" }).first().click();
+
+    const viewport = settingsScrollViewport(dialog);
+    const categoryInput = dialog.getByPlaceholder("New category name...");
+    const feedNameInput = dialog.getByPlaceholder("Feed name");
+    const feedUrlInput = dialog.getByPlaceholder(
+      "https://example.com/feed.xml",
+    );
+    const addFeedButton = dialog
+      .getByRole("button", { name: "Add Feed" })
+      .last();
+
+    await expectNotClipped(categoryInput, viewport, "Category input");
+    await expectNotClipped(feedNameInput, viewport, "Feed name input");
+    await expectNotClipped(feedUrlInput, viewport, "Feed URL input");
+    await expectNotClipped(addFeedButton, viewport, "Add feed button");
+
+    const [categoryFontSize, feedNameFontSize, feedUrlFontSize, buttonText] =
+      await Promise.all([
+        categoryInput.evaluate((element) => getComputedStyle(element).fontSize),
+        feedNameInput.evaluate((element) => getComputedStyle(element).fontSize),
+        feedUrlInput.evaluate((element) => getComputedStyle(element).fontSize),
+        addFeedButton.evaluate((element) =>
+          (element as HTMLElement).innerText.trim(),
+        ),
+      ]);
+
+    expect(categoryFontSize).toBe("16px");
+    expect(feedNameFontSize).toBe("16px");
+    expect(feedUrlFontSize).toBe("16px");
+    expect(buttonText).toBe("+");
   });
 });

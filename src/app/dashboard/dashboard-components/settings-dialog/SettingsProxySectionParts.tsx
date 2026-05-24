@@ -105,7 +105,7 @@ export function ProxyCredentialsSection(props: ProxyCredentialsSectionProps) {
         ) : (
           <Input
             autoComplete="username"
-            className="h-9 font-mono text-sm"
+            className="h-9 font-mono"
             disabled={saving}
             id="proxy-username"
             onChange={(e) => {
@@ -132,7 +132,7 @@ export function ProxyCredentialsSection(props: ProxyCredentialsSectionProps) {
         ) : (
           <Input
             autoComplete="current-password"
-            className="h-9 font-mono text-sm"
+            className="h-9 font-mono"
             disabled={saving}
             id="proxy-password"
             onChange={(e) => {
@@ -236,7 +236,7 @@ export function ProxyUrlSection(props: ProxyUrlSectionProps) {
         <>
           <div className="flex items-center gap-2">
             <Input
-              className="h-9 font-mono text-sm"
+              className="h-9 font-mono"
               disabled={saving}
               onChange={(e) => {
                 setProxyUrl(e.target.value);
