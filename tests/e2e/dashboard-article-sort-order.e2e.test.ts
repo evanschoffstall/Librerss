@@ -4,7 +4,9 @@ import {
   gotoPreviewDashboard,
   installDeterministicFeedBatchRoute,
   readArticleKey,
+  readStableVisibleArticleKeys,
   scrollFeedViewportToBottom,
+  scrollFeedViewportToTop,
   selectArticleFilter,
 } from "./helpers";
 import { expect, test } from "./test";
@@ -63,9 +65,8 @@ test.describe("dashboard article sort order", () => {
       })
       .not.toBe(initialFirstKey);
 
-    const oldestVisibleKeys = await Promise.all(
-      [0, 1, 2].map((index) => readArticleKey(articleCard(page, index))),
-    );
+    await scrollFeedViewportToTop(page);
+    const oldestVisibleKeys = await readStableVisibleArticleKeys(page, 3);
 
     const persistedOrder = await page.evaluate(() =>
       window.localStorage.getItem("librerss:articleSortOrder"),
@@ -86,7 +87,7 @@ test.describe("dashboard article sort order", () => {
         timeout: 15_000,
       })
       .not.toBe(initialFirstKey);
-    const reloadedFirstKey = await readArticleKey(articleCard(page, 0));
+    const [reloadedFirstKey] = await readStableVisibleArticleKeys(page, 3);
     expect(oldestVisibleKeys).toContain(reloadedFirstKey);
   });
 

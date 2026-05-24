@@ -805,6 +805,35 @@ export async function readSidebarTrayViewportMetrics(page: Page) {
   });
 }
 
+/** Reads a stable set of visible article keys after virtualized feed updates settle. */
+export async function readStableVisibleArticleKeys(
+  page: Page,
+  expectedCount: number,
+) {
+  let stableArticleKeys: string[] = [];
+
+  await expect
+    .poll(async () => {
+      const currentArticleKeys = await Promise.all(
+        Array.from({ length: expectedCount }, async (_, index) => {
+          return await readArticleKey(articleCard(page, index));
+        }),
+      );
+      const hasStableKeys =
+        currentArticleKeys.length === stableArticleKeys.length &&
+        currentArticleKeys.every((articleKey, index) => {
+          return articleKey === stableArticleKeys[index];
+        });
+
+      stableArticleKeys = currentArticleKeys;
+
+      return hasStableKeys ? currentArticleKeys.join("\n") : "__pending__";
+    })
+    .not.toBe("__pending__");
+
+  return stableArticleKeys;
+}
+
 /** Reads the first visible feed article plus its top offset inside the viewport. */
 export async function readTopVisibleFeedArticle(
   page: Page,
