@@ -207,7 +207,10 @@ describe("api/feeds/batch route", () => {
         cachedCount: 0,
         cooldownLimitedCount: 0,
         errors: new Map([
-          [normalizedUrl, { message: "Upstream responded with status 504", statusCode: 504 }],
+          [
+            normalizedUrl,
+            { message: "Upstream responded with status 504", statusCode: 504 },
+          ],
         ]),
         lastFetchedByUrl: new Map(),
         refreshedCount: 1,

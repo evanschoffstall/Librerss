@@ -3,14 +3,7 @@
  * Tests for src/app/api/articles/
  */
 
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  mock,
-  test,
-} from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import { createMockArticle, createMockRequest } from "./support/test-utils";
 
