@@ -1,9 +1,8 @@
 import type { Page } from "@playwright/test";
 
 import {
-  applyDashboardPreferencesForTest,
   articleCard,
-  gotoPreviewDashboard,
+  gotoPreviewDashboardWithPreferences,
   hasLoadMoreSentinel,
   installDeterministicFeedBatchRoute,
   readLoadMoreSkeletonState,
@@ -294,8 +293,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });
@@ -347,8 +345,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: LARGE_PAGE_SIZE,
       });
@@ -373,8 +370,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });
@@ -394,8 +390,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });
@@ -432,8 +427,7 @@ test.describe("pagination skeleton contract", () => {
         totalArticlesPerFeed: 24,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });
@@ -463,8 +457,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });
@@ -489,8 +482,7 @@ test.describe("pagination skeleton contract", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "all",
         articlesPerPage: SMALL_PAGE_SIZE,
       });

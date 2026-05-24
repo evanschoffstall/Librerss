@@ -45,7 +45,7 @@ interface DashboardPreferenceSeedOptions {
   autoRefreshIntervalMinutes?: number;
   backgroundMode?: "none" | "particles" | "stars";
   mobileInvertedScroll?: boolean;
-  selectedCategory?: string;
+  selectedCategory?: null | string;
 }
 
 interface DeterministicFeedBatchRouteOptions {
@@ -438,6 +438,22 @@ export async function gotoPreviewDashboard(
   await disableDashboardBackgroundForTest(page);
   await page.goto(path, { waitUntil: "domcontentloaded" });
   await expectPreviewDashboard(page);
+}
+
+/**
+ * Opens the preview dashboard with persisted preferences seeded before hydration
+ * so tests land in the target state without paying an extra storage-sync cycle.
+ * @param page - Active Playwright page.
+ * @param options - Preference values to seed before navigation.
+ * @param path - Optional preview dashboard path override.
+ */
+export async function gotoPreviewDashboardWithPreferences(
+  page: Page,
+  options: DashboardPreferenceSeedOptions,
+  path = "/dashboard?explore=1",
+) {
+  await seedDashboardPreferencesForTest(page, options);
+  await gotoPreviewDashboard(page, path);
 }
 
 /** Returns whether the feed list is still rendering the load-more sentinel. */

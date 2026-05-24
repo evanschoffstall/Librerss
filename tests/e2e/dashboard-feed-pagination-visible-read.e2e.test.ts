@@ -11,11 +11,10 @@ import {
   waitForStableDesktopMarkVisibleReadCycle,
 } from "./dashboard-feed-pagination-support";
 import {
-  applyDashboardPreferencesForTest,
   articleCard,
   configureArticlesPerPage,
   gotoAuthenticatedDashboard,
-  gotoPreviewDashboard,
+  gotoPreviewDashboardWithPreferences,
   installDeterministicFeedBatchRoute,
   readFeedArticleClipState,
   readVisibleFeedArticleCount,
@@ -196,8 +195,7 @@ test.describe("dashboard feed pagination", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "unread",
         articlesPerPage: 4,
       });
@@ -246,8 +244,7 @@ test.describe("dashboard feed pagination", () => {
         width: viewportCase.width,
       });
 
-      await gotoPreviewDashboard(page);
-      await applyDashboardPreferencesForTest(page, {
+      await gotoPreviewDashboardWithPreferences(page, {
         articleFilter: "unread",
         articlesPerPage: repeatedCyclePageSize,
       });

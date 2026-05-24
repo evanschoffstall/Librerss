@@ -28,7 +28,9 @@ import {
 interface AddFeedSourceAndRefreshOptions {
   category: string;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   name: string;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
   url: string;
@@ -64,7 +66,9 @@ interface ApplyPostRemovalSelectionOptions {
 interface FeedSettingsAndRefreshOptions {
   categories: CategoryTreeNode[];
   key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   settings: { extractionDisabled?: boolean; proxyEnabled?: boolean };
 }
 /**
@@ -74,7 +78,9 @@ interface MoveFeedByDropAndPersistOptions {
   categories: CategoryTreeNode[];
   ensureCategoryLabelExists: (label: string) => void;
   key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   setCategories: React.Dispatch<React.SetStateAction<CategoryTreeNode[]>>;
   targetCategory: string;
   targetIndex: number;
@@ -97,7 +103,9 @@ interface RemoveFeedSourceAndRefreshOptions {
   fetchCategoryFeeds: (categoryNode: CategoryTreeNode) => Promise<void>;
   fetchFeed: (url: string) => Promise<void>;
   key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
@@ -109,7 +117,9 @@ interface RemoveFeedSourceAndRefreshOptions {
 interface RenameFeedSourceAndRefreshOptions {
   categories: CategoryTreeNode[];
   key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   nextName: string;
   nextUrl: string;
 }
@@ -126,7 +136,9 @@ interface SetFeedSourceEnabledAndRefreshOptions {
   ) => Promise<void>;
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
   key: string;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
 }
@@ -165,7 +177,7 @@ export async function addFeedSourceAndRefresh(
       name: normalizedInput.name,
       url: normalizedInput.url,
     });
-    const nextCategories = await loadFeedSources();
+    const nextCategories = await loadFeedSources({ forceFresh: true });
     await refreshAddedFeedSelection({
       fetchFeed,
       nextCategories,
@@ -258,7 +270,7 @@ export async function removeFeedSourceAndRefresh(
 
   try {
     await FeedService.deleteFeedSource(validSourceId);
-    const nextCategories = await loadFeedSources();
+    const nextCategories = await loadFeedSources({ forceFresh: true });
     const nextSelection = resolvePostRemovalSelection(
       nextCategories,
       selectedCategory,
@@ -312,7 +324,7 @@ export async function renameFeedSourceAndRefresh(
       normalizedName,
       normalizedUrl,
     );
-    await loadFeedSources();
+    await loadFeedSources({ forceFresh: true });
     toast.success("Feed source updated.");
     return true;
   } catch (err) {
@@ -369,7 +381,7 @@ export async function setFeedSourceEnabledAndRefresh(
 
   try {
     await FeedService.setFeedSourceEnabled(sourceId, enabled);
-    const nextCategories = await loadFeedSources();
+    const nextCategories = await loadFeedSources({ forceFresh: true });
     const nextSelection = resolvePostEnabledToggleSelection(
       nextCategories,
       selectedCategory,
@@ -411,7 +423,7 @@ export async function updateFeedSettingsAndRefresh(
 
   try {
     await FeedService.updateFeedSettings(sourceId, settings);
-    await loadFeedSources();
+    await loadFeedSources({ forceFresh: true });
     return true;
   } catch (err) {
     console.error("Update feed settings error:", err);

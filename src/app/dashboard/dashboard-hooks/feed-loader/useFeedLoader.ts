@@ -56,6 +56,13 @@ interface FeedSourceTreeLoaderOptions {
 }
 
 /**
+ * Describes the options available when loading the feed source tree.
+ */
+interface LoadFeedSourceTreeOptions {
+  forceFresh?: boolean;
+}
+
+/**
  * Describes the options for use feed loader.
  */
 interface UseFeedLoaderOptions {
@@ -304,38 +311,45 @@ function useFeedLoaderSelectionState(options: FeedLoaderSelectionStateOptions) {
  */
 function useFeedSourceTreeLoader(options: FeedSourceTreeLoaderOptions) {
   const { queryClient, setCategories, usePlaceholderData } = options;
-  return useCallback(async (): Promise<CategoryTreeNode[]> => {
-    const queryKey = getFeedSourceTreeQueryKey(usePlaceholderData);
-    const cachedCategories =
-      queryClient.getQueryData<CategoryTreeNode[]>(queryKey);
+  return useCallback(
+    async (
+      loadOptions: LoadFeedSourceTreeOptions = {},
+    ): Promise<CategoryTreeNode[]> => {
+      const queryKey = getFeedSourceTreeQueryKey(usePlaceholderData);
+      const cachedCategories =
+        queryClient.getQueryData<CategoryTreeNode[]>(queryKey);
 
-    if (cachedCategories) {
-      setCategories(cachedCategories);
+      if (cachedCategories && !loadOptions.forceFresh) {
+        setCategories(cachedCategories);
 
-      void queryClient.prefetchQuery({
+        void queryClient.prefetchQuery({
+          /**
+           * Refreshes the cached tree in the background so warm visits can
+           * unmask immediately while still converging on the latest source list.
+           * @returns The fetched category tree.
+           */
+          queryFn: () => loadFeedSourceTree(usePlaceholderData),
+          queryKey,
+          staleTime: 0,
+        });
+
+        return cachedCategories;
+      }
+
+      const nextCategories = await queryClient.fetchQuery({
         /**
-         * Refreshes the cached tree in the background so warm visits can
-         * unmask immediately while still converging on the latest source list.
+         * Loads the latest feed source tree for the active placeholder mode.
          * @returns The fetched category tree.
          */
         queryFn: () => loadFeedSourceTree(usePlaceholderData),
         queryKey,
-        staleTime: 0,
+        staleTime: loadOptions.forceFresh
+          ? 0
+          : FEED_SOURCE_TREE_CACHE_STALE_TIME_MS,
       });
-
-      return cachedCategories;
-    }
-
-    const nextCategories = await queryClient.fetchQuery({
-      /**
-       * Loads the latest feed source tree for the active placeholder mode.
-       * @returns The fetched category tree.
-       */
-      queryFn: () => loadFeedSourceTree(usePlaceholderData),
-      queryKey,
-      staleTime: FEED_SOURCE_TREE_CACHE_STALE_TIME_MS,
-    });
-    setCategories(nextCategories);
-    return nextCategories;
-  }, [queryClient, setCategories, usePlaceholderData]);
+      setCategories(nextCategories);
+      return nextCategories;
+    },
+    [queryClient, setCategories, usePlaceholderData],
+  );
 }

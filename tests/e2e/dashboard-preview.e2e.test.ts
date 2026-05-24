@@ -1,9 +1,9 @@
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 
 import {
-  applyDashboardPreferencesForTest,
   enterPreviewFromLogin,
   gotoPreviewDashboard,
+  gotoPreviewDashboardWithPreferences,
   locateViewportArticle,
   openDashboardSettings,
   openDashboardSettingsTab,
@@ -474,8 +474,9 @@ test.describe("dashboard preview mode", () => {
   test("keeps the selected token and resets the viewport when switching preview sources", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page);
-    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
+    await gotoPreviewDashboardWithPreferences(page, {
+      articleFilter: "all",
+    });
 
     const allButton = page.getByRole("button", { exact: true, name: "all" });
     const unreadButton = page.getByRole("button", {

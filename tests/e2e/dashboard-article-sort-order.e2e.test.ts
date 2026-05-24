@@ -1,7 +1,7 @@
 import {
-  applyDashboardPreferencesForTest,
   articleCard,
   gotoPreviewDashboard,
+  gotoPreviewDashboardWithPreferences,
   installDeterministicFeedBatchRoute,
   readArticleKey,
   scrollFeedViewportToBottom,
@@ -35,8 +35,9 @@ test.describe("dashboard article sort order", () => {
   test("toggling the sort order reverses the visible article order and persists across reloads", async ({
     page,
   }) => {
-    await gotoPreviewDashboard(page);
-    await applyDashboardPreferencesForTest(page, { articleFilter: "all" });
+    await gotoPreviewDashboardWithPreferences(page, {
+      articleFilter: "all",
+    });
     await expect(
       page.getByRole("button", { exact: true, name: "all" }),
     ).toHaveAttribute("aria-pressed", "true");
@@ -115,8 +116,7 @@ test.describe("dashboard article sort order", () => {
   }) => {
     const configuredPageSize = 4;
 
-    await gotoPreviewDashboard(page);
-    await applyDashboardPreferencesForTest(page, {
+    await gotoPreviewDashboardWithPreferences(page, {
       articleFilter: "all",
       articlesPerPage: configuredPageSize,
     });

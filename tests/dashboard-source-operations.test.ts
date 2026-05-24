@@ -518,6 +518,25 @@ describe("dashboard OPML and feed-source operations", () => {
     const customLabels = createStateHarness<string[]>(["Tech"]);
     const selectedCategory = createStateHarness("cat-tech-9");
     const fetchFeed = mock(async () => {});
+    const loadFeedSources = mock(async () => [
+      makeCategoryNode("News", [
+        makeFeedNode({
+          category: "News",
+          key: "cat-news-1",
+          sourceId: 1,
+          url: "https://example.com/news.xml",
+        }),
+      ]),
+      makeCategoryNode("Tech", [
+        makeFeedNode({ category: "Tech", key: "cat-tech-9", sourceId: 9 }),
+        makeFeedNode({
+          category: "Tech",
+          key: "cat-tech-3",
+          sourceId: 3,
+          url: "https://example.com/tech.xml",
+        }),
+      ]),
+    ]);
     let createIndex = 0;
     FeedService.createFeedSource = mock(async () => {
       createIndex += 1;
@@ -557,25 +576,7 @@ describe("dashboard OPML and feed-source operations", () => {
         },
       ],
       fetchFeed,
-      loadFeedSources: mock(async () => [
-        makeCategoryNode("News", [
-          makeFeedNode({
-            category: "News",
-            key: "cat-news-1",
-            sourceId: 1,
-            url: "https://example.com/news.xml",
-          }),
-        ]),
-        makeCategoryNode("Tech", [
-          makeFeedNode({ category: "Tech", key: "cat-tech-9", sourceId: 9 }),
-          makeFeedNode({
-            category: "Tech",
-            key: "cat-tech-3",
-            sourceId: 3,
-            url: "https://example.com/tech.xml",
-          }),
-        ]),
-      ]),
+      loadFeedSources,
       selectedCategory: selectedCategory.current,
       setCustomCategoryLabels: customLabels.setter as unknown as React.Dispatch<
         React.SetStateAction<string[]>
@@ -592,6 +593,7 @@ describe("dashboard OPML and feed-source operations", () => {
       forceRefresh: true,
       requestSource: "opml-imported",
     });
+    expect(loadFeedSources).toHaveBeenCalledWith({ forceFresh: true });
     expect(toast.success).toHaveBeenCalledWith("Imported 2 feeds (1 skipped).");
   });
 
@@ -670,12 +672,22 @@ describe("dashboard OPML and feed-source operations", () => {
   test("adds feed sources with validation and selects the newly loaded feed", async () => {
     const selectedCategory = createStateHarness("");
     const fetchFeed = mock(async () => {});
+    const loadFeedSources = mock(async () => [
+      makeCategoryNode("News", [
+        makeFeedNode({
+          category: "News",
+          key: "cat-news-4",
+          sourceId: 4,
+          url: "https://example.com/news.xml",
+        }),
+      ]),
+    ]);
 
     expect(
       await addFeedSourceAndRefresh({
         category: "News",
         fetchFeed,
-        loadFeedSources: mock(async () => []),
+        loadFeedSources,
         name: " ",
         setSelectedCategory:
           selectedCategory.setter as unknown as React.Dispatch<
@@ -690,7 +702,7 @@ describe("dashboard OPML and feed-source operations", () => {
       await addFeedSourceAndRefresh({
         category: "News",
         fetchFeed,
-        loadFeedSources: mock(async () => []),
+        loadFeedSources,
         name: "News",
         setSelectedCategory:
           selectedCategory.setter as unknown as React.Dispatch<
@@ -705,16 +717,7 @@ describe("dashboard OPML and feed-source operations", () => {
       await addFeedSourceAndRefresh({
         category: "News",
         fetchFeed,
-        loadFeedSources: mock(async () => [
-          makeCategoryNode("News", [
-            makeFeedNode({
-              category: "News",
-              key: "cat-news-4",
-              sourceId: 4,
-              url: "https://example.com/news.xml",
-            }),
-          ]),
-        ]),
+        loadFeedSources,
         name: "Example Feed",
         setSelectedCategory:
           selectedCategory.setter as unknown as React.Dispatch<
@@ -728,6 +731,7 @@ describe("dashboard OPML and feed-source operations", () => {
       forceRefresh: true,
       requestSource: "feed-added",
     });
+    expect(loadFeedSources).toHaveBeenCalledWith({ forceFresh: true });
   });
 
   test("surfaces validated server errors when adding a feed source fails", async () => {

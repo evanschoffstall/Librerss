@@ -35,7 +35,9 @@ interface ImportOpmlFeedsOptions {
   categories: CategoryTreeNode[];
   entries: OpmlFeedImportEntry[];
   fetchFeed: (url: string, options?: FeedFetchOptions) => Promise<void>;
-  loadFeedSources: () => Promise<CategoryTreeNode[]>;
+  loadFeedSources: (options?: {
+    forceFresh?: boolean;
+  }) => Promise<CategoryTreeNode[]>;
   selectedCategory: string;
   setCustomCategoryLabels: CategoryLabelListSetter;
   setSelectedCategory: React.Dispatch<React.SetStateAction<string>>;
@@ -116,7 +118,7 @@ export async function importOpmlFeedsAndRefresh(
     });
   }
 
-  const nextCategories = await loadFeedSources();
+  const nextCategories = await loadFeedSources({ forceFresh: true });
   await refreshImportedSelection({
     fetchFeed,
     nextCategories,
