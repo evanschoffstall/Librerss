@@ -26,6 +26,8 @@ export interface Article {
 export interface AuthSession {
   allowSignup: boolean;
   authenticated: boolean;
+  canManageInvitations: boolean;
+  invitationsEnabled: boolean;
   usePlaceholderData: boolean;
   user: AuthUser | null;
 }

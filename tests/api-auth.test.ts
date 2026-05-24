@@ -318,6 +318,8 @@ describe("Auth API - Session", () => {
     const body = await response.json();
     expect(body).toHaveProperty("authenticated");
     expect(body).toHaveProperty("allowSignup");
+    expect(body).toHaveProperty("canManageInvitations");
+    expect(body).toHaveProperty("invitationsEnabled");
     expect(body).toHaveProperty("usePlaceholderData");
   });
 
@@ -332,6 +334,8 @@ describe("Auth API - Session", () => {
     // Shape is always present regardless of auth state
     expect(body).toHaveProperty("authenticated");
     expect(body).toHaveProperty("allowSignup");
+    expect(body).toHaveProperty("canManageInvitations");
+    expect(body).toHaveProperty("invitationsEnabled");
     expect(body).toHaveProperty("usePlaceholderData");
     // In normal runs (DB mock returns []) this is unauthenticated.
     // Under concurrent session mocking it may appear authenticated.
@@ -432,6 +436,7 @@ describe("Auth API - Session authenticated path", () => {
     mock.module("@/lib/auth/session", () => ({
       getUserFromRequest: async () => ({
         email: PLACEHOLDER_ADMIN_USER.email,
+        isAdmin: PLACEHOLDER_ADMIN_USER.isAdmin,
         userId: PLACEHOLDER_ADMIN_USER.id,
       }),
     }));
@@ -444,6 +449,7 @@ describe("Auth API - Session authenticated path", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.authenticated).toBe(true);
+    expect(body.canManageInvitations).toBe(true);
     expect(body.user.email).toBe(PLACEHOLDER_ADMIN_USER.email);
   });
 });

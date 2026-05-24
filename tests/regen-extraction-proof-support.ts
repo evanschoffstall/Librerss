@@ -18,6 +18,7 @@ import { serverApi } from "@/lib/server";
 const ANONYMOUS_USER: serverApi.AuthenticatedUser = {
   email: "anonymous",
   expiresAt: new Date(Date.now() + 86_400_000),
+  isAdmin: false,
   sessionId: -1,
   userId: -1,
 };

@@ -37,6 +37,13 @@ export const RUNTIME_FLAGS = {
     return Boolean(process.env.DATABASE_URL?.trim());
   },
   /**
+   * Returns whether secure invitation links may be issued and redeemed.
+   * @returns Whether invitation support is enabled.
+   */
+  get invitationsEnabled() {
+    return envBooleanOptional("INVITATIONS_ENABLED", true);
+  },
+  /**
    * Returns whether the app should serve placeholder data instead of live data.
    * @returns Whether placeholder mode is active.
    */
@@ -57,6 +64,7 @@ export const RUNTIME_FLAGS = {
 export const PLACEHOLDER_ADMIN_USER = {
   email: "admin@admin.com" as const,
   id: 0 as const,
+  isAdmin: true as const,
   passwordHash:
     "placeholder-admin-salt:fa68d3bb667b1689527c99821adac9c2e02910bfa20e34bfc0a9a5a6c239edc80ae30f8b59dd6c37cebc0d6919b26ae68848cb0e56cbf81108e43327765bfeb2" as const,
   // Cryptographically random per-process token — never a hardcoded constant.

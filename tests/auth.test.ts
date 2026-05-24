@@ -27,6 +27,40 @@ async function loadRateLimitModule() {
   return import(`@/lib/server/rate-limit?test=${rateLimitImportVersion}`);
 }
 
+const TEST_PLACEHOLDER_ADMIN_USER = {
+  email: "admin@admin.com" as const,
+  id: 0 as const,
+  isAdmin: true as const,
+  passwordHash:
+    "placeholder-admin-salt:fa68d3bb667b1689527c99821adac9c2e02910bfa20e34bfc0a9a5a6c239edc80ae30f8b59dd6c37cebc0d6919b26ae68848cb0e56cbf81108e43327765bfeb2" as const,
+  sessionToken:
+    "1111111111111111111111111111111111111111111111111111111111111111" as const,
+} as const;
+
+function mockDatabaseMode(): void {
+  mock.module("@/lib/core/placeholder", () => ({
+    PLACEHOLDER_ADMIN_USER: TEST_PLACEHOLDER_ADMIN_USER,
+    RUNTIME_FLAGS: {
+      allowSignup: false,
+      hasDatabaseUrl: true,
+      invitationsEnabled: true,
+      usePlaceholderData: false,
+    },
+  }));
+}
+
+function mockPlaceholderMode(): void {
+  mock.module("@/lib/core/placeholder", () => ({
+    PLACEHOLDER_ADMIN_USER: TEST_PLACEHOLDER_ADMIN_USER,
+    RUNTIME_FLAGS: {
+      allowSignup: false,
+      hasDatabaseUrl: false,
+      invitationsEnabled: true,
+      usePlaceholderData: true,
+    },
+  }));
+}
+
 // ─── Session Management ───────────────────────────────────────────────────────
 
 describe("session", () => {
@@ -90,88 +124,73 @@ describe("session", () => {
   });
 
   test("createSession placeholder mode returns deterministic placeholder token", async () => {
-    const previousDbUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "";
+    mockPlaceholderMode();
 
-    try {
-      const { createSession } = await loadAuthSessionModule();
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
+    const { createSession } = await loadAuthSessionModule();
 
-      const token = await createSession(PLACEHOLDER_ADMIN_USER.id);
-      expect(token).toBe(PLACEHOLDER_ADMIN_USER.sessionToken);
+    const token = await createSession(TEST_PLACEHOLDER_ADMIN_USER.id);
+    expect(token).toBe(TEST_PLACEHOLDER_ADMIN_USER.sessionToken);
 
-      await expect(createSession(999)).rejects.toThrow("Placeholder mode");
-    } finally {
-      process.env.DATABASE_URL = previousDbUrl;
-    }
+    await expect(createSession(999)).rejects.toThrow("Placeholder mode");
   });
 
   test("placeholder mode session helpers resolve and reject correctly", async () => {
-    const previousDbUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "";
+    mockPlaceholderMode();
 
-    try {
-      const {
-        deleteSessionByToken,
-        getUserFromRequest,
-        getUserFromSessionToken,
-        SESSION_COOKIE_NAME,
-      } = await loadAuthSessionModule();
-      const { PLACEHOLDER_ADMIN_USER } = await import("@/lib/core/placeholder");
+    const {
+      deleteSessionByToken,
+      getUserFromRequest,
+      getUserFromSessionToken,
+      SESSION_COOKIE_NAME,
+    } = await loadAuthSessionModule();
 
-      expect(await getUserFromSessionToken("")).toBeNull();
-      expect(await getUserFromSessionToken("wrong-token")).toBeNull();
+    expect(await getUserFromSessionToken("")).toBeNull();
+    expect(await getUserFromSessionToken("wrong-token")).toBeNull();
 
-      const user = await getUserFromSessionToken(
-        PLACEHOLDER_ADMIN_USER.sessionToken,
-      );
-      expect(user?.email).toBe(PLACEHOLDER_ADMIN_USER.email);
-      expect(user?.userId).toBe(PLACEHOLDER_ADMIN_USER.id);
+    const user = await getUserFromSessionToken(
+      TEST_PLACEHOLDER_ADMIN_USER.sessionToken,
+    );
+    expect(user?.email).toBe(TEST_PLACEHOLDER_ADMIN_USER.email);
+    expect(user?.isAdmin).toBe(true);
+    expect(user?.userId).toBe(TEST_PLACEHOLDER_ADMIN_USER.id);
 
-      const requestWithCookie = createMockRequest("https://example.com/api", {
-        cookies: { [SESSION_COOKIE_NAME]: PLACEHOLDER_ADMIN_USER.sessionToken },
-      });
-      const requestWithoutCookie = createMockRequest("https://example.com/api");
+    const requestWithCookie = createMockRequest("https://example.com/api", {
+      cookies: {
+        [SESSION_COOKIE_NAME]: TEST_PLACEHOLDER_ADMIN_USER.sessionToken,
+      },
+    });
+    const requestWithoutCookie = createMockRequest("https://example.com/api");
 
-      expect((await getUserFromRequest(requestWithCookie as any))?.email).toBe(
-        PLACEHOLDER_ADMIN_USER.email,
-      );
-      expect(await getUserFromRequest(requestWithoutCookie as any)).toBeNull();
+    expect((await getUserFromRequest(requestWithCookie as any))?.email).toBe(
+      TEST_PLACEHOLDER_ADMIN_USER.email,
+    );
+    expect(await getUserFromRequest(requestWithoutCookie as any)).toBeNull();
 
-      await expect(deleteSessionByToken("any-token")).resolves.toBeUndefined();
-    } finally {
-      process.env.DATABASE_URL = previousDbUrl;
-    }
+    await expect(deleteSessionByToken("any-token")).resolves.toBeUndefined();
   });
 
   test("authenticateCredentials handles placeholder success and failure", async () => {
-    const previousDbUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "";
+    mockPlaceholderMode();
 
-    try {
-      const { authenticateCredentials } = await loadAuthSessionModule();
+    const { authenticateCredentials } = await loadAuthSessionModule();
 
-      const unknownEmail = await authenticateCredentials(
-        "nope@example.com",
-        "x",
-      );
-      expect(unknownEmail.ok).toBe(false);
+    const unknownEmail = await authenticateCredentials("nope@example.com", "x");
+    expect(unknownEmail.ok).toBe(false);
 
-      const wrongPassword = await authenticateCredentials(
-        "admin@admin.com",
-        "wrong-password",
-      );
-      expect(wrongPassword.ok).toBe(false);
+    const wrongPassword = await authenticateCredentials(
+      TEST_PLACEHOLDER_ADMIN_USER.email,
+      "wrong-password",
+    );
+    expect(wrongPassword.ok).toBe(false);
 
-      const success = await authenticateCredentials("admin@admin.com", "admin");
-      expect(success.ok).toBe(true);
-      if (success.ok) {
-        expect(success.email).toBe("admin@admin.com");
-        expect(typeof success.token).toBe("string");
-        expect(success.token.length).toBeGreaterThan(10);
-      }
-    } finally {
-      process.env.DATABASE_URL = previousDbUrl;
+    const success = await authenticateCredentials(
+      TEST_PLACEHOLDER_ADMIN_USER.email,
+      "admin",
+    );
+    expect(success.ok).toBe(true);
+    if (success.ok) {
+      expect(success.email).toBe(TEST_PLACEHOLDER_ADMIN_USER.email);
+      expect(success.token).toBe(TEST_PLACEHOLDER_ADMIN_USER.sessionToken);
     }
   });
 });
@@ -408,6 +427,7 @@ function buildMockDb(state: {
 
 beforeEach(() => {
   mock.restore();
+  mockDatabaseMode();
   process.env.DATABASE_URL = "postgres://local/test";
 });
 
@@ -498,6 +518,7 @@ describe("session non-placeholder paths", () => {
         {
           email: "person@example.com",
           expiresAt,
+          isAdmin: false,
           sessionId: 22,
           userId: 7,
         },
@@ -521,6 +542,7 @@ describe("session non-placeholder paths", () => {
     const fromToken = await getUserFromSessionToken("active-token");
     expect(fromToken?.userId).toBe(7);
     expect(fromToken?.email).toBe("person@example.com");
+    expect(fromToken?.isAdmin).toBe(false);
 
     const request = {
       cookies: {
@@ -530,6 +552,7 @@ describe("session non-placeholder paths", () => {
     } as any;
 
     const fromRequest = await getUserFromRequest(request);
+    expect(fromRequest?.isAdmin).toBe(false);
     expect(fromRequest?.sessionId).toBe(22);
   });
 

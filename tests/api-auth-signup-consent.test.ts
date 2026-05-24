@@ -22,8 +22,16 @@ const baseSignupDeps = {
   isUniqueConstraintErrorFn: () => false,
   logAndRespondErrorFn: () => new Response("error", { status: 500 }),
   logger: { error: () => {}, info: () => {}, warn: () => {} },
+  redeemSignupInvitationFn: async () => ({
+    email: "reader@example.com",
+    id: 7,
+  }),
   requireMutableRequestFn: () => null,
-  runtimeFlags: { allowSignup: true, usePlaceholderData: false },
+  runtimeFlags: {
+    allowSignup: true,
+    invitationsEnabled: true,
+    usePlaceholderData: false,
+  },
 };
 
 describe("auth signup legal consent", () => {
@@ -132,7 +140,11 @@ describe("auth signup legal consent", () => {
       {
         ...baseSignupDeps,
         logger: { error: () => {}, info: () => {}, warn },
-        runtimeFlags: { allowSignup: false, usePlaceholderData: false },
+        runtimeFlags: {
+          allowSignup: false,
+          invitationsEnabled: true,
+          usePlaceholderData: false,
+        },
       },
     );
 
@@ -141,6 +153,131 @@ describe("auth signup legal consent", () => {
       error: "Signup is disabled by server configuration",
     });
     expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST creates an invited account when public signup is disabled", async () => {
+    const redeemSignupInvitationFn = mock(async () => ({
+      email: "reader@example.com",
+      id: 9,
+    }));
+    const setSessionCookie = mock(() => {});
+    const { POST } = await import("@/app/api/auth/signup/route");
+    const invitationToken = "a".repeat(43);
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          invitationToken,
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        redeemSignupInvitationFn,
+        runtimeFlags: {
+          allowSignup: false,
+          invitationsEnabled: true,
+          usePlaceholderData: false,
+        },
+        setSessionCookieFn: setSessionCookie,
+      },
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      user: { email: "reader@example.com", id: 9 },
+    });
+    expect(redeemSignupInvitationFn).toHaveBeenCalledWith({
+      email: "reader@example.com",
+      invitationToken,
+      password: "ValidPass123!",
+    });
+    expect(setSessionCookie).toHaveBeenCalledTimes(1);
+  });
+
+  test("POST rejects malformed invitation tokens before redemption", async () => {
+    const redeemSignupInvitationFn = mock(async () => ({
+      email: "reader@example.com",
+      id: 9,
+    }));
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          invitationToken: "not a valid token",
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        redeemSignupInvitationFn,
+        runtimeFlags: {
+          allowSignup: false,
+          invitationsEnabled: true,
+          usePlaceholderData: false,
+        },
+      },
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invitation link is invalid or expired.",
+    });
+    expect(redeemSignupInvitationFn).not.toHaveBeenCalled();
+  });
+
+  test("POST rejects invitation signup when invitations are disabled", async () => {
+    const redeemSignupInvitationFn = mock(async () => ({
+      email: "reader@example.com",
+      id: 9,
+    }));
+    const { POST } = await import("@/app/api/auth/signup/route");
+
+    const response = await POST(
+      new NextRequest("http://localhost/api/auth/signup", {
+        body: JSON.stringify({
+          acceptedLegalVersion: "2026-03-15",
+          email: "reader@example.com",
+          invitationToken: "a".repeat(43),
+          password: "ValidPass123!",
+        }),
+        headers: {
+          "content-type": "application/json",
+          "sec-fetch-site": "same-origin",
+        },
+        method: "POST",
+      }),
+      {
+        ...baseSignupDeps,
+        redeemSignupInvitationFn,
+        runtimeFlags: {
+          allowSignup: false,
+          invitationsEnabled: false,
+          usePlaceholderData: false,
+        },
+      },
+    );
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      error: "Invitations are disabled by server configuration",
+    });
+    expect(redeemSignupInvitationFn).not.toHaveBeenCalled();
   });
 
   test("POST rejects signup in placeholder mode", async () => {
@@ -163,7 +300,11 @@ describe("auth signup legal consent", () => {
       {
         ...baseSignupDeps,
         logger: { error: () => {}, info: () => {}, warn },
-        runtimeFlags: { allowSignup: true, usePlaceholderData: true },
+        runtimeFlags: {
+          allowSignup: true,
+          invitationsEnabled: true,
+          usePlaceholderData: true,
+        },
       },
     );
 

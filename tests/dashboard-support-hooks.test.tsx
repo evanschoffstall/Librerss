@@ -84,6 +84,7 @@ describe("dashboard support hooks", () => {
         articlesPerPage: 12,
         autoRefreshIntervalMinutes: 15,
         backgroundMode: "none",
+        canManageInvitations: false,
         categories: [createCategory("News")],
         categoryTree: { customCategoryLabels: [] },
         distillStrategy: "readability",

@@ -70,6 +70,7 @@ export async function requireAuthenticatedUser(
     return {
       email: PLACEHOLDER_ADMIN_USER.email,
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+      isAdmin: PLACEHOLDER_ADMIN_USER.isAdmin,
       sessionId: 0,
       userId: PLACEHOLDER_ADMIN_USER.id,
     };

@@ -47,6 +47,8 @@ describe("AuthService", () => {
     const mockSession = {
       allowSignup: false,
       authenticated: true,
+      canManageInvitations: false,
+      invitationsEnabled: true,
       usePlaceholderData: false,
       user: { email: "test@example.com", id: 1 },
     };
@@ -935,6 +937,8 @@ describe("AuthService", () => {
     const session = {
       allowSignup: false,
       authenticated: true,
+      canManageInvitations: false,
+      invitationsEnabled: true,
       usePlaceholderData: false,
       user: { createdAt: new Date(), email: "a@b.com", id: 1 },
     };

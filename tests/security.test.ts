@@ -845,6 +845,7 @@ describe("Extract route – x-request-id header sanitization (security regressio
     const authUser = {
       email: "test@example.com",
       expiresAt: new Date(Date.now() + 86_400_000),
+      isAdmin: false,
       sessionId: 1,
       userId: 1,
     };

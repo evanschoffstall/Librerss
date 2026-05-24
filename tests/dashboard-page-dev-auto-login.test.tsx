@@ -27,6 +27,7 @@ const baseDeps = {
   }) => hasExploreQuery,
   runtimeFlags: {
     allowSignup: false,
+    invitationsEnabled: true,
     usePlaceholderData: false,
   },
   sessionCookieName: "librerss_session",
@@ -71,6 +72,17 @@ describe("dashboard page dev auto-login bootstrap", () => {
     );
   });
 
+  test("preserves invitation tokens and suppresses dev auto-login", async () => {
+    const bootstrapState = await resolveDashboardPageBootstrap({
+      cookieStore: createCookieStore({}),
+      deps: baseDeps,
+      searchParams: { invite: "secure-token" },
+    });
+
+    expect(bootstrapState.invitationToken).toBe("secure-token");
+    expect(bootstrapState.initialAutoLoginPath).toBeUndefined();
+  });
+
   test("keeps auto-login disabled when an authenticated session already exists", async () => {
     const bootstrapState = await resolveDashboardPageBootstrap({
       cookieStore: createCookieStore({
@@ -80,6 +92,7 @@ describe("dashboard page dev auto-login bootstrap", () => {
         ...baseDeps,
         getUserFromSessionToken: async () => ({
           email: "reader@example.com",
+          isAdmin: false,
           userId: 7,
         }),
       },
@@ -103,6 +116,7 @@ describe("dashboard page dev auto-login bootstrap", () => {
         },
         runtimeFlags: {
           allowSignup: true,
+          invitationsEnabled: true,
           usePlaceholderData: true,
         },
       },
@@ -124,6 +138,7 @@ describe("dashboard page dev auto-login bootstrap", () => {
         ...baseDeps,
         runtimeFlags: {
           allowSignup: false,
+          invitationsEnabled: true,
           usePlaceholderData: true,
         },
       },
@@ -167,6 +182,7 @@ describe("dashboard page dev auto-login bootstrap", () => {
         },
         runtimeFlags: {
           allowSignup: true,
+          invitationsEnabled: true,
           usePlaceholderData: true,
         },
       },
@@ -182,11 +198,14 @@ describe("dashboard page dev auto-login bootstrap", () => {
     expect(
       buildAnonymousDashboardSession({
         allowSignup: true,
+        invitationsEnabled: true,
         usePlaceholderData: true,
       }),
     ).toEqual({
       allowSignup: true,
       authenticated: false,
+      canManageInvitations: false,
+      invitationsEnabled: true,
       usePlaceholderData: true,
       user: null,
     });
@@ -199,10 +218,12 @@ describe("dashboard page dev auto-login bootstrap", () => {
         {
           getUserFromSessionToken: async () => ({
             email: "reader@example.com",
+            isAdmin: true,
             userId: 7,
           }),
           runtimeFlags: {
             allowSignup: false,
+            invitationsEnabled: true,
             usePlaceholderData: false,
           },
           sessionCookieName: "librerss_session",
@@ -211,6 +232,8 @@ describe("dashboard page dev auto-login bootstrap", () => {
     ).toEqual({
       allowSignup: false,
       authenticated: true,
+      canManageInvitations: true,
+      invitationsEnabled: true,
       usePlaceholderData: false,
       user: { email: "reader@example.com", id: 7 },
     });

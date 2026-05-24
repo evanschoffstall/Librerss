@@ -30,6 +30,7 @@ export const SESSION_COOKIE_NAME = "librerss_session";
 export interface SessionUser {
   email: string;
   expiresAt: Date;
+  isAdmin: boolean;
   sessionId: number;
   userId: number;
 }
@@ -201,6 +202,7 @@ export async function getUserFromSessionToken(
     return {
       email: PLACEHOLDER_ADMIN_USER.email,
       expiresAt: new Date(Date.now() + getSessionDurationMs()),
+      isAdmin: PLACEHOLDER_ADMIN_USER.isAdmin,
       sessionId: 0,
       userId: PLACEHOLDER_ADMIN_USER.id,
     };
@@ -214,6 +216,7 @@ export async function getUserFromSessionToken(
     .select({
       email: users.email,
       expiresAt: sessions.expiresAt,
+      isAdmin: users.isAdmin,
       sessionId: sessions.id,
       userId: users.id,
     })
