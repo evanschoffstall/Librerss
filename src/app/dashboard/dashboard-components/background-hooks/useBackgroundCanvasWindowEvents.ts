@@ -2,32 +2,43 @@
 
 import { useEffect } from "react";
 
-/** Describes the pointer-like events consumed by background canvas parallax. */
-type BackgroundCanvasPointerEvent = MouseEvent | PointerEvent;
+import { mobileParticleMotion } from "@/app/dashboard/dashboard-services";
+
+/** Describes a viewport-relative motion input consumed by background canvas parallax. */
+interface BackgroundCanvasMotionInput {
+  clientX: number;
+  clientY: number;
+}
 
 /** Describes the options for use background canvas window events. */
 interface UseBackgroundCanvasWindowEventsOptions {
-  onMouseMove: (event: BackgroundCanvasPointerEvent) => void;
+  mobileParticleAccelerometerEnabled?: boolean;
+  onMotionChange: (event: BackgroundCanvasMotionInput) => void;
   onResize: () => void;
 }
+
+const MOBILE_PARTICLE_ORIENTATION_EVENT_NAME = "deviceorientation";
 
 /**
  * Manage the background canvas window events.
  *
- * Pointer events are used so touch-capable browsers, including mobile WebKit,
- * feed the same parallax path as desktop mouse input. Pointer down is included
- * because touch screens often express a user's intentional location as a tap
- * rather than a hover-style move. Mouse movement is also registered because
- * Firefox and browser automation stacks can emit mouse input without a matching
- * pointermove event. Duplicate same-coordinate events are ignored to avoid
- * double-applying a single physical movement in browsers that emit both.
+ * Desktop browsers keep using pointer and mouse events for parallax. Supported
+ * mobile browsers can opt into device-orientation tilt so particle motion feels
+ * continuous without requiring taps or drag gestures across the viewport.
  * @param options - The options used to manage the background canvas window events.
  */
 export function useBackgroundCanvasWindowEvents(
   options: UseBackgroundCanvasWindowEventsOptions,
 ) {
-  const { onMouseMove, onResize } = options;
+  const {
+    mobileParticleAccelerometerEnabled = false,
+    onMotionChange,
+    onResize,
+  } = options;
   useEffect(() => {
+    const shouldUseMobileParticleAccelerometer =
+      mobileParticleAccelerometerEnabled &&
+      mobileParticleMotion.supportsMobileParticleAccelerometerMotion();
     const pointerEventNames =
       "PointerEvent" in window
         ? (["pointermove", "pointerdown", "mousemove"] as const)
@@ -38,30 +49,82 @@ export function useBackgroundCanvasWindowEvents(
      * Forward a pointer-like movement event unless it repeats the exact last
      * coordinates already handled from another event family for the same
      * physical input.
-     * @param event - The pointer or mouse event carrying viewport coordinates.
+     * @param event - The pointer-like input carrying viewport coordinates.
      */
-    const handlePointerMove = (event: BackgroundCanvasPointerEvent) => {
+    const handleMotionInput = (event: BackgroundCanvasMotionInput) => {
       if (event.clientX === lastPointerX && event.clientY === lastPointerY) {
         return;
       }
 
       lastPointerX = event.clientX;
       lastPointerY = event.clientY;
-      onMouseMove(event);
+      onMotionChange(event);
     };
 
-    for (const pointerEventName of pointerEventNames) {
-      window.addEventListener(pointerEventName, handlePointerMove, {
-        passive: true,
-      });
+    /**
+     * Forward device orientation updates after projecting tilt into viewport coordinates.
+     * @param event - The device orientation event received from the browser.
+     */
+    const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
+      const motionInput = resolveBackgroundCanvasOrientationMotion(event);
+      if (!motionInput) {
+        return;
+      }
+
+      handleMotionInput(motionInput);
+    };
+
+    if (shouldUseMobileParticleAccelerometer) {
+      window.addEventListener(
+        MOBILE_PARTICLE_ORIENTATION_EVENT_NAME,
+        handleDeviceOrientation,
+        { passive: true },
+      );
+    } else {
+      for (const pointerEventName of pointerEventNames) {
+        window.addEventListener(pointerEventName, handleMotionInput, {
+          passive: true,
+        });
+      }
     }
+
     window.addEventListener("resize", onResize);
 
     return () => {
-      for (const pointerEventName of pointerEventNames) {
-        window.removeEventListener(pointerEventName, handlePointerMove);
+      if (shouldUseMobileParticleAccelerometer) {
+        window.removeEventListener(
+          MOBILE_PARTICLE_ORIENTATION_EVENT_NAME,
+          handleDeviceOrientation,
+        );
+      } else {
+        for (const pointerEventName of pointerEventNames) {
+          window.removeEventListener(pointerEventName, handleMotionInput);
+        }
       }
+
       window.removeEventListener("resize", onResize);
     };
-  }, [onMouseMove, onResize]);
+  }, [mobileParticleAccelerometerEnabled, onMotionChange, onResize]);
+}
+
+/**
+ * Project the current device tilt into viewport coordinates that the particle
+ * parallax path already understands.
+ * @param event - The browser orientation event carrying beta and gamma tilt values.
+ * @returns A viewport-relative motion input, or `null` when the browser did not provide usable tilt data.
+ */
+function resolveBackgroundCanvasOrientationMotion(
+  event: DeviceOrientationEvent,
+) {
+  if (event.beta === null || event.gamma === null) {
+    return null;
+  }
+
+  const x = mobileParticleMotion.normalizeMobileParticleTiltAxis(event.gamma);
+  const y = mobileParticleMotion.normalizeMobileParticleTiltAxis(event.beta);
+
+  return {
+    clientX: window.innerWidth / 2 + x * (window.innerWidth / 2),
+    clientY: window.innerHeight / 2 + y * (window.innerHeight / 2),
+  } satisfies BackgroundCanvasMotionInput;
 }

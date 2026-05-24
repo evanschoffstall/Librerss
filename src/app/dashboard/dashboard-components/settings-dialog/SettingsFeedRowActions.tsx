@@ -1,6 +1,7 @@
 import type React from "react";
 
 import {
+  EllipsisVertical,
   Eye,
   EyeOff,
   FileSearch,
@@ -386,7 +387,7 @@ function MobileFeedActions(props: Omit<FeedRowActionsProps, "isMobile">) {
           type="button"
           variant="ghost"
         >
-          <Pencil className="size-4" />
+          <EllipsisVertical className="size-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8}>

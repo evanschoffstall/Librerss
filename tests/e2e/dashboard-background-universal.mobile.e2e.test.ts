@@ -1,6 +1,7 @@
 import {
   dashboardBackgroundCanvas,
   type DashboardBackgroundTestMode,
+  expectDashboardBackgroundAccelerometerInteractivity,
   expectDashboardBackgroundAmbientMotion,
   expectDashboardBackgroundHydrated,
   expectDashboardBackgroundSuspensionRecovery,
@@ -37,4 +38,27 @@ test.describe("dashboard background universal mobile rendering", () => {
       await expectDashboardBackgroundSuspensionRecovery(page, canvas);
     });
   }
+
+  test("particles follow mobile accelerometer input when enabled", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await gotoDashboardWithBackgroundMode(page, "particles", {
+      mobileParticleAccelerometerEnabled: true,
+      mockDeviceOrientationSupport: true,
+    });
+
+    const canvas = dashboardBackgroundCanvas(page, "particles");
+    const hydratedSignature = await expectDashboardBackgroundHydrated(canvas);
+    const animatedSignature = await expectDashboardBackgroundAmbientMotion(
+      canvas,
+      hydratedSignature,
+    );
+
+    await expectDashboardBackgroundAccelerometerInteractivity(
+      page,
+      canvas,
+      animatedSignature,
+    );
+  });
 });

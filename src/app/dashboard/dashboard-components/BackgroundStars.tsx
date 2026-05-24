@@ -43,6 +43,12 @@ interface BackgroundStarCanvasSetupOptions {
   quantity: number;
   starsRef: React.RefObject<Star[]>;
 }
+/** Describes a viewport-relative motion input used to steer star parallax. */
+interface BackgroundStarMotionInput {
+  clientX: number;
+  clientY: number;
+}
+
 /**
  * Describes the options for background star pointer handler.
  */
@@ -153,7 +159,7 @@ export default function BackgroundStars(props: StarsProps) {
   }, [runtime]);
 
   useBackgroundCanvasWindowEvents({
-    onMouseMove: runtime.handleMouseMove,
+    onMotionChange: runtime.handleMotionChange,
     onResize: runtime.onResize,
   });
   useBackgroundCanvasAnimation({
@@ -358,7 +364,7 @@ function useBackgroundStarPointerHandler(
 ) {
   const { canvasRef, canvasSize, mouseRef } = options;
   return useCallback(
-    (event: MouseEvent) => {
+    (event: BackgroundStarMotionInput) => {
       mouseRef.current = resolveBackgroundStarPointerOffset({
         canvasRef,
         canvasSize,
@@ -435,7 +441,7 @@ function useBackgroundStarsRuntime(
     starsRef,
     staticity,
   });
-  const handleMouseMove = useBackgroundStarPointerHandler({
+  const handleMotionChange = useBackgroundStarPointerHandler({
     canvasRef,
     canvasSize,
     mouseRef,
@@ -446,7 +452,7 @@ function useBackgroundStarsRuntime(
     canvasContainerRef,
     canvasRef,
     contextRef,
-    handleMouseMove,
+    handleMotionChange,
     initStars,
     onResize,
   };

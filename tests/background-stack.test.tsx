@@ -242,11 +242,19 @@ describe("background stack", () => {
 
     hook.unmount();
 
-    const onMouseMove = mock();
+    const deviceOrientationDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "DeviceOrientationEvent",
+    );
+    const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "matchMedia",
+    );
+    const onMotionChange = mock();
     const onResize = mock();
     const eventHook = renderHook(() =>
       useBackgroundCanvasWindowEvents({
-        onMouseMove,
+        onMotionChange,
         onResize,
       }),
     );
@@ -274,12 +282,12 @@ describe("background stack", () => {
     window.dispatchEvent(pointerEvent);
     window.dispatchEvent(mouseEvent);
     window.dispatchEvent(new Event("resize"));
-    expect(onMouseMove).toHaveBeenCalledTimes(2);
-    expect(onMouseMove.mock.calls[0]?.[0]).toMatchObject({
+    expect(onMotionChange).toHaveBeenCalledTimes(2);
+    expect(onMotionChange.mock.calls[0]?.[0]).toMatchObject({
       clientX: 32,
       clientY: 48,
     });
-    expect(onMouseMove.mock.calls[1]?.[0]).toMatchObject({
+    expect(onMotionChange.mock.calls[1]?.[0]).toMatchObject({
       clientX: 96,
       clientY: 112,
     });
@@ -288,8 +296,62 @@ describe("background stack", () => {
     window.dispatchEvent(pointerEvent);
     window.dispatchEvent(mouseEvent);
     window.dispatchEvent(new Event("resize"));
-    expect(onMouseMove).toHaveBeenCalledTimes(2);
+    expect(onMotionChange).toHaveBeenCalledTimes(2);
     expect(onResize).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(window, "DeviceOrientationEvent", {
+      configurable: true,
+      value: class DeviceOrientationEventMock extends Event {},
+    });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: mock((query: string) => ({
+        addEventListener: mock(),
+        addListener: mock(),
+        dispatchEvent: mock(),
+        matches: query.includes("coarse"),
+        media: query,
+        onchange: null,
+        removeEventListener: mock(),
+        removeListener: mock(),
+      })),
+    });
+
+    const orientationMotionChange = mock();
+    const orientationHook = renderHook(() =>
+      useBackgroundCanvasWindowEvents({
+        mobileParticleAccelerometerEnabled: true,
+        onMotionChange: orientationMotionChange,
+        onResize,
+      }),
+    );
+    const orientationEvent = new Event("deviceorientation");
+    Object.defineProperties(orientationEvent, {
+      beta: {
+        value: 20,
+      },
+      gamma: {
+        value: 10,
+      },
+    });
+    window.dispatchEvent(orientationEvent);
+    expect(orientationMotionChange).toHaveBeenCalledTimes(1);
+    expect(orientationMotionChange.mock.calls[0]?.[0]).toMatchObject({
+      clientX: window.innerWidth / 2 + window.innerWidth / 9,
+      clientY: window.innerHeight / 2 + window.innerHeight / 4.5,
+    });
+    orientationHook.unmount();
+
+    if (deviceOrientationDescriptor) {
+      Object.defineProperty(
+        window,
+        "DeviceOrientationEvent",
+        deviceOrientationDescriptor,
+      );
+    }
+    if (matchMediaDescriptor) {
+      Object.defineProperty(window, "matchMedia", matchMediaDescriptor);
+    }
 
     if (visibilityDescriptor) {
       Object.defineProperty(document, "visibilityState", visibilityDescriptor);
@@ -390,7 +452,8 @@ describe("background stack", () => {
     let windowEventOptions:
       | undefined
       | {
-          onMouseMove: (event: MouseEvent) => void;
+          mobileParticleAccelerometerEnabled?: boolean;
+          onMotionChange: (event: { clientX: number; clientY: number }) => void;
           onResize: () => void;
         };
 
@@ -468,7 +531,7 @@ describe("background stack", () => {
     expect(canvas.height).toBe(140);
     expect(setTransform).toHaveBeenCalledTimes(2);
 
-    windowEventOptions?.onMouseMove({ clientX: 90, clientY: 60 } as MouseEvent);
+    windowEventOptions?.onMotionChange({ clientX: 90, clientY: 60 });
     windowEventOptions?.onResize();
     animationOptions?.onFrame(120, 16);
     expect(clearRect).toHaveBeenCalled();
@@ -557,7 +620,7 @@ describe("background stack", () => {
     let windowEventOptions:
       | undefined
       | {
-          onMouseMove: (event: MouseEvent) => void;
+          onMotionChange: (event: { clientX: number; clientY: number }) => void;
           onResize: () => void;
         };
 
@@ -629,7 +692,7 @@ describe("background stack", () => {
     expect(canvas.height).toBe(130);
     expect(setTransform).toHaveBeenCalledTimes(2);
 
-    windowEventOptions?.onMouseMove({ clientX: 80, clientY: 45 } as MouseEvent);
+    windowEventOptions?.onMotionChange({ clientX: 80, clientY: 45 });
     windowEventOptions?.onResize();
     animationOptions?.onFrame(140, 16);
     expect(clearRect).toHaveBeenCalled();

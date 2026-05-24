@@ -27,6 +27,12 @@ interface CanvasSignatureChangeResult {
   currentSignature: CanvasMotionSignature;
 }
 
+/** Navigation options used by dashboard background interactivity tests. */
+interface DashboardBackgroundNavigationOptions {
+  mobileParticleAccelerometerEnabled?: boolean;
+  mockDeviceOrientationSupport?: boolean;
+}
+
 const BACKGROUND_CANVAS_SELECTOR_BY_MODE = {
   particles: '[data-background-animation-layer="particles"] canvas',
   stars: '[data-background-animation-layer="stars"] canvas',
@@ -50,6 +56,41 @@ export function dashboardBackgroundCanvas(
   return page
     .locator(BACKGROUND_CANVAS_SELECTOR_BY_MODE[backgroundMode])
     .first();
+}
+
+/**
+ * Dispatch mobile accelerometer input and assert that the particle canvas reacts.
+ * @param page - The Playwright page containing the dashboard.
+ * @param canvas - The canvas locator to inspect.
+ * @param baselineSignature - The previously captured canvas signature.
+ */
+export async function expectDashboardBackgroundAccelerometerInteractivity(
+  page: Page,
+  canvas: Locator,
+  baselineSignature: CanvasMotionSignature,
+) {
+  await page.evaluate(() => {
+    const orientationEvent = new Event("deviceorientation");
+    Object.defineProperties(orientationEvent, {
+      beta: {
+        value: 20,
+      },
+      gamma: {
+        value: 12,
+      },
+    });
+    window.dispatchEvent(orientationEvent);
+  });
+
+  const signature = await waitForCanvasSignatureChange(
+    canvas,
+    baselineSignature,
+    {
+      minAlphaDelta: 8,
+      minCentroidShift: 0.02,
+    },
+  );
+  expect(signature.nonBlankPixelCount).toBeGreaterThan(0);
 }
 
 /**
@@ -255,13 +296,33 @@ export async function expectDashboardBackgroundTouchInteractivity(
 export async function gotoDashboardWithBackgroundMode(
   page: Page,
   backgroundMode: DashboardBackgroundTestMode,
+  options: DashboardBackgroundNavigationOptions = {},
 ) {
-  await page.addInitScript((mode) => {
-    window.localStorage.setItem(
-      "librerss:backgroundMode",
-      JSON.stringify(mode),
-    );
-  }, backgroundMode);
+  await page.addInitScript(
+    ({ mode, navigationOptions }) => {
+      window.localStorage.setItem(
+        "librerss:backgroundMode",
+        JSON.stringify(mode),
+      );
+      window.localStorage.setItem(
+        "librerss:mobileParticleAccelerometer",
+        JSON.stringify(
+          Boolean(navigationOptions.mobileParticleAccelerometerEnabled),
+        ),
+      );
+
+      if (
+        navigationOptions.mockDeviceOrientationSupport &&
+        !("DeviceOrientationEvent" in window)
+      ) {
+        Object.defineProperty(window, "DeviceOrientationEvent", {
+          configurable: true,
+          value: class DeviceOrientationEventMock extends Event {},
+        });
+      }
+    },
+    { mode: backgroundMode, navigationOptions: options },
+  );
   await page.goto("/dashboard?explore=1", { waitUntil: "domcontentloaded" });
   await waitForPreviewDashboardHydration(page);
 }

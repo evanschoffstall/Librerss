@@ -13,6 +13,8 @@ import {
   getBackgroundCanvasScale,
   getVisibleBackgroundCanvasElementSize,
 } from "@/app/dashboard/dashboard-components/background-internals";
+import { MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { useLocalStorage } from "@/lib/hooks";
 
 /**
  * Manage the background particle canvas setup.
@@ -78,6 +80,12 @@ interface BackgroundParticleFrameOptions {
   staticity: number;
 }
 
+/** Describes a viewport-relative motion input used to steer particle parallax. */
+interface BackgroundParticleMotionInput {
+  clientX: number;
+  clientY: number;
+}
+
 /**
  * Manage the background particle pointer handler.
  * @param options - The options used to manage the background particle pointer handler.
@@ -97,7 +105,7 @@ interface BackgroundParticlePointerHandlerOptions {
 interface BackgroundParticlePointerOffsetOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   canvasSize: React.RefObject<{ height: number; width: number }>;
-  event: MouseEvent;
+  event: BackgroundParticleMotionInput;
 }
 
 /**
@@ -189,6 +197,10 @@ export default function BackgroundParticles(props: ParticlesProps) {
     refresh = false,
     staticity = 50,
   } = props;
+  const [mobileParticleAccelerometerEnabled] = useLocalStorage(
+    MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
+    false,
+  );
   const runtime = useBackgroundParticlesRuntime({
     color,
     ease,
@@ -213,7 +225,8 @@ export default function BackgroundParticles(props: ParticlesProps) {
   }, [runtime]);
 
   useBackgroundCanvasWindowEvents({
-    onMouseMove: runtime.handleMouseMove,
+    mobileParticleAccelerometerEnabled,
+    onMotionChange: runtime.handleMotionChange,
     onResize: runtime.onResize,
   });
 
@@ -537,7 +550,7 @@ function useBackgroundParticlePointerHandler(
 ) {
   const { canvasRef, canvasSize, pointerOffsetRef } = options;
   return useCallback(
-    (event: MouseEvent) => {
+    (event: BackgroundParticleMotionInput) => {
       pointerOffsetRef.current = resolveBackgroundParticlePointerOffset({
         canvasRef,
         canvasSize,
@@ -636,7 +649,7 @@ function useBackgroundParticlesRuntime(
     startedAtRef,
     staticity,
   });
-  const handleMouseMove = useBackgroundParticlePointerHandler({
+  const handleMotionChange = useBackgroundParticlePointerHandler({
     canvasRef,
     canvasSize,
     pointerOffsetRef,
@@ -646,7 +659,7 @@ function useBackgroundParticlesRuntime(
     canvasContainerRef,
     canvasRef,
     ctxRef,
-    handleMouseMove,
+    handleMotionChange,
     initParticles,
     onResize,
     renderFrame,

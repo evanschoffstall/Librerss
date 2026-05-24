@@ -44,7 +44,7 @@ interface BackgroundStarMouse {
 interface BackgroundStarPointerOffsetOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   canvasSize: React.RefObject<{ h: number; w: number }>;
-  event: MouseEvent;
+  event: { clientX: number; clientY: number };
   fallback: { x: number; y: number };
 } /**
  * Build the background star.

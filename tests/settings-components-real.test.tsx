@@ -10,6 +10,7 @@ import {
 } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxyBadges";
 import {
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +30,12 @@ async function loadSettingsFeedManagementSection() {
 const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   globalThis,
   "localStorage",
+);
+const originalDeviceOrientationEventDescriptor =
+  Object.getOwnPropertyDescriptor(window, "DeviceOrientationEvent");
+const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "matchMedia",
 );
 const originalWindowLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
   window,
@@ -51,6 +58,16 @@ beforeEach(() => {
 
 afterEach(() => {
   mock.restore();
+  if (originalDeviceOrientationEventDescriptor) {
+    Object.defineProperty(
+      window,
+      "DeviceOrientationEvent",
+      originalDeviceOrientationEventDescriptor,
+    );
+  }
+  if (originalMatchMediaDescriptor) {
+    Object.defineProperty(window, "matchMedia", originalMatchMediaDescriptor);
+  }
   if (originalGlobalLocalStorageDescriptor) {
     Object.defineProperty(
       globalThis,
@@ -85,6 +102,37 @@ describe("settings real components", () => {
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
       JSON.stringify(false),
     );
+    window.localStorage.setItem(
+      MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+    globalThis.localStorage?.setItem(
+      MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
+      JSON.stringify(false),
+    );
+    const requestPermission = mock(async () => "granted" as const);
+    class DeviceOrientationEventMock extends Event {}
+    Object.defineProperty(DeviceOrientationEventMock, "requestPermission", {
+      configurable: true,
+      value: requestPermission,
+    });
+    Object.defineProperty(window, "DeviceOrientationEvent", {
+      configurable: true,
+      value: DeviceOrientationEventMock,
+    });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: mock((query: string) => ({
+        addEventListener: mock(),
+        addListener: mock(),
+        dispatchEvent: mock(),
+        matches: query.includes("coarse"),
+        media: query,
+        onchange: null,
+        removeEventListener: mock(),
+        removeListener: mock(),
+      })),
+    });
     const { SettingsDisplaySection } = await import(
       `../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
     );
@@ -113,18 +161,31 @@ describe("settings real components", () => {
     const mobileGroupedLayoutSwitch = getByRole("switch", {
       name: "Mobile grouped layout",
     });
+    const mobileParticleAccelerometerSwitch = getByRole("switch", {
+      name: "Mobile particle accelerometer motion",
+    });
     const mobileInvertedSwitch = getByRole("switch", {
       name: "Mobile inverted scroll",
     });
 
+    expect(mobileParticleAccelerometerSwitch.getAttribute("aria-checked")).toBe(
+      "false",
+    );
     expect(mobileInvertedSwitch.getAttribute("aria-checked")).toBe("false");
 
     fireEvent.click(faviconsSwitch);
     fireEvent.click(mobileGroupedLayoutSwitch);
+    fireEvent.click(mobileParticleAccelerometerSwitch);
     fireEvent.click(mobileInvertedSwitch);
 
     await waitFor(() => {
       expect(onShowFaviconsChange).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(requestPermission).toHaveBeenCalledTimes(1);
+      expect(
+        window.localStorage.getItem(MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY),
+      ).toBe("true");
     });
     expect(onShowFaviconsChange.mock.calls.at(-1)?.[0]).toBe(false);
 

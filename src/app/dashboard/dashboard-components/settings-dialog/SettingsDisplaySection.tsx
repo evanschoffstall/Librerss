@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import {
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
+  mobileParticleMotion,
   normalizeAutoRefreshIntervalMinutes,
 } from "@/app/dashboard/dashboard-services";
 import {
   type BackgroundMode,
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+  MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/dashboard-services/dashboard-constants";
 import { Input } from "@/components/ui/input";
@@ -53,12 +55,20 @@ interface AutoRefreshControlProps {
 /**
  * Describes the props for the display mobile toggle group component.
  */
-interface DisplayMobileToggleGroupProps {
+type DisplayMobileToggleGroupProps = MobileDisplayPreferencesState;
+
+/**
+ * Describes the state returned for mobile-specific display preferences.
+ */
+interface MobileDisplayPreferencesState {
   isMobileInvertedScrollAvailable: boolean;
+  isMobileParticleAccelerometerAvailable: boolean;
   mobileGroupedLayout: boolean;
   mobileInvertedScroll: boolean;
+  mobileParticleAccelerometerEnabled: boolean;
   setMobileGroupedLayout: (value: boolean) => void;
   setMobileInvertedScroll: (value: boolean) => void;
+  setMobileParticleAccelerometerEnabled: (value: boolean) => Promise<void>;
 }
 
 /**
@@ -83,11 +93,14 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
     autoRefreshDraft,
     commitAutoRefreshDraft,
     isMobileInvertedScrollAvailable,
+    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
+    mobileParticleAccelerometerEnabled,
     setAutoRefreshDraft,
     setMobileGroupedLayout,
     setMobileInvertedScroll,
+    setMobileParticleAccelerometerEnabled,
   } = useDisplaySectionState(
     autoRefreshIntervalMinutes,
     onAutoRefreshIntervalMinutesChange,
@@ -95,15 +108,7 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
 
   return (
     <section className="space-y-4 rounded-lg border bg-card p-4">
-      <div>
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
-          <Monitor className="size-3.5 text-muted-foreground" />
-          Display
-        </h3>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Customize how articles are displayed in the list.
-        </p>
-      </div>
+      <DisplaySectionHeader />
       <div className="space-y-3">
         <AutoRefreshControl
           autoRefreshDraft={autoRefreshDraft}
@@ -111,20 +116,25 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
           commitAutoRefreshDraft={commitAutoRefreshDraft}
           setAutoRefreshDraft={setAutoRefreshDraft}
         />
-        <div className="flex items-center justify-between">
-          <Label htmlFor="show-favicons">Show favicons</Label>
-          <Switch
-            checked={showFavicons}
-            id="show-favicons"
-            onCheckedChange={onShowFaviconsChange}
-          />
-        </div>
+        <ShowFaviconsToggle
+          onShowFaviconsChange={onShowFaviconsChange}
+          showFavicons={showFavicons}
+        />
         <DisplayMobileToggleGroup
           isMobileInvertedScrollAvailable={isMobileInvertedScrollAvailable}
+          isMobileParticleAccelerometerAvailable={
+            isMobileParticleAccelerometerAvailable
+          }
           mobileGroupedLayout={mobileGroupedLayout}
           mobileInvertedScroll={mobileInvertedScroll}
+          mobileParticleAccelerometerEnabled={
+            mobileParticleAccelerometerEnabled
+          }
           setMobileGroupedLayout={setMobileGroupedLayout}
           setMobileInvertedScroll={setMobileInvertedScroll}
+          setMobileParticleAccelerometerEnabled={
+            setMobileParticleAccelerometerEnabled
+          }
         />
         <DisplaySelectGroup
           articlesPerPage={articlesPerPage}
@@ -138,6 +148,7 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
     </section>
   );
 }
+
 /**
  * Render the auto refresh control component.
  * @param props - The component props.
@@ -196,10 +207,13 @@ function AutoRefreshControl(props: AutoRefreshControlProps) {
 function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
   const {
     isMobileInvertedScrollAvailable,
+    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
+    mobileParticleAccelerometerEnabled,
     setMobileGroupedLayout,
     setMobileInvertedScroll,
+    setMobileParticleAccelerometerEnabled,
   } = props;
   return (
     <>
@@ -221,6 +235,25 @@ function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
       </div>
       <div className="flex items-center justify-between">
         <div>
+          <Label htmlFor="mobile-particle-accelerometer">
+            Mobile particle accelerometer motion
+          </Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            On supported mobile browsers, tilt the device to steer particle
+            backgrounds instead of tapping or dragging across the screen.
+          </p>
+        </div>
+        <Switch
+          checked={mobileParticleAccelerometerEnabled}
+          disabled={!isMobileParticleAccelerometerAvailable}
+          id="mobile-particle-accelerometer"
+          onCheckedChange={(value) => {
+            void setMobileParticleAccelerometerEnabled(value);
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
           <Label htmlFor="mobile-inverted-scroll">Mobile inverted scroll</Label>
           <p className="mt-1 text-xs text-muted-foreground">
             Flip the feed so newest articles anchor at the bottom and older
@@ -236,6 +269,23 @@ function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
         />
       </div>
     </>
+  );
+}
+/**
+ * Render the display-section header.
+ * @returns The rendered display-section header.
+ */
+function DisplaySectionHeader() {
+  return (
+    <div>
+      <h3 className="flex items-center gap-2 text-sm font-semibold">
+        <Monitor className="size-3.5 text-muted-foreground" />
+        Display
+      </h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Customize how articles are displayed in the list.
+      </p>
+    </div>
   );
 }
 
@@ -321,6 +371,30 @@ function DisplaySelectGroup(
 }
 
 /**
+ * Render the show-favicons toggle row.
+ * @param props - The component props.
+ * @returns The rendered show-favicons toggle row.
+ */
+function ShowFaviconsToggle(
+  props: Pick<
+    SettingsDisplaySectionProps,
+    "onShowFaviconsChange" | "showFavicons"
+  >,
+) {
+  const { onShowFaviconsChange, showFavicons } = props;
+  return (
+    <div className="flex items-center justify-between">
+      <Label htmlFor="show-favicons">Show favicons</Label>
+      <Switch
+        checked={showFavicons}
+        id="show-favicons"
+        onCheckedChange={onShowFaviconsChange}
+      />
+    </div>
+  );
+}
+
+/**
  * Manage the display section state.
  * @param autoRefreshIntervalMinutes - The auto refresh interval minutes.
  * @param onAutoRefreshIntervalMinutesChange - Callback invoked when the auto-refresh interval setting changes.
@@ -330,36 +404,14 @@ function useDisplaySectionState(
   autoRefreshIntervalMinutes: number,
   onAutoRefreshIntervalMinutesChange: (value: number) => void,
 ) {
-  const isMobileInvertedScrollAvailable =
-    process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-  const [mobileGroupedLayout, setMobileGroupedLayout] = useLocalStorage(
-    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-    true,
-  );
-  const [mobileInvertedScrollPreference, setMobileInvertedScrollPreference] =
-    useLocalStorage(MOBILE_INVERTED_SCROLL_STORAGE_KEY, false);
   const [autoRefreshDraft, setAutoRefreshDraft] = useState(
     String(autoRefreshIntervalMinutes),
   );
-  const mobileInvertedScroll = isMobileInvertedScrollAvailable
-    ? mobileInvertedScrollPreference
-    : false;
+  const mobileDisplayPreferences = useMobileDisplayPreferences();
 
   useEffect(() => {
     setAutoRefreshDraft(String(autoRefreshIntervalMinutes));
   }, [autoRefreshIntervalMinutes]);
-
-  useEffect(() => {
-    if (isMobileInvertedScrollAvailable || !mobileInvertedScrollPreference) {
-      return;
-    }
-
-    setMobileInvertedScrollPreference(false);
-  }, [
-    isMobileInvertedScrollAvailable,
-    mobileInvertedScrollPreference,
-    setMobileInvertedScrollPreference,
-  ]);
 
   return {
     autoRefreshDraft,
@@ -375,14 +427,58 @@ function useDisplaySectionState(
       onAutoRefreshIntervalMinutesChange(normalizedValue);
       setAutoRefreshDraft(String(normalizedValue));
     },
+    setAutoRefreshDraft,
+    ...mobileDisplayPreferences,
+  };
+}
+
+/**
+ * Manage the mobile-only display preferences shown in the settings panel.
+ * @returns The mobile display preference state and callbacks.
+ */
+function useMobileDisplayPreferences(): MobileDisplayPreferencesState {
+  const isMobileParticleAccelerometerAvailable =
+    mobileParticleMotion.supportsMobileParticleAccelerometerMotion();
+  const isMobileInvertedScrollAvailable =
+    process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+  const [mobileGroupedLayout, setMobileGroupedLayout] = useLocalStorage(
+    MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+    true,
+  );
+  const [
+    mobileParticleAccelerometerPreference,
+    setMobileParticleAccelerometerPreference,
+  ] = useLocalStorage(MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY, false);
+  const [mobileInvertedScrollPreference, setMobileInvertedScrollPreference] =
+    useLocalStorage(MOBILE_INVERTED_SCROLL_STORAGE_KEY, false);
+  const mobileParticleAccelerometerEnabled =
+    isMobileParticleAccelerometerAvailable &&
+    mobileParticleAccelerometerPreference;
+  const mobileInvertedScroll = isMobileInvertedScrollAvailable
+    ? mobileInvertedScrollPreference
+    : false;
+
+  useUnsupportedMobilePreferenceReset(
+    isMobileParticleAccelerometerAvailable,
+    mobileParticleAccelerometerPreference,
+    setMobileParticleAccelerometerPreference,
+  );
+  useUnsupportedMobilePreferenceReset(
     isMobileInvertedScrollAvailable,
+    mobileInvertedScrollPreference,
+    setMobileInvertedScrollPreference,
+  );
+
+  return {
+    isMobileInvertedScrollAvailable,
+    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
-    setAutoRefreshDraft,
+    mobileParticleAccelerometerEnabled,
     setMobileGroupedLayout,
     /**
-     * Process the set mobile inverted scroll.
-     * @param value - The value.
+     * Persist the mobile inverted-scroll preference when the runtime supports it.
+     * @param value - Whether inverted scrolling should stay enabled on mobile layouts.
      */
     setMobileInvertedScroll: (value: boolean) => {
       if (!isMobileInvertedScrollAvailable) {
@@ -392,5 +488,39 @@ function useDisplaySectionState(
 
       setMobileInvertedScrollPreference(value);
     },
+    /**
+     * Persist the mobile particle accelerometer preference after permission succeeds.
+     * @param value - Whether mobile particle motion should follow device tilt.
+     */
+    setMobileParticleAccelerometerEnabled: async (value: boolean) => {
+      if (!value) {
+        setMobileParticleAccelerometerPreference(false);
+        return;
+      }
+
+      const hasPermission =
+        await mobileParticleMotion.requestMobileParticleAccelerometerPermission();
+      setMobileParticleAccelerometerPreference(hasPermission);
+    },
   };
+}
+
+/**
+ * Reset a stored mobile preference when the current runtime no longer supports it.
+ * @param isAvailable - Whether the current runtime supports the preference.
+ * @param preference - The stored preference value.
+ * @param setPreference - Setter used to clear the unsupported preference.
+ */
+function useUnsupportedMobilePreferenceReset(
+  isAvailable: boolean,
+  preference: boolean,
+  setPreference: (value: boolean) => void,
+) {
+  useEffect(() => {
+    if (isAvailable || !preference) {
+      return;
+    }
+
+    setPreference(false);
+  }, [isAvailable, preference, setPreference]);
 }
