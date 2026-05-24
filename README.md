@@ -151,16 +151,6 @@ Other useful variants:
 | `bun run db:generate`  | Generate SQL migrations with Drizzle Kit.                        |
 | `bun run db:studio`    | Open Drizzle Studio in the browser.                              |
 
-## Stack
-
-| Layer            | Technology                                                                  |
-| ---------------- | --------------------------------------------------------------------------- |
-| Framework        | Next.js 16, React 19, TypeScript 5                                          |
-| Runtime          | Bun                                                                         |
-| Styling          | Tailwind CSS v4, shadcn/ui, Radix UI                                        |
-| Data             | PostgreSQL, Drizzle ORM                                                     |
-| Content pipeline | Feed parsing, article distillation, sanitization, and extract orchestration |
-
 ## Project structure
 
 ```text
@@ -187,6 +177,8 @@ librerss/
 ├── public/               # Static assets
 └── tests/                # Bun and Playwright coverage for product behavior
 ```
+
+#
 
 <div align="center">
 
