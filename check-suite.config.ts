@@ -273,6 +273,7 @@ export default [
     tokens: { lineCoverageThreshold: 85, testTimeoutMs: 5000 },
   },
   {
+    allowSuiteFlagArgs: true,
     args: command.e2e,
     enabled: hasPackageScript("test:e2e:coverage"),
     ensureDirs: ["coverage/playwright"],

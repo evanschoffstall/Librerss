@@ -6,6 +6,7 @@ import ts from "typescript";
 interface CheckSuiteStepImportSnapshot {
   isTypeOnly: boolean;
   namedBindings: string[];
+  namespaceBinding?: string;
 }
 
 interface PlaywrightCheckStepSnapshot {
@@ -81,10 +82,52 @@ function readCheckSuiteStepImports(): CheckSuiteStepImportSnapshot[] {
         namedBindings && ts.isNamedImports(namedBindings)
           ? namedBindings.elements.map((element) => element.name.text)
           : [],
+      namespaceBinding:
+        namedBindings && ts.isNamespaceImport(namedBindings)
+          ? namedBindings.name.text
+          : undefined,
     });
   });
 
   return imports;
+}
+
+function readCommandPropertyValue(propertyName: string): string {
+  const sourceFile = readCheckSuiteConfigSourceFile();
+
+  for (const node of sourceFile.statements) {
+    if (!ts.isVariableStatement(node)) {
+      continue;
+    }
+
+    for (const declaration of node.declarationList.declarations) {
+      if (
+        !ts.isIdentifier(declaration.name) ||
+        declaration.name.text !== "command" ||
+        !declaration.initializer ||
+        !ts.isObjectLiteralExpression(declaration.initializer)
+      ) {
+        continue;
+      }
+
+      const property = declaration.initializer.properties.find((candidate) => {
+        return (
+          ts.isPropertyAssignment(candidate) &&
+          getPropertyName(candidate.name) === propertyName
+        );
+      });
+
+      if (
+        property &&
+        ts.isPropertyAssignment(property) &&
+        ts.isStringLiteral(property.initializer)
+      ) {
+        return property.initializer.text;
+      }
+    }
+  }
+
+  throw new Error(`command.${propertyName} was not found.`);
 }
 
 function readPlaywrightCheckStepSnapshot(): PlaywrightCheckStepSnapshot {
@@ -92,69 +135,72 @@ function readPlaywrightCheckStepSnapshot(): PlaywrightCheckStepSnapshot {
   let snapshot: PlaywrightCheckStepSnapshot | undefined;
 
   sourceFile.forEachChild((node) => {
-    if (!ts.isVariableStatement(node)) {
+    if (
+      !ts.isExportAssignment(node) ||
+      !ts.isArrayLiteralExpression(node.expression)
+    ) {
       return;
     }
 
-    for (const declaration of node.declarationList.declarations) {
+    for (const element of node.expression.elements) {
+      if (!ts.isObjectLiteralExpression(element)) {
+        continue;
+      }
+
+      const keyProperty = element.properties.find((candidate) => {
+        return (
+          ts.isPropertyAssignment(candidate) &&
+          getPropertyName(candidate.name) === "key"
+        );
+      });
+
       if (
-        !ts.isIdentifier(declaration.name) ||
-        declaration.name.text !== "playwright" ||
-        !declaration.initializer ||
-        !ts.isCallExpression(declaration.initializer)
+        !keyProperty ||
+        !ts.isPropertyAssignment(keyProperty) ||
+        !ts.isStringLiteral(keyProperty.initializer) ||
+        keyProperty.initializer.text !== "playwright"
       ) {
         continue;
       }
 
-      const callExpression = declaration.initializer;
-      const [
-        keyArgument,
-        argsArgument,
-        _coverageArgument,
-        _defaultThresholdArgument,
-        optionsArgument,
-      ] = callExpression.arguments;
-
-      if (
-        !ts.isStringLiteral(keyArgument) ||
-        keyArgument.text !== "playwright" ||
-        !ts.isArrayLiteralExpression(argsArgument) ||
-        !optionsArgument ||
-        !ts.isObjectLiteralExpression(optionsArgument)
-      ) {
-        throw new Error(
-          "Playwright check step declaration had an unexpected shape.",
+      const argsProperty = element.properties.find((candidate) => {
+        return (
+          ts.isPropertyAssignment(candidate) &&
+          getPropertyName(candidate.name) === "args"
         );
+      });
+
+      if (!argsProperty || !ts.isPropertyAssignment(argsProperty)) {
+        throw new Error("Playwright args property was not found.");
+      }
+
+      let args: string[] | undefined;
+
+      if (ts.isStringLiteral(argsProperty.initializer)) {
+        args = argsProperty.initializer.text.split(/\s+/u).filter(Boolean);
+      } else if (
+        ts.isPropertyAccessExpression(argsProperty.initializer) &&
+        ts.isIdentifier(argsProperty.initializer.expression) &&
+        argsProperty.initializer.expression.text === "command"
+      ) {
+        args = readCommandPropertyValue(argsProperty.initializer.name.text)
+          .split(/\s+/u)
+          .filter(Boolean);
       }
 
       snapshot = {
-        allowSuiteFlagArgs: readBooleanProperty(
-          optionsArgument,
-          "allowSuiteFlagArgs",
-        ),
-        args: readStringArrayExpression(argsArgument),
-        key: keyArgument.text,
+        allowSuiteFlagArgs: readBooleanProperty(element, "allowSuiteFlagArgs"),
+        args,
+        key: "playwright",
       };
     }
   });
 
   if (!snapshot) {
-    throw new Error("Playwright check step declaration was not found.");
+    throw new Error("Playwright check step entry was not found.");
   }
 
   return snapshot;
-}
-
-function readStringArrayExpression(
-  arrayExpression: ts.ArrayLiteralExpression,
-): string[] {
-  return arrayExpression.elements.map((element) => {
-    if (!ts.isStringLiteral(element)) {
-      throw new Error("Expected the Playwright command args to be strings.");
-    }
-
-    return element.text;
-  });
 }
 
 function sourceContainsCallExpression(calleeName: string): boolean {
@@ -184,14 +230,11 @@ function sourceContainsCallExpression(calleeName: string): boolean {
 }
 
 describe("check-suite config", () => {
-  test("keeps the heavy step runtime out of config-time imports", () => {
+  test("imports shared step helpers through a single namespace binding", () => {
     const stepImports = readCheckSuiteStepImports();
 
-    // `check-suite/step` currently loads runtime-only lint machinery at import
-    // time. A value import here makes even `bun check keys` and `bun check
-    // --madge` wait on unrelated setup before selected steps can start.
     expect(stepImports).toEqual([
-      { isTypeOnly: true, namedBindings: ["GitFileScanOptions"] },
+      { isTypeOnly: false, namedBindings: [], namespaceBinding: "step" },
     ]);
   });
 

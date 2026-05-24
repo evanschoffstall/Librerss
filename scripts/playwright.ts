@@ -74,6 +74,14 @@ const PLAYWRIGHT_SKIP_COVERAGE_GENERATION =
   process.env.PLAYWRIGHT_SKIP_COVERAGE_GENERATION === "1";
 const PLAYWRIGHT_PRESERVE_RAW_COVERAGE =
   process.env.PLAYWRIGHT_PRESERVE_RAW_COVERAGE === "1";
+const PLAYWRIGHT_SERVER_MODE = resolvePlaywrightServerMode(
+  process.env.PLAYWRIGHT_SERVER_MODE,
+);
+const PLAYWRIGHT_DEV_SERVER_COMPILER_FLAG =
+  PLAYWRIGHT_SERVER_MODE === "dev" && PLAYWRIGHT_COVERAGE_ENABLED
+    ? "--turbopack"
+    : "--webpack";
+const PLAYWRIGHT_DEFAULT_WORKER_LIMIT = Math.min(4, availableParallelism());
 const PLAYWRIGHT_CHILD_PORT_STRIDE = Number.parseInt(
   process.env.PLAYWRIGHT_CHILD_PORT_STRIDE ?? "1000",
   10,
@@ -167,6 +175,11 @@ interface PlaywrightBaseUrlEnv {
  * Defines the supported command entrypoints for this Playwright utility script.
  */
 type PlaywrightScriptEntrypoint = "coverage" | "test";
+
+/**
+ * Describes the application-server mode used for a Playwright run.
+ */
+type PlaywrightServerMode = "dev" | "start";
 
 /**
  * Defines a raw coverage payload accepted by Monocart.
@@ -278,6 +291,33 @@ export function resolvePlaywrightScriptEntrypoint(rawArguments: string[]): {
 }
 
 /**
+ * Resolves the application-server mode for Playwright runs.
+ *
+ * Coverage generation depends on development source maps, so those runs stay
+ * on the dev server. Production mode remains opt-in because the repo's normal
+ * e2e path has historically run against `next dev`.
+ * @param configuredMode - Optional environment override.
+ * @returns Normalized server mode.
+ */
+export function resolvePlaywrightServerMode(
+  configuredMode: string | undefined,
+): PlaywrightServerMode {
+  const normalizedMode = configuredMode?.trim().toLowerCase();
+
+  if (!normalizedMode) {
+    return "dev";
+  }
+
+  if (normalizedMode === "dev" || normalizedMode === "start") {
+    return normalizedMode;
+  }
+
+  throw new Error(
+    `PLAYWRIGHT_SERVER_MODE must be either "dev" or "start". Received: ${configuredMode}`,
+  );
+}
+
+/**
  * Creates a per-shard coverage report directory so each child can generate
  * source-mapped LCOV while its own dedicated dev server is still running.
  * @param reportDirectoryPath - Final report directory requested by the caller.
@@ -348,6 +388,45 @@ async function assertSourceMappedCoverage(
 }
 
 /**
+ * Builds a dedicated production bundle for non-coverage Playwright runs so the
+ * test workers do not compete with Turbopack route compilation.
+ * @param distDir - The isolated dist dir for this Playwright run.
+ * @param tsconfigPath - The isolated tsconfig path for this Playwright run.
+ */
+async function buildPlaywrightApplication(
+  distDir: string,
+  tsconfigPath: string,
+) {
+  const child = spawn(
+    join(process.cwd(), "node_modules", ".bin", "next"),
+    ["build"],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        NEXT_TYPESCRIPT_CONFIG_PATH: tsconfigPath,
+        PLAYWRIGHT_NEXT_DIST_DIR: distDir,
+      },
+      stdio: "inherit",
+    },
+  );
+
+  const { code, signal } = await waitForChildExit(child);
+
+  if (signal) {
+    throw new Error(
+      `Playwright application build exited from signal ${signal}.`,
+    );
+  }
+
+  if ((code ?? 1) !== 0) {
+    throw new Error(
+      `Playwright application build failed with exit code ${code ?? 1}.`,
+    );
+  }
+}
+
+/**
  * Create the output mirror.
  * @param child - The child.
  * @returns The output mirror.
@@ -377,29 +456,26 @@ function createOutputMirror(child: ChildProcess) {
       }
 
       recentLines.push(line);
+
       if (recentLines.length > PLAYWRIGHT_LOG_LINE_LIMIT) {
         recentLines.shift();
       }
     }
   };
 
-  child.stdout?.on("data", (chunk) => {
-    appendChunk(process.stdout, chunk);
-  });
-  child.stderr?.on("data", (chunk) => {
-    appendChunk(process.stderr, chunk);
-  });
+  child.stdout?.on("data", (chunk) => appendChunk(process.stdout, chunk));
+  child.stderr?.on("data", (chunk) => appendChunk(process.stderr, chunk));
 
   return {
     /**
-     * Return the recent output.
-     * @returns The recent output.
+     * Reads the buffered child-process output captured so far.
+     * @returns Recent log lines joined for startup diagnostics.
      */
     getRecentOutput() {
       return recentLines.join("\n");
     },
     /**
-     * Process the start forwarding.
+     * Flushes buffered child-process output and switches to live forwarding.
      */
     startForwarding() {
       if (isForwarding) {
@@ -855,6 +931,10 @@ function parseShardJunitReport(reportXml: string): {
  * @param server - The started Playwright dev server.
  */
 async function prewarmServerRoutes(server: DevServerHandle) {
+  if (PLAYWRIGHT_SERVER_MODE === "start") {
+    return;
+  }
+
   for (const path of PLAYWRIGHT_PREWARM_PATHS) {
     const response = await fetch(`${server.baseURL}${path}`, {
       signal: AbortSignal.timeout(10_000),
@@ -901,6 +981,30 @@ async function removePlaywrightRuntimeDirectory(directoryName: string) {
     force: true,
     recursive: true,
   });
+}
+
+/**
+ * Resolves the default worker budget for direct Playwright runs when the user
+ * did not pass a CLI `--workers` flag or a `PLAYWRIGHT_WORKERS` override.
+ *
+ * The dedicated dev server regresses badly when a single wrapper run fans out
+ * to the full local worker ceiling. Keeping the wrapper default lower preserves
+ * stability while still allowing explicit overrides and internal sharding.
+ * @param forwardedArguments - CLI arguments forwarded to `playwright test`.
+ * @returns Worker count to inject into the Playwright child environment.
+ */
+function resolvePlaywrightWorkerOverride(forwardedArguments: string[]) {
+  if (
+    process.env.PLAYWRIGHT_WORKERS?.trim() ||
+    forwardedArguments.some(
+      (argument) =>
+        argument === "--workers" || argument.startsWith("--workers="),
+    )
+  ) {
+    return undefined;
+  }
+
+  return String(PLAYWRIGHT_DEFAULT_WORKER_LIMIT);
 }
 
 /**
@@ -1382,10 +1486,14 @@ async function runPlaywrightTests(forwardedArguments: string[]) {
       await removePlaywrightRuntimeDirectory(rawCoverageOutputDir);
     }
     await removePlaywrightRuntimeDirectory(distDir);
+    if (PLAYWRIGHT_SERVER_MODE === "start") {
+      await buildPlaywrightApplication(distDir, tsconfigPath);
+    }
     const server = await startFirstAvailableDevServer(distDir, tsconfigPath);
     serverProcess = server.process;
 
-    console.log(`Playwright dev server port: ${server.port}`);
+    console.log(`Playwright server mode: ${PLAYWRIGHT_SERVER_MODE}`);
+    console.log(`Playwright server port: ${server.port}`);
     console.log(`Playwright dist dir: ${distDir}`);
     console.log(`Playwright tsconfig: ${tsconfigPath}`);
     await prewarmServerRoutes(server);
@@ -1440,7 +1548,10 @@ async function startFirstAvailableDevServer(
       continue;
     }
 
-    const server = startPlaywrightDevServer(port, distDir, tsconfigPath);
+    const server =
+      PLAYWRIGHT_SERVER_MODE === "start"
+        ? startPlaywrightProductionServer(port, distDir, tsconfigPath)
+        : startPlaywrightDevServer(port, distDir, tsconfigPath);
 
     try {
       await waitForServerStartup(server.process, server.getRecentOutput);
@@ -1459,14 +1570,14 @@ async function startFirstAvailableDevServer(
       throw error instanceof Error
         ? error
         : createStartupError(
-            `Playwright dev server failed to start on port ${port}.`,
+            `Playwright server failed to start on port ${port}.`,
             recentOutput,
           );
     }
   }
 
   throw new Error(
-    `No usable Playwright dev-server port found from ${PLAYWRIGHT_PORT_START}.`,
+    `No usable Playwright server port found from ${PLAYWRIGHT_PORT_START}.`,
   );
 }
 
@@ -1489,7 +1600,54 @@ function startPlaywrightDevServer(
       PYTHON_PARENT_DEATHSIG_LAUNCHER,
       join(process.cwd(), "node_modules", ".bin", "next"),
       "dev",
-      "--turbopack",
+      PLAYWRIGHT_DEV_SERVER_COMPILER_FLAG,
+      "-H",
+      PLAYWRIGHT_HOST,
+      "-p",
+      String(port),
+    ],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        NEXT_TYPESCRIPT_CONFIG_PATH: tsconfigPath,
+        PLAYWRIGHT_NEXT_DIST_DIR: distDir,
+        PLAYWRIGHT_PORT: String(port),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+
+  const outputMirror = createOutputMirror(child);
+
+  return {
+    baseURL: buildPlaywrightBaseUrl(PLAYWRIGHT_HOST, port),
+    getRecentOutput: outputMirror.getRecentOutput,
+    port,
+    process: child,
+    startForwarding: outputMirror.startForwarding,
+  };
+}
+
+/**
+ * Starts a dedicated production server backed by a completed Playwright build.
+ * @param port - The port.
+ * @param distDir - The dist dir.
+ * @param tsconfigPath - The tsconfig path.
+ * @returns The started application server handle.
+ */
+function startPlaywrightProductionServer(
+  port: number,
+  distDir: string,
+  tsconfigPath: string,
+) {
+  const child = spawn(
+    "python3",
+    [
+      "-c",
+      PYTHON_PARENT_DEATHSIG_LAUNCHER,
+      join(process.cwd(), "node_modules", ".bin", "next"),
+      "start",
       "-H",
       PLAYWRIGHT_HOST,
       "-p",
@@ -1534,6 +1692,8 @@ function startPlaywrightTestRun(
   rawCoverageOutputDir: string,
   runId: string,
 ) {
+  const workerOverride = resolvePlaywrightWorkerOverride(forwardedArguments);
+
   return spawn("bunx", ["playwright", "test", ...forwardedArguments], {
     cwd: process.cwd(),
     env: {
@@ -1546,6 +1706,7 @@ function startPlaywrightTestRun(
       PLAYWRIGHT_OUTPUT_DIR:
         process.env.PLAYWRIGHT_OUTPUT_DIR ?? `test-results/playwright/${runId}`,
       PLAYWRIGHT_PORT: String(port),
+      ...(workerOverride ? { PLAYWRIGHT_WORKERS: workerOverride } : {}),
     },
     stdio: "inherit",
   });
