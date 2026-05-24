@@ -17,6 +17,16 @@ export {
   isDevAutoLoginFailure,
 } from "./dev-auto-login";
 export {
+  type CreatedSignupInvitation,
+  createSignupInvitation,
+  type CreateSignupInvitationOptions,
+  isValidSignupInvitationToken,
+  redeemSignupInvitation,
+  type RedeemSignupInvitationOptions,
+  SignupInvitationError,
+  type SignupInvitationUser,
+} from "./invitations";
+export {
   authenticateCredentials,
   clearSessionCookie,
   createSession,
