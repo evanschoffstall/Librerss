@@ -241,6 +241,14 @@ describe("background stack", () => {
       window,
       "DeviceOrientationEvent",
     );
+    const deviceMotionDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "DeviceMotionEvent",
+    );
+    const isSecureContextDescriptor = Object.getOwnPropertyDescriptor(
+      window,
+      "isSecureContext",
+    );
     const matchMediaDescriptor = Object.getOwnPropertyDescriptor(
       window,
       "matchMedia",
@@ -298,6 +306,14 @@ describe("background stack", () => {
       configurable: true,
       value: class DeviceOrientationEventMock extends Event {},
     });
+    Object.defineProperty(window, "DeviceMotionEvent", {
+      configurable: true,
+      value: class DeviceMotionEventMock extends Event {},
+    });
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: true,
+    });
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
       value: mock((query: string) => ({
@@ -342,6 +358,20 @@ describe("background stack", () => {
         window,
         "DeviceOrientationEvent",
         deviceOrientationDescriptor,
+      );
+    }
+    if (deviceMotionDescriptor) {
+      Object.defineProperty(
+        window,
+        "DeviceMotionEvent",
+        deviceMotionDescriptor,
+      );
+    }
+    if (isSecureContextDescriptor) {
+      Object.defineProperty(
+        window,
+        "isSecureContext",
+        isSecureContextDescriptor,
       );
     }
     if (matchMediaDescriptor) {

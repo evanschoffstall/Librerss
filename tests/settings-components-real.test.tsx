@@ -33,6 +33,14 @@ const originalGlobalLocalStorageDescriptor = Object.getOwnPropertyDescriptor(
 );
 const originalDeviceOrientationEventDescriptor =
   Object.getOwnPropertyDescriptor(window, "DeviceOrientationEvent");
+const originalDeviceMotionEventDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "DeviceMotionEvent",
+);
+const originalIsSecureContextDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  "isSecureContext",
+);
 const originalMatchMediaDescriptor = Object.getOwnPropertyDescriptor(
   window,
   "matchMedia",
@@ -63,6 +71,20 @@ afterEach(() => {
       window,
       "DeviceOrientationEvent",
       originalDeviceOrientationEventDescriptor,
+    );
+  }
+  if (originalDeviceMotionEventDescriptor) {
+    Object.defineProperty(
+      window,
+      "DeviceMotionEvent",
+      originalDeviceMotionEventDescriptor,
+    );
+  }
+  if (originalIsSecureContextDescriptor) {
+    Object.defineProperty(
+      window,
+      "isSecureContext",
+      originalIsSecureContextDescriptor,
     );
   }
   if (originalMatchMediaDescriptor) {
@@ -110,15 +132,29 @@ describe("settings real components", () => {
       MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
       JSON.stringify(false),
     );
-    const requestPermission = mock(async () => "granted" as const);
+    const requestOrientationPermission = mock(async () => "granted" as const);
+    const requestMotionPermission = mock(async () => "granted" as const);
     class DeviceOrientationEventMock extends Event {}
     Object.defineProperty(DeviceOrientationEventMock, "requestPermission", {
       configurable: true,
-      value: requestPermission,
+      value: requestOrientationPermission,
+    });
+    class DeviceMotionEventMock extends Event {}
+    Object.defineProperty(DeviceMotionEventMock, "requestPermission", {
+      configurable: true,
+      value: requestMotionPermission,
     });
     Object.defineProperty(window, "DeviceOrientationEvent", {
       configurable: true,
       value: DeviceOrientationEventMock,
+    });
+    Object.defineProperty(window, "DeviceMotionEvent", {
+      configurable: true,
+      value: DeviceMotionEventMock,
+    });
+    Object.defineProperty(window, "isSecureContext", {
+      configurable: true,
+      value: true,
     });
     Object.defineProperty(window, "matchMedia", {
       configurable: true,
@@ -182,7 +218,8 @@ describe("settings real components", () => {
       expect(onShowFaviconsChange).toHaveBeenCalled();
     });
     await waitFor(() => {
-      expect(requestPermission).toHaveBeenCalledTimes(1);
+      expect(requestMotionPermission).toHaveBeenCalledTimes(1);
+      expect(requestOrientationPermission).toHaveBeenCalledTimes(1);
       expect(
         window.localStorage.getItem(MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY),
       ).toBe("true");

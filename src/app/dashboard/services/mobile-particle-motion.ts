@@ -2,9 +2,9 @@
 const MOBILE_PARTICLE_TILT_MAX_DEGREES = 45;
 
 /**
- * Describes the browser constructor shape used by iOS orientation permission APIs.
+ * Describes the browser constructor shape used by iOS motion permission APIs.
  */
-interface DeviceOrientationPermissionCapable {
+interface MobileParticleMotionPermissionCapable {
   requestPermission?: () => Promise<"denied" | "granted">;
 }
 
@@ -33,6 +33,53 @@ export function normalizeMobileParticleTiltAxis(value: number) {
   return Math.max(-1, Math.min(1, value / MOBILE_PARTICLE_TILT_MAX_DEGREES));
 }
 
+/**
+ * Request permission from one iOS motion constructor when that constructor exposes a permission gate.
+ * @param constructorValue - The browser constructor that may expose `requestPermission()`.
+ * @returns Whether that constructor granted or did not require access.
+ */
+async function requestMobileParticleMotionConstructorPermission(
+  constructorValue: unknown,
+) {
+  const permissionCapableConstructor =
+    constructorValue as MobileParticleMotionPermissionCapable;
+  if (typeof permissionCapableConstructor.requestPermission !== "function") {
+    return true;
+  }
+
+  try {
+    return (
+      (await permissionCapableConstructor.requestPermission()) === "granted"
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Return whether the current browser can expose device-motion samples.
+ * @returns Whether device-motion events exist in the current runtime.
+ */
+function supportsMobileParticleMotionSamples() {
+  return typeof window !== "undefined" && "DeviceMotionEvent" in window;
+}
+
+/**
+ * Return whether the current browser can expose device-orientation samples.
+ * @returns Whether device-orientation events exist in the current runtime.
+ */
+function supportsMobileParticleOrientationSamples() {
+  return typeof window !== "undefined" && "DeviceOrientationEvent" in window;
+}
+
+/**
+ * Return whether the current browser can use secure-context-only motion APIs.
+ * @returns Whether the current runtime is allowed to access motion sensors.
+ */
+function supportsMobileParticleSecureMotionContext() {
+  return typeof window !== "undefined" && window.isSecureContext;
+}
+
 /** Shared public surface for mobile particle motion helper utilities. */
 export const mobileParticleMotion = {
   normalizeMobileParticleTiltAxis,
@@ -49,19 +96,14 @@ export async function requestMobileParticleAccelerometerPermission() {
     return false;
   }
 
-  const deviceOrientationConstructor =
-    window.DeviceOrientationEvent as unknown as DeviceOrientationPermissionCapable;
-  if (typeof deviceOrientationConstructor.requestPermission !== "function") {
-    return true;
-  }
+  const permissionResults = await Promise.all([
+    requestMobileParticleMotionConstructorPermission(window.DeviceMotionEvent),
+    requestMobileParticleMotionConstructorPermission(
+      window.DeviceOrientationEvent,
+    ),
+  ]);
 
-  try {
-    return (
-      (await deviceOrientationConstructor.requestPermission()) === "granted"
-    );
-  } catch {
-    return false;
-  }
+  return permissionResults.every(Boolean);
 }
 
 /**
@@ -70,8 +112,9 @@ export async function requestMobileParticleAccelerometerPermission() {
  */
 export function supportsMobileParticleAccelerometerMotion() {
   return (
-    typeof window !== "undefined" &&
+    supportsMobileParticleSecureMotionContext() &&
     isMobileParticlePointerDevice() &&
-    "DeviceOrientationEvent" in window
+    (supportsMobileParticleMotionSamples() ||
+      supportsMobileParticleOrientationSamples())
   );
 }
