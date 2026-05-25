@@ -5,7 +5,6 @@
   "private": true,
   "scripts": {
     "setup:playwright": "bunx playwright install chromium firefox webkit",
-    "refactor:dashboard-structure": "bun scripts/refactor-dashboard-structure.ts",
     "dev": "next dev --turbopack",
     "dev:playwright": "sh -c 'PLAYWRIGHT_NEXT_DIST_DIR=\"${PLAYWRIGHT_NEXT_DIST_DIR:-.next-playwright}\" next dev --turbopack -H 127.0.0.1 -p \"${PLAYWRIGHT_PORT:-3100}\"'",
     "build": "next build",
@@ -140,7 +139,6 @@
     "secretlint": "^11.7.1",
     "semantic-release": "^25.0.3",
     "tailwindcss": "^4.2.2",
-    "ts-morph": "^28.0.0",
     "ts-prune": "^0.10.3",
     "tsd": "^0.33.0",
     "type-coverage": "^2.29.7",
