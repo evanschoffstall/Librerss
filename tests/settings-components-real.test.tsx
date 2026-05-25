@@ -7,21 +7,21 @@ import {
   CompatibilityResultBadge,
   ProxyRoutingBadge,
   StatusBadge,
-} from "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxyBadges";
+} from "@/app/dashboard/components/settings-dialog/SettingsProxyBadges";
 import {
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
   MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services/dashboard-constants";
+} from "@/app/dashboard/services/dashboard-constants";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import type { SettingsModalState } from "../src/app/dashboard/settings-state/useSettingsModalState";
+import type { SettingsModalState } from "../src/app/dashboard/settings/useSettingsModalState";
 
-import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/dashboard-components/settings-dialog/SettingsProxyCompatibilityPanel";
+import { SettingsProxyCompatibilityPanel } from "../src/app/dashboard/components/settings-dialog/SettingsProxyCompatibilityPanel";
 
 async function loadSettingsFeedManagementSection() {
   const module = await import(
-    `../src/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection?test=${Date.now()}-${Math.random()}`
+    `../src/app/dashboard/components/settings-dialog/SettingsFeedManagementSection?test=${Date.now()}-${Math.random()}`
   );
 
   return module.SettingsFeedManagementSection;
@@ -134,7 +134,7 @@ describe("settings real components", () => {
       })),
     });
     const { SettingsDisplaySection } = await import(
-      `../src/app/dashboard/dashboard-components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
+      `../src/app/dashboard/components/settings-dialog/SettingsDisplaySection?test=${Date.now()}-${Math.random()}`
     );
     const onArticlesPerPageChange = mock(() => {});
     const onAutoRefreshIntervalMinutesChange = mock(() => {});

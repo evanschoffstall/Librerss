@@ -20,8 +20,8 @@ import * as realSonnerModule from "sonner";
 
 import type { Article } from "@/lib/core";
 
-import { ARTICLE_STATUS_STALE_RESUME_ABORT_REASON } from "@/app/dashboard/dashboard-hooks/article-actions";
-import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
+import { ARTICLE_STATUS_STALE_RESUME_ABORT_REASON } from "@/app/dashboard/hooks/article-actions";
+import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
 import { ArticleService } from "@/lib/api";
 
 import { createMockArticle } from "./support/test-utils";

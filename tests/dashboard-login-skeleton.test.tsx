@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { LoginViewSkeleton } from "@/app/dashboard/dashboard-components/login";
+import { LoginViewSkeleton } from "@/app/dashboard/components/login";
 
 describe("LoginViewSkeleton", () => {
   test("mirrors the LoginView card layout while loading", () => {

@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 
-import { DASHBOARD_EVENTS } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { DASHBOARD_EVENTS } from "@/app/dashboard/services/dashboard-constants";
 
 /**
  * Describes the options for dashboard shell loading state.

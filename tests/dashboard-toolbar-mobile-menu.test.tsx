@@ -6,7 +6,7 @@ import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/constants"
 
 async function loadDashboardToolbar() {
   return import(
-    `@/app/dashboard/dashboard-components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
   );
 }
 

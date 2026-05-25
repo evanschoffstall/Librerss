@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 
 import type { Article, CategoryTreeNode } from "@/lib/core";
 
-import { filterArticlesByState } from "@/app/dashboard/dashboard-services/article";
+import { filterArticlesByState } from "@/app/dashboard/services/article";
 import {
   buildDisplayCategories,
   computeNextOrderedCategoryLabels,
-} from "@/app/dashboard/dashboard-services/category";
+} from "@/app/dashboard/services/category";
 import {
   buildCategoriesFromSources,
   buildDefaultCategories,
@@ -19,8 +19,8 @@ import {
   relocateFeedInCategories,
   SYSTEM_ALL_FEEDS_CATEGORY,
   toDistinctCategoryLabels,
-} from "@/app/dashboard/dashboard-services/category-tree";
-import { buildDashboardViewModel } from "@/app/dashboard/dashboard-services/dashboard-state";
+} from "@/app/dashboard/services/category-tree";
+import { buildDashboardViewModel } from "@/app/dashboard/services/dashboard-state";
 
 describe("dashboard structure services", () => {
   test("buildDisplayCategories appends missing custom labels and respects explicit ordering", () => {

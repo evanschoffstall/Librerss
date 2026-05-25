@@ -204,7 +204,7 @@ mock.module("@/components/ui/tabs", () => {
 });
 
 mock.module(
-  "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
+  "@/app/dashboard/components/settings-dialog/SettingsProxySection",
   () => ({
     SettingsProxySection: ({ isPreviewMode }: { isPreviewMode?: boolean }) => {
       useSettingsProxyStateMock();
@@ -218,7 +218,7 @@ mock.module(
   }),
 );
 mock.module(
-  "@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection",
+  "@/app/dashboard/components/settings-dialog/SettingsFeedManagementSection",
   () => ({
     SettingsFeedManagementSection: ({
       isPreviewMode,
@@ -363,7 +363,7 @@ function installSettingsPanelModuleMocks() {
     return { Tabs, TabsContent, TabsList, TabsTrigger };
   });
   mock.module(
-    "@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection",
+    "@/app/dashboard/components/settings-dialog/SettingsProxySection",
     () => ({
       SettingsProxySection: ({
         isPreviewMode,
@@ -381,7 +381,7 @@ function installSettingsPanelModuleMocks() {
     }),
   );
   mock.module(
-    "@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedManagementSection",
+    "@/app/dashboard/components/settings-dialog/SettingsFeedManagementSection",
     () => ({
       SettingsFeedManagementSection: ({
         isPreviewMode,

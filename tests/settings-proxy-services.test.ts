@@ -11,7 +11,7 @@ import {
   readCompatibilityResultsCache,
   toProxySettingsSnapshot,
   writeCompatibilityResultsCache,
-} from "@/app/dashboard/dashboard-services/settings-proxy";
+} from "@/app/dashboard/services/settings-proxy";
 
 function createMemoryStorage(initial = new Map<string, string>()) {
   return {

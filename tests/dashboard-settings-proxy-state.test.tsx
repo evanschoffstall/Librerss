@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, mock, test } from "bun:test";
 import { type PropsWithChildren, StrictMode } from "react";
 
-import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/dashboard-services/settings-proxy";
+import { COMPATIBILITY_RESULTS_CACHE_KEY } from "@/app/dashboard/services/settings-proxy";
 import { ArticleService } from "@/lib/api";
 
 type ProxyCompatibilityResponse = Awaited<
@@ -32,14 +32,14 @@ function createDeferred<Value>() {
 
 async function loadSettingsProxyStateModule() {
   return import(
-    `@/app/dashboard/settings-state/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/settings/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
   );
 }
 
 async function loadUseSettingsProxyState() {
   return (
     await import(
-      `@/app/dashboard/settings-state/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/settings/useSettingsProxyState?test=${Date.now()}-${Math.random()}`
     )
   ).useSettingsProxyState;
 }

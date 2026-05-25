@@ -9,19 +9,19 @@ import {
   buildPreview,
   getArticleSourceLabel,
   getRichContentClass,
-} from "@/app/dashboard/dashboard-services/article";
+} from "@/app/dashboard/services/article";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "@/app/dashboard/dashboard-services/article-collection";
-import { filterArticlesBySearchTerm } from "@/app/dashboard/dashboard-services/dashboard-state";
+} from "@/app/dashboard/services/article-collection";
+import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-state";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
   loadFeedSourceTree,
   resolveFeedBatchResults,
-} from "@/app/dashboard/dashboard-services/feed-data";
-import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/dashboard-services/feed-view-model";
+} from "@/app/dashboard/services/feed-data";
+import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/feed-view-model";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
 
@@ -643,15 +643,13 @@ describe("feed-batch-outcome", () => {
 
 describe("favicons", () => {
   test("getFaviconUrl generates favicon URL", async () => {
-    const { getFaviconUrl } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+    const { getFaviconUrl } = await import("@/app/dashboard/services/favicon");
     const url = getFaviconUrl("https://example.com");
     expect(url).toContain("example.com");
   });
 
   test("getFaviconUrl handles URLs without protocol", async () => {
-    const { getFaviconUrl } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+    const { getFaviconUrl } = await import("@/app/dashboard/services/favicon");
     const url = getFaviconUrl("example.com");
     expect(typeof url).toBe("string");
     expect(url).toBe("");
@@ -1141,7 +1139,7 @@ const makeArticle = (overrides: Partial<ArticleLike> = {}): ArticleLike => ({
 describe("dashboard article helpers comprehensive", () => {
   test("dedupeAndSortArticles drops empty links and prefers longer content", async () => {
     const { dedupeAndSortArticles, getArticleKey } =
-      await import("@/app/dashboard/dashboard-services/article-collection");
+      await import("@/app/dashboard/services/article-collection");
 
     const a1 = makeArticle({
       content: "short",
@@ -1172,7 +1170,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("dedupeAndSortArticles uses newer publicationDate as tiebreaker", async () => {
     const { dedupeAndSortArticles } =
-      await import("@/app/dashboard/dashboard-services/article-collection");
+      await import("@/app/dashboard/services/article-collection");
 
     const older = makeArticle({
       content: "same-size",
@@ -1193,8 +1191,7 @@ describe("dashboard article helpers comprehensive", () => {
   });
 
   test("buildPreview handles overflow and non-overflow content", async () => {
-    const { buildPreview } =
-      await import("@/app/dashboard/dashboard-services/article");
+    const { buildPreview } = await import("@/app/dashboard/services/article");
 
     const short = buildPreview("small");
     expect(short.preview).toBe("small");
@@ -1217,7 +1214,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getArticleSourceLabel prioritizes feedName then hostname fallback", async () => {
     const { getArticleSourceLabel } =
-      await import("@/app/dashboard/dashboard-services/article");
+      await import("@/app/dashboard/services/article");
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const named = makeArticle({
@@ -1246,7 +1243,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("getRichContentClass returns expanded and collapsed variants", async () => {
     const { getRichContentClass } =
-      await import("@/app/dashboard/dashboard-services/article");
+      await import("@/app/dashboard/services/article");
 
     const expanded = getRichContentClass(true);
     const collapsed = getRichContentClass(false);
@@ -1259,7 +1256,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles keeps article feedName when source name missing", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1285,7 +1282,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles does not set feedName to feed URL", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1314,7 +1311,7 @@ describe("dashboard article helpers comprehensive", () => {
 describe("dashboard favicons comprehensive", () => {
   test("getFaviconCacheKey picks first valid hostname from candidates", async () => {
     const { getFaviconCacheKey } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     expect(
       getFaviconCacheKey(
@@ -1329,7 +1326,7 @@ describe("dashboard favicons comprehensive", () => {
   test("hydrate loads valid persisted entries and drops stale failure entries", async () => {
     const v2Key = "librerss:favicon-index-cache:v2";
 
-    await import("@/app/dashboard/dashboard-services/favicon");
+    await import("@/app/dashboard/services/favicon");
 
     window.localStorage.setItem(
       v2Key,
@@ -1344,7 +1341,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     expect(getCachedFaviconIndex("ok.example.com")).toBe(4);
     expect(getCachedFaviconIndex("expired.example.com")).toBe(0);
@@ -1353,7 +1350,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache index set/get works for success and failure entries", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     expect(getCachedFaviconIndex("example.com")).toBe(0);
 
@@ -1369,7 +1366,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("cache trimming keeps storage bounded after many inserts", async () => {
     const { getCachedFaviconIndex, setCachedFaviconIndex } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     for (let index = 0; index < 430; index += 1) {
       setCachedFaviconIndex(`bulk-${index}.example.com`, index % 3);
@@ -1398,7 +1395,7 @@ describe("dashboard favicons comprehensive", () => {
     );
 
     const { getCachedFaviconIndex } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     const ok = getCachedFaviconIndex("ok.example.com");
     const legacy = getCachedFaviconIndex("legacy.example.com");
@@ -1411,7 +1408,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("merged favicon candidates include provider and direct icon URLs", async () => {
     const { getFaviconUrl, getMergedFaviconCandidates } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
     const { getUrlHostnameDisplayLabel } = await import("@/lib/utils/url");
 
     const candidates = getMergedFaviconCandidates(
@@ -1441,7 +1438,7 @@ describe("dashboard favicons comprehensive", () => {
 
   test("favicon tint colors are deterministic and include default fallback", async () => {
     const { getFaviconTintColors } =
-      await import("@/app/dashboard/dashboard-services/favicon");
+      await import("@/app/dashboard/services/favicon");
 
     const a = getFaviconTintColors("https://example.com/a");
     const b = getFaviconTintColors("https://example.com/a");
@@ -1467,7 +1464,7 @@ describe("feed-batch pure helpers", () => {
     feedCount: number;
   }) {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const { normalizeBatchItem } = await import("@/lib/api/http");
     const { mapRowsToArticleMap, queryTopArticlesPerFeed } =
       await import("@/lib/core/feed-batch-pipeline");
@@ -1584,7 +1581,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: usePlaceholderData returns placeholder articles on failed result", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const placeholderArticle = makeArticle({
       feedName: "Placeholder",
       id: 99,
@@ -1602,7 +1599,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: failed result with usePlaceholderData=false returns empty", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const result = mapBatchResultsToArticles(
       [{ articles: [], ok: false, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "My Feed"]]),
@@ -1614,7 +1611,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: ok=true but empty articles falls to placeholder branch", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const placeholder = makeArticle({
       id: 50,
       link: "https://placeholder.example/x",
@@ -1630,7 +1627,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles reuses previous feed articles for unchanged batch items", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const previousArticle = makeArticle({
       feedName: "Feed A",
       feedUrl: "https://example.com/feed",
@@ -1660,7 +1657,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles keeps multiple unchanged articles from the same feed together", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const previousArticles = [
       makeArticle({
         feedName: "Feed A",
@@ -1700,7 +1697,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles preserves oldest-first ordering for hydrated batch results", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const olderArticle = makeArticle({
       id: 1,
       lastChecked: new Date("2026-03-14T12:10:00.000Z"),
@@ -1736,7 +1733,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const sources = [
       { name: "A", url: "https://a.com/feed" },
       { name: "B", url: "https://b.com/feed" },
@@ -1752,7 +1749,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources returns empty array for all-duplicate input", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const result = normalizeFeedBatchSources([
       { name: "X", url: "https://x.com/feed" },
       { name: "X", url: "https://x.com/feed" },
@@ -1762,7 +1759,7 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature produces stable sorted string", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const a = buildBatchRequestSignature([
       { name: "B", url: "https://b.com/feed" },
       { name: "A", url: "https://a.com/feed" },
@@ -1778,13 +1775,13 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature returns empty string for empty input", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     expect(buildBatchRequestSignature([])).toBe("");
   });
 
   test("mapFeedNodesToBatchSources filters nodes without url", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const nodes = [
       { data: { url: "https://a.com/rss" }, label: "Feed A" },
       { data: {}, label: "No URL" },
@@ -1798,7 +1795,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapFeedNodesToBatchSources handles null/undefined data", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     const nodes = [
       { data: null, label: "No data" },
       { data: undefined, label: "No node" },
@@ -1809,7 +1806,7 @@ describe("feed-batch pure helpers", () => {
 
   test("FEED_LOADING_FAILSAFE_MS is a positive number", async () => {
     const { FEED_LOADING_FAILSAFE_MS } =
-      await import("@/app/dashboard/dashboard-services/feed-data");
+      await import("@/app/dashboard/services/feed-data");
     expect(typeof FEED_LOADING_FAILSAFE_MS).toBe("number");
     expect(FEED_LOADING_FAILSAFE_MS).toBeGreaterThan(0);
   });

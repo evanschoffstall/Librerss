@@ -1,16 +1,16 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
-import { FEED_ROW_GAP_PX } from "@/app/dashboard/dashboard-components/feed-config";
-import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
-import { FeedLoadMoreSkeletonBlock } from "@/app/dashboard/dashboard-components/feed-view/FeedListSkeleton";
+import { DashboardToolbarSkeleton } from "@/app/dashboard/components";
+import { FEED_ROW_GAP_PX } from "@/app/dashboard/components/feed-config";
+import { FeedListSkeleton } from "@/app/dashboard/components/feed-view";
+import { FeedLoadMoreSkeletonBlock } from "@/app/dashboard/components/feed-view/FeedListSkeleton";
 import {
   DashboardFeedViewport,
   DashboardFilterBarSkeleton,
   DashboardScaffold,
   DashboardSidebarSkeleton,
-} from "@/app/dashboard/dashboard-components/layout";
+} from "@/app/dashboard/components/layout";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /** Constructs the same shell skeleton composition used by page.tsx and DashboardRouter. */

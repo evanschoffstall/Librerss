@@ -7,26 +7,26 @@ import {
   shouldBlockArticleWindowLoadMore,
   shouldRefillDepletedUnreadWindow,
   sortArticlesByOrder,
-} from "@/app/dashboard/dashboard-services/article";
+} from "@/app/dashboard/services/article";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "@/app/dashboard/dashboard-services/article-collection";
+} from "@/app/dashboard/services/article-collection";
 import {
   buildDisplayCategories,
   computeNextOrderedCategoryLabels,
-} from "@/app/dashboard/dashboard-services/category";
+} from "@/app/dashboard/services/category";
 import {
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
   buildDashboardViewModel,
   filterArticlesBySearchTerm,
-} from "@/app/dashboard/dashboard-services/dashboard-state";
+} from "@/app/dashboard/services/dashboard-state";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
   resolveFeedBatchResults,
-} from "@/app/dashboard/dashboard-services/feed-data";
+} from "@/app/dashboard/services/feed-data";
 import { isArticleSortOrder } from "@/lib/core";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveSelectedAnchorSnapshot } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useInvertedPaginationAnchor";
+import { resolveSelectedAnchorSnapshot } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useInvertedPaginationAnchor";
 
 describe("resolveSelectedAnchorSnapshot", () => {
   test("uses the pending snapshot at the inverted load boundary", () => {

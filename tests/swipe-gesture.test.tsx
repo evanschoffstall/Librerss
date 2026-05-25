@@ -7,7 +7,7 @@ import {
   SWIPE_THRESHOLD,
   type SwipePhase,
   useSwipeGesture,
-} from "@/app/dashboard/dashboard-components/article-view/hooks";
+} from "@/app/dashboard/components/article-view/hooks";
 
 beforeEach(() => mock.restore());
 afterEach(() => mock.restore());

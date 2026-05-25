@@ -13,7 +13,7 @@ import {
   mergeHydratedContent,
   resolveExpandedArticleKey,
   summarizeBatchResults,
-} from "@/app/dashboard/dashboard-services/feed-loader-state";
+} from "@/app/dashboard/services/feed-loader-state";
 
 function makeArticle(overrides: Partial<Article> = {}): Article {
   return {

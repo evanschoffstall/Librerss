@@ -7,11 +7,11 @@ import {
   filterArticlesByState,
   getArticleSourceLabel,
   getRichContentClass,
-} from "@/app/dashboard/dashboard-services/article";
+} from "@/app/dashboard/services/article";
 import {
   dedupeAndSortArticles,
   getArticleKey,
-} from "@/app/dashboard/dashboard-services/article-collection";
+} from "@/app/dashboard/services/article-collection";
 
 function createArticle(overrides: Partial<Article> = {}): Article {
   return {

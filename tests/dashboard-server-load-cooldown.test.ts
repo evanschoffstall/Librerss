@@ -4,7 +4,7 @@ import { describe, expect, mock, test } from "bun:test";
 import {
   completeFeedServerLoadCooldown,
   useFeedPaginationServerLoad,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationServerLoad";
 
 function buildCooldownOptions(
   overrides?: Partial<Parameters<typeof completeFeedServerLoadCooldown>[0]>,

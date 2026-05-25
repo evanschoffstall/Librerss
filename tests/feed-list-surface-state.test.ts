@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   findTopVisibleInvertedPaginationAnchorArticleKey,
   findVisibleInvertedRemovalAnchorArticleKey,
-} from "@/app/dashboard/dashboard-components/feed-view/list-state/useFeedListSurfaceState";
+} from "@/app/dashboard/components/feed-view/list-state/useFeedListSurfaceState";
 
 function appendViewportArticle(
   viewport: HTMLElement,

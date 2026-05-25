@@ -25,22 +25,22 @@ import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import {
   filterArticleKeysBySettledState,
   filterArticleMapBySettledState,
-} from "@/app/dashboard/dashboard-hooks/article-actions/articleStatusMutationSettledState";
-import { useFeedLoader } from "@/app/dashboard/dashboard-hooks/feed-loader";
-import { useArticleActions } from "@/app/dashboard/dashboard-hooks/useArticleActions";
+} from "@/app/dashboard/hooks/article-actions/articleStatusMutationSettledState";
+import { useFeedLoader } from "@/app/dashboard/hooks/feed-loader";
+import { useArticleActions } from "@/app/dashboard/hooks/useArticleActions";
 import {
   escapeArticleKey,
   useArticleHydration,
-} from "@/app/dashboard/dashboard-hooks/useArticleHydration";
-import { useArticleReadState } from "@/app/dashboard/dashboard-hooks/useArticleReadState";
-import { useCategoryOrderState } from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
+} from "@/app/dashboard/hooks/useArticleHydration";
+import { useArticleReadState } from "@/app/dashboard/hooks/useArticleReadState";
+import { useCategoryOrderState } from "@/app/dashboard/hooks/useCategoryOrderState";
 import {
   runDashboardViewportReadCommand,
   useDashboardEvents,
-} from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
-import { type FeedBatchSource } from "@/app/dashboard/dashboard-services/feed-data";
-import { buildFeedBatchOutcome } from "@/app/dashboard/dashboard-services/feed-data";
-import { getFeedSourceTreeQueryKey } from "@/app/dashboard/dashboard-services/feed-view-model";
+} from "@/app/dashboard/hooks/useDashboardEvents";
+import { type FeedBatchSource } from "@/app/dashboard/services/feed-data";
+import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-data";
+import { getFeedSourceTreeQueryKey } from "@/app/dashboard/services/feed-view-model";
 import { ArticleService, FeedService } from "@/lib/api";
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 

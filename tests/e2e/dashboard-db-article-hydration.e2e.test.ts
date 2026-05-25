@@ -8,7 +8,7 @@ import {
   DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services";
+} from "@/app/dashboard/services";
 import {
   articles,
   articleStatuses,

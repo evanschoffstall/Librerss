@@ -63,7 +63,7 @@ const mockMotion = new Proxy(realMotionReactModule.motion, {
 
 function loadLoginValidationModule() {
   return import(
-    `@/app/dashboard/dashboard-components/login/login-state?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/login/login-state?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -77,7 +77,7 @@ function loadUseLoginViewStateModule() {
   }));
 
   return import(
-    `@/app/dashboard/dashboard-components/login/login-state/useLoginViewState?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/login/login-state/useLoginViewState?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -86,96 +86,93 @@ function setupLoginViewModule() {
     ...realMotionReactModule,
     motion: mockMotion,
   }));
-  mock.module("@/app/dashboard/dashboard-components/login/login-state", () => ({
+  mock.module("@/app/dashboard/components/login/login-state", () => ({
     useLoginViewState: useLoginViewStateMock,
   }));
-  mock.module(
-    "@/app/dashboard/dashboard-components/login/LoginCardContent",
-    () => ({
-      LoginCardContent: (props: {
-        fieldErrors: { form?: string };
-        onChangeConfirmPassword: (value: string) => void;
-        onChangeEmail: (value: string) => void;
-        onChangeLegalTerms: (checked: boolean) => void;
-        onChangePassword: (value: string) => void;
-        onEnterPreview?: () => void;
-        onSubmit: () => void;
-        onToggleMode: () => void;
-      }) => (
-        <div>
-          <p>{props.fieldErrors.form}</p>
+  mock.module("@/app/dashboard/components/login/LoginCardContent", () => ({
+    LoginCardContent: (props: {
+      fieldErrors: { form?: string };
+      onChangeConfirmPassword: (value: string) => void;
+      onChangeEmail: (value: string) => void;
+      onChangeLegalTerms: (checked: boolean) => void;
+      onChangePassword: (value: string) => void;
+      onEnterPreview?: () => void;
+      onSubmit: () => void;
+      onToggleMode: () => void;
+    }) => (
+      <div>
+        <p>{props.fieldErrors.form}</p>
+        <button
+          onClick={() => {
+            triggerEmailChangeMock();
+            props.onChangeEmail("person@example.com");
+          }}
+          type="button"
+        >
+          trigger-email
+        </button>
+        <button
+          onClick={() => {
+            triggerPasswordMock();
+            props.onChangePassword("password123");
+          }}
+          type="button"
+        >
+          trigger-password
+        </button>
+        <button
+          onClick={() => {
+            triggerConfirmChangeMock();
+            props.onChangeConfirmPassword("password123");
+          }}
+          type="button"
+        >
+          trigger-confirm
+        </button>
+        <button
+          onClick={() => {
+            triggerLegalChangeMock();
+            props.onChangeLegalTerms(true);
+          }}
+          type="button"
+        >
+          trigger-legal
+        </button>
+        <button
+          onClick={() => {
+            triggerSubmitMock();
+            props.onSubmit();
+          }}
+          type="button"
+        >
+          trigger-submit
+        </button>
+        <button
+          onClick={() => {
+            triggerToggleMock();
+            props.onToggleMode();
+          }}
+          type="button"
+        >
+          trigger-toggle
+        </button>
+        {props.onEnterPreview ? (
           <button
             onClick={() => {
-              triggerEmailChangeMock();
-              props.onChangeEmail("person@example.com");
+              triggerPreviewMock();
+              props.onEnterPreview?.();
             }}
             type="button"
           >
-            trigger-email
+            trigger-preview
           </button>
-          <button
-            onClick={() => {
-              triggerPasswordMock();
-              props.onChangePassword("password123");
-            }}
-            type="button"
-          >
-            trigger-password
-          </button>
-          <button
-            onClick={() => {
-              triggerConfirmChangeMock();
-              props.onChangeConfirmPassword("password123");
-            }}
-            type="button"
-          >
-            trigger-confirm
-          </button>
-          <button
-            onClick={() => {
-              triggerLegalChangeMock();
-              props.onChangeLegalTerms(true);
-            }}
-            type="button"
-          >
-            trigger-legal
-          </button>
-          <button
-            onClick={() => {
-              triggerSubmitMock();
-              props.onSubmit();
-            }}
-            type="button"
-          >
-            trigger-submit
-          </button>
-          <button
-            onClick={() => {
-              triggerToggleMock();
-              props.onToggleMode();
-            }}
-            type="button"
-          >
-            trigger-toggle
-          </button>
-          {props.onEnterPreview ? (
-            <button
-              onClick={() => {
-                triggerPreviewMock();
-                props.onEnterPreview?.();
-              }}
-              type="button"
-            >
-              trigger-preview
-            </button>
-          ) : null}
-        </div>
-      ),
-    }),
-  );
+        ) : null}
+      </div>
+    ),
+  }));
 
   return import(
-    `@/app/dashboard/dashboard-components/login/LoginView?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/login/LoginView?test=${Date.now()}-${Math.random()}`
   );
 }
 

@@ -4,9 +4,9 @@ import { toast } from "sonner";
 
 import type { Article } from "@/lib/core";
 
-import { useDashboardArticleCallbacks } from "@/app/dashboard/dashboard-hooks/useDashboardArticleCallbacks";
-import { useFeedLoadingTimeout } from "@/app/dashboard/dashboard-hooks/useFeedLoadingTimeout";
-import { useRefreshStatus } from "@/app/dashboard/dashboard-hooks/useRefreshStatus";
+import { useDashboardArticleCallbacks } from "@/app/dashboard/hooks/useDashboardArticleCallbacks";
+import { useFeedLoadingTimeout } from "@/app/dashboard/hooks/useFeedLoadingTimeout";
+import { useRefreshStatus } from "@/app/dashboard/hooks/useRefreshStatus";
 
 const originalSetTimeout = window.setTimeout;
 const originalClearTimeout = window.clearTimeout;

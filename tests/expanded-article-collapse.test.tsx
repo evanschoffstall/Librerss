@@ -5,7 +5,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import type { Article } from "@/lib/core";
 
-import { useExpandedArticleCollapse } from "@/app/dashboard/dashboard-hooks/article-actions/useExpandedArticleCollapse";
+import { useExpandedArticleCollapse } from "@/app/dashboard/hooks/article-actions/useExpandedArticleCollapse";
 
 afterEach(() => {
   mock.restore();

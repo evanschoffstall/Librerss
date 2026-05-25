@@ -6,7 +6,7 @@ import type { Article } from "@/lib/core";
 import {
   applyReadSwipeAction,
   ArticleCard,
-} from "@/app/dashboard/dashboard-components/article-view/ArticleCard";
+} from "@/app/dashboard/components/article-view/ArticleCard";
 
 beforeEach(() => {
   mock.restore();

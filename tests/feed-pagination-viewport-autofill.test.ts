@@ -1,6 +1,6 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import { maybeAutoFillViewportNow } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportAutoFill";
+import { maybeAutoFillViewportNow } from "@/app/dashboard/components/feed-view/feed-list-surface-state/feedPaginationViewportAutoFill";
 
 function createAutoFillOptions(
   overrides: Partial<Parameters<typeof maybeAutoFillViewportNow>[0]> = {},

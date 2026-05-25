@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, test } from "bun:test";
 
-import { FeedEmptyState } from "@/app/dashboard/dashboard-components/feed-view/FeedEmptyState";
+import { FeedEmptyState } from "@/app/dashboard/components/feed-view/FeedEmptyState";
 
 describe("FeedEmptyState", () => {
   test("renders the search empty state with the trimmed query token", () => {

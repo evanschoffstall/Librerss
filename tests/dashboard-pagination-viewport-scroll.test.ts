@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import {
   createViewportBoundaryHandlers,
   createViewportScrollHandler,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/feedPaginationViewportScroll";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state/feedPaginationViewportScroll";
 
 describe("createViewportScrollHandler", () => {
   let originalRequestAnimationFrame: typeof global.requestAnimationFrame;

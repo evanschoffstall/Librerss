@@ -5,19 +5,19 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import * as realSonnerModule from "sonner";
 
+import { DashboardToolbar as realDashboardToolbar } from "@/app/dashboard/components";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { DashboardToolbar as realDashboardToolbar } from "@/app/dashboard/dashboard-components";
 import {
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services";
+} from "@/app/dashboard/services";
 import * as realUiSkeleton from "@/components/ui/skeleton";
 import { AuthService } from "@/lib/api";
 
 async function loadDashboardToolbar() {
   return import(
-    `@/app/dashboard/dashboard-components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/DashboardToolbar?test=${Date.now()}-${Math.random()}`
   );
 }
 
@@ -480,7 +480,7 @@ function getByLabelTextOrThrow(label: string) {
 
 /** Installs module mocks for toolbar dependencies before importing the subject. */
 function mockToolbarDependencies() {
-  mock.module("@/app/dashboard/dashboard-components/DashboardToolbar", () => ({
+  mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
     DashboardToolbar: realDashboardToolbar,
   }));
   mock.module("@/components/ui/skeleton", () => realUiSkeleton);

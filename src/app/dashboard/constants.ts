@@ -1,4 +1,4 @@
-import * as dashboardConstants from "@/app/dashboard/dashboard-services/dashboard-constants";
+import * as dashboardConstants from "@/app/dashboard/services/dashboard-constants";
 
 const {
   ALL_FEEDS_NODE_KEY,
@@ -21,4 +21,4 @@ export {
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
   SETTINGS_PANEL_TAB_STORAGE_KEY,
 };
-export type { BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
+export type { BackgroundMode } from "@/app/dashboard/services/dashboard-constants";

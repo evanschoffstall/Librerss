@@ -3,9 +3,9 @@ import type { SetStateAction } from "react";
 import { fireEvent, render } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 
-import type { UseSettingsProxyStateResult } from "@/app/dashboard/settings-state/useSettingsProxyState";
+import type { UseSettingsProxyStateResult } from "@/app/dashboard/settings/useSettingsProxyState";
 
-import { previewText } from "@/app/dashboard/dashboard-services/settings-proxy";
+import { previewText } from "@/app/dashboard/services/settings-proxy";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 const proxyState = createProxyState();
@@ -273,13 +273,13 @@ async function renderProxySection() {
     "src",
     "app",
     "dashboard",
-    "dashboard-components",
+    "components",
     "settings-dialog",
     "SettingsProxySection.tsx",
   ].join("/");
   const { SettingsProxySectionContent } = (await import(
     `${modulePath}?settings-proxy-section-test`
-  )) as typeof import("@/app/dashboard/dashboard-components/settings-dialog/SettingsProxySection");
+  )) as typeof import("@/app/dashboard/components/settings-dialog/SettingsProxySection");
 
   return render(
     <TooltipProvider>

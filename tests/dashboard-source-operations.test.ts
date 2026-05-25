@@ -10,8 +10,8 @@ import {
   moveCategoryByDropInOrder,
   removeCategoryAndRefresh,
   renameCategoryAndRefresh,
-} from "@/app/dashboard/dashboard-services/category";
-import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
+} from "@/app/dashboard/services/category";
+import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/services/dashboard-constants";
 import {
   addFeedSourceAndRefresh,
   moveFeedByDropAndPersist,
@@ -20,8 +20,8 @@ import {
   selectFeedByKeyFromCategories,
   setFeedSourceEnabledAndRefresh,
   updateFeedSettingsAndRefresh,
-} from "@/app/dashboard/dashboard-services/feed-data/source/operations";
-import { importOpmlFeedsAndRefresh } from "@/app/dashboard/dashboard-services/opml-import";
+} from "@/app/dashboard/services/feed-data/source/operations";
+import { importOpmlFeedsAndRefresh } from "@/app/dashboard/services/opml-import";
 import { ApiError, FeedService } from "@/lib/api";
 import { DEFAULT_CATEGORY_LABEL } from "@/lib/utils";
 

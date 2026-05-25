@@ -8,14 +8,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/dashboard-hooks/useDashboardIntervals";
-import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/dashboard-services/feed-data";
+import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/hooks/useDashboardIntervals";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-data";
 import {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
   resolveFeedBatchStaleTime,
   shouldNotifyFeedFailureToast,
-} from "@/app/dashboard/dashboard-services/feed-loader-state";
+} from "@/app/dashboard/services/feed-loader-state";
 import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
 
 const originalToastError = toast.error;

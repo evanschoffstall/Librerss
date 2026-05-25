@@ -134,12 +134,9 @@ describe("AppThemeProvider", () => {
         );
       },
     }));
-    mock.module(
-      "@/app/dashboard/dashboard-components/DashboardToolbar",
-      () => ({
-        DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
-      }),
-    );
+    mock.module("@/app/dashboard/components/DashboardToolbar", () => ({
+      DashboardToolbar: () => <div data-testid="mock-dashboard-toolbar" />,
+    }));
   });
 
   afterEach(() => {

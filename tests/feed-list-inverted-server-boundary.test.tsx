@@ -7,7 +7,7 @@ import * as React from "react";
 import {
   FEED_SERVER_LOAD_REARM_COOLDOWN_MS,
   SKELETON_MIN_VISIBLE_MS,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state/view-core";
 
 import {
   buildFeedListArticle,
@@ -17,7 +17,7 @@ import {
   setFeedListMobileViewport,
 } from "./feed-list-test-utils";
 
-let FeedList: typeof import("@/app/dashboard/dashboard-components/feed-view/FeedList").FeedList;
+let FeedList: typeof import("@/app/dashboard/components/feed-view/FeedList").FeedList;
 const originalConsoleError = console.error;
 
 type MockMotionProps = React.HTMLAttributes<HTMLElement> & {
@@ -138,7 +138,7 @@ beforeEach(async () => {
   }));
   installFeedListDomMocks();
   ({ FeedList } = await import(
-    `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
   ));
 });
 

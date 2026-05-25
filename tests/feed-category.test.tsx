@@ -43,7 +43,7 @@ async function loadFeedCategory() {
     motion,
   }));
   return import(
-    `@/app/dashboard/dashboard-components/layout/SidebarFeedCategory?test=${feedCategoryImportVersion}`
+    `@/app/dashboard/components/layout/SidebarFeedCategory?test=${feedCategoryImportVersion}`
   );
 }
 

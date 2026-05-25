@@ -9,13 +9,13 @@ import {
 } from "./feed-list-test-utils";
 
 const articleRenderCounts = new Map<string, number>();
-let FeedArticleRow: typeof import("../src/app/dashboard/dashboard-components/feed-view/FeedArticleRow").FeedArticleRow;
+let FeedArticleRow: typeof import("../src/app/dashboard/components/feed-view/FeedArticleRow").FeedArticleRow;
 let feedArticleRowImportVersion = 0;
 
 async function loadFeedArticleRow() {
   feedArticleRowImportVersion += 1;
   return import(
-    `../src/app/dashboard/dashboard-components/feed-view/FeedArticleRow?test=${feedArticleRowImportVersion}`
+    `../src/app/dashboard/components/feed-view/FeedArticleRow?test=${feedArticleRowImportVersion}`
   );
 }
 

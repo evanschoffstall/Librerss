@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, test } from "bun:test";
 import * as React from "react";
 
-import { useFeedViewportState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
+import { useFeedViewportState } from "@/app/dashboard/components/feed-view/feed-list-surface-state";
 
 afterEach(() => {
   document.body.innerHTML = "";

@@ -4,8 +4,8 @@ import { describe, expect, test } from "bun:test";
 import {
   DashboardToolbarMobileActions,
   DashboardToolbarMobileMenuButton,
-} from "@/app/dashboard/dashboard-components/DashboardToolbarMobileActions";
-import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components/DashboardToolbarSkeleton";
+} from "@/app/dashboard/components/DashboardToolbarMobileActions";
+import { DashboardToolbarSkeleton } from "@/app/dashboard/components/DashboardToolbarSkeleton";
 
 /** Creates a stable no-op callback for toolbar action style tests. */
 function noop() {}

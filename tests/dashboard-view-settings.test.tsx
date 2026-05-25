@@ -50,14 +50,14 @@ describe("DashboardView settings wiring", () => {
   test("renders the tabbed settings panel when settings are open", async () => {
     mock.restore();
     mock.module(
-      "@/app/dashboard/dashboard-components/settings-dialog/SettingsPanel",
+      "@/app/dashboard/components/settings-dialog/SettingsPanel",
       () => ({
         SettingsPanel: () => <div data-testid="settings-panel" />,
       }),
     );
 
     const { DashboardSettingsModal } =
-      await import("@/app/dashboard/dashboard-view/settings-modal");
+      await import("@/app/dashboard/view/DashboardSettingsModal");
     const { getByTestId } = render(
       <DashboardSettingsModal settings={settings as never} />,
     );

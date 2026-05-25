@@ -4,7 +4,6 @@
     "check-suite.config.ts",
     "tests/regen-extraction-proof-runner.ts",
     "src/app/**/*.{ts,tsx}",
-    "src/public.ts",
     "src/lib/core/server-core/index.ts",
     "scripts/**/*.{ts,mjs}"
   ],

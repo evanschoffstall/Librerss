@@ -11,19 +11,19 @@ const useUnreadWindowRefillMock = mock();
 
 async function loadControllerSectionsModule() {
   return import(
-    `@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/hooks/dashboard-controller/useDashboardControllerSections?test=${Date.now()}-${Math.random()}`
   );
 }
 
 function setupArticleWindowModule() {
   mock.module(
-    "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPaging",
+    "@/app/dashboard/hooks/dashboard-controller/dashboardArticleWindowPaging",
     () => ({
       getDashboardArticleWindowCounts: getDashboardArticleWindowCountsMock,
     }),
   );
   mock.module(
-    "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowEffects",
+    "@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindowEffects",
     () => ({
       useArticleWindowAvailability: useArticleWindowAvailabilityMock,
       useResetArticleWindowOnSelectionChange:
@@ -32,13 +32,13 @@ function setupArticleWindowModule() {
     }),
   );
   mock.module(
-    "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowLoadMore",
+    "@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindowLoadMore",
     () => ({
       useDashboardArticleWindowLoadMore: useDashboardArticleWindowLoadMoreMock,
     }),
   );
   mock.module(
-    "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch",
+    "@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindowPrefetch",
     () => ({
       useDashboardArticleWindowLoadingState:
         useDashboardArticleWindowLoadingStateMock,
@@ -47,7 +47,7 @@ function setupArticleWindowModule() {
   );
 
   return import(
-    `@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindow?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindow?test=${Date.now()}-${Math.random()}`
   );
 }
 

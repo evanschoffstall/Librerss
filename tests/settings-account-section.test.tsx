@@ -2,7 +2,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
-import { SettingsAccountSection } from "@/app/dashboard/dashboard-components/settings-dialog/SettingsAccountSection";
+import { SettingsAccountSection } from "@/app/dashboard/components/settings-dialog/SettingsAccountSection";
 import { AccountService, InvitationService } from "@/lib/api";
 
 const originalConfirm = window.confirm;

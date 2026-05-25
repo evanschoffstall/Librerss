@@ -14,15 +14,15 @@ import * as realNextThemesModule from "next-themes";
 import * as realNextNavigationModule from "next/navigation";
 import * as realSonnerModule from "sonner";
 
-import * as realBackgroundHooksModule from "@/app/dashboard/dashboard-components/background-hooks";
-import * as realDashboardToolbarModule from "@/app/dashboard/dashboard-components/DashboardToolbar";
-import * as realMotionSpinnerModule from "@/app/dashboard/dashboard-components/status/MotionSpinner";
-import * as realUseFeedSourceActionsModule from "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions";
-import * as realUseCategoryCrudActionsModule from "@/app/dashboard/dashboard-hooks/useCategoryCrudActions";
-import * as realUseCategoryOrderStateModule from "@/app/dashboard/dashboard-hooks/useCategoryOrderState";
-import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/dashboard-hooks/useDashboardCategoryTree";
-import * as realUseDashboardIntervalsModule from "@/app/dashboard/dashboard-hooks/useDashboardIntervals";
-import * as realSettingsStateModule from "@/app/dashboard/settings-state";
+import * as realBackgroundHooksModule from "@/app/dashboard/components/background-hooks";
+import * as realDashboardToolbarModule from "@/app/dashboard/components/DashboardToolbar";
+import * as realMotionSpinnerModule from "@/app/dashboard/components/status/MotionSpinner";
+import * as realUseFeedSourceActionsModule from "@/app/dashboard/hooks/category-tree/useFeedSourceActions";
+import * as realUseCategoryCrudActionsModule from "@/app/dashboard/hooks/useCategoryCrudActions";
+import * as realUseCategoryOrderStateModule from "@/app/dashboard/hooks/useCategoryOrderState";
+import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/hooks/useDashboardCategoryTree";
+import * as realUseDashboardIntervalsModule from "@/app/dashboard/hooks/useDashboardIntervals";
+import * as realSettingsStateModule from "@/app/dashboard/settings";
 import * as realToolbarModule from "@/app/dashboard/toolbar";
 import * as realUiButtonModule from "@/components/ui/button";
 import * as realUiDialogModule from "@/components/ui/dialog";
@@ -207,37 +207,34 @@ afterEach(() => {
       () => realMotionSpinnerModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-components/DashboardToolbar",
+      "@/app/dashboard/components/DashboardToolbar",
       () => realDashboardToolbarModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-components/background-hooks",
+      "@/app/dashboard/components/background-hooks",
       () => realBackgroundHooksModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-hooks/useCategoryCrudActions",
+      "@/app/dashboard/hooks/useCategoryCrudActions",
       () => realUseCategoryCrudActionsModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-hooks/useCategoryOrderState",
+      "@/app/dashboard/hooks/useCategoryOrderState",
       () => realUseCategoryOrderStateModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-hooks/useDashboardCategoryTree",
+      "@/app/dashboard/hooks/useDashboardCategoryTree",
       () => realUseDashboardCategoryTreeModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-hooks/useDashboardIntervals",
+      "@/app/dashboard/hooks/useDashboardIntervals",
       () => realUseDashboardIntervalsModule,
     );
     mock.module(
-      "@/app/dashboard/dashboard-hooks/category-tree/useFeedSourceActions",
+      "@/app/dashboard/hooks/category-tree/useFeedSourceActions",
       () => realUseFeedSourceActionsModule,
     );
-    mock.module(
-      "@/app/dashboard/settings-state",
-      () => realSettingsStateModule,
-    );
+    mock.module("@/app/dashboard/settings", () => realSettingsStateModule);
     mock.module("@/app/dashboard/toolbar", () => realToolbarModule);
     mock.module(
       "@/lib/api/feed-source-api/read",

@@ -8,7 +8,7 @@ import {
   drawBackgroundStar,
   resolveBackgroundStarPointerOffset,
   updateBackgroundStar,
-} from "@/app/dashboard/dashboard-components/BackgroundStars.scene";
+} from "@/app/dashboard/components/BackgroundStars.scene";
 
 function withRandomValues(values: number[], callback: () => void) {
   const originalRandom = Math.random;
@@ -132,26 +132,21 @@ describe("background stack", () => {
       },
       useReducedMotion: () => reducedMotion,
     }));
-    mock.module(
-      "@/app/dashboard/dashboard-components/BackgroundParticles",
-      () => ({
-        default: ({ color }: { color: string }) => (
-          <div data-particles={color} />
-        ),
-      }),
-    );
-    mock.module("@/app/dashboard/dashboard-components/BackgroundStars", () => ({
+    mock.module("@/app/dashboard/components/BackgroundParticles", () => ({
+      default: ({ color }: { color: string }) => <div data-particles={color} />,
+    }));
+    mock.module("@/app/dashboard/components/BackgroundStars", () => ({
       default: ({ color }: { color: string }) => <div data-stars={color} />,
     }));
 
     const { ParticlesBackground, StarsBackgroundLight } = await import(
-      `@/app/dashboard/dashboard-components/Background?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/Background?test=${Date.now()}-${Math.random()}`
     );
     const { useBackgroundCanvasAnimation } = await import(
-      `@/app/dashboard/dashboard-components/background-hooks/useBackgroundCanvasAnimation?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/background-hooks/useBackgroundCanvasAnimation?test=${Date.now()}-${Math.random()}`
     );
     const { useBackgroundCanvasWindowEvents } = await import(
-      `@/app/dashboard/dashboard-components/background-hooks/useBackgroundCanvasWindowEvents?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/background-hooks/useBackgroundCanvasWindowEvents?test=${Date.now()}-${Math.random()}`
     );
 
     const particles = render(<ParticlesBackground quantity={12} />);
@@ -359,15 +354,10 @@ describe("background stack", () => {
   });
 
   test("renders the remaining background wrapper variants and default quantities", async () => {
-    mock.module(
-      "@/app/dashboard/dashboard-components/BackgroundParticles",
-      () => ({
-        default: ({ color }: { color: string }) => (
-          <div data-particles={color} />
-        ),
-      }),
-    );
-    mock.module("@/app/dashboard/dashboard-components/BackgroundStars", () => ({
+    mock.module("@/app/dashboard/components/BackgroundParticles", () => ({
+      default: ({ color }: { color: string }) => <div data-particles={color} />,
+    }));
+    mock.module("@/app/dashboard/components/BackgroundStars", () => ({
       default: ({ color }: { color: string }) => <div data-stars={color} />,
     }));
 
@@ -377,7 +367,7 @@ describe("background stack", () => {
       StarsBackground,
       StarsBackgroundLight,
     } = await import(
-      `@/app/dashboard/dashboard-components/Background?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/Background?test=${Date.now()}-${Math.random()}`
     );
     const defaultParticles = render(<ParticlesBackground />);
     const particles = render(<ParticlesBackgroundLight quantity={3} />);
@@ -469,26 +459,21 @@ describe("background stack", () => {
       get: () => containerHeight,
     });
     canvasPrototype.getContext = getContext;
-    mock.module(
-      "@/app/dashboard/dashboard-components/background-hooks",
-      () => ({
-        useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
-          animationOptions = options;
-        },
-        useBackgroundCanvasRefs: () => ({
-          canvasContainerRef: useRef<HTMLDivElement | null>(null),
-          canvasRef: useRef<HTMLCanvasElement | null>(null),
-        }),
-        useBackgroundCanvasWindowEvents: (
-          options: typeof windowEventOptions,
-        ) => {
-          windowEventOptions = options;
-        },
+    mock.module("@/app/dashboard/components/background-hooks", () => ({
+      useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
+        animationOptions = options;
+      },
+      useBackgroundCanvasRefs: () => ({
+        canvasContainerRef: useRef<HTMLDivElement | null>(null),
+        canvasRef: useRef<HTMLCanvasElement | null>(null),
       }),
-    );
+      useBackgroundCanvasWindowEvents: (options: typeof windowEventOptions) => {
+        windowEventOptions = options;
+      },
+    }));
 
     const { default: BackgroundParticles } = await import(
-      `@/app/dashboard/dashboard-components/BackgroundParticles?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/BackgroundParticles?test=${Date.now()}-${Math.random()}`
     );
     const view = render(
       <BackgroundParticles
@@ -633,26 +618,21 @@ describe("background stack", () => {
       configurable: true,
       get: () => containerHeight,
     });
-    mock.module(
-      "@/app/dashboard/dashboard-components/background-hooks",
-      () => ({
-        useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
-          animationOptions = options;
-        },
-        useBackgroundCanvasRefs: () => ({
-          canvasContainerRef: useRef<HTMLDivElement | null>(null),
-          canvasRef: useRef<HTMLCanvasElement | null>(null),
-        }),
-        useBackgroundCanvasWindowEvents: (
-          options: typeof windowEventOptions,
-        ) => {
-          windowEventOptions = options;
-        },
+    mock.module("@/app/dashboard/components/background-hooks", () => ({
+      useBackgroundCanvasAnimation: (options: typeof animationOptions) => {
+        animationOptions = options;
+      },
+      useBackgroundCanvasRefs: () => ({
+        canvasContainerRef: useRef<HTMLDivElement | null>(null),
+        canvasRef: useRef<HTMLCanvasElement | null>(null),
       }),
-    );
+      useBackgroundCanvasWindowEvents: (options: typeof windowEventOptions) => {
+        windowEventOptions = options;
+      },
+    }));
 
     const { default: BackgroundStars } = await import(
-      `@/app/dashboard/dashboard-components/BackgroundStars?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/BackgroundStars?test=${Date.now()}-${Math.random()}`
     );
     const view = render(
       <BackgroundStars

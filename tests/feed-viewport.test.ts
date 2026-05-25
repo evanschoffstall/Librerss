@@ -5,7 +5,7 @@ import {
   isDashboardFeedViewport,
   observeFeedViewportLayout,
   resolveFeedViewport,
-} from "@/app/dashboard/dashboard-services/feed-data";
+} from "@/app/dashboard/services/feed-data";
 
 class MutationObserverMock {
   static instances: MutationObserverMock[] = [];

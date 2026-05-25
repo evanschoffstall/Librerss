@@ -172,7 +172,7 @@ mock.module("@/app/dashboard/components/MotionSpinner", () => ({
 }));
 
 const { SettingsFeedRow } =
-  await import("@/app/dashboard/dashboard-components/settings-dialog/SettingsFeedRow");
+  await import("@/app/dashboard/components/settings-dialog/SettingsFeedRow");
 
 const TEST_FEED: CategoryTreeNode = {
   children: [],

@@ -6,7 +6,7 @@ describe("dashboard preview mode", () => {
       isDashboardPreviewModeEnabled,
       resolveDashboardPreviewMode,
       setDashboardPreviewPersistence,
-    } = await import("@/app/dashboard/preview-mode");
+    } = await import("@/app/dashboard/preview");
 
     expect(isDashboardPreviewModeEnabled("1")).toBe(true);
     expect(isDashboardPreviewModeEnabled("0")).toBe(false);
@@ -27,7 +27,7 @@ describe("dashboard preview mode", () => {
 
   test("setDashboardPreviewPersistence is a no-op when document is unavailable", async () => {
     const { setDashboardPreviewPersistence } =
-      await import("@/app/dashboard/preview-mode");
+      await import("@/app/dashboard/preview");
     const originalDocument = globalThis.document;
 
     Object.defineProperty(globalThis, "document", {

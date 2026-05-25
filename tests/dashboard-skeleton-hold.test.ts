@@ -1,8 +1,8 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
-import { useServerLoadSkeletonHold } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useServerLoadSkeletonHold";
-import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/view-core";
+import { useServerLoadSkeletonHold } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useServerLoadSkeletonHold";
+import { SKELETON_MIN_VISIBLE_MS } from "@/app/dashboard/components/feed-view/feed-list-surface-state/view-core";
 
 // ---------------------------------------------------------------------------
 // Timer control

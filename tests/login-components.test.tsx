@@ -21,25 +21,25 @@ async function loadLoginComponents() {
     primaryActionsModule,
   ] = await Promise.all([
     import(
-      `@/app/dashboard/dashboard-components/login/LoginCardContent?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginCardContent?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginCardHeader?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginCardHeader?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginFieldError?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginFieldError?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginFooterLinks?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginFooterLinks?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginInputField?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginInputField?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginLegalConsent?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginLegalConsent?test=${Date.now()}-${Math.random()}`
     ),
     import(
-      `@/app/dashboard/dashboard-components/login/LoginPrimaryActions?test=${Date.now()}-${Math.random()}`
+      `@/app/dashboard/components/login/LoginPrimaryActions?test=${Date.now()}-${Math.random()}`
     ),
   ]);
 

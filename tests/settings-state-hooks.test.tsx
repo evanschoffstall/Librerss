@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
-import { useSettingsCategoryState } from "@/app/dashboard/settings-state/useSettingsCategoryState";
-import { useSettingsDrag } from "@/app/dashboard/settings-state/useSettingsDrag";
-import { useSettingsFeedEditorState } from "@/app/dashboard/settings-state/useSettingsFeedEditorState";
+import { useSettingsCategoryState } from "@/app/dashboard/settings/useSettingsCategoryState";
+import { useSettingsDrag } from "@/app/dashboard/settings/useSettingsDrag";
+import { useSettingsFeedEditorState } from "@/app/dashboard/settings/useSettingsFeedEditorState";
 
 const originalRequestAnimationFrame = window.requestAnimationFrame;
 const originalCancelAnimationFrame = window.cancelAnimationFrame;

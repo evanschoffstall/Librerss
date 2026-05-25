@@ -1,18 +1,18 @@
 import { cookies } from "next/headers";
 import { Suspense } from "react";
 
-import { DashboardToolbarSkeleton } from "@/app/dashboard/dashboard-components";
-import { FeedListSkeleton } from "@/app/dashboard/dashboard-components/feed-view";
+import { resolveDashboardPageBootstrap } from "@/app/dashboard/bootstrap/state";
+import { DashboardToolbarSkeleton } from "@/app/dashboard/components";
+import { FeedListSkeleton } from "@/app/dashboard/components/feed-view";
 import {
   DashboardFeedViewport,
   DashboardFilterBarSkeleton,
   DashboardScaffold,
   DashboardSidebarSkeleton,
-} from "@/app/dashboard/dashboard-components/layout";
-import { LoginViewSkeleton } from "@/app/dashboard/dashboard-components/login";
-import { DashboardRouter } from "@/app/dashboard/dashboard-router";
-import { resolveDashboardPageBootstrap } from "@/app/dashboard/page-bootstrap/state";
-import { resolveDashboardPreviewMode } from "@/app/dashboard/preview-mode";
+} from "@/app/dashboard/components/layout";
+import { LoginViewSkeleton } from "@/app/dashboard/components/login";
+import { resolveDashboardPreviewMode } from "@/app/dashboard/preview";
+import { DashboardRouter } from "@/app/dashboard/router";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   buildDevAutoLoginRequestPath,

@@ -9,6 +9,6 @@ export {
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
   SETTINGS_PANEL_TAB_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services/dashboard-constants";
-export type { BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
+} from "@/app/dashboard/services/dashboard-constants";
+export type { BackgroundMode } from "@/app/dashboard/services/dashboard-constants";
 export { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "@/app/dashboard/shared/constants";

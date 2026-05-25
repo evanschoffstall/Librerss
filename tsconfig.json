@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -12,7 +16,11 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "types": ["bun", "node", "safe-regex"],
+    "types": [
+      "bun",
+      "node",
+      "safe-regex"
+    ],
     "jsx": "react-jsx",
     "incremental": true,
     "plugins": [
@@ -21,75 +29,150 @@
       }
     ],
     "paths": {
-      "@/components": ["./src/components/index.ts"],
-      "@/components/*": ["./src/components/*"],
-      "@/lib": ["./src/lib/index.ts"],
-      "@/lib/utils": ["./src/lib/utils/index.ts"],
-      "@/lib/sanitize": ["./src/lib/sanitize/index.ts"],
-      "@/lib/server": ["./src/lib/server/index.ts"],
-      "@/lib/api/feeds/*": ["./src/lib/api/feed-source-api/*"],
-      "@/lib/core/server": ["./src/lib/core/server-core/index.ts"],
-      "@/lib/core/article-filters": ["./src/lib/core/filters.ts"],
-      "@/lib/core/article-preview": ["./src/lib/core/preview.ts"],
-      "@/lib/core/article-status": ["./src/lib/core/server-core/status.ts"],
-      "@/lib/core/feed-batch-pipeline": ["./src/lib/core/pipeline.ts"],
-      "@/lib/core/feed-fetcher": ["./src/lib/core/server-core/fetcher.ts"],
-      "@/lib/core/feed-http": ["./src/lib/core/http-client.ts"],
-      "@/lib/core/feed-parser": ["./src/lib/core/parser.ts"],
-      "@/lib/core/feed-refresh": ["./src/lib/core/refresh/index.ts"],
-      "@/lib/core/feed-url-validator": ["./src/lib/core/url-validator.ts"],
-      "@/lib/core/runtime": ["./src/lib/core/runtime.ts"],
+      "@/components": [
+        "./src/components/index.ts"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ],
+      "@/lib": [
+        "./src/lib/index.ts"
+      ],
+      "@/lib/utils": [
+        "./src/lib/utils/index.ts"
+      ],
+      "@/lib/sanitize": [
+        "./src/lib/sanitize/index.ts"
+      ],
+      "@/lib/server": [
+        "./src/lib/server/index.ts"
+      ],
+      "@/lib/api/feeds/*": [
+        "./src/lib/api/feed-source-api/*"
+      ],
+      "@/lib/core/server": [
+        "./src/lib/core/server-core/index.ts"
+      ],
+      "@/lib/core/article-filters": [
+        "./src/lib/core/filters.ts"
+      ],
+      "@/lib/core/article-preview": [
+        "./src/lib/core/preview.ts"
+      ],
+      "@/lib/core/article-status": [
+        "./src/lib/core/server-core/status.ts"
+      ],
+      "@/lib/core/feed-batch-pipeline": [
+        "./src/lib/core/pipeline.ts"
+      ],
+      "@/lib/core/feed-fetcher": [
+        "./src/lib/core/server-core/fetcher.ts"
+      ],
+      "@/lib/core/feed-http": [
+        "./src/lib/core/http-client.ts"
+      ],
+      "@/lib/core/feed-parser": [
+        "./src/lib/core/parser.ts"
+      ],
+      "@/lib/core/feed-refresh": [
+        "./src/lib/core/refresh/index.ts"
+      ],
+      "@/lib/core/feed-url-validator": [
+        "./src/lib/core/url-validator.ts"
+      ],
+      "@/lib/core/runtime": [
+        "./src/lib/core/runtime.ts"
+      ],
+      "@/public": [
+        "./src/public/index.ts"
+      ],
       "@/app/dashboard/DashboardView": [
-        "./src/app/dashboard/dashboard-view/index.ts"
+        "./src/app/dashboard/view/index.ts"
       ],
       "@/app/dashboard/components/feed/*": [
-        "./src/app/dashboard/dashboard-components/feed-view/*"
+        "./src/app/dashboard/components/feed-view/*"
       ],
       "@/app/dashboard/components/*": [
-        "./src/app/dashboard/dashboard-components/*"
+        "./src/app/dashboard/components/*"
       ],
       "@/app/dashboard/components/settings/*": [
-        "./src/app/dashboard/dashboard-components/settings-dialog/*"
+        "./src/app/dashboard/components/settings-dialog/*"
       ],
       "@/app/dashboard/dashboard-services/article-filters": [
-        "./src/app/dashboard/dashboard-services/article/filters.ts"
+        "./src/app/dashboard/services/article/filters.ts"
       ],
       "@/app/dashboard/dashboard-services/dashboard-view-model": [
-        "./src/app/dashboard/dashboard-services/dashboard-state/view-model.ts"
+        "./src/app/dashboard/services/dashboard-state/view-model.ts"
       ],
       "@/app/dashboard/dashboard-services/category-operations": [
-        "./src/app/dashboard/dashboard-services/category/index.ts"
+        "./src/app/dashboard/services/category/index.ts"
       ],
       "@/app/dashboard/dashboard-services/feed-source-operations": [
-        "./src/app/dashboard/dashboard-services/feed-data/source/operations.ts"
+        "./src/app/dashboard/services/feed-data/source/operations.ts"
       ],
       "@/app/dashboard/hooks/useSettingsModalState": [
-        "./src/app/dashboard/settings-state/useSettingsModalState.ts"
+        "./src/app/dashboard/settings/useSettingsModalState.ts"
       ],
       "@/app/dashboard/hooks/useSettingsProxyState": [
-        "./src/app/dashboard/settings-state/useSettingsProxyState.ts"
+        "./src/app/dashboard/settings/useSettingsProxyState.ts"
       ],
-      "@/cli/*": ["./node_modules/check-suite/src/cli/*"],
-      "@/config/*": ["./node_modules/check-suite/src/config/*"],
-      "@/config-schema/*": ["./node_modules/check-suite/src/config-schema/*"],
-      "@/foundation/*": ["./node_modules/check-suite/src/foundation/*"],
-      "@/format/*": ["./node_modules/check-suite/src/format/*"],
-      "@/inline-ts/*": ["./node_modules/check-suite/src/inline-ts/*"],
-      "@/post-process/*": ["./node_modules/check-suite/src/post-process/*"],
-      "@/process/*": ["./node_modules/check-suite/src/process/*"],
-      "@/quality/*": ["./node_modules/check-suite/src/quality/*"],
-      "@/recipes/*": ["./node_modules/check-suite/src/recipes/*"],
-      "@/runtime-config/*": ["./node_modules/check-suite/src/runtime-config/*"],
-      "@/step/*": ["./node_modules/check-suite/src/step/*"],
+      "@/cli/*": [
+        "./node_modules/check-suite/src/cli/*"
+      ],
+      "@/config/*": [
+        "./node_modules/check-suite/src/config/*"
+      ],
+      "@/config-schema/*": [
+        "./node_modules/check-suite/src/config-schema/*"
+      ],
+      "@/foundation/*": [
+        "./node_modules/check-suite/src/foundation/*"
+      ],
+      "@/format/*": [
+        "./node_modules/check-suite/src/format/*"
+      ],
+      "@/inline-ts/*": [
+        "./node_modules/check-suite/src/inline-ts/*"
+      ],
+      "@/post-process/*": [
+        "./node_modules/check-suite/src/post-process/*"
+      ],
+      "@/process/*": [
+        "./node_modules/check-suite/src/process/*"
+      ],
+      "@/quality/*": [
+        "./node_modules/check-suite/src/quality/*"
+      ],
+      "@/recipes/*": [
+        "./node_modules/check-suite/src/recipes/*"
+      ],
+      "@/runtime-config/*": [
+        "./node_modules/check-suite/src/runtime-config/*"
+      ],
+      "@/step/*": [
+        "./node_modules/check-suite/src/step/*"
+      ],
       "@/suite-processing/*": [
         "./node_modules/check-suite/src/suite-processing/*"
       ],
-      "@/summary/*": ["./node_modules/check-suite/src/summary/*"],
-      "@/timeout/*": ["./node_modules/check-suite/src/timeout/*"],
-      "@/types/*": ["./node_modules/check-suite/src/types/*"],
-      "@/regex.ts": ["./node_modules/check-suite/src/regex.ts"],
-      "@/lib/*": ["./src/lib/*"],
-      "@/*": ["./src/*"]
+      "@/summary/*": [
+        "./node_modules/check-suite/src/summary/*"
+      ],
+      "@/timeout/*": [
+        "./node_modules/check-suite/src/timeout/*"
+      ],
+      "@/types/*": [
+        "./node_modules/check-suite/src/types/*"
+      ],
+      "@/regex.ts": [
+        "./node_modules/check-suite/src/regex.ts"
+      ],
+      "@/lib/*": [
+        "./src/lib/*"
+      ],
+      "@/*": [
+        "./src/*"
+      ]
     }
   },
   "include": [

@@ -1,9 +1,9 @@
 import { describe, expect, mock, test } from "bun:test";
 
-import type { ArticleHydrationState } from "@/app/dashboard/dashboard-hooks/useArticleHydration.lifecycle";
+import type { ArticleHydrationState } from "@/app/dashboard/hooks/useArticleHydration.lifecycle";
 import type { Article } from "@/lib/core";
 
-import { prepareArticleHydration } from "@/app/dashboard/dashboard-hooks/useArticleHydration.lifecycle";
+import { prepareArticleHydration } from "@/app/dashboard/hooks/useArticleHydration.lifecycle";
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 
 const getBundledPlaceholderArticle = () => {

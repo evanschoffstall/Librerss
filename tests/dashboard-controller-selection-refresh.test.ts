@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { resolveDashboardSelectionRefreshArticleLimit } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerCoordinator";
+import { resolveDashboardSelectionRefreshArticleLimit } from "@/app/dashboard/hooks/dashboard-controller/useDashboardControllerCoordinator";
 
 describe("dashboard controller selection refresh", () => {
   test("uses the reset page size instead of an expanded article window for filter and sort refreshes", () => {

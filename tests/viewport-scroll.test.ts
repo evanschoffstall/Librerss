@@ -4,7 +4,7 @@ import {
   observeFeedViewportHeightOwners,
   readViewportMaxScrollTop,
   syncViewportToBottomIfNeeded,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state";
 
 const originalResizeObserver = globalThis.ResizeObserver;
 

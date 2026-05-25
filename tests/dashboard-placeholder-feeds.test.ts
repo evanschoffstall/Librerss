@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildDefaultCategories } from "@/app/dashboard/dashboard-services/category-tree";
+import { buildDefaultCategories } from "@/app/dashboard/services/category-tree";
 import {
   getPlaceholderArticlesForSource,
   getPlaceholderSnapshotPathByArticleUrl,

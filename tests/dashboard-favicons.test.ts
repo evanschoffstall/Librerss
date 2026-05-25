@@ -11,7 +11,7 @@ import {
   getFaviconTintColors,
   getFaviconUrl,
   getMergedFaviconCandidates,
-} from "@/app/dashboard/dashboard-services/favicon";
+} from "@/app/dashboard/services/favicon";
 import { getUrlHostnameDisplayLabel } from "@/lib/utils/url";
 
 describe("favicons – getUrlHostnameDisplayLabel", () => {

@@ -4,7 +4,7 @@ import {
   buildAnonymousDashboardSession,
   getInitialDashboardSession,
   resolveDashboardPageBootstrap,
-} from "@/app/dashboard/page-bootstrap/state";
+} from "@/app/dashboard/bootstrap/state";
 
 function createCookieStore(values: Record<string, string>) {
   return {

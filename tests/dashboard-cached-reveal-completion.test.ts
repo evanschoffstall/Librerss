@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, mock, test } from "bun:test";
 
-import { useCachedRevealCompletionEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useCachedRevealCompletionEffect";
+import { useCachedRevealCompletionEffect } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useCachedRevealCompletionEffect";
 
 function buildDefaultOptions(
   overrides?: Partial<{

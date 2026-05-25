@@ -10,8 +10,8 @@ export {
   MOBILE_TOOLBAR_MIRROR_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
   SETTINGS_PANEL_TAB_STORAGE_KEY,
-} from "@/app/dashboard/dashboard-services/dashboard-constants";
-export type { BackgroundMode } from "@/app/dashboard/dashboard-services/dashboard-constants";
+} from "@/app/dashboard/services/dashboard-constants";
+export type { BackgroundMode } from "@/app/dashboard/services/dashboard-constants";
 
 export const DASHBOARD_FEED_WIDTH_CLASS_NAME =
   "mx-auto w-full max-w-3xl lg:max-w-none";

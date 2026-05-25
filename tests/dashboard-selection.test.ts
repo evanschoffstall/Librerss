@@ -3,11 +3,11 @@ import { describe, expect, mock, test } from "bun:test";
 import type { CategoryTreeNode } from "@/lib/core";
 
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
-import { DEFAULT_FEED_URL } from "@/app/dashboard/dashboard-services/dashboard-constants";
+import { DEFAULT_FEED_URL } from "@/app/dashboard/services/dashboard-constants";
 import {
   initializeDashboardSelection,
   refreshCurrentSelection,
-} from "@/app/dashboard/dashboard-services/selection";
+} from "@/app/dashboard/services/selection";
 
 /** Creates a promise whose resolution can be controlled by the test. */
 function createDeferredPromise() {

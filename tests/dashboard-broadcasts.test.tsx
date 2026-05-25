@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { dispatchDashboardBroadcasts } from "@/app/dashboard/dashboard-hooks/useDashboardBroadcasts";
+import { dispatchDashboardBroadcasts } from "@/app/dashboard/hooks/useDashboardBroadcasts";
 
 function collectDashboardBroadcasts() {
   const shellLoadingStates: boolean[] = [];

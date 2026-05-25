@@ -5,14 +5,14 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { ArticleSortOrder } from "@/lib/core";
 
-import { refillDashboardArticleWindow } from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPaging";
+import { refillDashboardArticleWindow } from "@/app/dashboard/hooks/dashboard-controller/dashboardArticleWindowPaging";
 import {
   prefetchArticleWindowLimitIfNeeded,
   resetArticleWindowPrefetchState,
-} from "@/app/dashboard/dashboard-hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
-import { useUnreadWindowRefill } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowEffects";
-import { useDashboardArticleWindowPrefetch } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
-import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/dashboard-services/dashboard-constants";
+} from "@/app/dashboard/hooks/dashboard-controller/dashboardArticleWindowPrefetchState";
+import { useUnreadWindowRefill } from "@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindowEffects";
+import { useDashboardArticleWindowPrefetch } from "@/app/dashboard/hooks/dashboard-controller/useDashboardArticleWindowPrefetch";
+import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/services/dashboard-constants";
 
 interface DeferredPromise {
   promise: Promise<void>;

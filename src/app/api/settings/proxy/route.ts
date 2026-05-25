@@ -1,16 +1,20 @@
 import type { NextRequest } from "next/server";
 
+import type {
+  ProxyRouteDeps as OutboundProxyRouteDeps,
+  ProxySettingsRequestBody,
+} from "@/lib/outbound-proxy";
 import type { RouteHandlerContext } from "@/lib/server";
 
 import {
   handleProxySettingsGet,
   handleProxySettingsPut,
-  type ProxyRouteDeps,
-  type ProxySettingsRequestBody,
 } from "@/lib/outbound-proxy";
 
 export const dynamic = "force-dynamic";
-export type { ProxyRouteDeps } from "@/lib/outbound-proxy";
+
+/** Route dependency overrides used by proxy-route tests and local injection. */
+export type ProxyRouteDeps = OutboundProxyRouteDeps;
 
 /**
  * Handle the GET request.

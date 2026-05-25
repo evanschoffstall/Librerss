@@ -10,16 +10,16 @@ import {
   DASHBOARD_EVENTS,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
 } from "@/app/dashboard/constants";
-import { useDashboardFeedLoadingState } from "@/app/dashboard/dashboard-hooks/dashboard-controller/useDashboardControllerSections";
+import { useDashboardFeedLoadingState } from "@/app/dashboard/hooks/dashboard-controller/useDashboardControllerSections";
 import {
   useLockDocumentScroll,
   useRevealSidebarOnMount,
-} from "@/app/dashboard/dashboard-hooks/useDashboardEffects";
+} from "@/app/dashboard/hooks/useDashboardEffects";
 import {
   runDashboardMarkAllReadCommand,
   runDashboardRefreshCommand,
-} from "@/app/dashboard/dashboard-hooks/useDashboardEvents";
-import { useDashboardHandlers } from "@/app/dashboard/dashboard-hooks/useDashboardHandlers";
+} from "@/app/dashboard/hooks/useDashboardEvents";
+import { useDashboardHandlers } from "@/app/dashboard/hooks/useDashboardHandlers";
 import { READING_LIST_STREAM } from "@/lib/core/stream-ids";
 
 import { createIsolatedStorage } from "./test-storage";
@@ -49,7 +49,7 @@ const originalFeedCacheTtlMinutes =
 
 async function loadUseDashboardState() {
   const module = await import(
-    `@/app/dashboard/dashboard-hooks/useDashboardState/state?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/hooks/useDashboardState/state?test=${Date.now()}-${Math.random()}`
   );
 
   return module.useDashboardState;

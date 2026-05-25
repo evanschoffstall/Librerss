@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
-import { useArticleCollapseState } from "@/app/dashboard/dashboard-hooks/useArticleCollapseState";
+import { useArticleCollapseState } from "@/app/dashboard/hooks/useArticleCollapseState";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 

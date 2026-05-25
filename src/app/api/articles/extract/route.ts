@@ -5,7 +5,6 @@ import { serverApi } from "@/lib/server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export { getHostname } from "@/lib/server";
 
 /**
  * Handle the POST request.

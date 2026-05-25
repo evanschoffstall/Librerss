@@ -44,6 +44,7 @@ const complexityColumns =
 const complexityThresholds =
   "fileCcn=60 fileFunctionCount=15 fileNloc=450 fileTokenCount=2200 functionCcn=10 functionLength=80 functionNestingDepth=4 functionNloc=60 functionParameterCount=6 functionTokenCount=240";
 const hasTsd = existsSync("next-env.d.ts") && existsSync("next-env.test-d.ts");
+const explicitPublicSurfacePaths = ["src/instrumentation.ts", "src/proxy.ts"];
 const bunLineTotals =
   /(?:^|\n)\s*[│|]\s*Lines\s*[│|]\s*([\d.]+)\s*%\s*[│|]\s*([\d,]+)\s*[│|]\s*[\d,]+\s*[│|]\s*([\d,]+)\s*[│|]/u;
 const metricStep = step.createMetricCommandStepFactory({
@@ -100,8 +101,69 @@ export default [
   },
   {
     config: {
-      discovery: { ...discovery, rootDirectories: roots },
-      policy: { infer: true },
+      discovery: {
+        ...discovery,
+        rootDirectories: roots,
+      },
+      explicitPublicSurfacePaths,
+      policy: {
+        dependencyPolicies: [
+          {
+            allowedDependents: ["proxy", "proxy-entrypoint"],
+            mayDependOn: ["rate-limit"],
+            name: "edge-proxy",
+            pathPrefixes: ["src/edge-proxy"],
+          },
+          {
+            mayDependOn: [],
+            name: "instrumentation",
+            pathPrefixes: ["src/instrumentation.ts"],
+            surfaceTier: "public",
+          },
+          {
+            allowedDependents: ["article-view", "dashboard-controller"],
+            mayDependOn: [
+              "api",
+              "article",
+              "article-actions",
+              "article-collection",
+              "category",
+              "config",
+              "core",
+              "dashboard-constants",
+              "dashboard-state",
+              "display-types",
+              "feed-data",
+              "feed-loader-state",
+              "http",
+              "selection",
+              "services",
+              "source",
+              "utils",
+              "view-core",
+            ],
+            name: "hooks",
+            pathPrefixes: ["src/app/dashboard/hooks"],
+            role: "orchestration",
+          },
+          {
+            mayDependOn: ["edge-proxy"],
+            name: "proxy-entrypoint",
+            pathPrefixes: ["src/proxy.ts"],
+            surfaceTier: "public",
+          },
+        ],
+        entrypoints: {
+          names: ["index", "main", "mod", "route"],
+          rules: [
+            {
+              allowTopLevelStatements: true,
+              name: "route",
+            },
+          ],
+        },
+        infer: true,
+      },
       rules: {
         "broad-barrel-surface": { maxReExports: 12 },
         "central-surface-budget": { maxExports: 66 },
@@ -115,6 +177,9 @@ export default [
         "mixed-file-name-case": {
           enabled: true,
           ignoreFileGlobs: ["index.ts"],
+        },
+        "public-surface-purity": {
+          allowedPaths: ["src/instrumentation.ts"],
         },
         "public-surface-re-export-chain": { allow: false },
         "public-surface-wildcard-export": { maxWildcardExports: 0 },

@@ -23,7 +23,7 @@ import {
   resolvePaginationBoundaryState,
   shouldAutoAnchorInvertedScrollViewport,
   shouldAutoFillViewport,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";
 

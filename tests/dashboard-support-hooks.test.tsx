@@ -5,15 +5,15 @@ import { toast } from "sonner";
 import type { CategoryTreeNode } from "@/lib/core";
 
 import { ALL_FEEDS_NODE_KEY } from "@/app/dashboard/constants";
-import { useDashboardInitialization } from "@/app/dashboard/dashboard-hooks/useDashboardInitialization";
+import { useDashboardInitialization } from "@/app/dashboard/hooks/useDashboardInitialization";
 import {
   autoRefreshDashboardSelection,
   buildDashboardControllerState,
   buildDashboardSidebarContentProps,
-} from "@/app/dashboard/dashboard-services/dashboard-state";
-import { useSettingsFeedState } from "@/app/dashboard/settings-state/useSettingsFeedState";
-import { useSettingsModalState } from "@/app/dashboard/settings-state/useSettingsModalState";
-import { useSettingsOpmlImportState } from "@/app/dashboard/settings-state/useSettingsOpmlImportState";
+} from "@/app/dashboard/services/dashboard-state";
+import { useSettingsFeedState } from "@/app/dashboard/settings/useSettingsFeedState";
+import { useSettingsModalState } from "@/app/dashboard/settings/useSettingsModalState";
+import { useSettingsOpmlImportState } from "@/app/dashboard/settings/useSettingsOpmlImportState";
 
 const originalToastError = toast.error;
 

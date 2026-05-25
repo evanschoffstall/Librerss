@@ -1,25 +1,25 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  DASHBOARD_PREVIEW_COOKIE_NAME,
+  isDashboardPreviewModeEnabled,
+  resolveDashboardPreviewMode,
+  setDashboardPreviewPersistence,
+} from "@/app/dashboard/preview";
+import {
   AUTO_REFRESH_INTERVAL_STORAGE_KEY,
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   toAutoRefreshIntervalMs,
-} from "@/app/dashboard/dashboard-services/dashboard-preferences";
-import { loadFeedSourceTree } from "@/app/dashboard/dashboard-services/feed-data";
+} from "@/app/dashboard/services/dashboard-preferences";
+import { loadFeedSourceTree } from "@/app/dashboard/services/feed-data";
 import {
   collectFullyVisibleUnreadArticles,
   getFeedBatchQueryKey,
   getFeedSourceTreeQueryKey,
-} from "@/app/dashboard/dashboard-services/feed-view-model";
-import {
-  DASHBOARD_PREVIEW_COOKIE_NAME,
-  isDashboardPreviewModeEnabled,
-  resolveDashboardPreviewMode,
-  setDashboardPreviewPersistence,
-} from "@/app/dashboard/preview-mode";
+} from "@/app/dashboard/services/feed-view-model";
 import { isRouteHandlerContext, serverApi } from "@/lib/server";
 
 describe("dashboard utility coverage", () => {

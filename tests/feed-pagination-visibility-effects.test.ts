@@ -3,14 +3,14 @@ import type { Dispatch, SetStateAction } from "react";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, mock, test } from "bun:test";
 
-import { useBackfillDepletedRevealedPageEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationActions";
+import { useBackfillDepletedRevealedPageEffect } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationActions";
 import {
   useFeedPaginationLoadingMoreRevealEffect,
   useFeedPaginationQueryResetEffect,
   useFeedPaginationRefreshResetEffect,
   useFeedPaginationRevealCountEffect,
   useInitialFeedPaginationAutoFillEffect,
-} from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
+} from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationVisibilityEffects";
 
 type LoadingMoreRevealEffectOptions = Parameters<
   typeof useFeedPaginationLoadingMoreRevealEffect

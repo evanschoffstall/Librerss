@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
-import { useExpandVisibleWindow } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationActions";
-import { useFeedPaginationLocalState } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationLocalState";
-import { useFeedPaginationStaleResumeResetEffect } from "@/app/dashboard/dashboard-components/feed-view/feed-list-surface-state/useFeedPaginationStaleResumeResetEffect";
+import { useExpandVisibleWindow } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationActions";
+import { useFeedPaginationLocalState } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationLocalState";
+import { useFeedPaginationStaleResumeResetEffect } from "@/app/dashboard/components/feed-view/feed-list-surface-state/useFeedPaginationStaleResumeResetEffect";
 
 // ---------------------------------------------------------------------------
 // rAF / cAF mocks

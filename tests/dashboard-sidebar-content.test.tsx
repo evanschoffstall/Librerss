@@ -18,7 +18,7 @@ function createCategory(
 describe("DashboardSidebarContent", () => {
   test("renders the sidebar skeleton structure while categories are loading", async () => {
     const { DashboardSidebarSkeleton } =
-      await import("@/app/dashboard/dashboard-components/layout");
+      await import("@/app/dashboard/components/layout");
     const { container } = render(<DashboardSidebarSkeleton />);
 
     expect(
@@ -38,7 +38,7 @@ describe("DashboardSidebarContent", () => {
 
   test("renders the empty sidebar state when no categories are available", async () => {
     const { DashboardSidebarContent } =
-      await import("@/app/dashboard/dashboard-components/layout");
+      await import("@/app/dashboard/components/layout");
     const { getByText } = render(
       <DashboardSidebarContent
         isCategoriesLoading={false}
@@ -58,7 +58,7 @@ describe("DashboardSidebarContent", () => {
 
   test("renders category buttons and feed rows and wires their interactions", async () => {
     const { DashboardSidebarContent } =
-      await import("@/app/dashboard/dashboard-components/layout");
+      await import("@/app/dashboard/components/layout");
     const onCategoryClick = mock(() => {});
     const onCategoryPrefetch = mock(() => {});
     const onFeedClick = mock(() => {});
@@ -106,7 +106,7 @@ describe("DashboardSidebarContent", () => {
 
   test("renders provider favicons without an opaque backing", async () => {
     const { DashboardSidebarContent } =
-      await import("@/app/dashboard/dashboard-components/layout");
+      await import("@/app/dashboard/components/layout");
     const sidebarCategories = [
       createCategory("cat-news", "News", [
         createCategory("feed-example", "Example News", [], {

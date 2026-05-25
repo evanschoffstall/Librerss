@@ -6,13 +6,13 @@ import {
   DashboardFeedViewport,
   DashboardFilterBar,
   resolveFeedScrollbarMetrics,
-} from "@/app/dashboard/dashboard-components/layout";
+} from "@/app/dashboard/components/layout";
 import {
   ARTICLE_FILTER_OPTIONS,
   ARTICLE_SORT_ORDER_OPTIONS,
   type ArticleFilter,
   type ArticleSortOrder,
-} from "@/app/dashboard/dashboard-services/article";
+} from "@/app/dashboard/services/article";
 import { DASHBOARD_FEED_WIDTH_CLASS_NAME } from "@/app/dashboard/shared";
 
 describe("DashboardFilterBar", () => {

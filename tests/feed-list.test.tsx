@@ -12,7 +12,7 @@ import {
   setFeedListMobileViewport,
 } from "./feed-list-test-utils";
 
-let FeedList: typeof import("@/app/dashboard/dashboard-components/feed-view/FeedList").FeedList;
+let FeedList: typeof import("@/app/dashboard/components/feed-view/FeedList").FeedList;
 const originalConsoleError = console.error;
 let hooksImportVersion = 0;
 let libImportVersion = 0;
@@ -100,7 +100,7 @@ async function loadFeedListWithLibOverrides(
     ...overrides,
   }));
   ({ FeedList } = await import(
-    `@/app/dashboard/dashboard-components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
+    `@/app/dashboard/components/feed-view/FeedList?test=${Date.now()}-${Math.random()}`
   ));
 }
 
