@@ -28,7 +28,6 @@ export {
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-  mobileParticleMotion,
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   SETTINGS_PANEL_TAB_STORAGE_KEY,

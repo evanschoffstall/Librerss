@@ -4,13 +4,11 @@ import { useEffect, useState } from "react";
 import {
   MANUAL_REFRESH_INTERVAL_MINUTES,
   MIN_AUTO_REFRESH_INTERVAL_MINUTES,
-  mobileParticleMotion,
   normalizeAutoRefreshIntervalMinutes,
 } from "@/app/dashboard/services";
 import {
   type BackgroundMode,
   MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-  MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
   MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
 } from "@/app/dashboard/services/dashboard-constants";
 import { Input } from "@/components/ui/input";
@@ -62,13 +60,10 @@ type DisplayMobileToggleGroupProps = MobileDisplayPreferencesState;
  */
 interface MobileDisplayPreferencesState {
   isMobileInvertedScrollAvailable: boolean;
-  isMobileParticleAccelerometerAvailable: boolean;
   mobileGroupedLayout: boolean;
   mobileInvertedScroll: boolean;
-  mobileParticleAccelerometerEnabled: boolean;
   setMobileGroupedLayout: (value: boolean) => void;
   setMobileInvertedScroll: (value: boolean) => void;
-  setMobileParticleAccelerometerEnabled: (value: boolean) => Promise<void>;
 }
 
 /**
@@ -93,14 +88,11 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
     autoRefreshDraft,
     commitAutoRefreshDraft,
     isMobileInvertedScrollAvailable,
-    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
-    mobileParticleAccelerometerEnabled,
     setAutoRefreshDraft,
     setMobileGroupedLayout,
     setMobileInvertedScroll,
-    setMobileParticleAccelerometerEnabled,
   } = useDisplaySectionState(
     autoRefreshIntervalMinutes,
     onAutoRefreshIntervalMinutesChange,
@@ -122,19 +114,10 @@ export function SettingsDisplaySection(props: SettingsDisplaySectionProps) {
         />
         <DisplayMobileToggleGroup
           isMobileInvertedScrollAvailable={isMobileInvertedScrollAvailable}
-          isMobileParticleAccelerometerAvailable={
-            isMobileParticleAccelerometerAvailable
-          }
           mobileGroupedLayout={mobileGroupedLayout}
           mobileInvertedScroll={mobileInvertedScroll}
-          mobileParticleAccelerometerEnabled={
-            mobileParticleAccelerometerEnabled
-          }
           setMobileGroupedLayout={setMobileGroupedLayout}
           setMobileInvertedScroll={setMobileInvertedScroll}
-          setMobileParticleAccelerometerEnabled={
-            setMobileParticleAccelerometerEnabled
-          }
         />
         <DisplaySelectGroup
           articlesPerPage={articlesPerPage}
@@ -207,13 +190,10 @@ function AutoRefreshControl(props: AutoRefreshControlProps) {
 function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
   const {
     isMobileInvertedScrollAvailable,
-    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
-    mobileParticleAccelerometerEnabled,
     setMobileGroupedLayout,
     setMobileInvertedScroll,
-    setMobileParticleAccelerometerEnabled,
   } = props;
   return (
     <>
@@ -231,25 +211,6 @@ function DisplayMobileToggleGroup(props: DisplayMobileToggleGroupProps) {
           checked={mobileGroupedLayout}
           id="mobile-ui-grouped-layout"
           onCheckedChange={setMobileGroupedLayout}
-        />
-      </div>
-      <div className="flex items-center justify-between">
-        <div>
-          <Label htmlFor="mobile-particle-accelerometer">
-            Mobile particle accelerometer motion
-          </Label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            On supported mobile browsers, tilt the device to steer particle
-            backgrounds instead of tapping or dragging across the screen.
-          </p>
-        </div>
-        <Switch
-          checked={mobileParticleAccelerometerEnabled}
-          disabled={!isMobileParticleAccelerometerAvailable}
-          id="mobile-particle-accelerometer"
-          onCheckedChange={(value) => {
-            void setMobileParticleAccelerometerEnabled(value);
-          }}
         />
       </div>
       <div className="flex items-center justify-between">
@@ -437,32 +398,18 @@ function useDisplaySectionState(
  * @returns The mobile display preference state and callbacks.
  */
 function useMobileDisplayPreferences(): MobileDisplayPreferencesState {
-  const isMobileParticleAccelerometerAvailable =
-    mobileParticleMotion.supportsMobileParticleAccelerometerMotion();
   const isMobileInvertedScrollAvailable =
     process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
   const [mobileGroupedLayout, setMobileGroupedLayout] = useLocalStorage(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
-  const [
-    mobileParticleAccelerometerPreference,
-    setMobileParticleAccelerometerPreference,
-  ] = useLocalStorage(MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY, false);
   const [mobileInvertedScrollPreference, setMobileInvertedScrollPreference] =
     useLocalStorage(MOBILE_INVERTED_SCROLL_STORAGE_KEY, false);
-  const mobileParticleAccelerometerEnabled =
-    isMobileParticleAccelerometerAvailable &&
-    mobileParticleAccelerometerPreference;
   const mobileInvertedScroll = isMobileInvertedScrollAvailable
     ? mobileInvertedScrollPreference
     : false;
 
-  useUnsupportedMobilePreferenceReset(
-    isMobileParticleAccelerometerAvailable,
-    mobileParticleAccelerometerPreference,
-    setMobileParticleAccelerometerPreference,
-  );
   useUnsupportedMobilePreferenceReset(
     isMobileInvertedScrollAvailable,
     mobileInvertedScrollPreference,
@@ -471,10 +418,8 @@ function useMobileDisplayPreferences(): MobileDisplayPreferencesState {
 
   return {
     isMobileInvertedScrollAvailable,
-    isMobileParticleAccelerometerAvailable,
     mobileGroupedLayout,
     mobileInvertedScroll,
-    mobileParticleAccelerometerEnabled,
     setMobileGroupedLayout,
     /**
      * Persist the mobile inverted-scroll preference when the runtime supports it.
@@ -487,20 +432,6 @@ function useMobileDisplayPreferences(): MobileDisplayPreferencesState {
       }
 
       setMobileInvertedScrollPreference(value);
-    },
-    /**
-     * Persist the mobile particle accelerometer preference after permission succeeds.
-     * @param value - Whether mobile particle motion should follow device tilt.
-     */
-    setMobileParticleAccelerometerEnabled: async (value: boolean) => {
-      if (!value) {
-        setMobileParticleAccelerometerPreference(false);
-        return;
-      }
-
-      const hasPermission =
-        await mobileParticleMotion.requestMobileParticleAccelerometerPermission();
-      setMobileParticleAccelerometerPreference(hasPermission);
     },
   };
 }

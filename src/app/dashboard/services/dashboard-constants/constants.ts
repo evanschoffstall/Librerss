@@ -25,9 +25,6 @@ export const DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY =
   "librerss:articleSortOrder";
 export const MOBILE_INVERTED_SCROLL_STORAGE_KEY =
   "librerss:mobileInvertedScroll";
-/** Persist the mobile particle accelerometer preference per browser. */
-export const MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY =
-  "librerss:mobileParticleAccelerometer";
 export {
   MOBILE_TOAST_TOP_STORAGE_KEY,
   MOBILE_TOOLBAR_BOTTOM_STORAGE_KEY,

@@ -13,8 +13,6 @@ import {
   getBackgroundCanvasScale,
   getVisibleBackgroundCanvasElementSize,
 } from "@/app/dashboard/components/background-internals";
-import { MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY } from "@/app/dashboard/services/dashboard-constants";
-import { useLocalStorage } from "@/lib/hooks";
 
 /**
  * Manage the background particle canvas setup.
@@ -197,10 +195,6 @@ export default function BackgroundParticles(props: ParticlesProps) {
     refresh = false,
     staticity = 50,
   } = props;
-  const [mobileParticleAccelerometerEnabled] = useLocalStorage(
-    MOBILE_PARTICLE_ACCELEROMETER_STORAGE_KEY,
-    false,
-  );
   const runtime = useBackgroundParticlesRuntime({
     color,
     ease,
@@ -225,7 +219,6 @@ export default function BackgroundParticles(props: ParticlesProps) {
   }, [runtime]);
 
   useBackgroundCanvasWindowEvents({
-    mobileParticleAccelerometerEnabled,
     onMotionChange: runtime.handleMotionChange,
     onResize: runtime.onResize,
   });

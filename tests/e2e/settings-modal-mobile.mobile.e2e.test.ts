@@ -217,13 +217,6 @@ test.describe("settings modal mobile tray", () => {
       settingsScrollViewport(dialog),
       "Show favicons switch",
     );
-    await expectNotClipped(
-      dialog.getByRole("switch", {
-        name: "Mobile particle accelerometer motion",
-      }),
-      settingsScrollViewport(dialog),
-      "Mobile particle accelerometer switch",
-    );
     // All three comboboxes (Background, Articles per page, Readable article mode)
     const comboboxes = dialog.getByRole("combobox");
     const count = await comboboxes.count();
