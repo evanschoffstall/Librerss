@@ -5,9 +5,9 @@ import { useCallback } from "react";
 import type { FeedSourceActionState } from "@/app/dashboard/hooks/feedSourceActionState";
 import type { OpmlFeedImportEntry } from "@/lib/utils";
 
+import { importOpmlFeedsAndRefresh } from "@/app/dashboard/services";
 import {
   addFeedSourceAndRefresh,
-  importOpmlFeedsAndRefresh,
   moveFeedByDropAndPersist,
   removeFeedSourceAndRefresh,
   renameFeedSourceAndRefresh,
