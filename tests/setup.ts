@@ -48,6 +48,7 @@ import * as realProxyTransportModule from "@/lib/outbound-proxy/transport";
 import * as realRateLimitModule from "@/lib/rate-limit";
 import * as realServerModuleImport from "@/lib/server";
 import * as realUrlModule from "@/lib/utils/url";
+import { resetPlaceholderArticleLocalStateForTesting } from "@/app/dashboard/services/feed-data/local-state";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
 const realServerModule = { ...realServerModuleImport };
@@ -189,6 +190,7 @@ afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
   delete document.documentElement.dataset.dashboardShellLoading;
+  resetPlaceholderArticleLocalStateForTesting();
   try {
     window.localStorage.clear();
   } catch {
