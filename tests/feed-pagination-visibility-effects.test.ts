@@ -475,6 +475,52 @@ describe("useFeedPaginationQueryResetEffect", () => {
     expect(isStandardViewportRefillActiveRef.current).toBe(false);
     expect(standardViewportRefillTargetVisibleCountRef.current).toBeNull();
   });
+
+  test("does not collapse the visible window while a refresh lands on an expanded article", () => {
+    const resetPaginationState = mock(() => {});
+    const isStandardViewportRefillActiveRef = { current: false };
+    const previousRefreshEpochRef = { current: 0 };
+    const standardViewportRefillTargetVisibleCountRef: {
+      current: null | number;
+    } = { current: 9 };
+    const suppressNextRefreshViewportRefillRef = { current: true };
+
+    const { rerender } = renderHook(
+      ({ expandedArticleKey, refreshEpoch }) => {
+        useFeedPaginationRefreshResetEffect({
+          articleFilter: "all",
+          articlesPerPage: 4,
+          expandedArticleKey,
+          hasUserScrolledRef: { current: true },
+          isInvertedScroll: false,
+          isLoadingMore: false,
+          isRefreshing: true,
+          isStandardViewportRefillActiveRef,
+          previousRefreshEpochRef,
+          refreshEpoch,
+          resetPaginationState,
+          standardViewportRefillTargetVisibleCountRef,
+          suppressNextRefreshViewportRefillRef,
+        });
+      },
+      {
+        initialProps: {
+          expandedArticleKey: "https://example.com/articles/expanded",
+          refreshEpoch: 0,
+        },
+      },
+    );
+
+    rerender({
+      expandedArticleKey: "https://example.com/articles/expanded",
+      refreshEpoch: 1,
+    });
+
+    expect(resetPaginationState).not.toHaveBeenCalled();
+    expect(isStandardViewportRefillActiveRef.current).toBe(false);
+    expect(standardViewportRefillTargetVisibleCountRef.current).toBe(9);
+    expect(suppressNextRefreshViewportRefillRef.current).toBe(true);
+  });
 });
 
 describe("useInitialFeedPaginationAutoFillEffect", () => {
