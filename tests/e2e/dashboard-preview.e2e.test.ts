@@ -2,6 +2,7 @@ import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
 
 import {
   enterPreviewFromLogin,
+  expectArticleExpanded,
   gotoPreviewDashboard,
   gotoPreviewDashboardWithPreferences,
   locateViewportArticle,
@@ -10,6 +11,7 @@ import {
   readArticleKey,
   readFeedViewportMetrics,
   setFeedViewportScrollTop,
+  toggleArticle,
 } from "./helpers";
 import { expect, test } from "./test";
 
@@ -98,6 +100,30 @@ function previewFeedButton(
     .first();
 }
 
+async function readExpandedArticleViewportState(
+  article: Awaited<ReturnType<typeof locateViewportArticle>>,
+) {
+  return await article.evaluate((node) => {
+    const viewport = node.closest<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+
+    if (!(node instanceof HTMLElement) || !(viewport instanceof HTMLElement)) {
+      throw new Error(
+        "Expected an expanded article card inside a measurable feed viewport.",
+      );
+    }
+
+    const articleRect = node.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+
+    return {
+      articleOffsetTop: articleRect.top - viewportRect.top,
+      scrollTop: viewport.scrollTop,
+    };
+  });
+}
+
 /**
  * Switches into the aggregate placeholder source even when a prior persisted
  * preview source already left that source selected for this browser context.
@@ -157,6 +183,10 @@ test.describe("dashboard preview mode", () => {
     await gotoPreviewDashboard(page);
     const firstArticle = await locateViewportArticle(page, 0);
     const firstArticleKey = await readArticleKey(firstArticle);
+    await toggleArticle(firstArticle);
+    await expectArticleExpanded(firstArticle, true);
+    await setFeedViewportScrollTop(page, 180);
+    const beforeRefresh = await readExpandedArticleViewportState(firstArticle);
 
     await page.evaluate(() => {
       const testWindow = window as typeof window & {
@@ -169,9 +199,21 @@ test.describe("dashboard preview mode", () => {
     await expect(
       page.locator("article[data-article-key]:visible"),
     ).not.toHaveCount(0);
-    await expect(
-      page.locator(`article[data-article-key="${firstArticleKey}"]`),
-    ).toBeVisible();
+    const refreshedArticle = page.locator(
+      `article[data-article-key="${firstArticleKey}"]`,
+    );
+    await expect(refreshedArticle).toBeVisible();
+    await expectArticleExpanded(refreshedArticle, true);
+
+    const afterRefresh =
+      await readExpandedArticleViewportState(refreshedArticle);
+
+    expect(
+      Math.abs(afterRefresh.scrollTop - beforeRefresh.scrollTop),
+    ).toBeLessThanOrEqual(24);
+    expect(
+      Math.abs(afterRefresh.articleOffsetTop - beforeRefresh.articleOffsetTop),
+    ).toBeLessThanOrEqual(48);
   });
 
   test("keeps preview articles mounted during a resume-triggered auto refresh", async ({
@@ -227,6 +269,11 @@ test.describe("dashboard preview mode", () => {
     const firstArticle = await locateViewportArticle(page, 0);
     const firstArticleKey = await readArticleKey(firstArticle);
 
+    await toggleArticle(firstArticle);
+    await expectArticleExpanded(firstArticle, true);
+    await setFeedViewportScrollTop(page, 180);
+    const beforeRefresh = await readExpandedArticleViewportState(firstArticle);
+
     await page.evaluate(() => {
       const testWindow = window as typeof window & {
         __advanceDashboardNow?: (durationMs: number) => void;
@@ -261,9 +308,56 @@ test.describe("dashboard preview mode", () => {
     await expect(
       page.locator("article[data-article-key]:visible"),
     ).not.toHaveCount(0);
-    await expect(
-      page.locator(`article[data-article-key="${firstArticleKey}"]`),
-    ).toBeVisible();
+    const refreshedArticle = page.locator(
+      `article[data-article-key="${firstArticleKey}"]`,
+    );
+    await expect(refreshedArticle).toBeVisible();
+    await expectArticleExpanded(refreshedArticle, true);
+
+    const afterRefresh =
+      await readExpandedArticleViewportState(refreshedArticle);
+
+    expect(
+      Math.abs(afterRefresh.scrollTop - beforeRefresh.scrollTop),
+    ).toBeLessThanOrEqual(24);
+    expect(
+      Math.abs(afterRefresh.articleOffsetTop - beforeRefresh.articleOffsetTop),
+    ).toBeLessThanOrEqual(48);
+  });
+
+  test("keeps the expanded preview article anchored during a manual refresh", async ({
+    page,
+  }) => {
+    await gotoPreviewDashboard(page);
+
+    const article = await locateViewportArticle(page, 0);
+    const articleKey = await readArticleKey(article);
+
+    await toggleArticle(article);
+    await expectArticleExpanded(article, true);
+    await setFeedViewportScrollTop(page, 180);
+    const beforeRefresh = await readExpandedArticleViewportState(article);
+
+    await page
+      .getByRole("button", { exact: true, name: "Refresh selected feed" })
+      .first()
+      .click();
+
+    const refreshedArticle = page.locator(
+      `article[data-article-key="${articleKey}"]`,
+    );
+    await expect(refreshedArticle).toBeVisible();
+    await expectArticleExpanded(refreshedArticle, true);
+
+    const afterRefresh =
+      await readExpandedArticleViewportState(refreshedArticle);
+
+    expect(
+      Math.abs(afterRefresh.scrollTop - beforeRefresh.scrollTop),
+    ).toBeLessThanOrEqual(24);
+    expect(
+      Math.abs(afterRefresh.articleOffsetTop - beforeRefresh.articleOffsetTop),
+    ).toBeLessThanOrEqual(48);
   });
 
   test("unlocks refresh controls when a suspended refresh never sends an end event", async ({
