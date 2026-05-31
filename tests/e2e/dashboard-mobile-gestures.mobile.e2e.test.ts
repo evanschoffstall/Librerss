@@ -131,6 +131,76 @@ test.describe("dashboard mobile gestures", () => {
     );
   });
 
+  test("keeps expanded article body text selection active without breaking the card", async ({
+    page,
+  }) => {
+    await openPreviewDashboardOnMobile(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const article = await locateViewportArticle(page, 0);
+    await toggleArticle(article);
+    await expectArticleExpanded(article, true);
+
+    await expect
+      .poll(async () => {
+        return (await selectExpandedArticleText(article)).length;
+      })
+      .toBeGreaterThan(20);
+
+    const contentZone = article.locator("[data-article-swipe-zone='content']");
+    const swipeSignalDuringDrag = await dragTouchSurface(contentZone, {
+      endXRatio: 0.82,
+      endYRatio: 0.54,
+      measureTarget: article,
+      startXRatio: 0.2,
+      startYRatio: 0.5,
+      steps: 7,
+    });
+
+    expect(swipeSignalDuringDrag.swipeActive).toBe(false);
+    expect(swipeSignalDuringDrag.swipeDirection).toBe("idle");
+    await expectArticleExpanded(article, true);
+    await expect
+      .poll(async () => {
+        return await article.evaluate((node) => {
+          return (
+            node.ownerDocument.defaultView?.getSelection()?.toString().trim()
+              .length ?? 0
+          );
+        });
+      })
+      .toBeGreaterThan(20);
+  });
+
+  test("commits swipe-to-read from the expanded mobile article body when no selection is active", async ({
+    page,
+  }) => {
+    await openPreviewDashboardOnMobile(page);
+    await page.getByRole("button", { exact: true, name: "all" }).click();
+
+    const article = await locateViewportArticle(page, 0);
+    await toggleArticle(article);
+    await expectArticleExpanded(article, true);
+
+    await page.evaluate(() => {
+      window.getSelection()?.removeAllRanges();
+    });
+
+    const contentZone = article.locator("[data-article-swipe-zone='content']");
+    const swipeSignalDuringDrag = await dragTouchSurface(contentZone, {
+      endXRatio: 0.94,
+      endYRatio: 0.56,
+      measureTarget: article,
+      startXRatio: 0.18,
+      startYRatio: 0.48,
+      steps: 7,
+    });
+
+    expect(swipeSignalDuringDrag.swipeActive).toBe(true);
+    expect(swipeSignalDuringDrag.swipeDirection).toBe("read");
+    await expectArticleExpanded(article, false);
+  });
+
   test("commits swipe-to-read on expanded header of mobile articles", async ({
     page,
   }) => {
