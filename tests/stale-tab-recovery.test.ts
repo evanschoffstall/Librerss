@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { toast } from "sonner";
 
 import { STALE_TAB_THRESHOLD_MS } from "@/app/dashboard/hooks/useDashboardIntervals";
-import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-data";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-data/batch";
 import {
   isFreshFeedBatchQuery,
   notifyFeedFailures,
