@@ -5,7 +5,7 @@ import type { Article } from "@/lib/core";
 import { FeedArticleRow } from "@/app/dashboard/components/feed-view/FeedArticleRow";
 import { type CollapsingArticles } from "@/app/dashboard/display-types";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
-import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/article-view-mode";
 
 /** Options used to build the FeedList article-row renderer. */
 interface UseFeedRowRendererOptions {

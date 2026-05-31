@@ -40,14 +40,14 @@ import { useFeedListInvertedAutoAnchor } from "@/app/dashboard/components/feed-v
 import { useFeedListSurfaceState } from "@/app/dashboard/components/feed-view/list-state";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
 import {
-  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
-  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-} from "@/app/dashboard/services/dashboard-constants";
-import {
   type DashboardArticleViewMode,
   DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
   normalizeDashboardArticleViewMode,
-} from "@/app/dashboard/services/dashboard-view-mode";
+} from "@/app/dashboard/services/article-view-mode";
+import {
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+} from "@/app/dashboard/services/dashboard-constants";
 import { useIsBelowDesktop, useLocalStorage } from "@/lib/hooks";
 
 export const FeedList = memo(
