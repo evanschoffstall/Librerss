@@ -479,4 +479,56 @@ describe("useFeedPaginationStaleResumeResetEffect", () => {
       }
     }
   });
+
+  test("preserves an expanded article viewport across stale-resume recovery", () => {
+    const originalDateNow = Date.now;
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      document,
+      "hidden",
+    );
+    const resetPaginationState = mock(() => {});
+    const scrollViewport = document.createElement("div");
+    scrollViewport.scrollTop = 240;
+    let isHidden = false;
+    let now = 1_000;
+
+    Date.now = () => now;
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      get: () => isHidden,
+    });
+
+    try {
+      const hook = renderHook(() =>
+        useFeedPaginationStaleResumeResetEffect({
+          expandedArticleKey: "https://example.com/articles/expanded",
+          isInvertedScroll: false,
+          resetPaginationState,
+          scrollViewport,
+        }),
+      );
+
+      isHidden = true;
+      document.dispatchEvent(new Event("visibilitychange"));
+      isHidden = false;
+      now = 32_000;
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(resetPaginationState).not.toHaveBeenCalled();
+
+      act(() => {
+        raf.flush();
+      });
+
+      expect(scrollViewport.scrollTop).toBe(240);
+      hook.unmount();
+    } finally {
+      Date.now = originalDateNow;
+      if (hiddenDescriptor) {
+        Object.defineProperty(document, "hidden", hiddenDescriptor);
+      } else {
+        Reflect.deleteProperty(document, "hidden");
+      }
+    }
+  });
 });

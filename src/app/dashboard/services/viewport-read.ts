@@ -66,10 +66,31 @@ function findDashboardFeedViewport(root: ParentNode = document) {
   const viewports = root.querySelectorAll<HTMLElement>(FEED_VIEWPORT_SELECTOR);
 
   return (
-    Array.from(viewports).find(
-      (viewport) =>
-        viewport.isConnected &&
-        viewport.querySelector(VIEWPORT_ARTICLE_SELECTOR) !== null,
-    ) ?? null
+    Array.from(viewports)
+      .filter((viewport) => {
+        const viewportRect = viewport.getBoundingClientRect();
+
+        return (
+          viewport.isConnected &&
+          viewport.querySelector(VIEWPORT_ARTICLE_SELECTOR) !== null &&
+          viewportRect.width > 0 &&
+          viewportRect.height > 0 &&
+          window.getComputedStyle(viewport).visibility !== "hidden"
+        );
+      })
+      .sort((leftViewport, rightViewport) => {
+        const rightArticleCount = rightViewport.querySelectorAll(
+          VIEWPORT_ARTICLE_SELECTOR,
+        ).length;
+        const leftArticleCount = leftViewport.querySelectorAll(
+          VIEWPORT_ARTICLE_SELECTOR,
+        ).length;
+
+        if (rightArticleCount !== leftArticleCount) {
+          return rightArticleCount - leftArticleCount;
+        }
+
+        return rightViewport.scrollHeight - leftViewport.scrollHeight;
+      })[0] ?? null
   );
 }

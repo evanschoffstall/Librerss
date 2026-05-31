@@ -279,6 +279,94 @@ describe("viewport-read services", () => {
       articles[1],
     ]);
   });
+
+  test("prefers the visible feed viewport over hidden stale viewport candidates", () => {
+    const hiddenViewport = document.createElement("div");
+    hiddenViewport.dataset.radixScrollAreaViewport = "";
+    hiddenViewport.style.visibility = "hidden";
+    hiddenViewport.getBoundingClientRect = mock(() => ({
+      bottom: 400,
+      height: 300,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 100,
+      width: 780,
+      x: 0,
+      y: 100,
+    })) as typeof hiddenViewport.getBoundingClientRect;
+    const hiddenArticle = document.createElement("article");
+    hiddenArticle.dataset.articleKey = "https://example.com/hidden";
+    hiddenArticle.getBoundingClientRect = mock(() => ({
+      bottom: 240,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 120,
+      width: 780,
+      x: 0,
+      y: 120,
+    })) as typeof hiddenArticle.getBoundingClientRect;
+    hiddenViewport.append(hiddenArticle);
+
+    const activeViewport = document.createElement("div");
+    activeViewport.dataset.radixScrollAreaViewport = "";
+    activeViewport.getBoundingClientRect = mock(() => ({
+      bottom: 400,
+      height: 300,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 100,
+      width: 780,
+      x: 0,
+      y: 100,
+    })) as typeof activeViewport.getBoundingClientRect;
+    const activeArticle = document.createElement("article");
+    activeArticle.dataset.articleKey = "https://example.com/active";
+    activeArticle.getBoundingClientRect = mock(() => ({
+      bottom: 240,
+      height: 120,
+      left: 0,
+      right: 780,
+      toJSON: () => ({}),
+      top: 120,
+      width: 780,
+      x: 0,
+      y: 120,
+    })) as typeof activeArticle.getBoundingClientRect;
+    activeViewport.append(activeArticle);
+
+    document.body.append(hiddenViewport, activeViewport);
+
+    const articles = [
+      {
+        content: "Active unread article",
+        feedId: 1,
+        id: 1,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/active",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Active unread article",
+      },
+      {
+        content: "Hidden unread article",
+        feedId: 1,
+        id: 2,
+        isRead: false,
+        lastChecked: new Date("2024-01-01T00:00:00.000Z"),
+        link: "https://example.com/hidden",
+        publicationDate: new Date("2024-01-01T00:00:00.000Z"),
+        title: "Hidden unread article",
+      },
+    ];
+
+    expect(collectFullyVisibleUnreadArticles(articles)).toEqual([
+      articles[0],
+    ]);
+  });
 });
 
 describe("feed-batch-resolver", () => {
