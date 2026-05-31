@@ -45,6 +45,7 @@ describe("useFeedViewportState", () => {
   test("keeps the viewport host ref stable across same-input rerenders", () => {
     const { rerender, result } = renderHook(() =>
       useFeedViewportState({
+        expandedArticleKey: null,
         feedViewKey: "system-all-feeds:all",
         isCollapseScrollRestoreActive: false,
         isInvertedScroll: false,
@@ -58,5 +59,54 @@ describe("useFeedViewportState", () => {
     expect(result.current.handleViewportHostRef).toBe(
       initialHandleViewportHostRef,
     );
+  });
+
+  test("does not reset the normal viewport during a refresh while an article is expanded", async () => {
+    const viewport = document.createElement("div");
+    viewport.dataset.radixScrollAreaViewport = "";
+    Object.defineProperty(viewport, "scrollTop", {
+      configurable: true,
+      value: 180,
+      writable: true,
+    });
+
+    const host = document.createElement("div");
+    viewport.append(host);
+    document.body.append(viewport);
+
+    const { rerender, result } = renderHook(
+      ({ expandedArticleKey, refreshEpoch }) =>
+        useFeedViewportState({
+          expandedArticleKey,
+          feedViewKey: "system-all-feeds:all",
+          isCollapseScrollRestoreActive: false,
+          isInvertedScroll: false,
+          refreshEpoch,
+        }),
+      {
+        initialProps: {
+          expandedArticleKey: "https://example.com/articles/expanded",
+          refreshEpoch: 0,
+        },
+      },
+    );
+
+    act(() => {
+      result.current.handleViewportHostRef(host as HTMLDivElement);
+    });
+
+    await waitFor(() => {
+      expect(result.current.scrollViewport).toBe(viewport);
+    });
+
+    viewport.scrollTop = 180;
+
+    rerender({
+      expandedArticleKey: "https://example.com/articles/expanded",
+      refreshEpoch: 1,
+    });
+
+    expect(viewport.scrollTop).toBe(180);
+    expect(result.current.shouldLockInitialNormalScroll()).toBe(false);
   });
 });
