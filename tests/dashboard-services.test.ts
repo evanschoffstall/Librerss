@@ -16,9 +16,11 @@ import {
 } from "@/app/dashboard/services/article-collection";
 import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-state";
 import {
+  applyPlaceholderArticleLocalState,
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
   loadFeedSourceTree,
+  setPlaceholderArticleReadState,
   resolveFeedBatchResults,
 } from "@/app/dashboard/services/feed-data";
 import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/feed-view-model";
@@ -369,6 +371,50 @@ describe("feed-batch-resolver", () => {
             feedUrl: "https://example.com/feed.xml",
           },
         ],
+        ok: true,
+        url: "https://example.com/feed.xml",
+      },
+    ]);
+  });
+
+  test("reuses persisted placeholder read state when later unread refills resolve", async () => {
+    const fetchFeedsBatch = mock(async () => {
+      throw new Error("placeholder mode should not call the API");
+    });
+    const placeholderArticles = [
+      {
+        content: "Unread article",
+        feedId: 1,
+        id: 2,
+        isRead: false,
+        lastChecked: new Date("2024-01-02T00:00:00.000Z"),
+        link: "https://example.com/unread",
+        publicationDate: new Date("2024-01-02T00:00:00.000Z"),
+        title: "Unread Placeholder",
+      },
+    ];
+
+    setPlaceholderArticleReadState(placeholderArticles, true);
+
+    const results = await resolveFeedBatchResults(
+      [{ name: "Example Feed", url: "https://example.com/feed.xml" }],
+      true,
+      { articleFilter: "unread" },
+      undefined,
+      {
+        fetchFeedsBatch,
+        getPlaceholderArticles: () => placeholderArticles,
+      },
+    );
+
+    expect(fetchFeedsBatch).not.toHaveBeenCalled();
+    expect(applyPlaceholderArticleLocalState(placeholderArticles[0])).toEqual({
+      ...placeholderArticles[0],
+      isRead: true,
+    });
+    expect(results).toEqual([
+      {
+        articles: [],
         ok: true,
         url: "https://example.com/feed.xml",
       },

@@ -2355,6 +2355,109 @@ describe("useArticleReadState", () => {
     );
   });
 
+  test("setArticleReadState invalidates cached dashboard feed batches after a successful write", async () => {
+    const article = createMockArticle({ isRead: false });
+    let feedState = [article];
+    const queryClient = new QueryClient();
+    const invalidateQueries = queryClient.invalidateQueries.bind(queryClient);
+    queryClient.invalidateQueries = mock(
+      invalidateQueries,
+    ) as typeof queryClient.invalidateQueries;
+    const setFeed = mock((updater: any) => {
+      feedState = typeof updater === "function" ? updater(feedState) : updater;
+    });
+
+    const { result } = renderHook(() =>
+      useArticleReadState({ queryClient, setFeed }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
+
+    await waitFor(() => {
+      expect(feedState[0].isRead).toBe(true);
+      expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ["dashboard", "feed-batch"],
+      });
+    });
+  });
+
+  test("setArticleReadState patches prefetched dashboard feed batches before the write settles", async () => {
+    let resolveStatusUpdate!: () => void;
+    (ArticleService.updateArticleStatus as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveStatusUpdate = resolve;
+          }),
+      );
+
+    const article = createMockArticle({
+      id: 77,
+      isRead: false,
+      link: "https://example.com/prefetched-visible-read",
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          gcTime: Number.POSITIVE_INFINITY,
+          queryKeyHashFn: (queryKey) => JSON.stringify(queryKey),
+          refetchOnReconnect: false,
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+    const cachedUnreadBatchQueryKey = [
+      "dashboard",
+      "feed-batch",
+      "prefetched-request-signature",
+      "unread",
+      "newest",
+      4,
+      "",
+      "skip-refresh",
+      "",
+    ] as const;
+    queryClient.setQueryData(cachedUnreadBatchQueryKey, [
+      {
+        articles: [article],
+        ok: true,
+        url: article.feedUrl,
+      },
+    ]);
+
+    const setFeed = mock(() => {});
+    const { result } = renderHook(() =>
+      useArticleReadState({ queryClient, setFeed }),
+    );
+
+    let mutationPromise!: Promise<boolean>;
+    await act(async () => {
+      mutationPromise = result.current.setArticleReadState(article, true);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      const cachedBatchResults = queryClient.getQueryData(
+        cachedUnreadBatchQueryKey,
+      ) as
+        | {
+            articles: Article[];
+          }[]
+        | undefined;
+
+      expect(cachedBatchResults?.[0]?.articles[0]?.isRead).toBe(true);
+    });
+
+    await act(async () => {
+      resolveStatusUpdate();
+      await mutationPromise;
+    });
+  });
+
   test("setArticleReadState marks article as unread", async () => {
     const article = createMockArticle({ isRead: true });
     let feedState = [article];
@@ -2394,6 +2497,38 @@ describe("useArticleReadState", () => {
 
     await waitFor(() => {
       expect(feedState[0].isRead).toBe(false);
+    });
+  });
+
+  test("setArticleReadState invalidates cached dashboard feed batches when the write fails after an optimistic cache patch", async () => {
+    (ArticleService.updateArticleStatus as ReturnType<typeof mock>)
+      .mockClear()
+      .mockImplementation(async () => {
+        throw new Error("Network error");
+      });
+
+    const article = createMockArticle({ isRead: false });
+    const queryClient = new QueryClient();
+    const invalidateQueries = queryClient.invalidateQueries.bind(queryClient);
+    queryClient.invalidateQueries = mock(
+      invalidateQueries,
+    ) as typeof queryClient.invalidateQueries;
+    const setFeed = mock(() => {});
+
+    const { result } = renderHook(() =>
+      useArticleReadState({ queryClient, setFeed }),
+    );
+
+    await runWithAct(async () => {
+      await result.current.setArticleReadState(article, true);
+    });
+
+    await waitFor(() => {
+      expect(result.current.updatingArticleState).toEqual({});
+    });
+
+    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ["dashboard", "feed-batch"],
     });
   });
 

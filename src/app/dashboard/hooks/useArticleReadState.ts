@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { useCallback } from "react";
 import { toast } from "sonner";
@@ -15,6 +16,9 @@ import {
   useArticleMutationTracker,
   useArticleStatusMutationVersions,
 } from "@/app/dashboard/hooks/article-actions";
+import type { FeedBatchResult } from "@/app/dashboard/services/feed-loader-state";
+import { setPlaceholderArticleReadState } from "@/app/dashboard/services/feed-data/local-state";
+import { invalidateDashboardFeedBatchQueries } from "@/app/dashboard/services/query-keys";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
 
 /**
@@ -27,6 +31,7 @@ interface ReadStateMutationOptions {
   mutationVersions: ArticleStatusMutationVersionTracker;
   nextReadState: boolean;
   options?: SetReadStateOptions;
+  queryClient?: Pick<QueryClient, "invalidateQueries" | "setQueriesData">;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData: boolean;
 }
@@ -43,6 +48,7 @@ interface SetReadStateOptions {
  */
 interface UseArticleReadStateOptions {
   createMutationSignalHandle?: ArticleStatusMutationController["createMutationSignalHandle"];
+  queryClient?: Pick<QueryClient, "invalidateQueries" | "setQueriesData">;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData?: boolean;
 }
@@ -55,6 +61,7 @@ interface UseArticleReadStateOptions {
 export function useArticleReadState(options: UseArticleReadStateOptions) {
   const {
     createMutationSignalHandle,
+    queryClient,
     setFeed,
     usePlaceholderData = false,
   } = options;
@@ -74,6 +81,7 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
         mutationVersions,
         nextReadState,
         options,
+        queryClient,
         setFeed,
         usePlaceholderData,
       });
@@ -118,6 +126,69 @@ function applyOptimisticReadState(
       ? { ...feedArticle, isRead: nextReadState }
       : feedArticle;
   });
+}
+
+/**
+ * Apply the requested read state to cached dashboard feed-batch query results.
+ * @param currentBatchResults - Cached dashboard feed-batch query payload.
+ * @param articleMap - Articles whose read state changed locally.
+ * @param nextReadState - Read-state value to apply.
+ * @returns Updated cached batch results when a matching article changed.
+ */
+function applyOptimisticReadStateToBatchResults(
+  currentBatchResults: FeedBatchResult[] | undefined,
+  articleMap: Map<string, Article>,
+  nextReadState: boolean,
+) {
+  if (!currentBatchResults || articleMap.size === 0) {
+    return currentBatchResults;
+  }
+
+  let didChangeAnyArticle = false;
+  const nextBatchResults = currentBatchResults.map((batchResult) => {
+    let didChangeBatchResult = false;
+    const nextArticles = batchResult.articles.map((article) => {
+      const articleKey = getArticleKey(article);
+
+      if (!articleMap.has(articleKey) || article.isRead === nextReadState) {
+        return article;
+      }
+
+      didChangeAnyArticle = true;
+      didChangeBatchResult = true;
+
+      return { ...article, isRead: nextReadState };
+    });
+
+    return didChangeBatchResult
+      ? { ...batchResult, articles: nextArticles }
+      : batchResult;
+  });
+
+  return didChangeAnyArticle ? nextBatchResults : currentBatchResults;
+}
+
+/**
+ * Rewrite every cached dashboard feed-batch query so warmed unread pages cannot
+ * reinsert articles whose read state was just changed locally.
+ * @param queryClient - React Query client that owns the dashboard feed cache.
+ * @param articleMap - Articles whose cached read state should be patched.
+ * @param nextReadState - Read-state value to apply to matching cached rows.
+ */
+function patchCachedDashboardFeedBatchReadState(
+  queryClient: Pick<QueryClient, "setQueriesData">,
+  articleMap: Map<string, Article>,
+  nextReadState: boolean,
+) {
+  queryClient.setQueriesData(
+    { queryKey: ["dashboard", "feed-batch"] },
+    (currentBatchResults: FeedBatchResult[] | undefined) =>
+      applyOptimisticReadStateToBatchResults(
+        currentBatchResults,
+        articleMap,
+        nextReadState,
+      ),
+  );
 }
 
 /**
@@ -211,17 +282,45 @@ function restoreArticleReadState(
  * @returns Number of articles successfully persisted.
  */
 async function runReadStateMutation(mutationOptions: ReadStateMutationOptions) {
+  const articleMap = new Map(
+    mutationOptions.articles.map((article) => [getArticleKey(article), article]),
+  );
   const articleVersions =
     mutationOptions.mutationVersions.trackArticleMutationVersions(
       mutationOptions.articles,
     );
 
   try {
+    if (mutationOptions.usePlaceholderData) {
+      setPlaceholderArticleReadState(
+        mutationOptions.articles,
+        mutationOptions.nextReadState,
+      );
+    }
+
+    if (mutationOptions.queryClient !== undefined) {
+      patchCachedDashboardFeedBatchReadState(
+        mutationOptions.queryClient,
+        articleMap,
+        mutationOptions.nextReadState,
+      );
+    }
+
     const result = await runOptimisticArticleStatusMutation(
       createReadStateMutationOptions(mutationOptions, articleVersions),
     );
 
-    return result.attemptedCount - result.failedArticleKeys.size;
+    const successfulMutationCount =
+      result.attemptedCount - result.failedArticleKeys.size;
+
+    if (
+      result.attemptedCount > 0 &&
+      mutationOptions.queryClient !== undefined
+    ) {
+      await invalidateDashboardFeedBatchQueries(mutationOptions.queryClient);
+    }
+
+    return successfulMutationCount;
   } finally {
     mutationOptions.mutationVersions.releaseArticleMutationVersions(
       articleVersions,

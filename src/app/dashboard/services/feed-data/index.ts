@@ -12,7 +12,10 @@ export {
   resolveFeedBatchResults,
 } from "@/app/dashboard/services/feed-data/batch";
 export {
+  applyPlaceholderArticleLocalState,
   mergeFeedArticleLocalState,
+  resetPlaceholderArticleLocalStateForTesting,
+  setPlaceholderArticleReadState,
   retainMissingPreviousFeedArticles,
 } from "@/app/dashboard/services/feed-data/local-state";
 export {

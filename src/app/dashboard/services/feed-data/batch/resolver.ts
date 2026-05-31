@@ -4,6 +4,7 @@ import type { BatchFeedResponseItem } from "@/lib/api/http";
 import type { Article, ArticleFilter, ArticleSortOrder } from "@/lib/core";
 
 import { filterArticlesByState } from "@/app/dashboard/services/article";
+import { applyPlaceholderArticleLocalState } from "@/app/dashboard/services/feed-data/local-state";
 import { FeedService } from "@/lib/api";
 import { getPlaceholderArticlesForSource } from "@/lib/core";
 
@@ -132,7 +133,7 @@ function resolveLimitedPlaceholderCandidates(
   const filteredCandidates = normalizedSources
     .flatMap((source) =>
       getPlaceholderArticles(source.url).map((article) => ({
-        article,
+        article: applyPlaceholderArticleLocalState(article),
         sourceName: source.name,
         sourceUrl: source.url,
       })),

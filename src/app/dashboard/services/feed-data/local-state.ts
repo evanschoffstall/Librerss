@@ -1,5 +1,19 @@
 import type { Article } from "@/lib/core";
 
+import { getArticleKey } from "@/app/dashboard/services/article-collection";
+
+/**
+ * Describes the placeholder article status stored across preview-mode refetches.
+ */
+interface PlaceholderArticleLocalState {
+  isRead?: boolean;
+}
+
+const placeholderArticleLocalStateByKey = new Map<
+  string,
+  PlaceholderArticleLocalState
+>();
+
 /**
  * Describes the options for merge feed local state.
  */
@@ -44,6 +58,47 @@ export function mergeFeedArticleLocalState(
         isStarred: mergedIsStarred,
       }
     : freshArticle;
+}
+
+/**
+ * Apply any locally persisted preview-mode read state to a placeholder article.
+ * @param article - Placeholder article generated for the current batch request.
+ * @returns Placeholder article with the stored local read state applied.
+ */
+export function applyPlaceholderArticleLocalState(article: Article): Article {
+  const localState = placeholderArticleLocalStateByKey.get(getArticleKey(article));
+
+  if (!localState || localState.isRead === undefined) {
+    return article;
+  }
+
+  return article.isRead === localState.isRead
+    ? article
+    : { ...article, isRead: localState.isRead };
+}
+
+/**
+ * Persist preview-mode read state so later placeholder refills reuse the
+ * user's latest local intent instead of the static seed defaults.
+ * @param articles - Placeholder-backed articles whose read state changed.
+ * @param nextReadState - Read-state value to persist for future placeholder fetches.
+ */
+export function setPlaceholderArticleReadState(
+  articles: Article[],
+  nextReadState: boolean,
+): void {
+  for (const article of articles) {
+    placeholderArticleLocalStateByKey.set(getArticleKey(article), {
+      isRead: nextReadState,
+    });
+  }
+}
+
+/**
+ * Clear persisted preview-mode article state between tests.
+ */
+export function resetPlaceholderArticleLocalStateForTesting(): void {
+  placeholderArticleLocalStateByKey.clear();
 }
 
 /**
