@@ -11,6 +11,7 @@ const DASHBOARD_PREVIEW_COOKIE_NAME = "librerss_dashboard_preview";
 const DASHBOARD_PREVIEW_STORAGE_KEY = "librerss:dashboardPreviewMode";
 const DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY = "librerss:selectedCategory";
 const DASHBOARD_ARTICLE_FILTER_STORAGE_KEY = "librerss:articleFilter";
+const DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY = "librerss:articleViewMode";
 const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY = "librerss:articlesPerPage";
 const DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY = "librerss:articleSortOrder";
 const DASHBOARD_STORAGE_SYNC_EVENT = "librerss:storage-sync";
@@ -42,6 +43,7 @@ interface DashboardPreferenceSeedOptions {
   articleFilter?: "all" | "read" | "starred" | "unread";
   articleSortOrder?: "newest" | "oldest";
   articlesPerPage?: number;
+  articleViewMode?: "card" | "compact";
   autoRefreshIntervalMinutes?: number;
   backgroundMode?: "none" | "particles" | "stars";
   mobileInvertedScroll?: boolean;
@@ -101,6 +103,13 @@ export async function applyDashboardPreferencesForTest(
       storageEntries.push([
         "librerss:articleSortOrder",
         preferenceOptions.articleSortOrder,
+      ]);
+    }
+
+    if (preferenceOptions.articleViewMode !== undefined) {
+      storageEntries.push([
+        DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+        preferenceOptions.articleViewMode,
       ]);
     }
 
@@ -1599,6 +1608,13 @@ async function seedDashboardPreferencesForTest(
       storageEntries.push([
         "librerss:articleSortOrder",
         seedOptions.articleSortOrder,
+      ]);
+    }
+
+    if (seedOptions.articleViewMode !== undefined) {
+      storageEntries.push([
+        DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+        seedOptions.articleViewMode,
       ]);
     }
 
