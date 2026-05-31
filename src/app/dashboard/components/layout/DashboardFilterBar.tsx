@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { memo } from "react";
 
-import { useDashboardShellHandoff } from "@/app/dashboard/components";
+import { useDashboardShellHandoff } from "@/app/dashboard/components/dashboard-shell-handoff";
 import { MotionSpinner } from "@/app/dashboard/components/status";
 import {
   ARTICLE_FILTER_OPTIONS,

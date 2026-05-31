@@ -3,7 +3,7 @@ import { memo } from "react";
 
 import type { CategoryTreeNode } from "@/lib/core";
 
-import { useDashboardShellHandoff } from "@/app/dashboard/components";
+import { useDashboardShellHandoff } from "@/app/dashboard/components/dashboard-shell-handoff";
 import { SidebarFeedCategory } from "@/app/dashboard/components/layout/SidebarFeedCategory";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";

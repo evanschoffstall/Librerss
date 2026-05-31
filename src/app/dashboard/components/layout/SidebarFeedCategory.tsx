@@ -1,6 +1,6 @@
-import type { FeedCategoryButtonProps } from "@/app/dashboard/components";
+import type { FeedCategoryButtonProps } from "@/app/dashboard/components/feed-category-button";
 
-import { FeedCategoryButton } from "@/app/dashboard/components";
+import { FeedCategoryButton } from "@/app/dashboard/components/feed-category-button";
 
 /**
  * Describes the props for the sidebar feed category component.

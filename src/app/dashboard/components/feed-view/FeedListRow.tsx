@@ -4,7 +4,7 @@ import {
   DASHBOARD_SHELL_HANDOFF_OPACITY_DELAY_MS,
   DASHBOARD_SHELL_HANDOFF_OPACITY_DURATION_MS,
   DASHBOARD_SHELL_HANDOFF_TOTAL_DONE_MS,
-} from "@/app/dashboard/components";
+} from "@/app/dashboard/components/dashboard-shell-handoff";
 import {
   FEED_ARTICLE_SKELETONS,
   FEED_ROW_COLLAPSE_FLOOR_PX,
