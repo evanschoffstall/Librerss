@@ -2,6 +2,7 @@
  * Describes the options for should skip normal viewport reset.
  */
 interface ShouldSkipNormalViewportResetOptions {
+  expandedArticleKey: null | string;
   hasResolvedInitialViewport: boolean;
   isCollapseScrollRestoreActive: boolean;
   isInvertedScroll: boolean;
@@ -13,6 +14,7 @@ interface ShouldSkipNormalViewportResetOptions {
  * Describes the options for sync normal viewport reset.
  */
 interface SyncNormalViewportResetOptions {
+  expandedArticleKey: null | string;
   feedViewKey: string;
   hasResolvedInitialViewport: boolean;
   isCollapseScrollRestoreActive: boolean;
@@ -46,6 +48,7 @@ export function syncNormalViewportReset(
   options: SyncNormalViewportResetOptions,
 ) {
   const {
+    expandedArticleKey,
     feedViewKey,
     hasResolvedInitialViewport,
     isCollapseScrollRestoreActive,
@@ -73,6 +76,7 @@ export function syncNormalViewportReset(
   }
   if (
     shouldSkipNormalViewportReset({
+      expandedArticleKey,
       hasResolvedInitialViewport,
       isCollapseScrollRestoreActive,
       isInvertedScroll,
@@ -93,6 +97,7 @@ export function syncNormalViewportReset(
 function didViewportIntentChange(
   options: Omit<
     SyncNormalViewportResetOptions,
+    | "expandedArticleKey"
     | "hasResolvedInitialViewport"
     | "isCollapseScrollRestoreActive"
     | "scrollViewport"
@@ -122,6 +127,7 @@ function shouldSkipNormalViewportReset(
   options: ShouldSkipNormalViewportResetOptions,
 ) {
   const {
+    expandedArticleKey,
     hasResolvedInitialViewport,
     isCollapseScrollRestoreActive,
     isInvertedScroll,
@@ -131,6 +137,7 @@ function shouldSkipNormalViewportReset(
   const shouldResetInitialViewportScroll =
     !hasResolvedInitialViewport && !isCollapseScrollRestoreActive;
   if (
+    expandedArticleKey !== null ||
     isInvertedScroll ||
     (hasResolvedInitialViewport && !viewportIntentChanged)
   ) {

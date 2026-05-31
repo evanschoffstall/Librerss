@@ -185,6 +185,7 @@ export function useFeedPaginationRefreshResetEffect(
 ) {
   const {
     articleFilter,
+    expandedArticleKey,
     isInvertedScroll,
     isLoadingMore,
     isRefreshing,
@@ -203,6 +204,10 @@ export function useFeedPaginationRefreshResetEffect(
       didRefreshEpochChange && isRefreshing && !isLoadingMore;
 
     if (shouldResetForActiveRefresh) {
+      if (expandedArticleKey !== null && expandedArticleKey !== undefined) {
+        return;
+      }
+
       const shouldSuppressRefreshViewportRefill =
         suppressNextRefreshViewportRefillRef.current;
       suppressNextRefreshViewportRefillRef.current = false;
@@ -223,6 +228,7 @@ export function useFeedPaginationRefreshResetEffect(
     }
   }, [
     articleFilter,
+    expandedArticleKey,
     isInvertedScroll,
     isLoadingMore,
     isRefreshing,

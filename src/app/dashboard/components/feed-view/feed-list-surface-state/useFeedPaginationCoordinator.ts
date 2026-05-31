@@ -167,6 +167,7 @@ export function useFeedPaginationEffects(
   useFeedPaginationRefreshResetEffect({
     articleFilter: options.articleFilter,
     articlesPerPage: options.articlesPerPage,
+    expandedArticleKey: options.expandedArticleKey,
     hasUserScrolledRef: options.hasUserScrolledRef,
     isInvertedScroll: options.isInvertedScroll,
     isLoadingMore: options.isLoadingMore,
@@ -182,6 +183,7 @@ export function useFeedPaginationEffects(
       localState.suppressNextRefreshViewportRefillRef,
   });
   useFeedPaginationStaleResumeResetEffect({
+    expandedArticleKey: options.expandedArticleKey,
     isInvertedScroll: options.isInvertedScroll,
     resetPaginationState,
     scrollViewport: options.scrollViewport,

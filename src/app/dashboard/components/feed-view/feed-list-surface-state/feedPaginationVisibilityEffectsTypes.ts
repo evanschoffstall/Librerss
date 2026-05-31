@@ -41,6 +41,7 @@ export interface FeedPaginationQueryResetEffectOptions {
 export interface FeedPaginationRefreshResetEffectOptions {
   articleFilter: string;
   articlesPerPage: number;
+  expandedArticleKey?: null | string;
   hasUserScrolledRef: { current: boolean };
   isInvertedScroll: boolean;
   isLoadingMore: boolean;
@@ -70,6 +71,7 @@ export type FeedPaginationRevealCountEffectOptions =
  * Describes the options for recovering feed pagination after a stale browser resume.
  */
 export interface FeedPaginationStaleResumeResetEffectOptions {
+  expandedArticleKey?: null | string;
   isInvertedScroll: boolean;
   resetPaginationState: () => void;
   scrollViewport: HTMLElement | null;

@@ -34,6 +34,7 @@ interface FeedViewportHostRefOptions {
  * Describes the options for use feed viewport state.
  */
 interface UseFeedViewportStateOptions {
+  expandedArticleKey?: null | string;
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;
   isInvertedScroll: boolean;
@@ -47,6 +48,7 @@ interface UseFeedViewportStateOptions {
  */
 export function useFeedViewportState(options: UseFeedViewportStateOptions) {
   const {
+    expandedArticleKey = null,
     feedViewKey,
     isCollapseScrollRestoreActive,
     isInvertedScroll,
@@ -78,6 +80,7 @@ export function useFeedViewportState(options: UseFeedViewportStateOptions) {
       return;
     }
     shouldLockNormalInitialScrollRef.current = syncNormalViewportReset({
+      expandedArticleKey,
       feedViewKey,
       hasResolvedInitialViewport: hasResolvedInitialViewportRef.current,
       isCollapseScrollRestoreActive,
@@ -98,6 +101,7 @@ export function useFeedViewportState(options: UseFeedViewportStateOptions) {
       refreshEpoch,
     });
   }, [
+    expandedArticleKey,
     feedViewKey,
     isCollapseScrollRestoreActive,
     isInvertedScroll,

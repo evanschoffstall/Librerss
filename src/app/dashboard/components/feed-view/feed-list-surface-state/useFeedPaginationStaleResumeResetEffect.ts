@@ -19,7 +19,12 @@ const FEED_PAGINATION_STALE_RESUME_RESET_MS = 30_000;
 export function useFeedPaginationStaleResumeResetEffect(
   options: FeedPaginationStaleResumeResetEffectOptions,
 ) {
-  const { isInvertedScroll, resetPaginationState, scrollViewport } = options;
+  const {
+    expandedArticleKey,
+    isInvertedScroll,
+    resetPaginationState,
+    scrollViewport,
+  } = options;
   const scrollResetFrameRef = useRef<null | number>(null);
   const suspendedAtRef = useRef<null | number>(null);
 
@@ -54,6 +59,10 @@ export function useFeedPaginationStaleResumeResetEffect(
         return;
       }
 
+      if (expandedArticleKey !== null && expandedArticleKey !== undefined) {
+        return;
+      }
+
       resetPaginationState();
       cancelScrollResetFrame();
       scrollResetFrameRef.current = window.requestAnimationFrame(() => {
@@ -76,7 +85,12 @@ export function useFeedPaginationStaleResumeResetEffect(
       window.removeEventListener("pagehide", markSuspended);
       window.removeEventListener("pageshow", resetAfterStaleResume);
     };
-  }, [isInvertedScroll, resetPaginationState, scrollViewport]);
+  }, [
+    expandedArticleKey,
+    isInvertedScroll,
+    resetPaginationState,
+    scrollViewport,
+  ]);
 }
 
 /**

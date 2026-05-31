@@ -157,6 +157,7 @@ interface FeedSurfacePresentationOptions {
  * Describes the options for feed surface viewport state.
  */
 interface FeedSurfaceViewportStateOptions {
+  expandedArticleKey: null | string;
   feedViewKey: string;
   isCollapseScrollRestoreActive: boolean;
   isInvertedScroll: boolean;
@@ -376,6 +377,7 @@ function buildFeedSurfacePaginationOptions(
  */
 function useFeedSurfaceBaseStates(options: FeedSurfaceBaseStatesOptions) {
   const viewportState = useFeedSurfaceViewportState({
+    expandedArticleKey: options.expandedArticleKey,
     feedViewKey: options.feedViewKey,
     isCollapseScrollRestoreActive: options.isCollapseScrollRestoreActive,
     isInvertedScroll: options.isInvertedScroll,
