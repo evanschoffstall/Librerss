@@ -1,5 +1,6 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 
 import type { useDashboardState } from "@/app/dashboard/hooks";
@@ -164,6 +165,7 @@ export function useDashboardControllerResources(
     refreshState,
     usePlaceholderData,
   } = options;
+  const queryClient = useQueryClient();
   const feedLoader = useFeedLoader(
     buildDashboardFeedLoaderOptions({
       animationState,
@@ -190,6 +192,7 @@ export function useDashboardControllerResources(
     distillStrategy,
     expandedArticleKey: dashboardState.expandedArticleKey,
     feed: dashboardState.feed,
+    queryClient,
     setExpandedArticleKey: dashboardState.setExpandedArticleKey,
     setFeed: dashboardState.setFeed,
     usePlaceholderData,

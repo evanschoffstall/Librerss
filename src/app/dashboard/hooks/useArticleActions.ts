@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import type { QueryClient } from "@tanstack/react-query";
 
 import { useCallback, useMemo } from "react";
 
@@ -75,6 +76,7 @@ interface UseArticleActionsOptions {
   distillStrategy?: string;
   expandedArticleKey: null | string;
   feed: Article[];
+  queryClient?: Pick<QueryClient, "invalidateQueries">;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData?: boolean;
@@ -92,6 +94,7 @@ export function useArticleActions(options: UseArticleActionsOptions) {
     distillStrategy,
     expandedArticleKey,
     feed,
+    queryClient,
     setExpandedArticleKey,
     setFeed,
     usePlaceholderData = false,
@@ -102,6 +105,7 @@ export function useArticleActions(options: UseArticleActionsOptions) {
     distillStrategy,
     expandedArticleKey,
     feed,
+    queryClient,
     setExpandedArticleKey,
     setFeed,
     usePlaceholderData,
@@ -151,6 +155,7 @@ function useArticleActionDependencies(options: UseArticleActionsOptions) {
     distillStrategy,
     expandedArticleKey,
     feed,
+    queryClient,
     setExpandedArticleKey,
     setFeed,
     usePlaceholderData = false,
@@ -159,6 +164,7 @@ function useArticleActionDependencies(options: UseArticleActionsOptions) {
   const readState = useArticleReadState({
     createMutationSignalHandle:
       statusMutationController.createMutationSignalHandle,
+    queryClient,
     setFeed,
     usePlaceholderData,
   });
