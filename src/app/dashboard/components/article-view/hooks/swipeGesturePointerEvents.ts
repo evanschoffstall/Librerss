@@ -219,6 +219,9 @@ function createPointerMoveHandler(
     if (context.activePointerIdRef.current !== event.pointerId) {
       return;
     }
+    if (context.shouldIgnoreTarget?.(event.target)) {
+      return;
+    }
     if (!shouldTrackSwipeMove(event, context, controls)) {
       return;
     }

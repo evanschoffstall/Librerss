@@ -777,19 +777,108 @@ describe("ArticleCard", () => {
     const onToggleRead = mock(() => {});
     const onExpandedSwipeRead = mock(() => {});
 
-    applyReadSwipeAction({
-      article,
-      isExpanded: true,
-      onExpandedSwipeRead,
-      onToggleRead,
-    });
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={true}
+        isDark={false}
+        isExpanded={true}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={onExpandedSwipeRead}
+        onToggle={onToggle}
+        onToggleRead={onToggleRead}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-1"]',
+    );
+    const contentZone = container.querySelector<HTMLElement>(
+      '[data-article-swipe-zone="content"]',
+    );
+
+    expect(articleSurface).not.toBeNull();
+    expect(contentZone).not.toBeNull();
+
+    const { releasePointerCapture, setPointerCapture } =
+      installPointerCaptureSpies(articleSurface as HTMLElement);
+
+    swipeOnTouch(contentZone as HTMLElement, 13, 20, 210);
 
     await waitFor(() => {
+      expect(setPointerCapture).toHaveBeenCalledWith(13);
+      expect(releasePointerCapture).toHaveBeenCalledWith(13);
       expect(onExpandedSwipeRead).toHaveBeenCalledTimes(1);
       expect(onExpandedSwipeRead).toHaveBeenCalledWith(article);
       expect(onToggleRead).not.toHaveBeenCalled();
       expect(onToggle).not.toHaveBeenCalled();
     });
+  });
+
+  test("does not start expanded body swipe when text selection is already active", async () => {
+    const article = buildArticle({
+      content: "Expanded body copy repeated for active selection coverage.",
+    });
+    const onToggle = mock(() => {});
+    const onToggleRead = mock(() => {});
+    const onExpandedSwipeRead = mock(() => {});
+
+    const { container } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-1"
+        hasScrapedContent={true}
+        isDark={false}
+        isExpanded={true}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={onExpandedSwipeRead}
+        onToggle={onToggle}
+        onToggleRead={onToggleRead}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const articleSurface = container.querySelector<HTMLElement>(
+      'article[data-article-key="article-1"]',
+    );
+    const contentZone = container.querySelector<HTMLElement>(
+      '[data-article-swipe-zone="content"]',
+    );
+
+    expect(articleSurface).not.toBeNull();
+    expect(contentZone).not.toBeNull();
+
+    const selection = window.getSelection();
+    const range = document.createRange();
+
+    selection?.removeAllRanges();
+    range.selectNodeContents(contentZone as HTMLElement);
+    selection?.addRange(range);
+
+    const { releasePointerCapture, setPointerCapture } =
+      installPointerCaptureSpies(articleSurface as HTMLElement);
+
+    swipeOnTouch(contentZone as HTMLElement, 14, 20, 210);
+
+    await waitFor(() => {
+      expect(setPointerCapture).not.toHaveBeenCalled();
+      expect(releasePointerCapture).not.toHaveBeenCalled();
+      expect(onExpandedSwipeRead).not.toHaveBeenCalled();
+      expect(onToggleRead).not.toHaveBeenCalled();
+      expect(onToggle).not.toHaveBeenCalled();
+    });
+
+    selection?.removeAllRanges();
   });
 
   test("commits swipe-to-read from the header after expanding an already-mounted card", async () => {

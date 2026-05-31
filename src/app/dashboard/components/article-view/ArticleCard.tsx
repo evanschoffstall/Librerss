@@ -354,6 +354,10 @@ export const ArticleCard = memo(
     }, []);
     const shouldIgnoreSwipeTarget = useCallback(
       (target: EventTarget | null) => {
+        if (isExpandedBodyTarget(target) && hasActiveExpandedTextSelection()) {
+          return true;
+        }
+
         if (!(target instanceof Element)) {
           return false;
         }
@@ -368,7 +372,7 @@ export const ArticleCard = memo(
 
         return !contentZoneRef.current?.contains(link);
       },
-      [],
+      [hasActiveExpandedTextSelection, isExpandedBodyTarget],
     );
 
     const commitReadSwipe = useCallback(() => {
