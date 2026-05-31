@@ -8,8 +8,11 @@ import type {
   ArticleViewportSnapshot,
   CollapsingArticles,
 } from "@/app/dashboard/display-types";
-import type { ArticleFilter, BackgroundMode } from "@/app/dashboard/services";
-import type { ArticleSortOrder } from "@/app/dashboard/services/article";
+import type {
+  ArticleFilter,
+  ArticleSortOrder,
+} from "@/app/dashboard/services/article";
+import type { BackgroundMode } from "@/app/dashboard/services/dashboard-constants";
 import type { buildDashboardSidebarContentProps } from "@/app/dashboard/services/dashboard-state";
 import type { Article, CategoryTreeNode } from "@/lib/core";
 
