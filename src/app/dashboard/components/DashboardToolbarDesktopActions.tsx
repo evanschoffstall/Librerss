@@ -3,6 +3,7 @@
 import {
   Check,
   CheckCheck,
+  List,
   LogOut,
   Moon,
   RefreshCw,
@@ -11,6 +12,8 @@ import {
   Settings2,
   Sun,
 } from "lucide-react";
+
+import type { DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 
 import { DashboardToolbarActionButton } from "@/app/dashboard/components/DashboardToolbarActionButton";
 import { DashboardToolbarIconButton } from "@/app/dashboard/components/DashboardToolbarIconButton";
@@ -36,7 +39,12 @@ type DashboardToolbarDesktopActionsProps = Pick<
   | "isSigningOut"
   | "mounted"
   | "themeToggleLabel"
-> & { isToolbarActionPending: boolean };
+> & {
+  articleViewMode: DashboardArticleViewMode;
+  articleViewModeToggleLabel: string;
+  handleToggleArticleViewMode: () => void;
+  isToolbarActionPending: boolean;
+};
 
 /**
  * Describes the props for the dashboard toolbar reset icon button component.
@@ -72,6 +80,8 @@ export function DashboardToolbarDesktopActions(
   props: DashboardToolbarDesktopActionsProps,
 ) {
   const {
+    articleViewMode,
+    articleViewModeToggleLabel,
     handleMarkAllRead,
     handleMarkViewportRead,
     handleOpenSettings,
@@ -79,6 +89,7 @@ export function DashboardToolbarDesktopActions(
     handleRefreshFromUpstream,
     handleReset,
     handleSignOut,
+    handleToggleArticleViewMode,
     handleToggleTheme,
     isDark,
     isDevelopmentMode,
@@ -117,6 +128,13 @@ export function DashboardToolbarDesktopActions(
         icon={CheckCheck}
         isPending={isToolbarActionPending}
         onClick={handleMarkAllRead}
+      />
+      <DashboardToolbarIconButton
+        ariaLabel={articleViewModeToggleLabel}
+        ariaPressed={articleViewMode === "compact"}
+        icon={List}
+        isActive={articleViewMode === "compact"}
+        onClick={handleToggleArticleViewMode}
       />
       <DashboardToolbarIconButton
         ariaLabel="Open dashboard settings"

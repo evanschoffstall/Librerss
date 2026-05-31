@@ -14,9 +14,11 @@ export const toolbarIconButtonLayoutClassName =
  */
 interface DashboardToolbarIconButtonProps {
   ariaLabel: string;
+  ariaPressed?: boolean;
   className?: string;
   disabled?: boolean;
   icon: typeof Menu;
+  isActive?: boolean;
   onClick: () => void;
 }
 
@@ -28,13 +30,23 @@ interface DashboardToolbarIconButtonProps {
 export function DashboardToolbarIconButton(
   props: DashboardToolbarIconButtonProps,
 ) {
-  const { ariaLabel, className, disabled, icon: Icon, onClick } = props;
+  const {
+    ariaLabel,
+    ariaPressed,
+    className,
+    disabled,
+    icon: Icon,
+    isActive = false,
+    onClick,
+  } = props;
   return (
     <button
       aria-label={ariaLabel}
+      aria-pressed={ariaPressed}
       className={`
         ${toolbarButtonClassName}
         ${toolbarIconButtonLayoutClassName}
+        ${isActive ? `text-foreground` : ""}
         ${disabled ? `disabled:cursor-not-allowed disabled:opacity-60` : ""}
         ${
           className

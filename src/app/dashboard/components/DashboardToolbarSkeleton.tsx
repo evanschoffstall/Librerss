@@ -25,7 +25,7 @@ interface ToolbarDesktopActionsProps {
  */
 export function DashboardToolbarSkeleton(props: DashboardToolbarSkeletonProps) {
   const { isDevelopmentMode, mobileToolbarBottom, mobileToolbarMirror } = props;
-  const desktopActionCount = isDevelopmentMode ? 7 : 5;
+  const desktopActionCount = isDevelopmentMode ? 8 : 6;
 
   return (
     <div

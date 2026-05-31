@@ -12,7 +12,17 @@ import {
   DashboardToolbarMobileMenuButton,
 } from "@/app/dashboard/components/DashboardToolbarMobileActions";
 import { MotionSpinner } from "@/app/dashboard/components/status";
-import { MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY } from "@/app/dashboard/services/dashboard-constants";
+import {
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+} from "@/app/dashboard/services/dashboard-constants";
+import {
+  type DashboardArticleViewMode,
+  DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
+  getDashboardArticleViewModeToggleLabel,
+  getNextDashboardArticleViewMode,
+  normalizeDashboardArticleViewMode,
+} from "@/app/dashboard/services/dashboard-view-mode";
 import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/lib/hooks";
@@ -118,6 +128,7 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
         search={toolbar.search}
       />
       <DashboardToolbarMobileActions
+        articleViewMode={toolbar.articleViewMode}
         handleMarkAllRead={toolbar.handleMarkAllRead}
         handleMarkViewportRead={toolbar.handleMarkViewportRead}
         handleOpenSettings={toolbar.handleOpenSettings}
@@ -125,6 +136,7 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
         handleRefreshFromUpstream={toolbar.handleRefreshFromUpstream}
         handleReset={toolbar.handleReset}
         handleSignOut={toolbar.handleSignOut}
+        handleToggleArticleViewMode={toolbar.handleToggleArticleViewMode}
         handleToggleTheme={toolbar.handleToggleTheme}
         isDark={toolbar.isDark}
         isDevelopmentMode={toolbar.isDevelopmentMode}
@@ -138,6 +150,8 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
         themeToggleLabel={toolbar.themeToggleLabel}
       />
       <DashboardToolbarDesktopActions
+        articleViewMode={toolbar.articleViewMode}
+        articleViewModeToggleLabel={toolbar.articleViewModeToggleLabel}
         handleMarkAllRead={toolbar.handleMarkAllRead}
         handleMarkViewportRead={toolbar.handleMarkViewportRead}
         handleOpenSettings={toolbar.handleOpenSettings}
@@ -145,6 +159,7 @@ function DashboardToolbarContent(props: DashboardToolbarContentProps) {
         handleRefreshFromUpstream={toolbar.handleRefreshFromUpstream}
         handleReset={toolbar.handleReset}
         handleSignOut={toolbar.handleSignOut}
+        handleToggleArticleViewMode={toolbar.handleToggleArticleViewMode}
         handleToggleTheme={toolbar.handleToggleTheme}
         isDark={toolbar.isDark}
         isDevelopmentMode={toolbar.isDevelopmentMode}
@@ -294,8 +309,28 @@ function useDashboardToolbarPresentationState(
     MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
     true,
   );
+  const [storedArticleViewMode, setArticleViewMode] =
+    useLocalStorage<DashboardArticleViewMode>(
+      DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+      DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
+    );
+  const articleViewMode = normalizeDashboardArticleViewMode(
+    storedArticleViewMode,
+  );
+
   return {
+    articleViewMode,
+    articleViewModeToggleLabel:
+      getDashboardArticleViewModeToggleLabel(articleViewMode),
     ...toolbarState,
+    /** Toggle between the default and compact article list chrome. */
+    handleToggleArticleViewMode: () => {
+      setArticleViewMode((currentValue) =>
+        getNextDashboardArticleViewMode(
+          normalizeDashboardArticleViewMode(currentValue),
+        ),
+      );
+    },
     // Include isSearchPending so the refresh, mark-all-read, and visible
     // buttons show skeleton while a server search is resolving.  The search
     // bar itself is never disabled — only these action buttons reflect the

@@ -4,6 +4,7 @@ import {
   Check,
   CheckCheck,
   EllipsisVertical,
+  List,
   LogOut,
   Menu,
   Moon,
@@ -23,6 +24,10 @@ import {
   toolbarButtonClassName,
   toolbarIconButtonLayoutClassName,
 } from "@/app/dashboard/components/DashboardToolbarIconButton";
+import {
+  type DashboardArticleViewMode,
+  getDashboardArticleViewModeMenuLabel,
+} from "@/app/dashboard/services/dashboard-view-mode";
 import { type useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import {
   DropdownMenu,
@@ -54,6 +59,8 @@ type DashboardToolbarMobileActionsProps = Pick<
   | "mounted"
   | "themeToggleLabel"
 > & {
+  articleViewMode: DashboardArticleViewMode;
+  handleToggleArticleViewMode: () => void;
   isToolbarActionPending: boolean;
   mobileToolbarMirror: boolean;
 };
@@ -78,6 +85,8 @@ type DashboardToolbarMobileMenuContentProps = Pick<
   | "mounted"
   | "themeToggleLabel"
 > & {
+  articleViewMode: DashboardArticleViewMode;
+  handleToggleArticleViewMode: () => void;
   mobileToolbarMirror: boolean;
 };
 
@@ -90,6 +99,7 @@ export function DashboardToolbarMobileActions(
   props: DashboardToolbarMobileActionsProps,
 ) {
   const {
+    articleViewMode,
     handleMarkAllRead,
     handleMarkViewportRead,
     handleOpenSettings,
@@ -97,6 +107,7 @@ export function DashboardToolbarMobileActions(
     handleRefreshFromUpstream,
     handleReset,
     handleSignOut,
+    handleToggleArticleViewMode,
     handleToggleTheme,
     isDark,
     isDevelopmentMode,
@@ -134,11 +145,13 @@ export function DashboardToolbarMobileActions(
         </DropdownMenuTrigger>
       </div>
       <DashboardToolbarMobileMenuContent
+        articleViewMode={articleViewMode}
         handleMarkAllRead={handleMarkAllRead}
         handleOpenSettings={handleOpenSettings}
         handleRefreshFromUpstream={handleRefreshFromUpstream}
         handleReset={handleReset}
         handleSignOut={handleSignOut}
+        handleToggleArticleViewMode={handleToggleArticleViewMode}
         handleToggleTheme={handleToggleTheme}
         isDark={isDark}
         isDevelopmentMode={isDevelopmentMode}
@@ -251,11 +264,13 @@ function DashboardToolbarMobileMenuContent(
   props: DashboardToolbarMobileMenuContentProps,
 ) {
   const {
+    articleViewMode,
     handleMarkAllRead,
     handleOpenSettings,
     handleRefreshFromUpstream,
     handleReset,
     handleSignOut,
+    handleToggleArticleViewMode,
     handleToggleTheme,
     isDark,
     isDevelopmentMode,
@@ -282,6 +297,10 @@ function DashboardToolbarMobileMenuContent(
           isPending={isMarkingAllRead}
         />
         Mark all read
+      </DropdownMenuItem>
+      <DropdownMenuItem onSelect={handleToggleArticleViewMode}>
+        <List className="size-4" />
+        {getDashboardArticleViewModeMenuLabel(articleViewMode)}
       </DropdownMenuItem>
       <DropdownMenuItem onSelect={handleOpenSettings}>
         <Settings2 className="size-4" />

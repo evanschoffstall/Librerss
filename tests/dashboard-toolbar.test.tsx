@@ -9,6 +9,7 @@ import { DashboardToolbar as realDashboardToolbar } from "@/app/dashboard/compon
 import { DASHBOARD_EVENTS } from "@/app/dashboard/constants";
 import {
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
 } from "@/app/dashboard/services";
@@ -124,6 +125,49 @@ describe("DashboardToolbar", () => {
     expect(
       getAllByLabelText("Mark fully visible articles as read"),
     ).toHaveLength(2);
+  });
+
+  test("toggles the article view mode and persists the compact preference", async () => {
+    setNodeEnv("test");
+
+    AuthService.logout = mock(async () => {});
+    mockToolbarDependencies();
+    const originalGlobalLocalStorage = globalThis.localStorage;
+
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true,
+      value: window.localStorage,
+    });
+
+    try {
+      const { DashboardToolbar } = await loadDashboardToolbar();
+      const { getByLabelText } = render(<DashboardToolbar />);
+
+      const toggle = getByLabelText("Switch article list to compact view");
+      expect(toggle.getAttribute("aria-pressed")).toBe("false");
+
+      await act(async () => {
+        fireEvent.click(toggle);
+        await Promise.resolve();
+      });
+
+      await waitFor(() => {
+        expect(getByLabelText("Switch article list to card view")).toBeTruthy();
+        expect(
+          window.localStorage.getItem(DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY),
+        ).toBe(JSON.stringify("compact"));
+        expect(
+          getByLabelText("Switch article list to card view").getAttribute(
+            "aria-pressed",
+          ),
+        ).toBe("true");
+      });
+    } finally {
+      Object.defineProperty(globalThis, "localStorage", {
+        configurable: true,
+        value: originalGlobalLocalStorage,
+      });
+    }
   });
 
   test("keeps the toolbar search input visually compact without mobile focus zoom", async () => {
@@ -397,6 +441,10 @@ describe("DashboardToolbar", () => {
       DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
       JSON.stringify(4),
     );
+    window.localStorage.setItem(
+      DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+      JSON.stringify("compact"),
+    );
     window.localStorage.setItem("librerss:test", "value");
     window.sessionStorage.setItem("librerss:test", "value");
     document.cookie = "librerss_dashboard_preview=1; Path=/";
@@ -424,6 +472,9 @@ describe("DashboardToolbar", () => {
       expect(
         window.localStorage.getItem(DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY),
       ).toBe(JSON.stringify(4));
+      expect(
+        window.localStorage.getItem(DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY),
+      ).toBe(JSON.stringify("compact"));
       expect(window.localStorage.getItem("librerss:test")).toBeNull();
       expect(window.sessionStorage.getItem("librerss:test")).toBeNull();
       expect(document.cookie).not.toContain("librerss_dashboard_preview=");
