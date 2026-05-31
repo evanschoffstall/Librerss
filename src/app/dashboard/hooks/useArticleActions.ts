@@ -1,7 +1,7 @@
 "use client";
 
-import type React from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import type React from "react";
 
 import { useCallback, useMemo } from "react";
 
@@ -76,7 +76,7 @@ interface UseArticleActionsOptions {
   distillStrategy?: string;
   expandedArticleKey: null | string;
   feed: Article[];
-  queryClient?: Pick<QueryClient, "invalidateQueries">;
+  queryClient?: Pick<QueryClient, "invalidateQueries" | "setQueriesData">;
   setExpandedArticleKey: React.Dispatch<React.SetStateAction<null | string>>;
   setFeed: React.Dispatch<React.SetStateAction<Article[]>>;
   usePlaceholderData?: boolean;

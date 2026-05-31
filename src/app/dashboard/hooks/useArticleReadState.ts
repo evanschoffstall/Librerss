@@ -1,11 +1,12 @@
 "use client";
 
-import type React from "react";
 import type { QueryClient } from "@tanstack/react-query";
+import type React from "react";
 
 import { useCallback } from "react";
 import { toast } from "sonner";
 
+import type { FeedBatchResult } from "@/app/dashboard/services/feed-loader-state";
 import type { Article } from "@/lib/core";
 
 import {
@@ -16,10 +17,9 @@ import {
   useArticleMutationTracker,
   useArticleStatusMutationVersions,
 } from "@/app/dashboard/hooks/article-actions";
-import type { FeedBatchResult } from "@/app/dashboard/services/feed-loader-state";
-import { setPlaceholderArticleReadState } from "@/app/dashboard/services/feed-data/local-state";
-import { invalidateDashboardFeedBatchQueries } from "@/app/dashboard/services/query-keys";
+import { invalidateDashboardFeedBatchQueries } from "@/app/dashboard/services";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
+import { setPlaceholderArticleReadState } from "@/app/dashboard/services/feed-data";
 
 /**
  * Inputs needed to run a guarded batch read-state mutation.
@@ -90,6 +90,7 @@ export function useArticleReadState(options: UseArticleReadStateOptions) {
       createMutationSignalHandle,
       mutationTracker,
       mutationVersions,
+      queryClient,
       setFeed,
       usePlaceholderData,
     ],
@@ -144,9 +145,7 @@ function applyOptimisticReadStateToBatchResults(
     return currentBatchResults;
   }
 
-  let didChangeAnyArticle = false;
   const nextBatchResults = currentBatchResults.map((batchResult) => {
-    let didChangeBatchResult = false;
     const nextArticles = batchResult.articles.map((article) => {
       const articleKey = getArticleKey(article);
 
@@ -154,41 +153,24 @@ function applyOptimisticReadStateToBatchResults(
         return article;
       }
 
-      didChangeAnyArticle = true;
-      didChangeBatchResult = true;
-
       return { ...article, isRead: nextReadState };
     });
+
+    const didChangeBatchResult = nextArticles.some(
+      (article, articleIndex) => article !== batchResult.articles[articleIndex],
+    );
 
     return didChangeBatchResult
       ? { ...batchResult, articles: nextArticles }
       : batchResult;
   });
 
-  return didChangeAnyArticle ? nextBatchResults : currentBatchResults;
-}
-
-/**
- * Rewrite every cached dashboard feed-batch query so warmed unread pages cannot
- * reinsert articles whose read state was just changed locally.
- * @param queryClient - React Query client that owns the dashboard feed cache.
- * @param articleMap - Articles whose cached read state should be patched.
- * @param nextReadState - Read-state value to apply to matching cached rows.
- */
-function patchCachedDashboardFeedBatchReadState(
-  queryClient: Pick<QueryClient, "setQueriesData">,
-  articleMap: Map<string, Article>,
-  nextReadState: boolean,
-) {
-  queryClient.setQueriesData(
-    { queryKey: ["dashboard", "feed-batch"] },
-    (currentBatchResults: FeedBatchResult[] | undefined) =>
-      applyOptimisticReadStateToBatchResults(
-        currentBatchResults,
-        articleMap,
-        nextReadState,
-      ),
+  const didChangeAnyArticle = nextBatchResults.some(
+    (batchResult, batchResultIndex) =>
+      batchResult !== currentBatchResults[batchResultIndex],
   );
+
+  return didChangeAnyArticle ? nextBatchResults : currentBatchResults;
 }
 
 /**
@@ -254,6 +236,29 @@ function createReadStateMutationOptions(
 }
 
 /**
+ * Rewrite every cached dashboard feed-batch query so warmed unread pages cannot
+ * reinsert articles whose read state was just changed locally.
+ * @param queryClient - React Query client that owns the dashboard feed cache.
+ * @param articleMap - Articles whose cached read state should be patched.
+ * @param nextReadState - Read-state value to apply to matching cached rows.
+ */
+function patchCachedDashboardFeedBatchReadState(
+  queryClient: Pick<QueryClient, "setQueriesData">,
+  articleMap: Map<string, Article>,
+  nextReadState: boolean,
+) {
+  queryClient.setQueriesData(
+    { queryKey: ["dashboard", "feed-batch"] },
+    (currentBatchResults: FeedBatchResult[] | undefined) =>
+      applyOptimisticReadStateToBatchResults(
+        currentBatchResults,
+        articleMap,
+        nextReadState,
+      ),
+  );
+}
+
+/**
  * Restore original read state for failed article-status writes.
  * @param currentFeed - Feed snapshot currently mounted in state.
  * @param articleMap - Original articles captured before the optimistic update.
@@ -283,7 +288,10 @@ function restoreArticleReadState(
  */
 async function runReadStateMutation(mutationOptions: ReadStateMutationOptions) {
   const articleMap = new Map(
-    mutationOptions.articles.map((article) => [getArticleKey(article), article]),
+    mutationOptions.articles.map((article) => [
+      getArticleKey(article),
+      article,
+    ]),
   );
   const articleVersions =
     mutationOptions.mutationVersions.trackArticleMutationVersions(
