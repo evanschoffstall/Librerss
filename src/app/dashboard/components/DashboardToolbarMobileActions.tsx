@@ -27,7 +27,7 @@ import {
 import {
   type DashboardArticleViewMode,
   getDashboardArticleViewModeMenuLabel,
-} from "@/app/dashboard/services/dashboard-view-mode";
+} from "@/app/dashboard/services/article-view-mode";
 import { type useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import {
   DropdownMenu,
@@ -40,35 +40,26 @@ import {
 /**
  * Describes the props for the dashboard toolbar mobile actions component.
  */
-type DashboardToolbarMobileActionsProps = Pick<
-  ReturnType<typeof useDashboardToolbarState>,
-  | "handleMarkAllRead"
-  | "handleMarkViewportRead"
-  | "handleOpenSettings"
-  | "handleRefresh"
-  | "handleRefreshFromUpstream"
-  | "handleReset"
-  | "handleSignOut"
-  | "handleToggleTheme"
-  | "isDark"
-  | "isDevelopmentMode"
-  | "isMarkingAllRead"
-  | "isRefreshing"
-  | "isResetting"
-  | "isSigningOut"
-  | "mounted"
-  | "themeToggleLabel"
-> & {
-  articleViewMode: DashboardArticleViewMode;
-  handleToggleArticleViewMode: () => void;
-  isToolbarActionPending: boolean;
-  mobileToolbarMirror: boolean;
-};
+type DashboardToolbarMobileActionsProps =
+  DashboardToolbarMobileSharedActionProps &
+    DashboardToolbarMobileViewModeProps &
+    Pick<
+      ReturnType<typeof useDashboardToolbarState>,
+      "handleMarkViewportRead" | "handleRefresh"
+    > & {
+      isToolbarActionPending: boolean;
+    };
 
 /**
  * Describes the props for the dashboard toolbar mobile menu content component.
  */
-type DashboardToolbarMobileMenuContentProps = Pick<
+type DashboardToolbarMobileMenuContentProps =
+  DashboardToolbarMobileSharedActionProps & DashboardToolbarMobileViewModeProps;
+
+/**
+ * Describes the shared toolbar state used by the mobile action surfaces.
+ */
+type DashboardToolbarMobileSharedActionProps = Pick<
   ReturnType<typeof useDashboardToolbarState>,
   | "handleMarkAllRead"
   | "handleOpenSettings"
@@ -84,11 +75,16 @@ type DashboardToolbarMobileMenuContentProps = Pick<
   | "isSigningOut"
   | "mounted"
   | "themeToggleLabel"
-> & {
+>;
+
+/**
+ * Describes the shared article-view props for mobile action surfaces.
+ */
+interface DashboardToolbarMobileViewModeProps {
   articleViewMode: DashboardArticleViewMode;
   handleToggleArticleViewMode: () => void;
   mobileToolbarMirror: boolean;
-};
+}
 
 /**
  * Render the dashboard toolbar mobile actions component.

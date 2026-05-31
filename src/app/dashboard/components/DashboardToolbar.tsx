@@ -13,16 +13,16 @@ import {
 } from "@/app/dashboard/components/DashboardToolbarMobileActions";
 import { MotionSpinner } from "@/app/dashboard/components/status";
 import {
-  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
-  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-} from "@/app/dashboard/services/dashboard-constants";
-import {
   type DashboardArticleViewMode,
   DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
   getDashboardArticleViewModeToggleLabel,
   getNextDashboardArticleViewMode,
   normalizeDashboardArticleViewMode,
-} from "@/app/dashboard/services/dashboard-view-mode";
+} from "@/app/dashboard/services/article-view-mode";
+import {
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
+} from "@/app/dashboard/services/dashboard-constants";
 import { useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/lib/hooks";

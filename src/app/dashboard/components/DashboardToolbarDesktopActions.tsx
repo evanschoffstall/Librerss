@@ -13,10 +13,9 @@ import {
   Sun,
 } from "lucide-react";
 
-import type { DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
-
 import { DashboardToolbarActionButton } from "@/app/dashboard/components/DashboardToolbarActionButton";
 import { DashboardToolbarIconButton } from "@/app/dashboard/components/DashboardToolbarIconButton";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/article-view-mode";
 import { type useDashboardToolbarState } from "@/app/dashboard/toolbar";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -79,6 +78,37 @@ interface DashboardToolbarUpstreamRefreshButtonProps {
 export function DashboardToolbarDesktopActions(
   props: DashboardToolbarDesktopActionsProps,
 ) {
+  const { mounted, themeToggleLabel, ...desktopActions } = props;
+  return (
+    <div
+      className="
+        hidden items-center gap-4
+        md:flex
+      "
+    >
+      <DashboardToolbarDesktopPrimaryActions {...desktopActions} />
+      <span className="h-3 w-px bg-border" />
+      <DashboardToolbarThemeButton
+        handleToggleTheme={desktopActions.handleToggleTheme}
+        isDark={desktopActions.isDark}
+        mounted={mounted}
+        themeToggleLabel={themeToggleLabel}
+      />
+    </div>
+  );
+}
+
+/**
+ * Render the desktop action group ahead of the theme toggle.
+ * @param props - The component props.
+ * @returns The rendered desktop action group.
+ */
+function DashboardToolbarDesktopPrimaryActions(
+  props: Omit<
+    DashboardToolbarDesktopActionsProps,
+    "mounted" | "themeToggleLabel"
+  >,
+) {
   const {
     articleViewMode,
     articleViewModeToggleLabel,
@@ -90,22 +120,13 @@ export function DashboardToolbarDesktopActions(
     handleReset,
     handleSignOut,
     handleToggleArticleViewMode,
-    handleToggleTheme,
-    isDark,
     isDevelopmentMode,
     isResetting,
     isSigningOut,
     isToolbarActionPending,
-    mounted,
-    themeToggleLabel,
   } = props;
   return (
-    <div
-      className="
-        hidden items-center gap-4
-        md:flex
-      "
-    >
+    <>
       <DashboardToolbarActionButton
         ariaLabel="Refresh selected feed"
         icon={RefreshCw}
@@ -152,14 +173,7 @@ export function DashboardToolbarDesktopActions(
         isDevelopmentMode={isDevelopmentMode}
         isResetting={isResetting}
       />
-      <span className="h-3 w-px bg-border" />
-      <DashboardToolbarThemeButton
-        handleToggleTheme={handleToggleTheme}
-        isDark={isDark}
-        mounted={mounted}
-        themeToggleLabel={themeToggleLabel}
-      />
-    </div>
+    </>
   );
 }
 
@@ -180,7 +194,9 @@ function DashboardToolbarResetIconButton(
       onClick={() => void handleReset()}
     />
   ) : null;
-} /**
+}
+
+/**
  * Render the dashboard toolbar theme button component.
  * @param props - The component props.
  * @returns The rendered dashboard toolbar theme button component.
