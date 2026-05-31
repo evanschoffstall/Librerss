@@ -5,7 +5,7 @@ import {
   type ArticleHeaderActionsProps,
 } from "@/app/dashboard/components/article-view/ArticleCardHeaderActions";
 import { getArticleSourceLabel } from "@/app/dashboard/services/article";
-import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/article-view-mode";
 import { setCachedFaviconIndex } from "@/app/dashboard/services/favicon";
 import { formatRelativeDate } from "@/lib/utils";
 

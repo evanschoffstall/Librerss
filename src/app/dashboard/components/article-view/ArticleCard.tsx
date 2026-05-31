@@ -28,8 +28,8 @@ import {
   buildPreview,
   getRichContentClass,
 } from "@/app/dashboard/services/article";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/article-view-mode";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/services/dashboard-constants";
-import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sanitizeArticleHtml, toPlainText } from "@/lib/sanitize";
 

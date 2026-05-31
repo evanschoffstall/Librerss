@@ -1,6 +1,6 @@
 import { AnimatePresence, motion, type MotionStyle } from "motion/react";
 
-import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/article-view-mode";
 
 /**
  * Describes the props for the article card content component.
