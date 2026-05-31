@@ -22,6 +22,7 @@ import * as realUseCategoryCrudActionsModule from "@/app/dashboard/hooks/useCate
 import * as realUseCategoryOrderStateModule from "@/app/dashboard/hooks/useCategoryOrderState";
 import * as realUseDashboardCategoryTreeModule from "@/app/dashboard/hooks/useDashboardCategoryTree";
 import * as realUseDashboardIntervalsModule from "@/app/dashboard/hooks/useDashboardIntervals";
+import { resetPlaceholderArticleLocalStateForTesting } from "@/app/dashboard/services/feed-data/local-state";
 import * as realSettingsStateModule from "@/app/dashboard/settings";
 import * as realToolbarModule from "@/app/dashboard/toolbar";
 import * as realUiButtonModule from "@/components/ui/button";
@@ -48,7 +49,6 @@ import * as realProxyTransportModule from "@/lib/outbound-proxy/transport";
 import * as realRateLimitModule from "@/lib/rate-limit";
 import * as realServerModuleImport from "@/lib/server";
 import * as realUrlModule from "@/lib/utils/url";
-import { resetPlaceholderArticleLocalStateForTesting } from "@/app/dashboard/services/feed-data/local-state";
 
 const NODE_INSPECT_CUSTOM = Symbol.for("nodejs.util.inspect.custom");
 const realServerModule = { ...realServerModuleImport };

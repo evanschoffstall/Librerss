@@ -17,12 +17,14 @@ import {
 import { filterArticlesBySearchTerm } from "@/app/dashboard/services/dashboard-state";
 import {
   applyPlaceholderArticleLocalState,
+  loadFeedSourceTree,
+  resolveFeedBatchResults,
+  setPlaceholderArticleReadState,
+} from "@/app/dashboard/services/feed-data";
+import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
-  loadFeedSourceTree,
-  setPlaceholderArticleReadState,
-  resolveFeedBatchResults,
-} from "@/app/dashboard/services/feed-data";
+} from "@/app/dashboard/services/feed-data/batch";
 import { collectFullyVisibleUnreadArticles } from "@/app/dashboard/services/feed-view-model";
 
 // ─── Article Content Services ─────────────────────────────────────────────────
@@ -363,9 +365,7 @@ describe("viewport-read services", () => {
       },
     ];
 
-    expect(collectFullyVisibleUnreadArticles(articles)).toEqual([
-      articles[0],
-    ]);
+    expect(collectFullyVisibleUnreadArticles(articles)).toEqual([articles[0]]);
   });
 });
 
@@ -1390,7 +1390,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles keeps article feedName when source name missing", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1416,7 +1416,7 @@ describe("dashboard article helpers comprehensive", () => {
 
   test("mapBatchResultsToArticles does not set feedName to feed URL", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
 
     const result = mapBatchResultsToArticles(
       [
@@ -1598,7 +1598,7 @@ describe("feed-batch pure helpers", () => {
     feedCount: number;
   }) {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const { normalizeBatchItem } = await import("@/lib/api/http");
     const { mapRowsToArticleMap, queryTopArticlesPerFeed } =
       await import("@/lib/core/feed-batch-pipeline");
@@ -1715,7 +1715,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: usePlaceholderData returns placeholder articles on failed result", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const placeholderArticle = makeArticle({
       feedName: "Placeholder",
       id: 99,
@@ -1733,7 +1733,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: failed result with usePlaceholderData=false returns empty", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const result = mapBatchResultsToArticles(
       [{ articles: [], ok: false, url: "https://example.com/feed" }],
       new Map([["https://example.com/feed", "My Feed"]]),
@@ -1745,7 +1745,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles: ok=true but empty articles falls to placeholder branch", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const placeholder = makeArticle({
       id: 50,
       link: "https://placeholder.example/x",
@@ -1761,7 +1761,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles reuses previous feed articles for unchanged batch items", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const previousArticle = makeArticle({
       feedName: "Feed A",
       feedUrl: "https://example.com/feed",
@@ -1791,7 +1791,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles keeps multiple unchanged articles from the same feed together", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const previousArticles = [
       makeArticle({
         feedName: "Feed A",
@@ -1831,7 +1831,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapBatchResultsToArticles preserves oldest-first ordering for hydrated batch results", async () => {
     const { mapBatchResultsToArticles } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const olderArticle = makeArticle({
       id: 1,
       lastChecked: new Date("2026-03-14T12:10:00.000Z"),
@@ -1867,7 +1867,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources deduplicates by url preserving order", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const sources = [
       { name: "A", url: "https://a.com/feed" },
       { name: "B", url: "https://b.com/feed" },
@@ -1883,7 +1883,7 @@ describe("feed-batch pure helpers", () => {
 
   test("normalizeFeedBatchSources returns empty array for all-duplicate input", async () => {
     const { normalizeFeedBatchSources } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const result = normalizeFeedBatchSources([
       { name: "X", url: "https://x.com/feed" },
       { name: "X", url: "https://x.com/feed" },
@@ -1893,7 +1893,7 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature produces stable sorted string", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const a = buildBatchRequestSignature([
       { name: "B", url: "https://b.com/feed" },
       { name: "A", url: "https://a.com/feed" },
@@ -1909,13 +1909,13 @@ describe("feed-batch pure helpers", () => {
 
   test("buildBatchRequestSignature returns empty string for empty input", async () => {
     const { buildBatchRequestSignature } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     expect(buildBatchRequestSignature([])).toBe("");
   });
 
   test("mapFeedNodesToBatchSources filters nodes without url", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const nodes = [
       { data: { url: "https://a.com/rss" }, label: "Feed A" },
       { data: {}, label: "No URL" },
@@ -1929,7 +1929,7 @@ describe("feed-batch pure helpers", () => {
 
   test("mapFeedNodesToBatchSources handles null/undefined data", async () => {
     const { mapFeedNodesToBatchSources } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     const nodes = [
       { data: null, label: "No data" },
       { data: undefined, label: "No node" },
@@ -1940,7 +1940,7 @@ describe("feed-batch pure helpers", () => {
 
   test("FEED_LOADING_FAILSAFE_MS is a positive number", async () => {
     const { FEED_LOADING_FAILSAFE_MS } =
-      await import("@/app/dashboard/services/feed-data");
+      await import("@/app/dashboard/services/feed-data/batch");
     expect(typeof FEED_LOADING_FAILSAFE_MS).toBe("number");
     expect(FEED_LOADING_FAILSAFE_MS).toBeGreaterThan(0);
   });

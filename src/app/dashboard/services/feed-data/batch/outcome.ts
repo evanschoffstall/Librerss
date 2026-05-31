@@ -3,10 +3,12 @@ import type { Article, ArticleSortOrder } from "@/lib/core";
 
 import {
   type FeedBatchSource,
+  mapBatchResultsToArticles,
+} from "@/app/dashboard/services/feed-data/batch/batch";
+import {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,
-  mapBatchResultsToArticles,
-} from "@/app/dashboard/services/feed-data/batch";
+} from "@/app/dashboard/services/feed-data/batch/timestamps";
 
 /**
  * Describes the feed batch outcome.

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { DASHBOARD_EVENTS } from "@/app/dashboard/services/dashboard-constants";
-import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-data";
+import { FEED_LOADING_FAILSAFE_MS } from "@/app/dashboard/services/feed-data/batch";
 import { readDashboardPreviewModeFromLocation } from "@/app/dashboard/toolbar/dashboardWindowEvents";
 
 /** Refresh listener callbacks and teardown owned by the toolbar window state. */

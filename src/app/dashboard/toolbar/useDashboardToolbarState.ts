@@ -10,9 +10,9 @@ import {
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
   DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
+  DASHBOARD_EVENTS,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
-} from "@/app/dashboard/services";
-import { DASHBOARD_EVENTS } from "@/app/dashboard/services/dashboard-constants";
+} from "@/app/dashboard/services/dashboard-constants";
 import {
   dispatchDashboardWindowEvent,
   readDashboardShellLoadingFromDocument,

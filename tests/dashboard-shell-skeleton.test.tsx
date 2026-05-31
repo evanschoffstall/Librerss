@@ -70,7 +70,7 @@ describe("DashboardShellSkeleton", () => {
       container.querySelectorAll(
         '[data-dashboard-toolbar-skeleton-action="true"]',
       ),
-    ).toHaveLength(12);
+    ).toHaveLength(13);
     expect(container.querySelector(".max-w-6xl")).toBeTruthy();
     expect(container.querySelectorAll('[class*="bg-card/35"]')).toHaveLength(1);
     expect(

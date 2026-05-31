@@ -12,7 +12,7 @@ import {
   DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
-} from "@/app/dashboard/services";
+} from "@/app/dashboard/services/dashboard";
 import * as realUiSkeleton from "@/components/ui/skeleton";
 import { AuthService } from "@/lib/api";
 

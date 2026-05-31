@@ -10,7 +10,6 @@ export {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
 } from "@/app/dashboard/services/feed-data/batch/outcome";
-export { resolveFeedBatchResults } from "@/app/dashboard/services/feed-data/batch/resolver";
 export {
   getNewestLastFetchedAt,
   getSourceNamesByUrl,

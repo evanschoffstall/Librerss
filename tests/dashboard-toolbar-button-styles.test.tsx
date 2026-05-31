@@ -16,6 +16,7 @@ describe("dashboard toolbar mobile button styles", () => {
       <>
         <DashboardToolbarMobileMenuButton handleOpenFeedsSidebar={noop} />
         <DashboardToolbarMobileActions
+          articleViewMode="card"
           handleMarkAllRead={noop}
           handleMarkViewportRead={noop}
           handleOpenSettings={noop}
@@ -23,6 +24,7 @@ describe("dashboard toolbar mobile button styles", () => {
           handleRefreshFromUpstream={noop}
           handleReset={async () => {}}
           handleSignOut={async () => {}}
+          handleToggleArticleViewMode={noop}
           handleToggleTheme={noop}
           isDark={false}
           isDevelopmentMode={false}

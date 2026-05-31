@@ -16,33 +16,6 @@ export type {
   ShouldBlockArticleWindowLoadMoreOptions,
   ShouldRefillDepletedUnreadWindowOptions,
 } from "@/app/dashboard/services/article";
-export {
-  ALL_FEEDS_NODE_KEY,
-  AUTO_REFRESH_INTERVAL_STORAGE_KEY,
-  DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
-  DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY,
-  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
-  DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
-  DASHBOARD_EVENTS,
-  DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
-  MANUAL_REFRESH_INTERVAL_MINUTES,
-  MIN_AUTO_REFRESH_INTERVAL_MINUTES,
-  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
-  MOBILE_UI_GROUPED_LAYOUT_STORAGE_KEY,
-  normalizeAutoRefreshIntervalMinutes,
-  resolveDefaultAutoRefreshIntervalMinutes,
-  SETTINGS_PANEL_TAB_STORAGE_KEY,
-  toAutoRefreshIntervalMs,
-} from "@/app/dashboard/services/dashboard-preferences";
-export type { BackgroundMode } from "@/app/dashboard/services/dashboard-preferences";
-export {
-  DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
-  getDashboardArticleViewModeMenuLabel,
-  getDashboardArticleViewModeToggleLabel,
-  getNextDashboardArticleViewMode,
-  normalizeDashboardArticleViewMode,
-} from "@/app/dashboard/services/dashboard-view-mode";
-export type { DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 export { setCachedFaviconIndex } from "@/app/dashboard/services/favicon";
 export {
   collectFullyVisibleUnreadArticles,
@@ -50,6 +23,15 @@ export {
   getFeedSourceTreeQueryKey,
 } from "@/app/dashboard/services/feed-view-model";
 export { importOpmlFeedsAndRefresh } from "@/app/dashboard/services/opml-import";
+export { invalidateDashboardFeedBatchQueries } from "@/app/dashboard/services/query-keys";
+export {
+  AUTO_REFRESH_INTERVAL_STORAGE_KEY,
+  MANUAL_REFRESH_INTERVAL_MINUTES,
+  MIN_AUTO_REFRESH_INTERVAL_MINUTES,
+  normalizeAutoRefreshIntervalMinutes,
+  resolveDefaultAutoRefreshIntervalMinutes,
+  toAutoRefreshIntervalMs,
+} from "@/app/dashboard/services/refresh-policy";
 export type {
   FeedFetchOptions,
   FeedSelectionFetchers,

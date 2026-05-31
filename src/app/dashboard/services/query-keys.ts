@@ -50,6 +50,18 @@ export function getFeedBatchQueryKey(
 }
 
 /**
+ * Return the feed source tree query key.
+ * @param usePlaceholderData - The placeholder data.
+ * @returns The feed source tree query key.
+ */
+export function getFeedSourceTreeQueryKey(usePlaceholderData: boolean) {
+  return [
+    ...DASHBOARD_FEED_SOURCE_TREE_QUERY_KEY,
+    usePlaceholderData ? "placeholder" : "live",
+  ] as const;
+}
+
+/**
  * Invalidate every cached dashboard feed-batch query after a local article
  * status mutation settles so React Query refreshes any optimistic cache patch.
  * @param queryClient - React Query client that owns the dashboard feed cache.
@@ -60,18 +72,6 @@ export async function invalidateDashboardFeedBatchQueries(
   await queryClient.invalidateQueries({
     queryKey: getDashboardFeedBatchQueryKeyRoot(),
   });
-}
-
-/**
- * Return the feed source tree query key.
- * @param usePlaceholderData - The placeholder data.
- * @returns The feed source tree query key.
- */
-export function getFeedSourceTreeQueryKey(usePlaceholderData: boolean) {
-  return [
-    ...DASHBOARD_FEED_SOURCE_TREE_QUERY_KEY,
-    usePlaceholderData ? "placeholder" : "live",
-  ] as const;
 }
 
 /**

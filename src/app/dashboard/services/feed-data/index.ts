@@ -1,23 +1,11 @@
 export {
-  buildBatchRequestSignature,
-  buildFeedBatchOutcome,
-  FEED_LOADING_FAILSAFE_MS,
-  type FeedBatchSource,
-  formatFeedFailureLabel,
-  getNewestLastFetchedAt,
-  getSourceNamesByUrl,
-  mapBatchResultsToArticles,
-  mapFeedNodesToBatchSources,
-  normalizeFeedBatchSources,
-  resolveFeedBatchResults,
-} from "@/app/dashboard/services/feed-data/batch";
-export {
   applyPlaceholderArticleLocalState,
   mergeFeedArticleLocalState,
   resetPlaceholderArticleLocalStateForTesting,
-  setPlaceholderArticleReadState,
   retainMissingPreviousFeedArticles,
+  setPlaceholderArticleReadState,
 } from "@/app/dashboard/services/feed-data/local-state";
+export { resolveFeedBatchResults } from "@/app/dashboard/services/feed-data/resolve-feed-batch-results";
 export {
   loadFeedSourceTree,
   normalizeFeedSourceInput,

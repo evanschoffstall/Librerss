@@ -22,11 +22,11 @@ import {
   buildDashboardViewModel,
   filterArticlesBySearchTerm,
 } from "@/app/dashboard/services/dashboard-state";
+import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-data";
 import {
   buildFeedBatchOutcome,
   formatFeedFailureLabel,
-  resolveFeedBatchResults,
-} from "@/app/dashboard/services/feed-data";
+} from "@/app/dashboard/services/feed-data/batch";
 import { isArticleSortOrder } from "@/lib/core";
 
 import { buildFeedListArticle } from "./feed-list-test-utils";

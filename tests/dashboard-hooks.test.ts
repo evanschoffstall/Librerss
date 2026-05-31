@@ -38,8 +38,10 @@ import {
   runDashboardViewportReadCommand,
   useDashboardEvents,
 } from "@/app/dashboard/hooks/useDashboardEvents";
-import { type FeedBatchSource } from "@/app/dashboard/services/feed-data";
-import { buildFeedBatchOutcome } from "@/app/dashboard/services/feed-data";
+import {
+  buildFeedBatchOutcome,
+  type FeedBatchSource,
+} from "@/app/dashboard/services/feed-data/batch";
 import { getFeedSourceTreeQueryKey } from "@/app/dashboard/services/feed-view-model";
 import { ArticleService, FeedService } from "@/lib/api";
 import { PLACEHOLDER_SOURCE_DEFINITIONS } from "@/lib/core/placeholder-sources";
@@ -2444,10 +2446,10 @@ describe("useArticleReadState", () => {
       const cachedBatchResults = queryClient.getQueryData(
         cachedUnreadBatchQueryKey,
       ) as
+        | undefined
         | {
             articles: Article[];
-          }[]
-        | undefined;
+          }[];
 
       expect(cachedBatchResults?.[0]?.articles[0]?.isRead).toBe(true);
     });

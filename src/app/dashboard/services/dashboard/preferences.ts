@@ -24,4 +24,4 @@ export {
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   toAutoRefreshIntervalMs,
-} from "@/app/dashboard/services/refresh-policy";
+} from "@/app/dashboard/services/dashboard/refresh-policy";

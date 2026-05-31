@@ -13,7 +13,7 @@ import {
   normalizeAutoRefreshIntervalMinutes,
   resolveDefaultAutoRefreshIntervalMinutes,
   toAutoRefreshIntervalMs,
-} from "@/app/dashboard/services/dashboard-preferences";
+} from "@/app/dashboard/services/dashboard";
 import { loadFeedSourceTree } from "@/app/dashboard/services/feed-data";
 import {
   collectFullyVisibleUnreadArticles,

@@ -5,8 +5,12 @@
 import type { BatchFeedResponseItem } from "@/lib/api/http";
 import type { Article, ArticleSortOrder, CategoryTreeNode } from "@/lib/core";
 
-import { dedupeAndSortArticles } from "@/app/dashboard/services/article-collection";
 import { BATCH_REQUEST_TIMEOUT_MS } from "@/lib/api/http";
+import {
+  dedupeArticleRecords,
+  preferRicherArticleRecord,
+  sortArticleRecordsByPublicationDateDesc,
+} from "@/lib/utils";
 
 /**
  * Describes the feed batch source.
@@ -81,6 +85,26 @@ export function mapBatchResultsToArticles(
       .flat(),
     articleSortOrder,
   );
+}
+
+/**
+ * Deduplicate article records while preserving the requested chronological order.
+ * @param articles - The article records collected across all batch results.
+ * @param articleSortOrder - The chronological display order requested for the visible article list.
+ * @returns The deduplicated and chronologically ordered article records.
+ */
+function dedupeAndSortArticles(
+  articles: Article[],
+  articleSortOrder: ArticleSortOrder = "newest",
+): Article[] {
+  const dedupedArticles = dedupeArticleRecords(
+    articles,
+    preferRicherArticleRecord,
+  ).sort(sortArticleRecordsByPublicationDateDesc);
+
+  return articleSortOrder === "oldest"
+    ? dedupedArticles.reverse()
+    : dedupedArticles;
 }
 
 /**
