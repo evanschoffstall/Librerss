@@ -23,6 +23,9 @@ export const DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY =
 /** Persist the user's preferred article sort order (newest/oldest) across reloads. */
 export const DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY =
   "librerss:articleSortOrder";
+/** Persist the user's preferred collapsed article density across reloads. */
+export const DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY =
+  "librerss:articleViewMode";
 export const MOBILE_INVERTED_SCROLL_STORAGE_KEY =
   "librerss:mobileInvertedScroll";
 export {

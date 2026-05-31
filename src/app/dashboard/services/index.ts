@@ -21,6 +21,7 @@ export {
   AUTO_REFRESH_INTERVAL_STORAGE_KEY,
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
   DASHBOARD_ARTICLE_SORT_ORDER_STORAGE_KEY,
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_EVENTS,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
@@ -34,6 +35,14 @@ export {
   toAutoRefreshIntervalMs,
 } from "@/app/dashboard/services/dashboard-preferences";
 export type { BackgroundMode } from "@/app/dashboard/services/dashboard-preferences";
+export {
+  DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
+  getDashboardArticleViewModeMenuLabel,
+  getDashboardArticleViewModeToggleLabel,
+  getNextDashboardArticleViewMode,
+  normalizeDashboardArticleViewMode,
+} from "@/app/dashboard/services/dashboard-view-mode";
+export type { DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 export { setCachedFaviconIndex } from "@/app/dashboard/services/favicon";
 export {
   collectFullyVisibleUnreadArticles,

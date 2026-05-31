@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import {
   DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
   DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
   DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
 } from "@/app/dashboard/services";
@@ -359,6 +360,7 @@ function useDashboardToolbarSessionActions(
           preserveLocalStorageKeys: [
             DASHBOARD_SELECTED_CATEGORY_STORAGE_KEY,
             DASHBOARD_ARTICLE_FILTER_STORAGE_KEY,
+            DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
             DASHBOARD_ARTICLES_PER_PAGE_STORAGE_KEY,
           ],
         });

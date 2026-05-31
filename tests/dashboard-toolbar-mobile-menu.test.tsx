@@ -30,6 +30,7 @@ describe("DashboardToolbar mobile actions menu", () => {
     });
 
     await waitFor(() => {
+      expect(getByRole("menuitem", { name: "Compact view" })).toBeTruthy();
       expect(getByRole("menuitem", { name: "Settings" })).toBeTruthy();
       expect(getByRole("menuitem", { name: "Sign out" })).toBeTruthy();
     });
