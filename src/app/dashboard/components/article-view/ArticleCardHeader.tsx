@@ -5,6 +5,7 @@ import {
   type ArticleHeaderActionsProps,
 } from "@/app/dashboard/components/article-view/ArticleCardHeaderActions";
 import { getArticleSourceLabel } from "@/app/dashboard/services/article";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 import { setCachedFaviconIndex } from "@/app/dashboard/services/favicon";
 import { formatRelativeDate } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ const COLLAPSED_TITLE_STYLE = {
  * Describes the props for the article card header component.
  */
 interface ArticleCardHeaderProps extends ArticleHeaderActionsProps {
+  articleViewMode: DashboardArticleViewMode;
   collapsedTitleClassName: string;
   faviconCacheKey: string;
   faviconCandidates: string[];
@@ -78,9 +80,15 @@ type ArticleHeaderSourceProps = Pick<
  * @returns The rendered article card header component.
  */
 export function ArticleCardHeader(props: ArticleCardHeaderProps) {
+  const isCompactCollapsed =
+    !props.visuallyExpanded && props.articleViewMode === "compact";
+
   return (
     <div
-      className={resolveArticleHeaderClassName(props.visuallyExpanded)}
+      className={resolveArticleHeaderClassName(
+        props.visuallyExpanded,
+        props.articleViewMode,
+      )}
       data-article-swipe-zone="header"
       ref={props.headerSwipeZoneRef}
       style={
@@ -91,7 +99,13 @@ export function ArticleCardHeader(props: ArticleCardHeaderProps) {
         gradientCls={props.gradientCls}
         headerGradientOverlayRef={props.headerGradientOverlayRef}
       />
-      <div className="relative z-10 space-y-2">
+      <div
+        className={
+          isCompactCollapsed
+            ? "relative z-10 space-y-1.5"
+            : "relative z-10 space-y-2"
+        }
+      >
         <ArticleHeaderMetaRow {...props} />
         <ArticleHeaderTitle
           article={props.article}
@@ -216,10 +230,11 @@ function ArticleHeaderGradient(
 function ArticleHeaderMetaRow(props: ArticleCardHeaderProps) {
   return (
     <div
-      className="
-        flex items-center gap-2 text-xs/5 tracking-normal
-        text-muted-foreground/70 select-none
-      "
+      className={
+        props.articleViewMode === "compact" && !props.visuallyExpanded
+          ? "flex items-center gap-1.5 text-[0.7rem]/4 tracking-normal text-muted-foreground/70 select-none"
+          : "flex items-center gap-2 text-xs/5 tracking-normal text-muted-foreground/70 select-none"
+      }
     >
       <ArticleHeaderDate publicationDate={props.article.publicationDate} />
       <ArticleHeaderSource
@@ -331,10 +346,16 @@ function resolveArticleHeaderActionsProps(
 /**
  * Resolve the article header class name.
  * @param visuallyExpanded - The visually expanded.
+ * @param articleViewMode - The selected collapsed article density mode.
  * @returns The article header class name.
  */
-function resolveArticleHeaderClassName(visuallyExpanded: boolean) {
+function resolveArticleHeaderClassName(
+  visuallyExpanded: boolean,
+  articleViewMode: DashboardArticleViewMode,
+) {
   return visuallyExpanded
     ? "relative sticky top-0 z-50 rounded-t-xl bg-card/85 px-4 pt-4"
-    : "relative rounded-t-xl bg-card/70 px-3 pt-3";
+    : articleViewMode === "compact"
+      ? "relative rounded-t-xl bg-card/70 px-3 pt-2"
+      : "relative rounded-t-xl bg-card/70 px-3 pt-3";
 }

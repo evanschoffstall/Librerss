@@ -3,10 +3,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 import type { Article } from "@/lib/core";
 
-import {
-  applyReadSwipeAction,
-  ArticleCard,
-} from "@/app/dashboard/components/article-view/ArticleCard";
+import { ArticleCard } from "@/app/dashboard/components/article-view/ArticleCard";
 
 beforeEach(() => {
   mock.restore();
@@ -257,6 +254,59 @@ describe("ArticleCard", () => {
     expect(collapsedPreview?.textContent).toBe(
       "First line Second line Third line after spacing.",
     );
+  });
+
+  test("renders a vertically compact collapsed shell when compact view mode is selected", () => {
+    const article = buildArticle({
+      content:
+        "Compact mode keeps one preview line while reducing collapsed card height.",
+      title:
+        "A long compact-mode title that should collapse down to a single line in the denser article shell",
+    });
+
+    const { container, getByRole } = render(
+      <ArticleCard
+        article={article}
+        articleKey="article-compact"
+        articleViewMode="compact"
+        hasScrapedContent={false}
+        isDark={false}
+        isExpanded={false}
+        isHydrating={false}
+        isMobile={false}
+        isUpdatingState={false}
+        onExpandedSwipeRead={() => {}}
+        onToggle={() => {}}
+        onToggleRead={() => {}}
+        onToggleStarred={() => {}}
+        showFavicon={false}
+        useRichFormatting={false}
+      />,
+    );
+
+    const heading = getByRole("heading", { name: article.title });
+    const articleSurface = container.querySelector(
+      'article[data-article-key="article-compact"]',
+    );
+    const headerZone = container.querySelector(
+      '[data-article-swipe-zone="header"]',
+    );
+    const contentZone = container.querySelector(
+      '[data-article-swipe-zone="content"]',
+    );
+    const collapsedPreview = container.querySelector(
+      '[data-article-preview="true"]',
+    );
+
+    expect(
+      articleSurface?.getAttribute("data-article-collapsed-view-mode"),
+    ).toBe("compact");
+    expect(heading.className).toContain("line-clamp-1");
+    expect(heading.className).not.toContain("line-clamp-2");
+    expect(headerZone?.className).toContain("pt-2");
+    expect(contentZone?.className).toContain("pt-2");
+    expect(contentZone?.className).toContain("pb-2");
+    expect(collapsedPreview?.className).toContain("text-[0.88rem]/5");
   });
 
   test("collapsed preview decodes HTML entities to visible characters", () => {

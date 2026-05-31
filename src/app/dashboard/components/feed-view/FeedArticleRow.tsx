@@ -7,6 +7,7 @@ import { FeedListRow } from "@/app/dashboard/components/feed-view/FeedListRow";
 const FEED_ARTICLE_ROW_PROP_KEYS = [
   "article",
   "articleKey",
+  "articleViewMode",
   "hasScrapedContent",
   "isDark",
   "isEntering",
@@ -52,6 +53,7 @@ export const FeedArticleRow = memo(
     const {
       article,
       articleKey,
+      articleViewMode,
       hasScrapedContent,
       isDark,
       isEntering,
@@ -84,6 +86,7 @@ export const FeedArticleRow = memo(
         <ArticleCard
           article={article}
           articleKey={articleKey}
+          articleViewMode={articleViewMode}
           hasScrapedContent={hasScrapedContent}
           isDark={isDark}
           isExpanded={isExpanded}

@@ -5,10 +5,12 @@ import type { Article } from "@/lib/core";
 import { FeedArticleRow } from "@/app/dashboard/components/feed-view/FeedArticleRow";
 import { type CollapsingArticles } from "@/app/dashboard/display-types";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 
 /** Options used to build the FeedList article-row renderer. */
 interface UseFeedRowRendererOptions {
   animatingInArticleKeys?: ReadonlySet<string>;
+  articleViewMode: DashboardArticleViewMode;
   collapsingArticles: Readonly<CollapsingArticles>;
   expandedArticleKey: null | string;
   hydratedArticleLinks: Record<string, boolean>;
@@ -35,6 +37,7 @@ interface UseFeedRowRendererOptions {
 export function useFeedRowRenderer(options: UseFeedRowRendererOptions) {
   const {
     animatingInArticleKeys,
+    articleViewMode,
     collapsingArticles,
     expandedArticleKey,
     hydratedArticleLinks,
@@ -60,6 +63,7 @@ export function useFeedRowRenderer(options: UseFeedRowRendererOptions) {
         <FeedArticleRow
           article={article}
           articleKey={articleKey}
+          articleViewMode={articleViewMode}
           hasScrapedContent={Boolean(article.hasFullContent)}
           isDark={isDark}
           isEntering={animatingInArticleKeys?.has(articleKey) ?? false}
@@ -84,6 +88,7 @@ export function useFeedRowRenderer(options: UseFeedRowRendererOptions) {
     },
     [
       animatingInArticleKeys,
+      articleViewMode,
       collapsingArticles,
       expandedArticleKey,
       hydratedArticleLinks,

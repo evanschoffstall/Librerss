@@ -29,6 +29,7 @@ import {
   getRichContentClass,
 } from "@/app/dashboard/services/article";
 import { DASHBOARD_EVENTS } from "@/app/dashboard/services/dashboard-constants";
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sanitizeArticleHtml, toPlainText } from "@/lib/sanitize";
 
@@ -48,6 +49,7 @@ interface ApplyReadSwipeActionOptions {
 interface ArticleCardProps {
   article: Article;
   articleKey: string;
+  articleViewMode?: DashboardArticleViewMode;
   hasScrapedContent: boolean;
   isDark: boolean;
   isExpanded: boolean;
@@ -99,10 +101,15 @@ const TAP_DRIFT_PX = 4;
 const AFTER_SWIPE_BLOCK_MS = 350;
 const COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME =
   "line-clamp-1 font-sans text-[0.93rem]/6 tracking-[-0.01em] text-muted-foreground/85 antialiased";
+const COMPACT_COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME =
+  "line-clamp-1 font-sans text-[0.88rem]/5 tracking-[-0.01em] text-muted-foreground/80 antialiased";
 const COLLAPSED_ARTICLE_TITLE_CLASS_NAME =
   "line-clamp-2 max-h-12 overflow-hidden text-[0.96rem]/6 font-semibold";
+const COMPACT_COLLAPSED_ARTICLE_TITLE_CLASS_NAME =
+  "line-clamp-1 overflow-hidden text-[0.95rem]/5 font-semibold";
 const ARTICLE_SURFACE_EASING = "cubic-bezier(0.25, 1, 0.5, 1)";
 const COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 24;
+const COMPACT_COLLAPSED_ARTICLE_BODY_HEIGHT_PX = 20;
 
 /** Renders a swipeable article card with header-scoped gestures while expanded. */
 export const ArticleCard = memo(
@@ -115,6 +122,7 @@ export const ArticleCard = memo(
     const {
       article,
       articleKey,
+      articleViewMode = "card",
       hasScrapedContent,
       isDark,
       isExpanded,
@@ -185,6 +193,18 @@ export const ArticleCard = memo(
       phase === "expanded";
     const suppressCollapsedReadDimming =
       removalAnimationMode === "de-expanding";
+    const collapsedArticleTitleClassName =
+      articleViewMode === "compact"
+        ? COMPACT_COLLAPSED_ARTICLE_TITLE_CLASS_NAME
+        : COLLAPSED_ARTICLE_TITLE_CLASS_NAME;
+    const collapsedArticlePreviewClassName =
+      articleViewMode === "compact"
+        ? COMPACT_COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME
+        : COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME;
+    const collapsedBodyHeightPx =
+      articleViewMode === "compact"
+        ? COMPACT_COLLAPSED_ARTICLE_BODY_HEIGHT_PX
+        : COLLAPSED_ARTICLE_BODY_HEIGHT_PX;
 
     const cardT = `180ms ${ARTICLE_SURFACE_EASING}` as const;
     const bodyTransitionMs = phase === "collapsing" ? 240 : 280;
@@ -219,7 +239,7 @@ export const ArticleCard = memo(
     const interactionBlockUntilRef = useRef(0);
     const previousPhaseRef = useRef(phase);
     const [expandedBodyHeight, setExpandedBodyHeight] = useState(
-      COLLAPSED_ARTICLE_BODY_HEIGHT_PX,
+      collapsedBodyHeightPx,
     );
 
     useEffect(() => {
@@ -266,7 +286,7 @@ export const ArticleCard = memo(
        */
       const updateHeight = () => {
         setExpandedBodyHeight(
-          Math.max(node.scrollHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX),
+          Math.max(node.scrollHeight, collapsedBodyHeightPx),
         );
       };
 
@@ -283,7 +303,7 @@ export const ArticleCard = memo(
       return () => {
         resizeObserver?.disconnect();
       };
-    }, [isExpanded, normalizedHtml, useRichFormatting]);
+    }, [collapsedBodyHeightPx, isExpanded, normalizedHtml, useRichFormatting]);
 
     const isExpandedBodyTarget = useCallback(
       (target: EventTarget | null) =>
@@ -806,8 +826,8 @@ export const ArticleCard = memo(
 
     const resolvedBodyHeight =
       phase === "collapsed" || phase === "collapsing"
-        ? COLLAPSED_ARTICLE_BODY_HEIGHT_PX
-        : Math.max(expandedBodyHeight, COLLAPSED_ARTICLE_BODY_HEIGHT_PX);
+        ? collapsedBodyHeightPx
+        : Math.max(expandedBodyHeight, collapsedBodyHeightPx);
     const showPreviewLayer = collapsedPreviewOpen || phase === "collapsing";
     const expandedBodyContent = showSkeleton ? (
       <div className="space-y-2 py-1" data-article-hydration-state="loading">
@@ -972,6 +992,9 @@ export const ArticleCard = memo(
               : ""
           }
         `}
+          data-article-collapsed-view-mode={
+            visuallyExpanded ? "expanded" : articleViewMode
+          }
           data-article-key={articleKey}
           data-swipe-active={anyActive ? "true" : "false"}
           data-swipe-direction={
@@ -1020,7 +1043,8 @@ export const ArticleCard = memo(
           <ArticleCardHeader
             article={article}
             articleActionControlProps={articleActionControlProps}
-            collapsedTitleClassName={COLLAPSED_ARTICLE_TITLE_CLASS_NAME}
+            articleViewMode={articleViewMode}
+            collapsedTitleClassName={collapsedArticleTitleClassName}
             encodedShareTitle={encodedShareTitle}
             encodedShareUrl={encodedShareUrl}
             faviconCacheKey={faviconCacheKey ?? ""}
@@ -1055,10 +1079,11 @@ export const ArticleCard = memo(
           />
 
           <ArticleCardContent
+            articleViewMode={articleViewMode}
             bodyMeasureRef={bodyMeasureRef}
             bodyTransitionMs={bodyTransitionMs}
             collapsedPreview={collapsedPreview}
-            collapsedPreviewClassName={COLLAPSED_ARTICLE_PREVIEW_CLASS_NAME}
+            collapsedPreviewClassName={collapsedArticlePreviewClassName}
             contentGradientOverlayRef={contentGradientOverlayRef}
             contentZoneRef={contentZoneRef}
             expandedBodyContent={expandedBodyContent}

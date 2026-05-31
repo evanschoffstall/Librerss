@@ -39,7 +39,15 @@ import { useFeedListEnteringArticleKeys } from "@/app/dashboard/components/feed-
 import { useFeedListInvertedAutoAnchor } from "@/app/dashboard/components/feed-view/FeedListInvertedAutoAnchor";
 import { useFeedListSurfaceState } from "@/app/dashboard/components/feed-view/list-state";
 import { getArticleKey } from "@/app/dashboard/services/article-collection";
-import { MOBILE_INVERTED_SCROLL_STORAGE_KEY } from "@/app/dashboard/services/dashboard-constants";
+import {
+  DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+  MOBILE_INVERTED_SCROLL_STORAGE_KEY,
+} from "@/app/dashboard/services/dashboard-constants";
+import {
+  type DashboardArticleViewMode,
+  DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
+  normalizeDashboardArticleViewMode,
+} from "@/app/dashboard/services/dashboard-view-mode";
 import { useIsBelowDesktop, useLocalStorage } from "@/lib/hooks";
 
 export const FeedList = memo(
@@ -84,6 +92,13 @@ export const FeedList = memo(
     const [mobileInvertedScroll] = useLocalStorage(
       MOBILE_INVERTED_SCROLL_STORAGE_KEY,
       false,
+    );
+    const [storedArticleViewMode] = useLocalStorage<DashboardArticleViewMode>(
+      DASHBOARD_ARTICLE_VIEW_MODE_STORAGE_KEY,
+      DEFAULT_DASHBOARD_ARTICLE_VIEW_MODE,
+    );
+    const articleViewMode = normalizeDashboardArticleViewMode(
+      storedArticleViewMode,
     );
     const canLoadMoreFromServer =
       canLoadMoreFromServerProp ?? typeof onLoadMore === "function";
@@ -357,6 +372,7 @@ export const FeedList = memo(
 
     const renderFeedRow = useFeedRowRenderer({
       animatingInArticleKeys: combinedEnteringArticleKeys,
+      articleViewMode,
       collapsingArticles,
       expandedArticleKey,
       hydratedArticleLinks,

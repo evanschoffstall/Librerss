@@ -1,9 +1,12 @@
 import { AnimatePresence, motion, type MotionStyle } from "motion/react";
 
+import { type DashboardArticleViewMode } from "@/app/dashboard/services/dashboard-view-mode";
+
 /**
  * Describes the props for the article card content component.
  */
 interface ArticleCardContentProps {
+  articleViewMode: DashboardArticleViewMode;
   bodyMeasureRef: React.RefObject<HTMLDivElement | null>;
   bodyTransitionMs: number;
   collapsedPreview: string;
@@ -60,6 +63,7 @@ interface ArticleCollapsedPreviewProps {
  */
 export function ArticleCardContent(props: ArticleCardContentProps) {
   const {
+    articleViewMode,
     bodyMeasureRef,
     bodyTransitionMs,
     collapsedPreview,
@@ -78,6 +82,7 @@ export function ArticleCardContent(props: ArticleCardContentProps) {
     visuallyExpanded,
     stopExpandedContentPropagation,
   );
+  const isCompactCollapsed = !visuallyExpanded && articleViewMode === "compact";
 
   return (
     <div
@@ -86,7 +91,9 @@ export function ArticleCardContent(props: ArticleCardContentProps) {
         ${
           visuallyExpanded
             ? `rounded-b-xl bg-card/85 px-4 pt-3 pb-4`
-            : `rounded-b-xl bg-card/70 px-3 pt-2 pb-3`
+            : isCompactCollapsed
+              ? `rounded-b-xl bg-card/70 px-3 pt-2 pb-2`
+              : `rounded-b-xl bg-card/70 px-3 pt-2 pb-3`
         }
       `}
       data-article-swipe-zone="content"
