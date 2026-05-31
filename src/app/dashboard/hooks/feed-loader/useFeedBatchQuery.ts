@@ -7,10 +7,10 @@ import { toast } from "sonner";
 import type { FeedBatchRequestHelpers } from "@/app/dashboard/hooks/feed-loader/feedBatchRequestContext";
 
 import { getFeedBatchQueryKey } from "@/app/dashboard/services";
+import { resolveFeedBatchResults } from "@/app/dashboard/services/feed-data";
 import {
   type FeedBatchSource,
   normalizeFeedBatchSources,
-  resolveFeedBatchResults,
 } from "@/app/dashboard/services/feed-data/batch";
 import {
   classifyFeedBatchError,
