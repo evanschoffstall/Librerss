@@ -92,7 +92,7 @@ export function ArticleCardContent(props: ArticleCardContentProps) {
           visuallyExpanded
             ? `rounded-b-xl bg-card/85 px-4 pt-3 pb-4`
             : isCompactCollapsed
-              ? `rounded-b-xl bg-card/70 px-3 pt-2 pb-2`
+              ? `rounded-b-xl bg-card/70 px-3 py-2  `
               : `rounded-b-xl bg-card/70 px-3 pt-2 pb-3`
         }
       `}
