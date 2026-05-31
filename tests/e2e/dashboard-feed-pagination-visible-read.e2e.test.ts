@@ -41,6 +41,22 @@ async function clickMarkFullyVisibleArticlesAsRead(page: Page) {
   }
 }
 
+/**
+ * Collect visible article keys that re-entered the unread window after they
+ * were already marked visible-read in an earlier cycle.
+ * @param articleKeys - Fully visible article keys for the latest unread window.
+ * @param previouslyVisibleArticleKeys - Article keys already consumed by prior cycles.
+ * @returns Article keys that wrongly reappeared.
+ */
+function collectReappearedVisibleArticleKeys(
+  articleKeys: string[],
+  previouslyVisibleArticleKeys: ReadonlySet<string>,
+) {
+  return articleKeys.filter((articleKey) =>
+    previouslyVisibleArticleKeys.has(articleKey),
+  );
+}
+
 async function installDelayedReadStatusRoute(
   page: Page,
   readArticleIds: Set<number>,
@@ -274,6 +290,20 @@ test.describe("dashboard feed pagination", () => {
         minimumRenderedCount,
         initialSnapshot.fullyVisibleArticleKeys,
       );
+      const consumedVisibleArticleKeys = new Set(
+        initialSnapshot.fullyVisibleArticleKeys,
+      );
+
+      expect(
+        collectReappearedVisibleArticleKeys(
+          calibratedSnapshot.fullyVisibleArticleKeys,
+          consumedVisibleArticleKeys,
+        ),
+      ).toEqual([]);
+
+      for (const articleKey of calibratedSnapshot.fullyVisibleArticleKeys) {
+        consumedVisibleArticleKeys.add(articleKey);
+      }
 
       let previousSnapshot = calibratedSnapshot;
 
@@ -288,6 +318,17 @@ test.describe("dashboard feed pagination", () => {
           minimumRenderedCount,
           previousSnapshot.fullyVisibleArticleKeys,
         );
+
+        expect(
+          collectReappearedVisibleArticleKeys(
+            previousSnapshot.fullyVisibleArticleKeys,
+            consumedVisibleArticleKeys,
+          ),
+        ).toEqual([]);
+
+        for (const articleKey of previousSnapshot.fullyVisibleArticleKeys) {
+          consumedVisibleArticleKeys.add(articleKey);
+        }
 
         expect(previousSnapshot.renderedCount).toBeGreaterThanOrEqual(
           repeatedCyclePageSize + 1,
